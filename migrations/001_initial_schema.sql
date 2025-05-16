@@ -18,11 +18,22 @@ CREATE TABLE IF NOT EXISTS divisions (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS clubs (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    address TEXT,
+    website VARCHAR(255),
+    phone_number VARCHAR(20),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS teams (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    club VARCHAR(255) NOT NULL,
+    club_id INTEGER NOT NULL REFERENCES clubs(id),
     division_id INTEGER NOT NULL REFERENCES divisions(id),
+    season VARCHAR(50) NOT NULL, -- e.g., "Summer 2023"
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -33,18 +44,31 @@ CREATE TABLE IF NOT EXISTS players (
     last_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE,
     phone VARCHAR(20),
-    team_id INTEGER REFERENCES teams(id),
+    club_id INTEGER NOT NULL REFERENCES clubs(id),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS player_teams (
+    id SERIAL PRIMARY KEY,
+    player_id INTEGER NOT NULL REFERENCES players(id),
+    team_id INTEGER NOT NULL REFERENCES teams(id),
+    season VARCHAR(50) NOT NULL, -- e.g., "Summer 2023"
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(player_id, team_id, season)
 );
 
 CREATE TABLE IF NOT EXISTS captains (
     id SERIAL PRIMARY KEY,
     player_id INTEGER NOT NULL REFERENCES players(id),
     team_id INTEGER NOT NULL REFERENCES teams(id),
+    season VARCHAR(50) NOT NULL, -- e.g., "Summer 2023"
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(player_id, team_id)
+    UNIQUE(player_id, team_id, season)
 );
 
 CREATE TABLE IF NOT EXISTS fixtures (
@@ -73,17 +97,22 @@ CREATE TABLE IF NOT EXISTS matchup_players (
     id SERIAL PRIMARY KEY,
     matchup_id INTEGER NOT NULL REFERENCES matchups(id),
     player_id INTEGER NOT NULL REFERENCES players(id),
-    is_home_team BOOLEAN NOT NULL,
+    is_home BOOLEAN NOT NULL, -- true for home team, false for away team
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(matchup_id, player_id)
 );
 
 -- Create indexes for better query performance
-CREATE INDEX IF NOT EXISTS idx_players_team_id ON players(team_id);
-CREATE INDEX IF NOT EXISTS idx_captains_team_id ON captains(team_id);
-CREATE INDEX IF NOT EXISTS idx_captains_player_id ON captains(player_id);
+CREATE INDEX IF NOT EXISTS idx_players_club_id ON players(club_id);
+CREATE INDEX IF NOT EXISTS idx_teams_club_id ON teams(club_id);
 CREATE INDEX IF NOT EXISTS idx_teams_division_id ON teams(division_id);
+CREATE INDEX IF NOT EXISTS idx_player_teams_player_id ON player_teams(player_id);
+CREATE INDEX IF NOT EXISTS idx_player_teams_team_id ON player_teams(team_id);
+CREATE INDEX IF NOT EXISTS idx_player_teams_season ON player_teams(season);
+CREATE INDEX IF NOT EXISTS idx_captains_player_id ON captains(player_id);
+CREATE INDEX IF NOT EXISTS idx_captains_team_id ON captains(team_id);
+CREATE INDEX IF NOT EXISTS idx_captains_season ON captains(season);
 CREATE INDEX IF NOT EXISTS idx_divisions_league_id ON divisions(league_id);
 CREATE INDEX IF NOT EXISTS idx_fixtures_division_id ON fixtures(division_id);
 CREATE INDEX IF NOT EXISTS idx_fixtures_home_team_id ON fixtures(home_team_id);

@@ -11,7 +11,33 @@ type Player struct {
 	LastName  string    `json:"last_name"`
 	Email     string    `json:"email"`
 	Phone     string    `json:"phone"`
+	ClubID    uint      `json:"club_id"` // Player belongs to a club, not directly to a team
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Teams     []uint    `json:"teams,omitempty"` // Player can be part of multiple teams through PlayerTeam
+}
+
+// Club represents a tennis club that has players and teams
+type Club struct {
+	ID          uint      `json:"id"`
+	Name        string    `json:"name"`
+	Address     string    `json:"address"`
+	Website     string    `json:"website"`
+	PhoneNumber string    `json:"phone_number"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	Players     []Player  `json:"players,omitempty"`
+	Teams       []Team    `json:"teams,omitempty"`
+}
+
+// PlayerTeam represents a player's association with a team, including the season
+// This allows players to move between teams over time
+type PlayerTeam struct {
+	ID        uint      `json:"id"`
+	PlayerID  uint      `json:"player_id"`
 	TeamID    uint      `json:"team_id"`
+	Season    string    `json:"season"` // e.g., "Summer 2023"
+	IsActive  bool      `json:"is_active"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -21,20 +47,23 @@ type Captain struct {
 	ID        uint      `json:"id"`
 	PlayerID  uint      `json:"player_id"`
 	TeamID    uint      `json:"team_id"`
+	Season    string    `json:"season"` // e.g., "Summer 2023"
+	IsActive  bool      `json:"is_active"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // Team represents a tennis team in the league
 type Team struct {
-	ID         uint      `json:"id"`
-	Name       string    `json:"name"`
-	Club       string    `json:"club"`
-	DivisionID uint      `json:"division_id"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
-	Players    []Player  `json:"players,omitempty"`
-	Captains   []Captain `json:"captains,omitempty"`
+	ID         uint         `json:"id"`
+	Name       string       `json:"name"`
+	ClubID     uint         `json:"club_id"` // Team belongs to a club
+	DivisionID uint         `json:"division_id"`
+	Season     string       `json:"season"` // e.g., "Summer 2023"
+	CreatedAt  time.Time    `json:"created_at"`
+	UpdatedAt  time.Time    `json:"updated_at"`
+	Players    []PlayerTeam `json:"players,omitempty"`
+	Captains   []Captain    `json:"captains,omitempty"`
 }
 
 // Division represents a division in the league
@@ -92,8 +121,16 @@ type Matchup struct {
 	Type          MatchupType `json:"type"`
 	HomeScore     int         `json:"home_score"`
 	AwayScore     int         `json:"away_score"`
-	HomePlayers   []uint      `json:"home_players"` // Array of Player IDs
-	AwayPlayers   []uint      `json:"away_players"` // Array of Player IDs
 	CreatedAt     time.Time   `json:"created_at"`
 	UpdatedAt     time.Time   `json:"updated_at"`
+}
+
+// MatchupPlayer represents a player participating in a specific matchup
+type MatchupPlayer struct {
+	ID        uint      `json:"id"`
+	MatchupID uint      `json:"matchup_id"`
+	PlayerID  uint      `json:"player_id"`
+	IsHome    bool      `json:"is_home"` // true for home team, false for away team
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 } 
