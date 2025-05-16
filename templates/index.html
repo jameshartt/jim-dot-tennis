@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jim Dot Tennis</title>
+  <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+  <h1>Welcome to Jim Dot Tennis!</h1>
+  <p>This is a minimal Go SSR + PWA starter.</p>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/static/service-worker.js');
+      });
+    }
+  </script>
+</body>
+</html>
