@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 )
@@ -21,34 +22,30 @@ func NewPlayerRepository(db *database.DB) *PlayerRepository {
 
 // Create inserts a new player into the database
 func (r *PlayerRepository) Create(ctx context.Context, player *models.Player) error {
+	// If no ID is provided, generate a new UUID
+	if player.ID == "" {
+		player.ID = uuid.New().String()
+	}
+
 	query := `
-		INSERT INTO players (first_name, last_name, email, phone, club_id, created_at, updated_at)
-		VALUES (:first_name, :last_name, :email, :phone, :club_id, :created_at, :updated_at)
-		RETURNING id
+		INSERT INTO players (id, first_name, last_name, email, phone, club_id, created_at, updated_at)
+		VALUES (:id, :first_name, :last_name, :email, :phone, :club_id, :created_at, :updated_at)
 	`
 
 	now := time.Now()
 	player.CreatedAt = now
 	player.UpdatedAt = now
 
-	stmt, err := r.db.PrepareNamedContext(ctx, query)
-	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
-	}
-	defer stmt.Close()
-
-	var id uint
-	err = stmt.GetContext(ctx, &id, player)
+	_, err := r.db.NamedExecContext(ctx, query, player)
 	if err != nil {
 		return fmt.Errorf("failed to insert player: %w", err)
 	}
 
-	player.ID = id
 	return nil
 }
 
 // GetByID retrieves a player by ID
-func (r *PlayerRepository) GetByID(ctx context.Context, id uint) (*models.Player, error) {
+func (r *PlayerRepository) GetByID(ctx context.Context, id string) (*models.Player, error) {
 	var player models.Player
 	query := `SELECT * FROM players WHERE id = $1`
 	
@@ -97,7 +94,7 @@ func (r *PlayerRepository) Update(ctx context.Context, player *models.Player) er
 }
 
 // Delete removes a player from the database
-func (r *PlayerRepository) Delete(ctx context.Context, id uint) error {
+func (r *PlayerRepository) Delete(ctx context.Context, id string) error {
 	// Start a transaction to delete all player relations
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -177,7 +174,7 @@ func (r *PlayerRepository) List(ctx context.Context, clubID *uint) ([]models.Pla
 }
 
 // AddToTeam adds a player to a team for a specific season
-func (r *PlayerRepository) AddToTeam(ctx context.Context, playerID, teamID uint, season string) error {
+func (r *PlayerRepository) AddToTeam(ctx context.Context, playerID string, teamID uint, season string) error {
 	query := `
 		INSERT INTO player_teams (player_id, team_id, season, is_active, created_at, updated_at)
 		VALUES ($1, $2, $3, true, $4, $4)
@@ -195,7 +192,7 @@ func (r *PlayerRepository) AddToTeam(ctx context.Context, playerID, teamID uint,
 }
 
 // RemoveFromTeam removes a player from a team for a specific season
-func (r *PlayerRepository) RemoveFromTeam(ctx context.Context, playerID, teamID uint, season string) error {
+func (r *PlayerRepository) RemoveFromTeam(ctx context.Context, playerID string, teamID uint, season string) error {
 	query := `
 		UPDATE player_teams 
 		SET is_active = false, updated_at = $4
