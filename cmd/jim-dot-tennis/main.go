@@ -4,10 +4,26 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
+	"strconv"
+
+	"jim-dot-tennis/internal/database"
 )
 
 func main() {
+	// Initialize database
+	db, err := setupDatabase()
+	if err != nil {
+		log.Fatalf("Failed to set up database: %v", err)
+	}
+	defer db.Close()
+	
+	// Execute migrations if needed
+	if err := db.ExecuteMigrations("./migrations"); err != nil {
+		log.Printf("Warning: Failed to run migrations: %v", err)
+	}
+
 	// Serve static files
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
@@ -25,6 +41,49 @@ func main() {
 		}
 	})
 
-	log.Println("Server started at http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	port := getPort()
+	log.Printf("Server started at http://localhost:%s", port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
+}
+
+// setupDatabase initializes the database connection
+func setupDatabase() (*database.DB, error) {
+	// Get database config from environment variables with defaults
+	dbType := getEnv("DB_TYPE", "sqlite3")
+	
+	config := database.Config{
+		Driver: dbType,
+	}
+	
+	if dbType == "postgres" {
+		config.Host = getEnv("DB_HOST", "localhost")
+		config.Port, _ = strconv.Atoi(getEnv("DB_PORT", "5432"))
+		config.User = getEnv("DB_USER", "postgres")
+		config.Password = getEnv("DB_PASSWORD", "postgres")
+		config.DBName = getEnv("DB_NAME", "tennis")
+		config.SSLMode = getEnv("DB_SSLMODE", "disable")
+	} else {
+		// SQLite
+		config.FilePath = getEnv("DB_PATH", "./tennis.db")
+	}
+	
+	return database.New(config)
+}
+
+// getPort gets the port from the environment variable or uses the default
+func getPort() string {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" // Default port
+	}
+	return port
+}
+
+// getEnv gets an environment variable or returns a default value
+func getEnv(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
 }
