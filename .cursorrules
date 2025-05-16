@@ -1,0 +1,33 @@
+{
+    "formatOnSave": true,
+    "formatOnPaste": true,
+    "defaultFormatter": "prettier",
+    "tabSize": 2,
+    "insertSpaces": true,
+    "trimTrailingWhitespace": true,
+    "insertFinalNewline": true,
+    "rulers": [80, 100],
+    "wordWrap": "off",
+    "bracketPairColorization": true,
+    "guides": {
+        "indentation": true,
+        "bracketPairs": true
+    },
+    "editor": {
+        "suggestSelection": "first",
+        "acceptSuggestionOnEnter": "on",
+        "quickSuggestions": {
+            "other": true,
+            "comments": true,
+            "strings": true
+        }
+    },
+    "search": {
+        "exclude": {
+            "**/node_modules": true,
+            "**/bower_components": true,
+            "**/dist": true,
+            "**/.git": true
+        }
+    }
+} 
