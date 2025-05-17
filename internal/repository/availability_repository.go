@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/models"
 )
 
 // AvailabilityRepository handles database operations for player availability

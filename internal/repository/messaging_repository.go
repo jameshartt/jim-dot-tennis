@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/models"
 )
 
 // MessagingRepository handles database operations for messages and notifications

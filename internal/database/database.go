@@ -4,8 +4,14 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"path/filepath"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4/database/sqlite3"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"          // PostgreSQL driver
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
@@ -79,11 +85,60 @@ func (db *DB) Close() error {
 
 // ExecuteMigrations runs the database migrations
 func (db *DB) ExecuteMigrations(migrationsPath string) error {
-	// For simplicity, we're just logging this for now
-	// You can implement a proper migration system using tools like:
-	// - golang-migrate/migrate
-	// - pressly/goose
-	// - rubenv/sql-migrate
-	log.Printf("Migrations would run from: %s", migrationsPath)
+	log.Printf("Running migrations from: %s", migrationsPath)
+	
+	var driver database.Driver
+	var err error
+	
+	switch db.DriverName() {
+	case "postgres":
+		driver, err = postgres.WithInstance(db.DB.DB, &postgres.Config{})
+	case "sqlite3":
+		driver, err = sqlite3.WithInstance(db.DB.DB, &sqlite3.Config{})
+	default:
+		return fmt.Errorf("unsupported database driver for migrations: %s", db.DriverName())
+	}
+	
+	if err != nil {
+		return fmt.Errorf("failed to create migration driver: %w", err)
+	}
+	
+	// Convert to absolute path for file:// URL
+	absPath, err := filepath.Abs(migrationsPath)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute migrations path: %w", err)
+	}
+	
+	// Create proper file:// URL without escaping path separators
+	sourceURL := fmt.Sprintf("file://%s", absPath)
+	m, err := migrate.NewWithDatabaseInstance(sourceURL, db.DriverName(), driver)
+	if err != nil {
+		return fmt.Errorf("failed to create migration instance: %w", err)
+	}
+	
+	// Check if the database is in a dirty state
+	version, dirty, err := m.Version()
+	if err != nil && err != migrate.ErrNilVersion {
+		return fmt.Errorf("failed to get migration version: %w", err)
+	}
+	
+	// If the database is in a dirty state, force the version
+	if dirty {
+		log.Printf("Database is in a dirty state at version %d. Forcing version.", version)
+		if err := m.Force(int(version)); err != nil {
+			return fmt.Errorf("failed to force migration version: %w", err)
+		}
+	}
+	
+	// Run migrations
+	if err := m.Up(); err != nil {
+		if err == migrate.ErrNoChange {
+			log.Println("No migrations to apply - database is up to date")
+			return nil
+		}
+		return fmt.Errorf("failed to apply migrations: %w", err)
+	}
+	
+	log.Println("Migrations applied successfully")
 	return nil
 } 

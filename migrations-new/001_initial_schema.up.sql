@@ -1,9 +1,6 @@
--- Extension for UUID support
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- Create tables
 CREATE TABLE IF NOT EXISTS seasons (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(255) NOT NULL,
     year INTEGER NOT NULL,
     start_date TIMESTAMP NOT NULL,
@@ -14,7 +11,7 @@ CREATE TABLE IF NOT EXISTS seasons (
 );
 
 CREATE TABLE IF NOT EXISTS leagues (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(255) NOT NULL,
     type VARCHAR(20) NOT NULL DEFAULT 'Parks',
     year INTEGER NOT NULL,
@@ -25,28 +22,32 @@ CREATE TABLE IF NOT EXISTS leagues (
 
 -- Join table for leagues and seasons (many-to-many)
 CREATE TABLE IF NOT EXISTS league_seasons (
-    id SERIAL PRIMARY KEY,
-    league_id INTEGER NOT NULL REFERENCES leagues(id),
-    season_id INTEGER NOT NULL REFERENCES seasons(id),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    league_id INTEGER NOT NULL,
+    season_id INTEGER NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(league_id, season_id)
+    UNIQUE(league_id, season_id),
+    FOREIGN KEY (league_id) REFERENCES leagues(id),
+    FOREIGN KEY (season_id) REFERENCES seasons(id)
 );
 
 CREATE TABLE IF NOT EXISTS divisions (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(255) NOT NULL,
     level INTEGER NOT NULL,
     play_day VARCHAR(10) NOT NULL, -- Day of the week
-    league_id INTEGER NOT NULL REFERENCES leagues(id),
-    season_id INTEGER NOT NULL REFERENCES seasons(id),
+    league_id INTEGER NOT NULL,
+    season_id INTEGER NOT NULL,
     max_teams_per_club INTEGER NOT NULL DEFAULT 2,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (league_id) REFERENCES leagues(id),
+    FOREIGN KEY (season_id) REFERENCES seasons(id)
 );
 
 CREATE TABLE IF NOT EXISTS clubs (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(255) NOT NULL,
     address TEXT,
     website VARCHAR(255),
@@ -56,85 +57,103 @@ CREATE TABLE IF NOT EXISTS clubs (
 );
 
 CREATE TABLE IF NOT EXISTS teams (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(255) NOT NULL,
-    club_id INTEGER NOT NULL REFERENCES clubs(id),
-    division_id INTEGER NOT NULL REFERENCES divisions(id),
-    season_id INTEGER NOT NULL REFERENCES seasons(id),
+    club_id INTEGER NOT NULL,
+    division_id INTEGER NOT NULL,
+    season_id INTEGER NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (club_id) REFERENCES clubs(id),
+    FOREIGN KEY (division_id) REFERENCES divisions(id),
+    FOREIGN KEY (season_id) REFERENCES seasons(id)
 );
 
 CREATE TABLE IF NOT EXISTS players (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY,
     first_name VARCHAR(255) NOT NULL,
     last_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE,
     phone VARCHAR(20),
-    club_id INTEGER NOT NULL REFERENCES clubs(id),
+    club_id INTEGER NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (club_id) REFERENCES clubs(id)
 );
 
 CREATE TABLE IF NOT EXISTS player_teams (
-    id SERIAL PRIMARY KEY,
-    player_id UUID NOT NULL REFERENCES players(id),
-    team_id INTEGER NOT NULL REFERENCES teams(id),
-    season_id INTEGER NOT NULL REFERENCES seasons(id),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    player_id TEXT NOT NULL,
+    team_id INTEGER NOT NULL,
+    season_id INTEGER NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(player_id, team_id, season_id)
+    UNIQUE(player_id, team_id, season_id),
+    FOREIGN KEY (player_id) REFERENCES players(id),
+    FOREIGN KEY (team_id) REFERENCES teams(id),
+    FOREIGN KEY (season_id) REFERENCES seasons(id)
 );
 
 CREATE TABLE IF NOT EXISTS captains (
-    id SERIAL PRIMARY KEY,
-    player_id UUID NOT NULL REFERENCES players(id),
-    team_id INTEGER NOT NULL REFERENCES teams(id),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    player_id TEXT NOT NULL,
+    team_id INTEGER NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'Team', -- "Team" or "Day"
-    season_id INTEGER NOT NULL REFERENCES seasons(id),
+    season_id INTEGER NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(player_id, team_id, season_id)
+    UNIQUE(player_id, team_id, season_id),
+    FOREIGN KEY (player_id) REFERENCES players(id),
+    FOREIGN KEY (team_id) REFERENCES teams(id),
+    FOREIGN KEY (season_id) REFERENCES seasons(id)
 );
 
 CREATE TABLE IF NOT EXISTS fixtures (
-    id SERIAL PRIMARY KEY,
-    home_team_id INTEGER NOT NULL REFERENCES teams(id),
-    away_team_id INTEGER NOT NULL REFERENCES teams(id),
-    division_id INTEGER NOT NULL REFERENCES divisions(id),
-    season_id INTEGER NOT NULL REFERENCES seasons(id),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    home_team_id INTEGER NOT NULL,
+    away_team_id INTEGER NOT NULL,
+    division_id INTEGER NOT NULL,
+    season_id INTEGER NOT NULL,
     scheduled_date TIMESTAMP NOT NULL,
     venue_location TEXT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'Scheduled',
     completed_date TIMESTAMP,
-    day_captain_id UUID REFERENCES players(id),
+    day_captain_id TEXT,
     notes TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (home_team_id) REFERENCES teams(id),
+    FOREIGN KEY (away_team_id) REFERENCES teams(id),
+    FOREIGN KEY (division_id) REFERENCES divisions(id),
+    FOREIGN KEY (season_id) REFERENCES seasons(id),
+    FOREIGN KEY (day_captain_id) REFERENCES players(id)
 );
 
 CREATE TABLE IF NOT EXISTS matchups (
-    id SERIAL PRIMARY KEY,
-    fixture_id INTEGER NOT NULL REFERENCES fixtures(id),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fixture_id INTEGER NOT NULL,
     type VARCHAR(20) NOT NULL, -- "Mens", "Womens", "1st Mixed", "2nd Mixed"
     status VARCHAR(20) NOT NULL DEFAULT 'Pending',
     home_score INTEGER NOT NULL DEFAULT 0,
     away_score INTEGER NOT NULL DEFAULT 0,
     notes TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (fixture_id) REFERENCES fixtures(id)
 );
 
 CREATE TABLE IF NOT EXISTS matchup_players (
-    id SERIAL PRIMARY KEY,
-    matchup_id INTEGER NOT NULL REFERENCES matchups(id),
-    player_id UUID NOT NULL REFERENCES players(id),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    matchup_id INTEGER NOT NULL,
+    player_id TEXT NOT NULL,
     is_home BOOLEAN NOT NULL, -- true for home team, false for away team
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(matchup_id, player_id)
+    UNIQUE(matchup_id, player_id),
+    FOREIGN KEY (matchup_id) REFERENCES matchups(id),
+    FOREIGN KEY (player_id) REFERENCES players(id)
 );
 
 -- Create indexes for better query performance
@@ -170,12 +189,60 @@ CREATE INDEX IF NOT EXISTS idx_matchups_status ON matchups(status);
 CREATE INDEX IF NOT EXISTS idx_matchup_players_matchup_id ON matchup_players(matchup_id);
 CREATE INDEX IF NOT EXISTS idx_matchup_players_player_id ON matchup_players(player_id);
 
--- Add some constraints for data integrity
-ALTER TABLE fixtures ADD CONSTRAINT chk_different_teams CHECK (home_team_id != away_team_id);
-ALTER TABLE matchups ADD CONSTRAINT chk_valid_type CHECK (type IN ('Mens', 'Womens', '1st Mixed', '2nd Mixed'));
-ALTER TABLE matchups ADD CONSTRAINT chk_valid_status CHECK (status IN ('Pending', 'Playing', 'Finished', 'Defaulted'));
-ALTER TABLE fixtures ADD CONSTRAINT chk_valid_fixture_status CHECK (status IN ('Scheduled', 'InProgress', 'Completed', 'Cancelled', 'Postponed'));
-ALTER TABLE captains ADD CONSTRAINT chk_valid_captain_role CHECK (role IN ('Team', 'Day'));
-ALTER TABLE leagues ADD CONSTRAINT chk_valid_league_type CHECK (type IN ('Parks', 'Club'));
+-- Create triggers to enforce constraint-like checks in SQLite
+CREATE TRIGGER IF NOT EXISTS chk_different_teams
+BEFORE INSERT ON fixtures
+FOR EACH ROW
+WHEN NEW.home_team_id = NEW.away_team_id
+BEGIN
+    SELECT RAISE(FAIL, 'Home and away teams must be different');
+END;
+
+CREATE TRIGGER IF NOT EXISTS chk_valid_type
+BEFORE INSERT ON matchups
+FOR EACH ROW
+WHEN NEW.type NOT IN ('Mens', 'Womens', '1st Mixed', '2nd Mixed')
+BEGIN
+    SELECT RAISE(FAIL, 'Invalid matchup type');
+END;
+
+CREATE TRIGGER IF NOT EXISTS chk_valid_status
+BEFORE INSERT ON matchups
+FOR EACH ROW
+WHEN NEW.status NOT IN ('Pending', 'Playing', 'Finished', 'Defaulted')
+BEGIN
+    SELECT RAISE(FAIL, 'Invalid matchup status');
+END;
+
+CREATE TRIGGER IF NOT EXISTS chk_valid_fixture_status
+BEFORE INSERT ON fixtures
+FOR EACH ROW
+WHEN NEW.status NOT IN ('Scheduled', 'InProgress', 'Completed', 'Cancelled', 'Postponed')
+BEGIN
+    SELECT RAISE(FAIL, 'Invalid fixture status');
+END;
+
+CREATE TRIGGER IF NOT EXISTS chk_valid_captain_role
+BEFORE INSERT ON captains
+FOR EACH ROW
+WHEN NEW.role NOT IN ('Team', 'Day')
+BEGIN
+    SELECT RAISE(FAIL, 'Invalid captain role');
+END;
+
+CREATE TRIGGER IF NOT EXISTS chk_valid_league_type
+BEFORE INSERT ON leagues
+FOR EACH ROW
+WHEN NEW.type NOT IN ('Parks', 'Club')
+BEGIN
+    SELECT RAISE(FAIL, 'Invalid league type');
+END;
+
 -- Ensure only one active season at a time
-CREATE UNIQUE INDEX IF NOT EXISTS idx_active_season ON seasons(is_active) WHERE is_active = TRUE; 
+CREATE TRIGGER IF NOT EXISTS chk_active_season
+BEFORE INSERT ON seasons
+FOR EACH ROW
+WHEN NEW.is_active = TRUE
+BEGIN
+    UPDATE seasons SET is_active = FALSE WHERE is_active = TRUE;
+END; 
