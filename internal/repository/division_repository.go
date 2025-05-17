@@ -154,6 +154,24 @@ func (r *DivisionRepository) GetByLeagueAndSeason(ctx context.Context, leagueID,
 	return divisions, nil
 }
 
+// ListByLeagueAndSeason retrieves all divisions for a given league and season
+func (r *DivisionRepository) ListByLeagueAndSeason(ctx context.Context, leagueID, seasonID uint) ([]models.Division, error) {
+	var divisions []models.Division
+	query := `
+		SELECT * 
+		FROM divisions 
+		WHERE league_id = $1 AND season_id = $2 
+		ORDER BY level, name
+	`
+	
+	err := r.db.SelectContext(ctx, &divisions, query, leagueID, seasonID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list divisions by league and season: %w", err)
+	}
+	
+	return divisions, nil
+}
+
 // GetWithTeams retrieves a division with its teams
 func (r *DivisionRepository) GetWithTeams(ctx context.Context, id uint) (*models.Division, error) {
 	division, err := r.GetByID(ctx, id)

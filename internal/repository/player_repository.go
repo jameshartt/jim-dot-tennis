@@ -173,6 +173,35 @@ func (r *PlayerRepository) List(ctx context.Context, clubID *uint) ([]models.Pla
 	return players, nil
 }
 
+// GetByClub retrieves all players for a specific club
+func (r *PlayerRepository) GetByClub(ctx context.Context, clubID uint) ([]models.Player, error) {
+	var players []models.Player
+	query := `SELECT * FROM players WHERE club_id = $1 ORDER BY last_name, first_name`
+	
+	err := r.db.SelectContext(ctx, &players, query, clubID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get players by club: %w", err)
+	}
+	
+	// Get team associations for each player
+	for i := range players {
+		teamsQuery := `
+			SELECT team_id FROM player_teams 
+			WHERE player_id = $1 AND is_active = true
+		`
+		
+		var teamIDs []uint
+		err = r.db.SelectContext(ctx, &teamIDs, teamsQuery, players[i].ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get player teams: %w", err)
+		}
+		
+		players[i].Teams = teamIDs
+	}
+	
+	return players, nil
+}
+
 // AddToTeam adds a player to a team for a specific season
 func (r *PlayerRepository) AddToTeam(ctx context.Context, playerID string, teamID uint, season string) error {
 	query := `

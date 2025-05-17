@@ -6,62 +6,62 @@ import (
 
 // Season represents a specific playing season
 type Season struct {
-	ID        uint      `json:"id"`
-	Name      string    `json:"name"`       // e.g., "Summer 2023"
-	Year      int       `json:"year"`       // The year when the season occurs
-	StartDate time.Time `json:"start_date"` // When the season starts
-	EndDate   time.Time `json:"end_date"`   // When the season ends
-	IsActive  bool      `json:"is_active"`  // Whether this is the current active season
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uint      `json:"id" db:"id"`
+	Name      string    `json:"name" db:"name"`       // e.g., "Summer 2023"
+	Year      int       `json:"year" db:"year"`       // The year when the season occurs
+	StartDate time.Time `json:"start_date" db:"start_date"` // When the season starts
+	EndDate   time.Time `json:"end_date" db:"end_date"`   // When the season ends
+	IsActive  bool      `json:"is_active" db:"is_active"`  // Whether this is the current active season
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 	Leagues   []League  `json:"leagues,omitempty"` // Leagues associated with this season
 }
 
 // Player represents a player in the tennis league
 type Player struct {
-	ID        string    `json:"id"`           // UUID for player identification
-	FirstName string    `json:"first_name"`
-	LastName  string    `json:"last_name"`
-	Email     string    `json:"email"`
-	Phone     string    `json:"phone"`
-	ClubID    uint      `json:"club_id"` // Player belongs to a club, not directly to a team
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        string    `json:"id" db:"id"`           // UUID for player identification
+	FirstName string    `json:"first_name" db:"first_name"`
+	LastName  string    `json:"last_name" db:"last_name"`
+	Email     string    `json:"email" db:"email"`
+	Phone     string    `json:"phone" db:"phone"`
+	ClubID    uint      `json:"club_id" db:"club_id"` // Player belongs to a club, not directly to a team
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 	Teams     []uint    `json:"teams,omitempty"` // Player can be part of multiple teams through PlayerTeam
 }
 
 // Club represents a tennis club that has players and teams
 type Club struct {
-	ID          uint      `json:"id"`
-	Name        string    `json:"name"`
-	Address     string    `json:"address"`
-	Website     string    `json:"website"`
-	PhoneNumber string    `json:"phone_number"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          uint      `json:"id" db:"id"`
+	Name        string    `json:"name" db:"name"`
+	Address     string    `json:"address" db:"address"`
+	Website     string    `json:"website" db:"website"`
+	PhoneNumber string    `json:"phone_number" db:"phone_number"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
 	Players     []Player  `json:"players,omitempty"`
 	Teams       []Team    `json:"teams,omitempty"`
 }
 
 // LeagueSeason represents the many-to-many relationship between leagues and seasons
 type LeagueSeason struct {
-	ID        uint      `json:"id"`
-	LeagueID  uint      `json:"league_id"`
-	SeasonID  uint      `json:"season_id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uint      `json:"id" db:"id"`
+	LeagueID  uint      `json:"league_id" db:"league_id"`
+	SeasonID  uint      `json:"season_id" db:"season_id"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // PlayerTeam represents a player's association with a team, including the season
 // This allows players to move between teams over time
 type PlayerTeam struct {
-	ID        uint      `json:"id"`
-	PlayerID  string    `json:"player_id"`    // UUID reference to player
-	TeamID    uint      `json:"team_id"`
-	SeasonID  uint      `json:"season_id"`    // Reference to season
-	IsActive  bool      `json:"is_active"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uint      `json:"id" db:"id"`
+	PlayerID  string    `json:"player_id" db:"player_id"`    // UUID reference to player
+	TeamID    uint      `json:"team_id" db:"team_id"`
+	SeasonID  uint      `json:"season_id" db:"season_id"`    // Reference to season
+	IsActive  bool      `json:"is_active" db:"is_active"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // CaptainRole defines the type of captain role
@@ -74,40 +74,40 @@ const (
 
 // Captain represents a team captain with additional permissions
 type Captain struct {
-	ID        uint       `json:"id"`
-	PlayerID  string     `json:"player_id"`    // UUID reference to player
-	TeamID    uint       `json:"team_id"`
-	Role      CaptainRole `json:"role"`        // Type of captaincy role
-	SeasonID  uint       `json:"season_id"`    // Reference to season
-	IsActive  bool       `json:"is_active"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
+	ID        uint       `json:"id" db:"id"`
+	PlayerID  string     `json:"player_id" db:"player_id"`    // UUID reference to player
+	TeamID    uint       `json:"team_id" db:"team_id"`
+	Role      CaptainRole `json:"role" db:"role"`        // Type of captaincy role
+	SeasonID  uint       `json:"season_id" db:"season_id"`    // Reference to season
+	IsActive  bool       `json:"is_active" db:"is_active"`
+	CreatedAt time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 // Team represents a tennis team in the league
 type Team struct {
-	ID         uint         `json:"id"`
-	Name       string       `json:"name"`
-	ClubID     uint         `json:"club_id"`     // Team belongs to a club
-	DivisionID uint         `json:"division_id"`
-	SeasonID   uint         `json:"season_id"`   // Reference to season
-	CreatedAt  time.Time    `json:"created_at"`
-	UpdatedAt  time.Time    `json:"updated_at"`
+	ID         uint         `json:"id" db:"id"`
+	Name       string       `json:"name" db:"name"`
+	ClubID     uint         `json:"club_id" db:"club_id"`     // Team belongs to a club
+	DivisionID uint         `json:"division_id" db:"division_id"`
+	SeasonID   uint         `json:"season_id" db:"season_id"`   // Reference to season
+	CreatedAt  time.Time    `json:"created_at" db:"created_at"`
+	UpdatedAt  time.Time    `json:"updated_at" db:"updated_at"`
 	Players    []PlayerTeam `json:"players,omitempty"`
 	Captains   []Captain    `json:"captains,omitempty"`
 }
 
 // Division represents a division in the league
 type Division struct {
-	ID             uint      `json:"id"`
-	Name           string    `json:"name"`
-	Level          int       `json:"level"`
-	PlayDay        string    `json:"play_day"`           // Day of the week: "Monday", "Tuesday", etc.
-	LeagueID       uint      `json:"league_id"`
-	SeasonID       uint      `json:"season_id"`          // Reference to season 
-	MaxTeamsPerClub int      `json:"max_teams_per_club"` // Max teams allowed from same club (default 2)
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID             uint      `json:"id" db:"id"`
+	Name           string    `json:"name" db:"name"`
+	Level          int       `json:"level" db:"level"`
+	PlayDay        string    `json:"play_day" db:"play_day"`           // Day of the week: "Monday", "Tuesday", etc.
+	LeagueID       uint      `json:"league_id" db:"league_id"`
+	SeasonID       uint      `json:"season_id" db:"season_id"`          // Reference to season 
+	MaxTeamsPerClub int      `json:"max_teams_per_club" db:"max_teams_per_club"` // Max teams allowed from same club (default 2)
+	CreatedAt      time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at" db:"updated_at"`
 	Teams          []Team    `json:"teams,omitempty"`
 	Fixtures       []Fixture `json:"fixtures,omitempty"`
 }
@@ -122,13 +122,13 @@ const (
 
 // League represents the overall tennis league
 type League struct {
-	ID         uint       `json:"id"`
-	Name       string     `json:"name"`
-	Type       LeagueType `json:"type"`
-	Year       int        `json:"year"`
-	Region     string     `json:"region"`
-	CreatedAt  time.Time  `json:"created_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
+	ID         uint       `json:"id" db:"id"`
+	Name       string     `json:"name" db:"name"`
+	Type       LeagueType `json:"type" db:"type"`
+	Year       int        `json:"year" db:"year"`
+	Region     string     `json:"region" db:"region"`
+	CreatedAt  time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at" db:"updated_at"`
 	Divisions  []Division `json:"divisions,omitempty"`
 	Seasons    []Season   `json:"seasons,omitempty"` // Seasons associated with this league
 }
@@ -146,19 +146,19 @@ const (
 
 // Fixture represents a scheduled match between two teams
 type Fixture struct {
-	ID              uint          `json:"id"`
-	HomeTeamID      uint          `json:"home_team_id"`
-	AwayTeamID      uint          `json:"away_team_id"`
-	DivisionID      uint          `json:"division_id"`
-	SeasonID        uint          `json:"season_id"`      // Reference to season
-	ScheduledDate   time.Time     `json:"scheduled_date"`
-	VenueLocation   string        `json:"venue_location"`
-	Status          FixtureStatus `json:"status"`
-	CompletedDate   *time.Time    `json:"completed_date,omitempty"` // When fixture was completed
-	DayCaptainID    *string       `json:"day_captain_id,omitempty"` // Optional day captain for this fixture (UUID)
-	Notes           string        `json:"notes"`
-	CreatedAt       time.Time     `json:"created_at"`
-	UpdatedAt       time.Time     `json:"updated_at"`
+	ID              uint          `json:"id" db:"id"`
+	HomeTeamID      uint          `json:"home_team_id" db:"home_team_id"`
+	AwayTeamID      uint          `json:"away_team_id" db:"away_team_id"`
+	DivisionID      uint          `json:"division_id" db:"division_id"`
+	SeasonID        uint          `json:"season_id" db:"season_id"`      // Reference to season
+	ScheduledDate   time.Time     `json:"scheduled_date" db:"scheduled_date"`
+	VenueLocation   string        `json:"venue_location" db:"venue_location"`
+	Status          FixtureStatus `json:"status" db:"status"`
+	CompletedDate   *time.Time    `json:"completed_date,omitempty" db:"completed_date"` // When fixture was completed
+	DayCaptainID    *string       `json:"day_captain_id,omitempty" db:"day_captain_id"` // Optional day captain for this fixture (UUID)
+	Notes           string        `json:"notes" db:"notes"`
+	CreatedAt       time.Time     `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time     `json:"updated_at" db:"updated_at"`
 	Matchups        []Matchup     `json:"matchups,omitempty"`
 }
 
@@ -184,23 +184,23 @@ const (
 
 // Matchup represents one of the four matchups in a fixture
 type Matchup struct {
-	ID            uint          `json:"id"`
-	FixtureID     uint          `json:"fixture_id"`
-	Type          MatchupType   `json:"type"`
-	Status        MatchupStatus `json:"status"`
-	HomeScore     int           `json:"home_score"`
-	AwayScore     int           `json:"away_score"`
-	Notes         string        `json:"notes"`
-	CreatedAt     time.Time     `json:"created_at"`
-	UpdatedAt     time.Time     `json:"updated_at"`
+	ID            uint          `json:"id" db:"id"`
+	FixtureID     uint          `json:"fixture_id" db:"fixture_id"`
+	Type          MatchupType   `json:"type" db:"type"`
+	Status        MatchupStatus `json:"status" db:"status"`
+	HomeScore     int           `json:"home_score" db:"home_score"`
+	AwayScore     int           `json:"away_score" db:"away_score"`
+	Notes         string        `json:"notes" db:"notes"`
+	CreatedAt     time.Time     `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time     `json:"updated_at" db:"updated_at"`
 }
 
 // MatchupPlayer represents a player participating in a specific matchup
 type MatchupPlayer struct {
-	ID        uint      `json:"id"`
-	MatchupID uint      `json:"matchup_id"`
-	PlayerID  string    `json:"player_id"`    // UUID reference to player
-	IsHome    bool      `json:"is_home"` // true for home team, false for away team
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uint      `json:"id" db:"id"`
+	MatchupID uint      `json:"matchup_id" db:"matchup_id"`
+	PlayerID  string    `json:"player_id" db:"player_id"`    // UUID reference to player
+	IsHome    bool      `json:"is_home" db:"is_home"` // true for home team, false for away team
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 } 

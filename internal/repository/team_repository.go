@@ -200,6 +200,19 @@ func (r *TeamRepository) GetByClubAndSeason(ctx context.Context, clubID, seasonI
 	return teams, nil
 }
 
+// ListByClubDivisionSeason retrieves teams by club ID, division ID, and season ID
+func (r *TeamRepository) ListByClubDivisionSeason(ctx context.Context, clubID, divisionID, seasonID uint) ([]models.Team, error) {
+	var teams []models.Team
+	query := `SELECT * FROM teams WHERE club_id = $1 AND division_id = $2 AND season_id = $3 ORDER BY name`
+	
+	err := r.db.SelectContext(ctx, &teams, query, clubID, divisionID, seasonID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get teams by club, division, and season: %w", err)
+	}
+	
+	return teams, nil
+}
+
 // GetWithPlayers retrieves a team with its players for a specific season
 func (r *TeamRepository) GetWithPlayers(ctx context.Context, id uint, seasonID uint) (*models.Team, error) {
 	team, err := r.GetByID(ctx, id)
