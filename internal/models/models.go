@@ -4,6 +4,19 @@ import (
 	"time"
 )
 
+// Season represents a specific playing season
+type Season struct {
+	ID        uint      `json:"id"`
+	Name      string    `json:"name"`       // e.g., "Summer 2023"
+	Year      int       `json:"year"`       // The year when the season occurs
+	StartDate time.Time `json:"start_date"` // When the season starts
+	EndDate   time.Time `json:"end_date"`   // When the season ends
+	IsActive  bool      `json:"is_active"`  // Whether this is the current active season
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Leagues   []League  `json:"leagues,omitempty"` // Leagues associated with this season
+}
+
 // Player represents a player in the tennis league
 type Player struct {
 	ID        string    `json:"id"`           // UUID for player identification
@@ -30,13 +43,22 @@ type Club struct {
 	Teams       []Team    `json:"teams,omitempty"`
 }
 
+// LeagueSeason represents the many-to-many relationship between leagues and seasons
+type LeagueSeason struct {
+	ID        uint      `json:"id"`
+	LeagueID  uint      `json:"league_id"`
+	SeasonID  uint      `json:"season_id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 // PlayerTeam represents a player's association with a team, including the season
 // This allows players to move between teams over time
 type PlayerTeam struct {
 	ID        uint      `json:"id"`
 	PlayerID  string    `json:"player_id"`    // UUID reference to player
 	TeamID    uint      `json:"team_id"`
-	Season    string    `json:"season"` // e.g., "Summer 2023"
+	SeasonID  uint      `json:"season_id"`    // Reference to season
 	IsActive  bool      `json:"is_active"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -55,8 +77,8 @@ type Captain struct {
 	ID        uint       `json:"id"`
 	PlayerID  string     `json:"player_id"`    // UUID reference to player
 	TeamID    uint       `json:"team_id"`
-	Role      CaptainRole `json:"role"`     // Type of captaincy role
-	Season    string     `json:"season"`    // e.g., "Summer 2023"
+	Role      CaptainRole `json:"role"`        // Type of captaincy role
+	SeasonID  uint       `json:"season_id"`    // Reference to season
 	IsActive  bool       `json:"is_active"`
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
@@ -66,9 +88,9 @@ type Captain struct {
 type Team struct {
 	ID         uint         `json:"id"`
 	Name       string       `json:"name"`
-	ClubID     uint         `json:"club_id"` // Team belongs to a club
+	ClubID     uint         `json:"club_id"`     // Team belongs to a club
 	DivisionID uint         `json:"division_id"`
-	Season     string       `json:"season"` // e.g., "Summer 2023"
+	SeasonID   uint         `json:"season_id"`   // Reference to season
 	CreatedAt  time.Time    `json:"created_at"`
 	UpdatedAt  time.Time    `json:"updated_at"`
 	Players    []PlayerTeam `json:"players,omitempty"`
@@ -77,17 +99,17 @@ type Team struct {
 
 // Division represents a division in the league
 type Division struct {
-	ID           uint      `json:"id"`
-	Name         string    `json:"name"`
-	Level        int       `json:"level"`
-	PlayDay      string    `json:"play_day"` // Day of the week: "Monday", "Tuesday", etc.
-	Season       string    `json:"season"`   // e.g., "Summer 2023"
-	LeagueID     uint      `json:"league_id"`
-	MaxTeamsPerClub int    `json:"max_teams_per_club"` // Max teams allowed from same club (default 2)
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-	Teams        []Team    `json:"teams,omitempty"`
-	Fixtures     []Fixture `json:"fixtures,omitempty"`
+	ID             uint      `json:"id"`
+	Name           string    `json:"name"`
+	Level          int       `json:"level"`
+	PlayDay        string    `json:"play_day"`           // Day of the week: "Monday", "Tuesday", etc.
+	LeagueID       uint      `json:"league_id"`
+	SeasonID       uint      `json:"season_id"`          // Reference to season 
+	MaxTeamsPerClub int      `json:"max_teams_per_club"` // Max teams allowed from same club (default 2)
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	Teams          []Team    `json:"teams,omitempty"`
+	Fixtures       []Fixture `json:"fixtures,omitempty"`
 }
 
 // LeagueType represents the type of league (Parks, Club, etc.)
@@ -103,11 +125,12 @@ type League struct {
 	ID         uint       `json:"id"`
 	Name       string     `json:"name"`
 	Type       LeagueType `json:"type"`
-	Year       int        `json:"year"`       // Year of the league
+	Year       int        `json:"year"`
 	Region     string     `json:"region"`
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`
 	Divisions  []Division `json:"divisions,omitempty"`
+	Seasons    []Season   `json:"seasons,omitempty"` // Seasons associated with this league
 }
 
 // FixtureStatus represents the status of a fixture
@@ -127,6 +150,7 @@ type Fixture struct {
 	HomeTeamID      uint          `json:"home_team_id"`
 	AwayTeamID      uint          `json:"away_team_id"`
 	DivisionID      uint          `json:"division_id"`
+	SeasonID        uint          `json:"season_id"`      // Reference to season
 	ScheduledDate   time.Time     `json:"scheduled_date"`
 	VenueLocation   string        `json:"venue_location"`
 	Status          FixtureStatus `json:"status"`
