@@ -41,6 +41,23 @@ We provide a complete Docker setup with automatic backups:
 
 For more details on the Docker setup, see [Docker Setup Documentation](docs/docker_setup.md).
 
+### Deploying to DigitalOcean
+
+We provide a deployment script for DigitalOcean:
+
+1. **Configure the deployment script**:
+   ```bash
+   # Edit configuration in scripts/deploy-digitalocean.sh
+   vim scripts/deploy-digitalocean.sh
+   ```
+
+2. **Run the deployment script**:
+   ```bash
+   ./scripts/deploy-digitalocean.sh
+   ```
+
+For detailed deployment instructions, see [DigitalOcean Deployment Guide](docs/digitalocean_deployment.md).
+
 ## Technical Architecture
 
 ### Backend
@@ -72,7 +89,8 @@ jim-dot-tennis/
 │   └── models/           # Database models
 ├── migrations/           # Database migrations
 ├── scripts/              # Utility scripts
-│   └── backup-manager.sh # External backup script
+│   ├── backup-manager.sh # External backup script
+│   └── deploy-digitalocean.sh # DigitalOcean deployment script
 ├── static/               # Static assets
 ├── templates/            # HTML templates
 ├── Dockerfile            # Docker container definition
@@ -92,9 +110,10 @@ jim-dot-tennis/
 ## Development Roadmap
 
 - [x] Add database models and migrations
+- [x] Set up Docker environment with automated backups
+- [x] Create DigitalOcean deployment script
 - [ ] Add user authentication
 - [ ] Implement push notification subscription flow
-- [ ] Create database models
 - [ ] Develop core application features
 - [ ] Add comprehensive offline support
 - [ ] Deploy to production
@@ -105,6 +124,7 @@ jim-dot-tennis/
 - [User Experience Requirements](docs/user_experience_requirements.md)
 - [Technical Implementation Plan](docs/technical_implementation_plan.md)
 - [Docker Setup](docs/docker_setup.md)
+- [DigitalOcean Deployment](docs/digitalocean_deployment.md)
 
 ## Technologies Used
 
@@ -114,4 +134,4 @@ jim-dot-tennis/
 - **Service Workers**: PWA functionality
 - **Web Push Protocol**: For push notifications
 - **SQLite**: Embedded database
-- **Docker**: Containerization and deployment 
+- **Docker**: Containerization and deployment

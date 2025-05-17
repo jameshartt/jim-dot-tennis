@@ -8,6 +8,8 @@ This directory contains various documentation for the Jim.Tennis application - a
 - [User Experience Requirements](./user_experience_requirements.md) - Detailed requirements for the application's UX
 - [Technical Implementation Plan](./technical_implementation_plan.md) - Approach for building and implementing the application
 - [Docker Setup](./docker_setup.md) - Instructions for using Docker with this project
+- [DigitalOcean Deployment](./digitalocean_deployment.md) - Guide for deploying to DigitalOcean
+- [DigitalOcean Monitoring](./digitalocean_monitoring.md) - Advanced monitoring and management on DigitalOcean
 
 ## Database Documentation
 
@@ -56,4 +58,4 @@ This will give you an interactive visualization that you can customize further.
 - Data models and their relationships are defined in the `internal/models` directory
 - Database migrations are maintained in the `migrations` directory
 - The application focuses on server-side rendering with minimal JavaScript (using HTMX)
-- Progressive Web App (PWA) capabilities are implemented for push notifications 
+- Progressive Web App (PWA) capabilities are implemented for push notifications
