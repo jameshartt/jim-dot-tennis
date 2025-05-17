@@ -7,6 +7,7 @@ This directory contains various documentation for the Jim.Tennis application - a
 - [Project Overview](./project_overview.md) - Goals, purpose, and core requirements of the system
 - [User Experience Requirements](./user_experience_requirements.md) - Detailed requirements for the application's UX
 - [Technical Implementation Plan](./technical_implementation_plan.md) - Approach for building and implementing the application
+- [Docker Setup](./docker_setup.md) - Instructions for using Docker with this project
 
 ## Database Documentation
 

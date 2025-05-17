@@ -1,0 +1,34 @@
+# Version control
+.git
+.gitignore
+
+# Build artifacts and binaries
+/bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+.cursor/
+
+# Database files (we'll create these in the container)
+*.db
+tennis.db
+
+# Project specific
+README.md
+LICENSE
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Temporary files
+/tmp/
+*.tmp
+*.bak
+*.log 

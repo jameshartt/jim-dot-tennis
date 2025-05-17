@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jim-dot-tennis
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - tennis-data:/app/data
+      - ./templates:/app/templates # For development: hot reload templates
+      - ./static:/app/static # For development: hot reload static files
+    environment:
+      - PORT=8080
+      - DB_TYPE=sqlite3
+      - DB_PATH=/app/data/tennis.db
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  backup:
+    image: alpine:latest
+    container_name: jim-dot-tennis-backup
+    restart: unless-stopped
+    volumes:
+      - tennis-data:/data:ro # Read-only access to database
+      - tennis-backups:/backups
+    depends_on:
+      - app
+    environment:
+      - BACKUP_INTERVAL=86400 # Daily backups (in seconds)
+      - BACKUP_RETENTION=30 # Keep backups for 30 days
+    command: >
+      sh -c '
+        apk add --no-cache sqlite tzdata &&
+        while true; do
+          DATE=$$(date +%Y-%m-%d-%H%M%S) &&
+          echo "Creating backup at $${DATE}" &&
+          mkdir -p /backups &&
+          sqlite3 /data/tennis.db ".backup /backups/tennis-$${DATE}.db" &&
+          echo "Backup completed" &&
+          echo "Cleaning up old backups older than $${BACKUP_RETENTION} days" &&
+          find /backups -name "tennis-*.db" -type f -mtime +$${BACKUP_RETENTION} -delete &&
+          echo "Sleeping for $${BACKUP_INTERVAL} seconds" &&
+          sleep $${BACKUP_INTERVAL};
+        done
+      '
+
+volumes:
+  tennis-data:
+    name: jim-dot-tennis-data
+  tennis-backups:
+    name: jim-dot-tennis-backups 
