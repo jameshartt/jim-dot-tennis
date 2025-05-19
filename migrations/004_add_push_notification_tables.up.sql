@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
     p256dh TEXT NOT NULL,
     auth TEXT NOT NULL,
     user_agent TEXT,
+    platform TEXT NOT NULL DEFAULT 'web', -- 'web', 'safari', or 'chrome'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint ON push_subscriptions(endpoint); 
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint ON push_subscriptions(endpoint);
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_platform ON push_subscriptions(platform); 

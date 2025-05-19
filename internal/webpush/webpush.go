@@ -22,6 +22,7 @@ type Subscription struct {
 	Auth      string    `db:"auth" json:"auth"`
 	UserAgent string    `db:"user_agent" json:"userAgent,omitempty"`
 	CreatedAt time.Time `db:"created_at" json:"createdAt,omitempty"`
+	Platform  string    `db:"platform" json:"platform,omitempty"` // "web", "safari", or "chrome"
 }
 
 // SubscriptionRequest represents the incoming subscription data from the browser
@@ -153,11 +154,36 @@ func (s *Service) GetVAPIDKeys() (publicKey, privateKey string, err error) {
 	return keys.PublicKey, keys.PrivateKey, nil
 }
 
+// isSafariSubscription checks if a subscription is from Safari
+func isSafariSubscription(userAgent string) bool {
+	return strings.Contains(strings.ToLower(userAgent), "safari") && 
+	       !strings.Contains(strings.ToLower(userAgent), "chrome")
+}
+
+// getPlatform determines the platform from the user agent
+func getPlatform(userAgent string) string {
+	ua := strings.ToLower(userAgent)
+	if strings.Contains(ua, "chrome") {
+		return "chrome"
+	} else if strings.Contains(ua, "safari") {
+		return "safari"
+	}
+	return "web"
+}
+
 // SaveSubscription saves a push subscription to the database
 func (s *Service) SaveSubscription(sub *Subscription) error {
+	// Determine platform
+	sub.Platform = getPlatform(sub.UserAgent)
+	
+	// Log subscription details for debugging
+	log.Printf("Saving subscription for platform: %s", sub.Platform)
+	log.Printf("User Agent: %s", sub.UserAgent)
+	log.Printf("Endpoint: %s", sub.Endpoint)
+	
 	_, err := s.db.Exec(
-		"INSERT INTO push_subscriptions (endpoint, p256dh, auth, user_agent) VALUES ($1, $2, $3, $4)",
-		sub.Endpoint, sub.P256dh, sub.Auth, sub.UserAgent,
+		"INSERT INTO push_subscriptions (endpoint, p256dh, auth, user_agent, platform) VALUES ($1, $2, $3, $4, $5)",
+		sub.Endpoint, sub.P256dh, sub.Auth, sub.UserAgent, sub.Platform,
 	)
 	return err
 }
@@ -188,10 +214,15 @@ func (s *Service) SendNotification(sub Subscription, message string) error {
 	// Create the message payload
 	payload, err := json.Marshal(map[string]string{
 		"message": message,
+		"platform": sub.Platform, // Include platform in payload for debugging
 	})
 	if err != nil {
 		return err
 	}
+	
+	// Log notification attempt
+	log.Printf("Sending notification to %s platform subscription", sub.Platform)
+	log.Printf("Endpoint: %s", sub.Endpoint)
 	
 	// Send the notification
 	resp, err := webpush.SendNotification(
@@ -212,11 +243,13 @@ func (s *Service) SendNotification(sub Subscription, message string) error {
 	)
 	
 	if err != nil {
+		log.Printf("Error sending notification to %s: %v", sub.Platform, err)
 		return err
 	}
 	defer resp.Body.Close()
 	
 	if resp.StatusCode >= 400 {
+		log.Printf("Failed to send notification to %s, status: %d", sub.Platform, resp.StatusCode)
 		// If the subscription is invalid (404) or expired (410), remove it
 		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
 			s.DeleteSubscription(sub.Endpoint)
@@ -224,6 +257,7 @@ func (s *Service) SendNotification(sub Subscription, message string) error {
 		return fmt.Errorf("failed to send notification, status: %d", resp.StatusCode)
 	}
 	
+	log.Printf("Successfully sent notification to %s platform", sub.Platform)
 	return nil
 }
 
