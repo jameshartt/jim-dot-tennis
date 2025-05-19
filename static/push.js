@@ -29,6 +29,7 @@ async function subscribeToPushNotifications() {
   try {
     // Request permission
     const permission = await Notification.requestPermission();
+    console.log('Notification permission status:', permission);
     if (permission !== 'granted') {
       console.log('Notification permission denied');
       return false;
@@ -46,20 +47,29 @@ async function subscribeToPushNotifications() {
     console.log('Converting VAPID key to Uint8Array...');
     const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
     console.log('Converted application server key:', applicationServerKey);
+    console.log('Application server key length:', applicationServerKey.length);
+    console.log('Application server key first few bytes:', Array.from(applicationServerKey.slice(0, 5)));
 
     // Get the service worker registration
     console.log('Getting service worker registration...');
     const registration = await navigator.serviceWorker.ready;
     console.log('Service worker registration:', registration);
+    console.log('Service worker scope:', registration.scope);
+    console.log('Service worker state:', registration.active ? registration.active.state : 'no active worker');
     
     // Subscribe to push notifications
     console.log('Attempting to subscribe to push notifications...');
     try {
+      console.log('PushManager available:', !!registration.pushManager);
+      console.log('PushManager permission state:', await registration.pushManager.permissionState());
+      
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: applicationServerKey
       });
       console.log('Push subscription result:', subscription);
+      console.log('Subscription endpoint:', subscription.endpoint);
+      console.log('Subscription keys:', subscription.keys);
       
       // Send the subscription to the server
       console.log('Sending subscription to server...');
@@ -91,12 +101,17 @@ async function subscribeToPushNotifications() {
         console.error('- Service worker state:', registration.active ? registration.active.state : 'no active worker');
         console.error('- Application server key length:', applicationServerKey.length);
         console.error('- Application server key first few bytes:', Array.from(applicationServerKey.slice(0, 5)));
+        console.error('- PushManager available:', !!registration.pushManager);
+        console.error('- PushManager permission state:', await registration.pushManager.permissionState());
       }
       
       return false;
     }
   } catch (error) {
-    console.error('Error subscribing to push notifications:', error);
+    console.error('Error in subscribeToPushNotifications:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
     return false;
   }
 }
