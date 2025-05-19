@@ -1,95 +1,127 @@
 #!/bin/bash
-# DigitalOcean Deployment Script for Jim.Tennis
-# This script deploys the application to a DigitalOcean droplet
+set -e
+
+# Jim.Tennis Deployment Script for DigitalOcean
 
 # Configuration - Update these values
-DROPLET_IP=""
-SSH_USER="root"
-SSH_KEY_PATH="$HOME/.ssh/id_rsa"
-DEPLOY_DIR="/opt/jim-dot-tennis"
-APP_DOMAIN=""  # Optional: Your domain name
+DROPLET_IP="144.126.228.64"              # Your droplet's IP address
+SSH_USER="root"            # SSH user (usually root for initial setup)
+SSH_KEY_PATH=""            # Path to your SSH private key (leave empty for default)
+DEPLOY_DIR="/opt/jim-dot-tennis" # Deployment directory on the server
+APP_DOMAIN="jim.tennis"              # Optional: your domain if you have one
 
-# Colors for pretty output
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
-
-# Check if required variables are set
+# Validate configuration
 if [ -z "$DROPLET_IP" ]; then
-  echo -e "${RED}Error: DROPLET_IP is not set. Please update the script.${NC}"
+  echo "Error: You must set DROPLET_IP in the script."
   exit 1
 fi
 
-# Functions
-function ssh_command {
-  ssh -i "$SSH_KEY_PATH" "${SSH_USER}@${DROPLET_IP}" "$1"
-}
-
-function scp_file {
-  scp -i "$SSH_KEY_PATH" "$1" "${SSH_USER}@${DROPLET_IP}:$2"
-}
-
-# Display info
-echo -e "${GREEN}Deploying Jim.Tennis to DigitalOcean...${NC}"
-echo "Droplet IP: $DROPLET_IP"
-echo "Deploy directory: $DEPLOY_DIR"
-echo ""
-
-# 1. Test SSH connection
-echo -e "${YELLOW}Testing SSH connection...${NC}"
-if ! ssh_command "echo 'SSH connection successful!'"; then
-  echo -e "${RED}SSH connection failed. Please check your credentials and ensure the droplet is running.${NC}"
-  exit 1
-fi
-
-# 2. Set up Docker if not installed
-echo -e "${YELLOW}Checking Docker installation...${NC}"
-if ! ssh_command "which docker > /dev/null"; then
-  echo -e "${YELLOW}Docker not found. Installing Docker...${NC}"
-  ssh_command "apt-get update && apt-get install -y apt-transport-https ca-certificates curl software-properties-common"
-  ssh_command "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -"
-  ssh_command "add-apt-repository \"deb [arch=amd64] https://download.docker.com/linux/ubuntu \$(lsb_release -cs) stable\""
-  ssh_command "apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io"
-  
-  # Start Docker service
-  ssh_command "systemctl enable docker && systemctl start docker"
-  
-  # Install Docker Compose
-  ssh_command "curl -L \"https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)\" -o /usr/local/bin/docker-compose"
-  ssh_command "chmod +x /usr/local/bin/docker-compose"
-  
-  echo -e "${GREEN}Docker and Docker Compose installed successfully.${NC}"
+# Determine SSH key parameter
+if [ -n "$SSH_KEY_PATH" ]; then
+  SSH_KEY_PARAM="-i $SSH_KEY_PATH"
 else
-  echo -e "${GREEN}Docker already installed.${NC}"
+  SSH_KEY_PARAM=""
 fi
 
-# 3. Create deployment directory
-echo -e "${YELLOW}Setting up deployment directory...${NC}"
-ssh_command "mkdir -p $DEPLOY_DIR"
+# SSH options that can help with connection issues
+SSH_OPTS="-o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
+SCP_OPTS="-o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new"
 
-# 4. Copy required files to the server
-echo -e "${YELLOW}Copying files to the server...${NC}"
-# Create a temporary directory for files
-TEMP_DIR=$(mktemp -d)
-mkdir -p "$TEMP_DIR/scripts"
+echo "========================================================"
+echo "Jim.Tennis Deployment to DigitalOcean"
+echo "========================================================"
+echo "Droplet IP:     $DROPLET_IP"
+echo "SSH User:       $SSH_USER"
+echo "Deploy Directory: $DEPLOY_DIR"
+echo "Domain:         ${APP_DOMAIN:-None}"
+echo "========================================================"
 
-# Copy required files to temp directory
-cp docker-compose.yml Dockerfile .dockerignore "$TEMP_DIR/"
-cp scripts/backup-manager.sh "$TEMP_DIR/scripts/"
-chmod +x "$TEMP_DIR/scripts/backup-manager.sh"
+# Function to handle SSH commands with proper error handling
+function remote_command() {
+  echo "Running command: $1"
+  if ! ssh $SSH_KEY_PARAM $SSH_OPTS $SSH_USER@$DROPLET_IP "$1"; then
+    echo "Error: Command failed. Check the log for details."
+    exit 1
+  fi
+}
 
-# Create .env file for environment variables
-cat > "$TEMP_DIR/.env" << EOF
-PORT=8080
-DB_TYPE=sqlite3
-DB_PATH=/app/data/tennis.db
+# Step 1: Test SSH connection
+echo "Testing SSH connection..."
+if ! ssh $SSH_KEY_PARAM $SSH_OPTS -q $SSH_USER@$DROPLET_IP exit; then
+  echo "Error: Cannot establish SSH connection to $DROPLET_IP"
+  echo "Please check your SSH key and that the server is reachable."
+  exit 1
+fi
+
+# Step 2: Verify if it's a new deployment or update
+echo "Checking if this is a new deployment or an update..."
+if ssh $SSH_KEY_PARAM $SSH_OPTS $SSH_USER@$DROPLET_IP "[ -d $DEPLOY_DIR/.git ]"; then
+  echo "Existing deployment found. Updating..."
+  IS_UPDATE=true
+else
+  echo "No existing deployment found. Setting up new deployment..."
+  IS_UPDATE=false
+
+  # Transfer and run the server setup script
+  echo "Transferring server setup script..."
+  scp $SSH_KEY_PARAM $SCP_OPTS scripts/digitalocean-server-setup.sh $SSH_USER@$DROPLET_IP:/tmp/
+  
+  echo "Running server setup script..."
+  remote_command "chmod +x /tmp/digitalocean-server-setup.sh && sudo /tmp/digitalocean-server-setup.sh"
+fi
+
+# Step 3: Transfer application files
+echo "Transferring application files..."
+if [ "$IS_UPDATE" = true ]; then
+  # For updates, we'll use rsync which is more efficient
+  # First, ensure rsync is installed on the server
+  remote_command "if ! command -v rsync >/dev/null; then apt-get update && apt-get install -y rsync; fi"
+  
+  # Use rsync to transfer files, excluding git directory and other unnecessary files
+  rsync -avz --exclude '.git' --exclude '.vscode' --exclude 'tennis.db' \
+    --exclude 'node_modules' --exclude '.cursor' --exclude '.DS_Store' \
+    -e "ssh $SSH_KEY_PARAM $SSH_OPTS" \
+    ./ $SSH_USER@$DROPLET_IP:$DEPLOY_DIR/
+else
+  # For new deployments, we'll create a tarball and extract it on the server
+  echo "Creating deployment archive..."
+  tar --exclude='.git' --exclude='.vscode' --exclude='tennis.db' \
+      --exclude='node_modules' --exclude='.cursor' --exclude='.DS_Store' \
+      -czf /tmp/jim-tennis-deploy.tar.gz .
+  
+  echo "Uploading deployment archive..."
+  scp $SSH_KEY_PARAM $SCP_OPTS /tmp/jim-tennis-deploy.tar.gz $SSH_USER@$DROPLET_IP:/tmp/
+  
+  echo "Extracting archive on the server..."
+  remote_command "mkdir -p $DEPLOY_DIR && tar -xzf /tmp/jim-tennis-deploy.tar.gz -C $DEPLOY_DIR && rm /tmp/jim-tennis-deploy.tar.gz"
+  
+  # Cleanup local archive
+  rm /tmp/jim-tennis-deploy.tar.gz
+fi
+
+# Step 4: Set file permissions
+echo "Setting file permissions..."
+remote_command "chmod +x $DEPLOY_DIR/scripts/*.sh"
+remote_command "chown -R jimtennis:jimtennis $DEPLOY_DIR"
+
+# Step 5: Configure Caddy for HTTPS if domain is specified
+if [ -n "$APP_DOMAIN" ]; then
+  echo "Setting up Caddy for HTTPS with domain: $APP_DOMAIN..."
+  
+  # Create Caddyfile
+  cat > /tmp/Caddyfile << EOF
+$APP_DOMAIN {
+  reverse_proxy app:8080
+}
 EOF
-
-# If domain is set, create Caddy config for HTTPS
-if [ ! -z "$APP_DOMAIN" ]; then
-  # Create docker-compose.override.yml with Caddy container
-  cat > "$TEMP_DIR/docker-compose.override.yml" << EOF
+  
+  # Upload Caddyfile
+  scp $SSH_KEY_PARAM $SCP_OPTS /tmp/Caddyfile $SSH_USER@$DROPLET_IP:$DEPLOY_DIR/
+  rm /tmp/Caddyfile
+  
+  # Add Caddy service to docker-compose if needed
+  # For simplicity, we'll create an override file
+  cat > /tmp/docker-compose.override.yml << EOF
 version: '3.8'
 
 services:
@@ -109,58 +141,32 @@ services:
 
 volumes:
   caddy-data:
-    name: jim-dot-tennis-caddy-data
   caddy-config:
-    name: jim-dot-tennis-caddy-config
-EOF
-
-  # Create Caddyfile
-  cat > "$TEMP_DIR/Caddyfile" << EOF
-${APP_DOMAIN} {
-  reverse_proxy app:8080
-}
 EOF
   
-  # Update app port in docker-compose if using Caddy
-  sed -i 's/- "8080:8080"/# - "8080:8080" # Commented out, using Caddy/' "$TEMP_DIR/docker-compose.yml"
-  
-  echo -e "${GREEN}Created HTTPS proxy configuration with Caddy for ${APP_DOMAIN}${NC}"
+  # Upload docker-compose override
+  scp $SSH_KEY_PARAM $SCP_OPTS /tmp/docker-compose.override.yml $SSH_USER@$DROPLET_IP:$DEPLOY_DIR/
+  rm /tmp/docker-compose.override.yml
 fi
 
-# Copy all files to the server
-tar -czf "$TEMP_DIR/deploy.tar.gz" -C "$TEMP_DIR" .
-scp_file "$TEMP_DIR/deploy.tar.gz" "$DEPLOY_DIR/"
-ssh_command "tar -xzf $DEPLOY_DIR/deploy.tar.gz -C $DEPLOY_DIR && rm $DEPLOY_DIR/deploy.tar.gz"
+# Step 6: Start the application with Docker Compose
+echo "Starting the application..."
+remote_command "cd $DEPLOY_DIR && docker-compose pull && docker-compose up -d"
 
-# Clean up temp directory
-rm -rf "$TEMP_DIR"
+# Step 7: Final checks
+echo "Checking if application is running..."
+sleep 5 # Give containers a moment to start
+remote_command "cd $DEPLOY_DIR && docker-compose ps"
 
-# 5. Configure backup script
-echo -e "${YELLOW}Configuring backup script...${NC}"
-ssh_command "sed -i 's|/path/to/external/backups|${DEPLOY_DIR}/external-backups|g' ${DEPLOY_DIR}/scripts/backup-manager.sh"
-ssh_command "mkdir -p ${DEPLOY_DIR}/external-backups"
+echo "========================================================"
+echo "Deployment completed successfully!"
+echo "========================================================"
 
-# 6. Set up cron job for backups
-echo -e "${YELLOW}Setting up backup cron job...${NC}"
-ssh_command "(crontab -l 2>/dev/null || echo '') | grep -v '${DEPLOY_DIR}/scripts/backup-manager.sh' | { cat; echo '0 3 * * * ${DEPLOY_DIR}/scripts/backup-manager.sh'; } | crontab -"
-
-# 7. Build and start the application
-echo -e "${YELLOW}Building and starting the application...${NC}"
-ssh_command "cd $DEPLOY_DIR && docker-compose build && docker-compose up -d"
-
-# 8. Display info about the deployment
-echo -e "${GREEN}Deployment completed successfully!${NC}"
-echo -e "Your application is now running on the DigitalOcean droplet."
-
-if [ ! -z "$APP_DOMAIN" ]; then
-  echo -e "You can access it at: https://${APP_DOMAIN}"
+if [ -n "$APP_DOMAIN" ]; then
+  echo "Your application is available at: https://$APP_DOMAIN"
 else
-  echo -e "You can access it at: http://${DROPLET_IP}:8080"
-  echo -e "${YELLOW}Note: For production, consider setting up a domain name and HTTPS.${NC}"
+  echo "Your application is available at: http://$DROPLET_IP:8080"
 fi
 
-echo -e "\nUseful commands:"
-echo -e "- View logs: ssh ${SSH_USER}@${DROPLET_IP} \"cd ${DEPLOY_DIR} && docker-compose logs -f\""
-echo -e "- Stop the app: ssh ${SSH_USER}@${DROPLET_IP} \"cd ${DEPLOY_DIR} && docker-compose down\""
-echo -e "- Restart the app: ssh ${SSH_USER}@${DROPLET_IP} \"cd ${DEPLOY_DIR} && docker-compose restart\""
-echo -e "- Manually trigger backup: ssh ${SSH_USER}@${DROPLET_IP} \"cd ${DEPLOY_DIR} && docker exec jim-dot-tennis-backup sh -c 'sqlite3 /data/tennis.db \".backup /backups/tennis-\$(date +%Y-%m-%d-%H%M%S)-manual.db\"'\""
+echo "To check the logs, run:"
+echo "ssh $SSH_USER@$DROPLET_IP \"cd $DEPLOY_DIR && docker-compose logs -f\"" 

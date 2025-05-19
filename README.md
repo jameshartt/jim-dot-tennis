@@ -43,18 +43,24 @@ For more details on the Docker setup, see [Docker Setup Documentation](docs/dock
 
 ### Deploying to DigitalOcean
 
-We provide a deployment script for DigitalOcean:
+We provide a robust two-part deployment system for DigitalOcean:
 
 1. **Configure the deployment script**:
    ```bash
-   # Edit configuration in scripts/deploy-digitalocean.sh
-   vim scripts/deploy-digitalocean.sh
+   # Edit DROPLET_IP and other settings in the script
+   nano scripts/deploy-digitalocean.sh
    ```
 
 2. **Run the deployment script**:
    ```bash
    ./scripts/deploy-digitalocean.sh
    ```
+
+The script handles everything automatically:
+- Setting up the server with Docker and security measures
+- Transferring application files
+- Configuring HTTPS (if you provide a domain)
+- Starting the application with Docker Compose
 
 For detailed deployment instructions, see [DigitalOcean Deployment Guide](docs/digitalocean_deployment.md).
 

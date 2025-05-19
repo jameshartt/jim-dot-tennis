@@ -9,39 +9,62 @@ This guide explains how to deploy the Jim.Tennis application to a DigitalOcean d
 3. SSH access to your droplet
 4. (Optional) A domain name pointed to your droplet's IP address
 
-## Deployment Options
+## Deployment
 
-### Option 1: Automated Deployment Script
+We use a two-part deployment approach to ensure reliability:
 
-We provide a deployment script that handles everything for you:
+1. A server setup script that runs on the droplet to install dependencies
+2. A local deployment script that transfers files and configures the application
 
-1. Edit the configuration section in `scripts/deploy-digitalocean.sh`:
+### Step 1: Configure the Deployment Script
+
+Edit the configuration section at the top of `scripts/deploy-digitalocean.sh`:
 
 ```bash
 # Configuration - Update these values
-DROPLET_IP="your-droplet-ip"  # e.g., "123.456.789.012"
-SSH_USER="root"               # or another user with sudo privileges
-SSH_KEY_PATH="$HOME/.ssh/id_rsa"  # path to your SSH key
-DEPLOY_DIR="/opt/jim-dot-tennis"  # deployment directory on the server
-APP_DOMAIN="your-domain.com"  # Optional: Set this if you have a domain
+DROPLET_IP=""              # Your droplet's IP address
+SSH_USER="root"            # SSH user (usually root for initial setup)
+SSH_KEY_PATH=""            # Path to your SSH private key (leave empty for default)
+DEPLOY_DIR="/opt/jim-dot-tennis" # Deployment directory on the server
+APP_DOMAIN=""              # Optional: your domain if you have one
 ```
 
-2. Run the deployment script:
+Make sure to set at least the `DROPLET_IP` value. The `SSH_KEY_PATH` can be left empty if your SSH key is in the default location.
+
+### Step 2: Run the Deployment Script
+
+Once you've configured the script, simply run:
 
 ```bash
 ./scripts/deploy-digitalocean.sh
 ```
 
-The script will:
-- Install Docker and Docker Compose if needed
-- Copy all necessary files to the server
-- Configure HTTPS with Caddy if a domain is provided
-- Set up automated backups
-- Build and start the application
+The deployment script will:
 
-### Option 2: Manual Deployment
+1. Test the SSH connection to your droplet
+2. Detect if this is a new deployment or an update
+3. For new deployments:
+   - Upload and run the server setup script
+   - Install Docker, Docker Compose, and other dependencies
+   - Configure firewall and security settings
+4. Transfer the application files to the server
+5. Configure HTTPS with Caddy if a domain is provided
+6. Start the application using Docker Compose
 
-If you prefer manual deployment:
+## What's Included
+
+The deployment sets up:
+
+- Docker and Docker Compose
+- UFW firewall with proper port settings
+- Fail2ban for SSH protection
+- A dedicated user account for the application
+- HTTPS configuration with Caddy (if domain provided)
+- Automatic database backups
+
+## Manual Server Setup (Optional)
+
+If you prefer to set up the server manually or want to understand what the server setup script does, you can:
 
 1. SSH into your DigitalOcean droplet:
 
@@ -49,126 +72,55 @@ If you prefer manual deployment:
 ssh root@your-droplet-ip
 ```
 
-2. Install Docker and Docker Compose:
+2. Upload the server setup script:
 
 ```bash
-# Update package index
-apt-get update
-
-# Install prerequisites
-apt-get install -y apt-transport-https ca-certificates curl software-properties-common
-
-# Add Docker's official GPG key
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-
-# Add Docker repository
-add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-
-# Install Docker
-apt-get update
-apt-get install -y docker-ce docker-ce-cli containerd.io
-
-# Install Docker Compose
-curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-chmod +x /usr/local/bin/docker-compose
+scp scripts/digitalocean-server-setup.sh root@your-droplet-ip:/tmp/
 ```
 
-3. Create a deployment directory:
+3. Run the server setup script manually:
 
 ```bash
-mkdir -p /opt/jim-dot-tennis
-cd /opt/jim-dot-tennis
-```
-
-4. Copy your project files to the server (from your local machine):
-
-```bash
-scp -r docker-compose.yml Dockerfile .dockerignore scripts root@your-droplet-ip:/opt/jim-dot-tennis/
-```
-
-5. Build and start the application:
-
-```bash
-cd /opt/jim-dot-tennis
-docker-compose up -d
+ssh root@your-droplet-ip "chmod +x /tmp/digitalocean-server-setup.sh && sudo /tmp/digitalocean-server-setup.sh"
 ```
 
 ## Setting Up HTTPS with Caddy
 
-For production deployments, we recommend using HTTPS. The automated script handles this if you provide a domain, but you can also set it up manually:
+HTTPS is automatically configured if you provide a domain name in the deployment script. The deployment creates:
 
-1. Create a `docker-compose.override.yml` file:
-
-```yaml
-version: '3.8'
-
-services:
-  caddy:
-    image: caddy:2-alpine
-    container_name: jim-dot-tennis-caddy
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - caddy-data:/data
-      - caddy-config:/config
-      - ./Caddyfile:/etc/caddy/Caddyfile
-    depends_on:
-      - app
-
-volumes:
-  caddy-data:
-    name: jim-dot-tennis-caddy-data
-  caddy-config:
-    name: jim-dot-tennis-caddy-config
-```
-
-2. Create a `Caddyfile`:
-
-```
-your-domain.com {
-  reverse_proxy app:8080
-}
-```
-
-3. Restart your application:
-
-```bash
-docker-compose up -d
-```
+1. A `Caddyfile` with your domain configuration
+2. A `docker-compose.override.yml` file that adds the Caddy service
+3. Proper port mappings and volume configurations
 
 ## Managing Your Deployment
 
 ### Viewing Logs
 
 ```bash
-docker-compose logs -f
+ssh user@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose logs -f"
 ```
 
 ### Stopping the Application
 
 ```bash
-docker-compose down
+ssh user@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose down"
 ```
 
 ### Restarting the Application
 
 ```bash
-docker-compose restart
+ssh user@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose restart"
 ```
 
 ### Updating the Application
 
-1. Push your changes to version control
-2. SSH into your droplet
-3. Pull the latest changes and restart:
+Simply run the deployment script again:
 
 ```bash
-cd /opt/jim-dot-tennis
-git pull
-docker-compose up -d --build
+./scripts/deploy-digitalocean.sh
 ```
+
+The script will detect the existing installation and update only the necessary files.
 
 ## Backup Management
 
@@ -183,30 +135,54 @@ The deployment includes an automatic backup system that:
 To manually trigger a backup:
 
 ```bash
-docker exec jim-dot-tennis-backup sh -c 'sqlite3 /data/tennis.db ".backup /backups/tennis-$(date +%Y-%m-%d-%H%M%S)-manual.db"'
+ssh user@your-droplet-ip "cd /opt/jim-dot-tennis && docker exec jim-dot-tennis-backup sh -c 'sqlite3 /data/tennis.db \".backup /backups/tennis-\$(date +%Y-%m-%d-%H%M%S)-manual.db\"'"
 ```
 
 ### Restoring from Backup
 
 ```bash
 # Stop the application
-docker-compose down
-
-# Navigate to the volume mount directory
-cd /var/lib/docker/volumes/jim-dot-tennis-data/_data
+ssh user@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose down"
 
 # Restore the database from backup
-cp /opt/jim-dot-tennis/external-backups/tennis-backup-file.db ./tennis.db
+ssh user@your-droplet-ip "cp /opt/jim-dot-tennis/external-backups/tennis-backup-file.db /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db"
 
 # Start the application
-docker-compose up -d
+ssh user@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose up -d"
 ```
 
-## Monitoring and Maintenance
+## Troubleshooting
 
-For a production deployment, consider adding:
+### Connection Issues
 
-1. **Monitoring**: Set up Prometheus and Grafana for monitoring
-2. **Log Management**: Use a log aggregation service like ELK stack
-3. **Automated Alerts**: Configure alerts for critical errors
-4. **Offsite Backups**: Configure cloud storage for backup exports
+If you're experiencing SSH connection issues:
+
+1. Check that your SSH key is correctly set up in DigitalOcean
+2. Verify the droplet's IP address and your network connectivity
+3. Try increasing the connection timeout in the deployment script
+4. Ensure the SSH port (22) is open in the droplet's firewall
+
+### Docker Compose Errors
+
+If Docker Compose fails to start the application:
+
+1. Check the application logs for specific errors:
+   ```bash
+   ssh user@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose logs"
+   ```
+
+2. Verify that all required files were transferred correctly
+   ```bash
+   ssh user@your-droplet-ip "ls -la /opt/jim-dot-tennis"
+   ```
+
+### Database Issues
+
+If you're experiencing database problems:
+
+1. Check if the database exists:
+   ```bash
+   ssh user@your-droplet-ip "docker exec jim-dot-tennis ls -la /app/data"
+   ```
+
+2. If the database is missing or corrupted, restore from a backup as described above
