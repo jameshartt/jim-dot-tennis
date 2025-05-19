@@ -61,7 +61,22 @@ async function subscribeToPushNotifications() {
     console.log('Attempting to subscribe to push notifications...');
     try {
       console.log('PushManager available:', !!registration.pushManager);
-      console.log('PushManager permission state:', await registration.pushManager.permissionState());
+      
+      // Check permission state with fallback
+      let permissionState = 'prompt';
+      try {
+        permissionState = await registration.pushManager.permissionState();
+        console.log('PushManager permission state:', permissionState);
+      } catch (error) {
+        console.log('PushManager.permissionState() not supported, using Notification.permission instead');
+        permissionState = Notification.permission;
+      }
+      
+      // If permission is denied, we can't proceed
+      if (permissionState === 'denied') {
+        console.log('Push permission is denied');
+        throw new Error('Push permission is denied');
+      }
       
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
@@ -102,7 +117,12 @@ async function subscribeToPushNotifications() {
         console.error('- Application server key length:', applicationServerKey.length);
         console.error('- Application server key first few bytes:', Array.from(applicationServerKey.slice(0, 5)));
         console.error('- PushManager available:', !!registration.pushManager);
-        console.error('- PushManager permission state:', await registration.pushManager.permissionState());
+        try {
+          const state = await registration.pushManager.permissionState();
+          console.error('- PushManager permission state:', state);
+        } catch (e) {
+          console.error('- PushManager permission state: Not supported, using Notification.permission:', Notification.permission);
+        }
       }
       
       return false;
