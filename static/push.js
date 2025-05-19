@@ -77,54 +77,104 @@ async function subscribeToPushNotifications() {
         console.log('Push permission is denied');
         throw new Error('Push permission is denied');
       }
-      
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: applicationServerKey
-      });
-      console.log('Push subscription result:', subscription);
-      console.log('Subscription endpoint:', subscription.endpoint);
-      console.log('Subscription keys:', subscription.keys);
-      
-      // Send the subscription to the server
-      console.log('Sending subscription to server...');
-      const serverResponse = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(subscription)
-      });
-      
-      if (!serverResponse.ok) {
-        const errorText = await serverResponse.text();
-        throw new Error(`Server responded with ${serverResponse.status}: ${errorText}`);
+
+      // Log current subscription state
+      const existingSubscription = await registration.pushManager.getSubscription();
+      console.log('Existing subscription:', existingSubscription ? 'Yes' : 'No');
+      if (existingSubscription) {
+        console.log('Unsubscribing from existing subscription...');
+        await existingSubscription.unsubscribe();
       }
+
+      // Verify the application server key
+      console.log('Application server key details:');
+      console.log('- Type:', applicationServerKey.constructor.name);
+      console.log('- Length:', applicationServerKey.length);
+      console.log('- First few bytes:', Array.from(applicationServerKey.slice(0, 5)));
+      console.log('- Is Uint8Array:', applicationServerKey instanceof Uint8Array);
       
-      console.log('Successfully subscribed to push notifications');
-      return true;
+      // Attempt subscription with detailed error handling
+      console.log('Attempting push subscription with options:', {
+        userVisibleOnly: true,
+        applicationServerKeyLength: applicationServerKey.length
+      });
+      
+      try {
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: applicationServerKey
+        });
+        
+        console.log('Push subscription successful:');
+        console.log('- Endpoint:', subscription.endpoint);
+        console.log('- Keys:', subscription.keys);
+        console.log('- Options:', subscription.options);
+        
+        // Verify the subscription
+        const subscriptionJson = subscription.toJSON();
+        console.log('Subscription JSON:', subscriptionJson);
+        
+        if (!subscriptionJson.keys || !subscriptionJson.keys.p256dh || !subscriptionJson.keys.auth) {
+          throw new Error('Invalid subscription: missing required keys');
+        }
+        
+        // Send the subscription to the server
+        console.log('Sending subscription to server...');
+        const serverResponse = await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(subscriptionJson)
+        });
+        
+        if (!serverResponse.ok) {
+          const errorText = await serverResponse.text();
+          throw new Error(`Server responded with ${serverResponse.status}: ${errorText}`);
+        }
+        
+        console.log('Successfully subscribed to push notifications');
+        return true;
+      } catch (subscribeError) {
+        console.error('Push subscription failed:', subscribeError);
+        console.error('Error name:', subscribeError.name);
+        console.error('Error message:', subscribeError.message);
+        console.error('Error stack:', subscribeError.stack);
+        
+        // Additional diagnostic information
+        console.error('Diagnostic information:');
+        console.error('- Service Worker state:', registration.active ? registration.active.state : 'no active worker');
+        console.error('- Service Worker scope:', registration.scope);
+        console.error('- PushManager available:', !!registration.pushManager);
+        console.error('- Notification permission:', Notification.permission);
+        console.error('- Application server key valid:', applicationServerKey instanceof Uint8Array);
+        console.error('- Application server key length:', applicationServerKey.length);
+        
+        // Try to get more specific error information
+        if (subscribeError.name === 'NotAllowedError') {
+          console.error('Push subscription not allowed. This might be due to:');
+          console.error('- Browser blocking push notifications');
+          console.error('- User denying permission');
+          console.error('- Invalid VAPID key');
+        } else if (subscribeError.name === 'NotSupportedError') {
+          console.error('Push subscription not supported. This might be due to:');
+          console.error('- Browser not supporting push notifications');
+          console.error('- Invalid service worker configuration');
+          console.error('- Missing or invalid VAPID key');
+        } else if (subscribeError.name === 'AbortError') {
+          console.error('Push subscription aborted. This might be due to:');
+          console.error('- Service worker not active');
+          console.error('- Network issues');
+          console.error('- Browser security restrictions');
+        }
+        
+        throw subscribeError;
+      }
     } catch (error) {
-      console.error('Error subscribing to push notifications:', error);
+      console.error('Error in subscribeToPushNotifications:', error);
       console.error('Error name:', error.name);
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
-      
-      // Additional error details for push service errors
-      if (error.name === 'AbortError') {
-        console.error('Push service error details:');
-        console.error('- Service worker scope:', registration.scope);
-        console.error('- Service worker state:', registration.active ? registration.active.state : 'no active worker');
-        console.error('- Application server key length:', applicationServerKey.length);
-        console.error('- Application server key first few bytes:', Array.from(applicationServerKey.slice(0, 5)));
-        console.error('- PushManager available:', !!registration.pushManager);
-        try {
-          const state = await registration.pushManager.permissionState();
-          console.error('- PushManager permission state:', state);
-        } catch (e) {
-          console.error('- PushManager permission state: Not supported, using Notification.permission:', Notification.permission);
-        }
-      }
-      
       return false;
     }
   } catch (error) {
