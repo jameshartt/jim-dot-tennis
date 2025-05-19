@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"jim-dot-tennis/internal/database"
+	"jim-dot-tennis/internal/webpush"
 )
 
 func main() {
@@ -24,12 +25,52 @@ func main() {
 		log.Printf("Warning: Failed to run migrations: %v", err)
 	}
 
-	// Serve static files
+	// Initialize web push service
+	pushService := webpush.New(db)
+	
+	// Generate VAPID keys on startup
+	publicKey, _, err := pushService.GenerateVAPIDKeys()
+	if err != nil {
+		log.Printf("Warning: Failed to generate VAPID keys: %v", err)
+	} else {
+		log.Printf("VAPID public key: %s", publicKey)
+	}
+	
+	// Set up push notification handlers
+	pushService.SetupHandlers()
+
+	// Serve static files with special handling for service worker
 	fs := http.FileServer(http.Dir("static"))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
+	http.Handle("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("Static file request: %s", r.URL.Path)
+		
+		// Add Service-Worker-Allowed header for service worker file
+		if r.URL.Path == "/static/service-worker.js" {
+			log.Printf("Service worker request detected, setting Service-Worker-Allowed header")
+			w.Header().Set("Service-Worker-Allowed", "/")
+			// Log all headers being sent
+			log.Printf("Response headers for service worker:")
+			for k, v := range w.Header() {
+				log.Printf("  %s: %v", k, v)
+			}
+		}
+		
+		// Log the request headers
+		log.Printf("Request headers:")
+		for k, v := range r.Header {
+			log.Printf("  %s: %v", k, v)
+		}
+		
+		http.StripPrefix("/static/", fs).ServeHTTP(w, r)
+	}))
 
 	// Serve index.html template
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		
 		tmpl, err := template.ParseFiles(filepath.Join("templates", "index.html"))
 		if err != nil {
 			http.Error(w, "Template error", http.StatusInternalServerError)

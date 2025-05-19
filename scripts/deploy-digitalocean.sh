@@ -111,7 +111,9 @@ if [ -n "$APP_DOMAIN" ]; then
   # Create Caddyfile
   cat > /tmp/Caddyfile << EOF
 $APP_DOMAIN {
-  reverse_proxy app:8080
+  reverse_proxy app:8080 {
+    header_up Service-Worker-Allowed {http.response.header.Service-Worker-Allowed}
+  }
 }
 EOF
   
