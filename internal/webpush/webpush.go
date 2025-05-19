@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/SherClockHolmes/webpush-go"
@@ -52,11 +53,15 @@ func (s *Service) GenerateVAPIDKeys() (publicKey, privateKey string, err error) 
 	
 	err = s.db.QueryRow("SELECT public_key, private_key FROM vapid_keys LIMIT 1").Scan(&keys.PublicKey, &keys.PrivateKey)
 	if err == nil {
-		// Keys already exist
-		return keys.PublicKey, keys.PrivateKey, nil
+		// Keys already exist, verify format
+		if !isValidVAPIDKey(keys.PublicKey) {
+			log.Printf("Existing VAPID public key is not in the correct format, generating new keys...")
+		} else {
+			return keys.PublicKey, keys.PrivateKey, nil
+		}
 	}
 	
-	if err != sql.ErrNoRows {
+	if err != nil && err != sql.ErrNoRows {
 		return "", "", err
 	}
 	
@@ -64,6 +69,11 @@ func (s *Service) GenerateVAPIDKeys() (publicKey, privateKey string, err error) 
 	vapidPrivate, vapidPublic, err := webpush.GenerateVAPIDKeys()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to generate VAPID keys: %v", err)
+	}
+	
+	// Ensure the public key is in the correct format
+	if !isValidVAPIDKey(vapidPublic) {
+		return "", "", fmt.Errorf("generated VAPID public key is not in the correct format")
 	}
 	
 	// Store the keys in the database
@@ -76,6 +86,39 @@ func (s *Service) GenerateVAPIDKeys() (publicKey, privateKey string, err error) 
 	}
 	
 	return vapidPublic, vapidPrivate, nil
+}
+
+// isValidVAPIDKey checks if a VAPID key is in the correct format
+func isValidVAPIDKey(key string) bool {
+	// VAPID public key should be a base64 URL-safe string
+	// It should decode to 65 bytes (uncompressed public key)
+	// and should start with "BP" when decoded (indicating it's a valid ECDSA P-256 public key)
+	
+	// Add padding if needed
+	padding := (4 - len(key)%4) % 4
+	key = key + strings.Repeat("=", padding)
+	
+	// Replace URL-safe characters
+	key = strings.ReplaceAll(key, "-", "+")
+	key = strings.ReplaceAll(key, "_", "/")
+	
+	// Decode the key
+	decoded, err := base64.StdEncoding.DecodeString(key)
+	if err != nil {
+		return false
+	}
+	
+	// Check length (should be 65 bytes for uncompressed public key)
+	if len(decoded) != 65 {
+		return false
+	}
+	
+	// Check if it starts with 0x04 (uncompressed public key)
+	if decoded[0] != 0x04 {
+		return false
+	}
+	
+	return true
 }
 
 // GetVAPIDKeys returns the stored VAPID keys
@@ -95,6 +138,12 @@ func (s *Service) GetVAPIDKeys() (publicKey, privateKey string, err error) {
 		}
 		log.Printf("Database error retrieving VAPID keys: %v", err)
 		return "", "", err
+	}
+	
+	// Verify the public key format
+	if !isValidVAPIDKey(keys.PublicKey) {
+		log.Printf("Stored VAPID public key is not in the correct format, generating new keys...")
+		return s.GenerateVAPIDKeys()
 	}
 	
 	log.Printf("Successfully retrieved VAPID keys from database")
@@ -224,4 +273,18 @@ func (s *Service) ListVAPIDKeys() error {
 	
 	log.Printf("Found %d VAPID key(s) in database", count)
 	return nil
+}
+
+// ResetVAPIDKeys deletes existing VAPID keys and generates new ones
+func (s *Service) ResetVAPIDKeys() (publicKey, privateKey string, err error) {
+	log.Printf("Resetting VAPID keys...")
+	
+	// Delete existing keys
+	_, err = s.db.Exec("DELETE FROM vapid_keys")
+	if err != nil {
+		return "", "", fmt.Errorf("failed to delete existing VAPID keys: %v", err)
+	}
+	
+	// Generate new keys
+	return s.GenerateVAPIDKeys()
 } 

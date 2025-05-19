@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -13,6 +14,7 @@ func (s *Service) SetupHandlers() {
 	http.HandleFunc("/api/push/subscribe", s.handleSubscribe)
 	http.HandleFunc("/api/push/unsubscribe", s.handleUnsubscribe)
 	http.HandleFunc("/api/push/test", s.handleTestPush)
+	http.HandleFunc("/api/vapid-reset", s.handleResetVAPIDKeys)
 }
 
 // handleGetVAPIDPublicKey returns the VAPID public key
@@ -134,4 +136,38 @@ func (s *Service) handleTestPush(w http.ResponseWriter, r *http.Request) {
 		"status": "success",
 		"message": "Notifications are being sent",
 	})
+}
+
+// handleResetVAPIDKeys resets the VAPID keys
+func (s *Service) handleResetVAPIDKeys(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Only allow from localhost or with admin authentication
+	if !isLocalhost(r) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	publicKey, privateKey, err := s.ResetVAPIDKeys()
+	if err != nil {
+		log.Printf("Error resetting VAPID keys: %v", err)
+		http.Error(w, "Failed to reset VAPID keys", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "success",
+		"publicKey": publicKey,
+		"privateKey": privateKey[:10] + "..." + privateKey[len(privateKey)-10:], // Only show part of private key
+	})
+}
+
+// isLocalhost checks if the request is from localhost
+func isLocalhost(r *http.Request) bool {
+	host := r.Host
+	return host == "localhost" || host == "127.0.0.1" || strings.HasPrefix(host, "localhost:") || strings.HasPrefix(host, "127.0.0.1:")
 } 
