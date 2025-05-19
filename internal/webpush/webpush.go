@@ -194,4 +194,34 @@ func (s *Service) SendToAll(message string) error {
 	}
 	
 	return lastErr
+}
+
+// ListVAPIDKeys returns all VAPID keys in the database (for debugging)
+func (s *Service) ListVAPIDKeys() error {
+	log.Printf("Listing all VAPID keys in database...")
+	
+	rows, err := s.db.Query("SELECT public_key, private_key FROM vapid_keys")
+	if err != nil {
+		return fmt.Errorf("error querying VAPID keys: %v", err)
+	}
+	defer rows.Close()
+	
+	var count int
+	for rows.Next() {
+		var publicKey, privateKey string
+		if err := rows.Scan(&publicKey, &privateKey); err != nil {
+			return fmt.Errorf("error scanning VAPID key row: %v", err)
+		}
+		count++
+		log.Printf("VAPID Key #%d:", count)
+		log.Printf("  Public Key:  %s", publicKey)
+		log.Printf("  Private Key: %s", privateKey[:10] + "..." + privateKey[len(privateKey)-10:]) // Only show part of private key for security
+	}
+	
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("error iterating VAPID key rows: %v", err)
+	}
+	
+	log.Printf("Found %d VAPID key(s) in database", count)
+	return nil
 } 

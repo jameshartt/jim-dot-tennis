@@ -28,7 +28,12 @@ func main() {
 	// Initialize web push service
 	pushService := webpush.New(db)
 	
-	// Generate VAPID keys on startup
+	// List existing VAPID keys
+	if err := pushService.ListVAPIDKeys(); err != nil {
+		log.Printf("Warning: Failed to list VAPID keys: %v", err)
+	}
+	
+	// Generate VAPID keys on startup if none exist
 	publicKey, _, err := pushService.GenerateVAPIDKeys()
 	if err != nil {
 		log.Printf("Warning: Failed to generate VAPID keys: %v", err)
