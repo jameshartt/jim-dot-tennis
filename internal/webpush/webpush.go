@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -79,6 +80,8 @@ func (s *Service) GenerateVAPIDKeys() (publicKey, privateKey string, err error) 
 
 // GetVAPIDKeys returns the stored VAPID keys
 func (s *Service) GetVAPIDKeys() (publicKey, privateKey string, err error) {
+	log.Printf("Attempting to retrieve VAPID keys from database...")
+	
 	var keys struct {
 		PublicKey  string `db:"public_key"`
 		PrivateKey string `db:"private_key"`
@@ -87,10 +90,16 @@ func (s *Service) GetVAPIDKeys() (publicKey, privateKey string, err error) {
 	err = s.db.QueryRow("SELECT public_key, private_key FROM vapid_keys LIMIT 1").Scan(&keys.PublicKey, &keys.PrivateKey)
 	if err != nil {
 		if err == sql.ErrNoRows {
+			log.Printf("No VAPID keys found in database")
 			return "", "", errors.New("no VAPID keys found")
 		}
+		log.Printf("Database error retrieving VAPID keys: %v", err)
 		return "", "", err
 	}
+	
+	log.Printf("Successfully retrieved VAPID keys from database")
+	log.Printf("Public key length: %d", len(keys.PublicKey))
+	log.Printf("Private key length: %d", len(keys.PrivateKey))
 	
 	return keys.PublicKey, keys.PrivateKey, nil
 }

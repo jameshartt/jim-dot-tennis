@@ -54,23 +54,47 @@ async function subscribeToPushNotifications() {
     
     // Subscribe to push notifications
     console.log('Attempting to subscribe to push notifications...');
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: applicationServerKey
-    });
-    console.log('Push subscription result:', subscription);
-
-    // Send the subscription to the server
-    await fetch('/api/push/subscribe', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(subscription)
-    });
-
-    console.log('Subscribed to push notifications');
-    return true;
+    try {
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: applicationServerKey
+      });
+      console.log('Push subscription result:', subscription);
+      
+      // Send the subscription to the server
+      console.log('Sending subscription to server...');
+      const serverResponse = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(subscription)
+      });
+      
+      if (!serverResponse.ok) {
+        const errorText = await serverResponse.text();
+        throw new Error(`Server responded with ${serverResponse.status}: ${errorText}`);
+      }
+      
+      console.log('Successfully subscribed to push notifications');
+      return true;
+    } catch (error) {
+      console.error('Error subscribing to push notifications:', error);
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      
+      // Additional error details for push service errors
+      if (error.name === 'AbortError') {
+        console.error('Push service error details:');
+        console.error('- Service worker scope:', registration.scope);
+        console.error('- Service worker state:', registration.active ? registration.active.state : 'no active worker');
+        console.error('- Application server key length:', applicationServerKey.length);
+        console.error('- Application server key first few bytes:', Array.from(applicationServerKey.slice(0, 5)));
+      }
+      
+      return false;
+    }
   } catch (error) {
     console.error('Error subscribing to push notifications:', error);
     return false;
