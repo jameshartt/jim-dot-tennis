@@ -486,10 +486,7 @@ type customTransport struct {
 }
 
 func (t *customTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	// Add custom headers
-	for key, value := range t.headers {
-		req.Header.Set(key, value)
-	}
+	// Note: We're not adding headers here anymore as they're added directly to the request
 	return t.base.RoundTrip(req)
 }
 
@@ -501,10 +498,24 @@ func sendNotificationWithClient(payload []byte, sub Subscription, options *webpu
 		return nil, err
 	}
 
+	// Get the transport from the client
+	transport, ok := client.Transport.(*customTransport)
+	if !ok {
+		return nil, fmt.Errorf("client transport is not customTransport")
+	}
+
 	// Add required headers
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("TTL", fmt.Sprintf("%d", options.TTL))
 	req.Header.Set("Urgency", "high")
+
+	// For Safari, we need to add the headers directly to the request
+	// This ensures they're set before the transport modifies them
+	if sub.Platform == "safari" {
+		for key, value := range transport.headers {
+			req.Header.Set(key, value)
+		}
+	}
 
 	// Log the full request details
 	log.Printf("Sending notification request:")
