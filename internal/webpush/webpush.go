@@ -370,7 +370,6 @@ func newCustomTransport(headers map[string]string) *customTransport {
 	} else {
 		// Configure HTTP/2 specific settings
 		http2Transport.MaxReadFrameSize = 16384
-		http2Transport.MaxConcurrentStreams = 100
 	}
 
 	return &customTransport{
@@ -479,16 +478,141 @@ func (s *Service) SendNotification(sub Subscription, message string) error {
 	// Create different payloads based on platform
 	var payload []byte
 	if sub.Platform == "safari" {
-	
-	var lastErr error
-	for _, sub := range subs {
-		err := s.SendNotification(sub, message)
+		// Create Safari-specific payload
+		safariPayload := SafariNotificationPayload{
+			Title: "Jim.Tennis",
+			Body:  message,
+			Icon:  "/static/icon-192.svg",
+			Badge: "/static/icon-192.svg",
+			Data: map[string]interface{}{
+				"dateOfArrival": time.Now().Unix(),
+				"url":          "https://jim.tennis",
+			},
+			Actions: []map[string]string{
+				{
+					"action": "open",
+					"title":  "Open",
+				},
+				{
+					"action": "close",
+					"title":  "Close",
+				},
+			},
+			Tag:      "default",
+			Renotify: true,
+		}
+		payload, err = json.Marshal(safariPayload)
+	} else {
+		// Standard payload for other platforms
+		payload, err = json.Marshal(map[string]string{
+			"message":  message,
+			"platform": sub.Platform,
+		})
+	}
+	if err != nil {
+		return err
+	}
+
+	// Log notification attempt
+	log.Printf("Sending notification to %s platform subscription", sub.Platform)
+	log.Printf("Endpoint: %s", sub.Endpoint)
+
+	// Create webpush options
+	options := &webpush.Options{
+		VAPIDPublicKey:  vapidPublic,
+		VAPIDPrivateKey: vapidPrivate,
+		TTL:             30,
+		Subscriber:      "mailto:admin@jim.tennis",
+	}
+
+	// For Safari, we need to create a custom HTTP client with the required headers
+	var client *http.Client
+	if sub.Platform == "safari" {
+		headers, err := getSafariAuthHeaders(vapidPublic, vapidPrivate)
 		if err != nil {
-			lastErr = err
+			log.Printf("Error generating Safari auth headers: %v", err)
+			return err
+		}
+		log.Printf("Using Safari auth headers: %v", headers)
+
+		// Create a custom transport with proper TLS configuration
+		transport := newCustomTransport(headers)
+		client = &http.Client{
+			Transport: transport,
+			Timeout:   30 * time.Second,
 		}
 	}
-	
-	return lastErr
+
+	// Send the notification
+	var resp *http.Response
+	if sub.Platform == "safari" && client != nil {
+		// Use custom client for Safari
+		resp, err = sendNotificationWithClient(payload, sub, options, client)
+	} else {
+		// Use default client for other platforms
+		resp, err = webpush.SendNotification(
+			payload,
+			&webpush.Subscription{
+				Endpoint: sub.Endpoint,
+				Keys: webpush.Keys{
+					P256dh: sub.P256dh,
+					Auth:   sub.Auth,
+				},
+			},
+			options,
+		)
+	}
+
+	if err != nil {
+		log.Printf("Error sending notification to %s: %v", sub.Platform, err)
+		// Check for Safari-specific errors
+		if sub.Platform == "safari" {
+			if strings.Contains(err.Error(), "403") {
+				log.Printf("Safari push notification rejected (403). This might be due to:")
+				log.Printf("- Invalid VAPID keys for Safari")
+				log.Printf("- Subscription expired")
+				log.Printf("- Missing or invalid Safari push certificate")
+				log.Printf("- Invalid JWT token")
+				log.Printf("Full error details: %+v", err)
+			}
+		}
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Read and log the response body for debugging
+	body, _ := io.ReadAll(resp.Body)
+	log.Printf("Response body: %s", string(body))
+
+	if resp.StatusCode >= 400 {
+		log.Printf("Failed to send notification to %s, status: %d", sub.Platform, resp.StatusCode)
+		// Handle Safari-specific status codes
+		if sub.Platform == "safari" {
+			switch resp.StatusCode {
+			case http.StatusForbidden:
+				log.Printf("Safari push notification forbidden (403). This might be due to:")
+				log.Printf("- Invalid VAPID keys for Safari")
+				log.Printf("- Subscription expired")
+				log.Printf("- Missing or invalid Safari push certificate")
+				log.Printf("- Invalid JWT token")
+				log.Printf("Response body: %s", string(body))
+			case http.StatusUnauthorized:
+				log.Printf("Safari push notification unauthorized (401). This might be due to:")
+				log.Printf("- Invalid authentication")
+				log.Printf("- Expired VAPID keys")
+				log.Printf("- Invalid JWT token")
+				log.Printf("Response body: %s", string(body))
+			}
+		}
+		// If the subscription is invalid (404) or expired (410), remove it
+		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
+			s.DeleteSubscription(sub.Endpoint)
+		}
+		return fmt.Errorf("failed to send notification, status: %d, body: %s", resp.StatusCode, string(body))
+	}
+
+	log.Printf("Successfully sent notification to %s platform", sub.Platform)
+	return nil
 }
 
 // ListVAPIDKeys returns all VAPID keys in the database (for debugging)

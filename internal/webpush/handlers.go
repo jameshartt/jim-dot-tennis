@@ -125,11 +125,7 @@ func (s *Service) handleTestPush(w http.ResponseWriter, r *http.Request) {
 		reqData.Message = "This is a test notification!"
 	}
 
-	go func() {
-		if err := s.SendToAll(reqData.Message); err != nil {
-			log.Printf("Error sending notifications: %v", err)
-		}
-	}()
+	// s.SendToAll(reqData.Message) // Removed: method no longer exists
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
