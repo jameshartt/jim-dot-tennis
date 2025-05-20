@@ -35,6 +35,18 @@ type SubscriptionRequest struct {
 	} `json:"keys"`
 }
 
+// SafariNotificationPayload represents the payload format required by Safari
+type SafariNotificationPayload struct {
+	Title    string `json:"title"`
+	Body     string `json:"body"`
+	Icon     string `json:"icon"`
+	Badge    string `json:"badge"`
+	Data     map[string]interface{} `json:"data,omitempty"`
+	Actions  []map[string]string    `json:"actions,omitempty"`
+	Tag      string                 `json:"tag,omitempty"`
+	Renotify bool                   `json:"renotify,omitempty"`
+}
+
 // Service manages web push operations
 type Service struct {
 	db *database.DB
@@ -211,20 +223,67 @@ func (s *Service) SendNotification(sub Subscription, message string) error {
 	if err != nil {
 		return err
 	}
-	
-	// Create the message payload
-	payload, err := json.Marshal(map[string]string{
-		"message": message,
-		"platform": sub.Platform, // Include platform in payload for debugging
-	})
+
+	// Create different payloads based on platform
+	var payload []byte
+	if sub.Platform == "safari" {
+		// Create Safari-specific payload
+		safariPayload := SafariNotificationPayload{
+			Title: "Jim.Tennis",
+			Body:  message,
+			Icon:  "/static/icon-192.svg",
+			Badge: "/static/icon-192.svg",
+			Data: map[string]interface{}{
+				"dateOfArrival": time.Now().Unix(),
+				"url":          "https://jim.tennis",
+			},
+			Actions: []map[string]string{
+				{
+					"action": "open",
+					"title":  "Open",
+				},
+				{
+					"action": "close",
+					"title":  "Close",
+				},
+			},
+			Tag:      "default",
+			Renotify: true,
+		}
+		payload, err = json.Marshal(safariPayload)
+	} else {
+		// Standard payload for other platforms
+		payload, err = json.Marshal(map[string]string{
+			"message":  message,
+			"platform": sub.Platform,
+		})
+	}
 	if err != nil {
 		return err
 	}
-	
+
 	// Log notification attempt
 	log.Printf("Sending notification to %s platform subscription", sub.Platform)
 	log.Printf("Endpoint: %s", sub.Endpoint)
-	
+
+	// Create webpush options with platform-specific settings
+	options := &webpush.Options{
+		VAPIDPublicKey:  vapidPublic,
+		VAPIDPrivateKey: vapidPrivate,
+		TTL:             30,
+		Subscriber:      "mailto:admin@jim.tennis",
+	}
+
+	// Add Safari-specific headers if needed
+	if sub.Platform == "safari" {
+		// Safari requires specific headers for authentication
+		options.Headers = map[string]string{
+			"apns-push-type": "web",
+			"apns-expiration": "0", // Immediate delivery
+			"apns-priority": "10",  // High priority
+		}
+	}
+
 	// Send the notification
 	resp, err := webpush.SendNotification(
 		payload,
@@ -235,29 +294,47 @@ func (s *Service) SendNotification(sub Subscription, message string) error {
 				Auth:   sub.Auth,
 			},
 		},
-		&webpush.Options{
-			VAPIDPublicKey:  vapidPublic,
-			VAPIDPrivateKey: vapidPrivate,
-			TTL:             30,
-			Subscriber:      "mailto:admin@jim.tennis",
-		},
+		options,
 	)
-	
+
 	if err != nil {
 		log.Printf("Error sending notification to %s: %v", sub.Platform, err)
+		// Check for Safari-specific errors
+		if sub.Platform == "safari" {
+			if strings.Contains(err.Error(), "403") {
+				log.Printf("Safari push notification rejected (403). This might be due to:")
+				log.Printf("- Invalid VAPID keys for Safari")
+				log.Printf("- Subscription expired")
+				log.Printf("- Missing or invalid Safari push certificate")
+			}
+		}
 		return err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode >= 400 {
 		log.Printf("Failed to send notification to %s, status: %d", sub.Platform, resp.StatusCode)
+		// Handle Safari-specific status codes
+		if sub.Platform == "safari" {
+			switch resp.StatusCode {
+			case http.StatusForbidden:
+				log.Printf("Safari push notification forbidden (403). This might be due to:")
+				log.Printf("- Invalid VAPID keys for Safari")
+				log.Printf("- Subscription expired")
+				log.Printf("- Missing or invalid Safari push certificate")
+			case http.StatusUnauthorized:
+				log.Printf("Safari push notification unauthorized (401). This might be due to:")
+				log.Printf("- Invalid authentication")
+				log.Printf("- Expired VAPID keys")
+			}
+		}
 		// If the subscription is invalid (404) or expired (410), remove it
 		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
 			s.DeleteSubscription(sub.Endpoint)
 		}
 		return fmt.Errorf("failed to send notification, status: %d", resp.StatusCode)
 	}
-	
+
 	log.Printf("Successfully sent notification to %s platform", sub.Platform)
 	return nil
 }

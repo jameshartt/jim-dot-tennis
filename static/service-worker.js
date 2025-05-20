@@ -61,17 +61,22 @@ self.addEventListener('push', function(event) {
     };
   }
 
-  const title = 'Jim.Tennis';
+  // Check if this is a Safari-style payload
+  const isSafariPayload = payload.title !== undefined && payload.body !== undefined;
+  
+  const title = isSafariPayload ? payload.title : 'Jim.Tennis';
   const options = {
-    body: payload.message || 'New notification',
-    icon: '/static/icon-192.svg',
-    badge: '/static/icon-192.svg',
-    data: {
+    body: isSafariPayload ? payload.body : (payload.message || 'New notification'),
+    icon: payload.icon || '/static/icon-192.svg',
+    badge: payload.badge || '/static/icon-192.svg',
+    data: payload.data || {
       dateOfArrival: Date.now(),
       url: self.location.origin
     },
     requireInteraction: true,
-    actions: [
+    tag: payload.tag || 'default',
+    renotify: payload.renotify !== undefined ? payload.renotify : true,
+    actions: payload.actions || [
       {
         action: 'open',
         title: 'Open'
