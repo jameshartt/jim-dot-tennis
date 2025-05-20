@@ -22,6 +22,7 @@ type Subscription struct {
 	Endpoint  string    `db:"endpoint" json:"endpoint"`
 	P256dh    string    `db:"p256dh" json:"p256dh"`
 	Auth      string    `db:"auth" json:"auth"`
+	Platform  string    `db:"platform" json:"platform,omitempty"`
 	UserAgent string    `db:"user_agent" json:"userAgent,omitempty"`
 	CreatedAt time.Time `db:"created_at" json:"createdAt,omitempty"`
 }
@@ -155,8 +156,8 @@ func (s *Service) GetVAPIDKeys() (publicKey, privateKey string, err error) {
 // SaveSubscription saves a push subscription to the database
 func (s *Service) SaveSubscription(sub *Subscription) error {
 	_, err := s.db.Exec(
-		"INSERT INTO push_subscriptions (endpoint, p256dh, auth, user_agent) VALUES ($1, $2, $3, $4)",
-		sub.Endpoint, sub.P256dh, sub.Auth, sub.UserAgent,
+		"INSERT INTO push_subscriptions (endpoint, p256dh, auth, platform, user_agent) VALUES ($1, $2, $3, $4, $5)",
+		sub.Endpoint, sub.P256dh, sub.Auth, sub.Platform, sub.UserAgent,
 	)
 	return err
 }
