@@ -9,7 +9,6 @@ import (
 	"io"
 	"log"
 	"math/big"
-	"math/rand"
 	"net/http"
 	"strings"
 	"time"
@@ -18,6 +17,7 @@ import (
 	"jim-dot-tennis/internal/database"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	cryptorand "crypto/rand"
 	"crypto/sha256"
 )
 
@@ -321,7 +321,7 @@ func signJWT(input, privateKey string) (string, error) {
 	// Sign the input
 	h := sha256.New()
 	h.Write([]byte(input))
-	signature, err := ecdsa.SignASN1(rand.Reader, privKey, h.Sum(nil))
+	signature, err := ecdsa.SignASN1(cryptorand.Reader, privKey, h.Sum(nil))
 	if err != nil {
 		return "", fmt.Errorf("failed to sign JWT: %v", err)
 	}
