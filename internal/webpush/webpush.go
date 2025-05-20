@@ -241,18 +241,44 @@ func (s *Service) SendNotification(sub Subscription, message string) error {
 
 // SendToAll sends a push notification to all subscriptions
 func (s *Service) SendToAll(message string) error {
+	log.Printf("Starting SendToAll with message: %s", message)
+	startTime := time.Now()
+
 	subs, err := s.GetAllSubscriptions()
 	if err != nil {
-		return err
+		log.Printf("Error retrieving subscriptions: %v", err)
+		return fmt.Errorf("failed to get subscriptions: %v", err)
 	}
+	log.Printf("Retrieved %d subscriptions to process", len(subs))
+
+	var successCount, failureCount int
 	var lastErr error
-	for _, sub := range subs {
+	for i, sub := range subs {
+		log.Printf("Processing subscription %d/%d (endpoint: %s)", i+1, len(subs), sub.Endpoint)
+		sendStart := time.Now()
+		
 		if err := s.SendNotification(sub, message); err != nil {
-			log.Printf("Error sending notification (endpoint %s): %v", sub.Endpoint, err)
+			log.Printf("Failed to send to subscription %d/%d (endpoint: %s): %v", 
+				i+1, len(subs), sub.Endpoint, err)
+			failureCount++
 			lastErr = err
+		} else {
+			log.Printf("Successfully sent to subscription %d/%d (endpoint: %s) in %v", 
+				i+1, len(subs), sub.Endpoint, time.Since(sendStart))
+			successCount++
 		}
 	}
-	return lastErr
+
+	totalDuration := time.Since(startTime)
+	log.Printf("SendToAll completed in %v", totalDuration)
+	log.Printf("Results: %d successful, %d failed out of %d total subscriptions", 
+		successCount, failureCount, len(subs))
+
+	if failureCount > 0 {
+		return fmt.Errorf("some notifications failed (%d/%d): last error: %v", 
+			failureCount, len(subs), lastErr)
+	}
+	return nil
 }
 
 // ListVAPIDKeys returns all VAPID keys in the database (for debugging)

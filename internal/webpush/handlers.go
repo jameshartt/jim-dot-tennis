@@ -123,14 +123,38 @@ func (s *Service) handleTestPush(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
 		reqData.Message = "This is a test notification!"
+		log.Printf("No message provided in request, using default: %s", reqData.Message)
+	} else {
+		log.Printf("Received test push request with message: %s", reqData.Message)
 	}
 
-	s.SendToAll(reqData.Message) 
+	log.Printf("Starting test push notification broadcast...")
+	startTime := time.Now()
+
+	// Get subscription count before sending
+	subs, err := s.GetAllSubscriptions()
+	if err != nil {
+		log.Printf("Error getting subscriptions: %v", err)
+		http.Error(w, "Failed to get subscriptions", http.StatusInternalServerError)
+		return
+	}
+	log.Printf("Found %d active subscriptions to notify", len(subs))
+
+	// Send notifications in a goroutine
+	go func() {
+		if err := s.SendToAll(reqData.Message); err != nil {
+			log.Printf("Error during test push broadcast: %v", err)
+		}
+		duration := time.Since(startTime)
+		log.Printf("Test push broadcast completed in %v", duration)
+	}()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "success",
 		"message": "Notifications are being sent",
+		"subscriptionCount": len(subs),
+		"startTime": startTime.Format(time.RFC3339),
 	})
 }
 
