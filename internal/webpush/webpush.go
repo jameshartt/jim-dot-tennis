@@ -19,6 +19,7 @@ import (
 	"crypto/elliptic"
 	cryptorand "crypto/rand"
 	"crypto/sha256"
+	"bytes"
 )
 
 // Subscription represents a web push subscription
@@ -505,8 +506,57 @@ func sendNotificationWithClient(payload []byte, sub Subscription, options *webpu
 	req.Header.Set("TTL", fmt.Sprintf("%d", options.TTL))
 	req.Header.Set("Urgency", "high")
 
+	// Log the full request details
+	log.Printf("Sending notification request:")
+	log.Printf("  Method: %s", req.Method)
+	log.Printf("  URL: %s", req.URL.String())
+	log.Printf("  Headers:")
+	for key, values := range req.Header {
+		for _, value := range values {
+			// Mask sensitive headers
+			if strings.EqualFold(key, "Authorization") {
+				log.Printf("    %s: %s", key, "Bearer [MASKED]")
+			} else {
+				log.Printf("    %s: %s", key, value)
+			}
+		}
+	}
+	log.Printf("  Payload: %s", string(payload))
+	log.Printf("  Subscription details:")
+	log.Printf("    Endpoint: %s", sub.Endpoint)
+	log.Printf("    Platform: %s", sub.Platform)
+	log.Printf("    P256dh: %s", sub.P256dh)
+	log.Printf("    Auth: %s", sub.Auth)
+
 	// Send the request
-	return client.Do(req)
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Request failed: %v", err)
+		return nil, err
+	}
+
+	// Log response details
+	log.Printf("Response received:")
+	log.Printf("  Status: %s", resp.Status)
+	log.Printf("  Status Code: %d", resp.StatusCode)
+	log.Printf("  Response Headers:")
+	for key, values := range resp.Header {
+		for _, value := range values {
+			log.Printf("    %s: %s", key, value)
+		}
+	}
+
+	// Read and log response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("Error reading response body: %v", err)
+	} else {
+		log.Printf("Response Body: %s", string(body))
+		// Create a new reader with the body for the response
+		resp.Body = io.NopCloser(bytes.NewReader(body))
+	}
+
+	return resp, nil
 }
 
 // SendToAll sends a push notification to all subscriptions
