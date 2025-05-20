@@ -6,13 +6,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/SherClockHolmes/webpush-go"
 	"jim-dot-tennis/internal/database"
+	"crypto/ecdsa"
+	"crypto/sha256"
 )
 
 // Subscription represents a web push subscription
@@ -217,6 +221,85 @@ func (s *Service) GetAllSubscriptions() ([]Subscription, error) {
 	return subs, err
 }
 
+// SafariAuthHeaders returns the required headers for Safari push notifications
+func getSafariAuthHeaders(vapidPublic, vapidPrivate string) (map[string]string, error) {
+	// Safari requires a specific JWT token format for authentication
+	// We'll use the VAPID keys to create this token
+	now := time.Now().Unix()
+	exp := now + 12*3600 // 12 hours expiration
+
+	// Create the JWT header
+	header := map[string]string{
+		"typ": "JWT",
+		"alg": "ES256",
+	}
+	headerBytes, err := json.Marshal(header)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JWT header: %v", err)
+	}
+
+	// Create the JWT claims
+	claims := map[string]interface{}{
+		"iss": "https://jim.tennis",
+		"sub": "mailto:admin@jim.tennis",
+		"aud": "https://web.push.apple.com",
+		"iat": now,
+		"exp": exp,
+	}
+	claimsBytes, err := json.Marshal(claims)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JWT claims: %v", err)
+	}
+
+	// Encode header and claims
+	headerB64 := base64.RawURLEncoding.EncodeToString(headerBytes)
+	claimsB64 := base64.RawURLEncoding.EncodeToString(claimsBytes)
+	signingInput := headerB64 + "." + claimsB64
+
+	// Sign the JWT using the VAPID private key
+	// Note: This is a simplified version. In production, use a proper JWT library
+	signature, err := signJWT(signingInput, vapidPrivate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign JWT: %v", err)
+	}
+
+	// Combine to form the JWT
+	jwt := signingInput + "." + signature
+
+	return map[string]string{
+		"Authorization": "Bearer " + jwt,
+		"apns-push-type": "web",
+		"apns-expiration": "0",
+		"apns-priority": "10",
+		"apns-topic": "web.jim.tennis", // Your website's push identifier
+	}, nil
+}
+
+// signJWT signs the JWT using the VAPID private key
+func signJWT(input, privateKey string) (string, error) {
+	// Decode the private key
+	keyBytes, err := base64.RawURLEncoding.DecodeString(privateKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode private key: %v", err)
+	}
+
+	// Create a new ECDSA private key
+	privKey, err := webpush.DecodePrivateKey(keyBytes)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode private key: %v", err)
+	}
+
+	// Sign the input
+	h := sha256.New()
+	h.Write([]byte(input))
+	signature, err := ecdsa.SignASN1(rand.Reader, privKey, h.Sum(nil))
+	if err != nil {
+		return "", fmt.Errorf("failed to sign JWT: %v", err)
+	}
+
+	return base64.RawURLEncoding.EncodeToString(signature), nil
+}
+
 // SendNotification sends a push notification to a subscription
 func (s *Service) SendNotification(sub Subscription, message string) error {
 	vapidPublic, vapidPrivate, err := s.GetVAPIDKeys()
@@ -276,12 +359,13 @@ func (s *Service) SendNotification(sub Subscription, message string) error {
 
 	// Add Safari-specific headers if needed
 	if sub.Platform == "safari" {
-		// Safari requires specific headers for authentication
-		options.Headers = map[string]string{
-			"apns-push-type": "web",
-			"apns-expiration": "0", // Immediate delivery
-			"apns-priority": "10",  // High priority
+		headers, err := getSafariAuthHeaders(vapidPublic, vapidPrivate)
+		if err != nil {
+			log.Printf("Error generating Safari auth headers: %v", err)
+			return err
 		}
+		options.Headers = headers
+		log.Printf("Using Safari auth headers: %v", headers)
 	}
 
 	// Send the notification
@@ -306,11 +390,18 @@ func (s *Service) SendNotification(sub Subscription, message string) error {
 				log.Printf("- Invalid VAPID keys for Safari")
 				log.Printf("- Subscription expired")
 				log.Printf("- Missing or invalid Safari push certificate")
+				log.Printf("- Invalid JWT token")
+				// Log the full error details
+				log.Printf("Full error details: %+v", err)
 			}
 		}
 		return err
 	}
 	defer resp.Body.Close()
+
+	// Read and log the response body for debugging
+	body, _ := io.ReadAll(resp.Body)
+	log.Printf("Response body: %s", string(body))
 
 	if resp.StatusCode >= 400 {
 		log.Printf("Failed to send notification to %s, status: %d", sub.Platform, resp.StatusCode)
@@ -322,17 +413,21 @@ func (s *Service) SendNotification(sub Subscription, message string) error {
 				log.Printf("- Invalid VAPID keys for Safari")
 				log.Printf("- Subscription expired")
 				log.Printf("- Missing or invalid Safari push certificate")
+				log.Printf("- Invalid JWT token")
+				log.Printf("Response body: %s", string(body))
 			case http.StatusUnauthorized:
 				log.Printf("Safari push notification unauthorized (401). This might be due to:")
 				log.Printf("- Invalid authentication")
 				log.Printf("- Expired VAPID keys")
+				log.Printf("- Invalid JWT token")
+				log.Printf("Response body: %s", string(body))
 			}
 		}
 		// If the subscription is invalid (404) or expired (410), remove it
 		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
 			s.DeleteSubscription(sub.Endpoint)
 		}
-		return fmt.Errorf("failed to send notification, status: %d", resp.StatusCode)
+		return fmt.Errorf("failed to send notification, status: %d, body: %s", resp.StatusCode, string(body))
 	}
 
 	log.Printf("Successfully sent notification to %s platform", sub.Platform)
