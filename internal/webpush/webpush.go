@@ -280,55 +280,51 @@ func getSafariAuthHeaders(vapidPublic, vapidPrivate string) (map[string]string, 
 	}, nil
 }
 
-// decodePrivateKey decodes a base64 URL-safe private key into an ECDSA private key
-func decodePrivateKey(keyBytes []byte) (*ecdsa.PrivateKey, error) {
-	// The key should be 32 bytes for P-256
-	if len(keyBytes) != 32 {
-		return nil, fmt.Errorf("invalid private key length: %d", len(keyBytes))
-	}
-
-	// Create a new P-256 curve
-	curve := elliptic.P256()
-
-	// Convert the key bytes to a big integer
-	d := new(big.Int).SetBytes(keyBytes)
-
-	// Create the private key
-	priv := &ecdsa.PrivateKey{
-		PublicKey: ecdsa.PublicKey{
-			Curve: curve,
-		},
-		D: d,
-	}
-
-	// Compute the public key
-	priv.PublicKey.X, priv.PublicKey.Y = curve.ScalarBaseMult(d.Bytes())
-
-	return priv, nil
-}
-
-// signJWT signs the JWT using the VAPID private key
+// signJWT signs a JWT using ES256 (ECDSA with SHA-256) according to RFC 7518
 func signJWT(input, privateKey string) (string, error) {
-	// Decode the private key
+	// Decode the private key from base64url
 	keyBytes, err := base64.RawURLEncoding.DecodeString(privateKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode private key: %v", err)
 	}
 
-	// Create a new ECDSA private key
-	privKey, err := decodePrivateKey(keyBytes)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode private key: %v", err)
+	// Create ECDSA private key
+	curve := elliptic.P256()
+	d := new(big.Int).SetBytes(keyBytes)
+	if d.Cmp(curve.Params().N) >= 0 {
+		return "", fmt.Errorf("private key is too large")
 	}
 
-	// Sign the input
+	privKey := &ecdsa.PrivateKey{
+		PublicKey: ecdsa.PublicKey{
+			Curve: curve,
+		},
+		D: d,
+	}
+	privKey.PublicKey.X, privKey.PublicKey.Y = curve.ScalarBaseMult(d.Bytes())
+
+	// Hash the signing input using SHA-256
 	h := sha256.New()
 	h.Write([]byte(input))
-	signature, err := ecdsa.SignASN1(cryptorand.Reader, privKey, h.Sum(nil))
+	digest := h.Sum(nil)
+
+	// Sign the digest using ECDSA
+	r, s, err := ecdsa.Sign(cryptorand.Reader, privKey, digest)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign JWT: %v", err)
 	}
 
+	// Convert r and s to fixed-length byte slices
+	// P-256 curve requires 32 bytes for each component
+	rBytes := r.Bytes()
+	sBytes := s.Bytes()
+	signature := make([]byte, 64)
+	
+	// Pad r and s with leading zeros if necessary
+	copy(signature[32-len(rBytes):], rBytes)
+	copy(signature[64-len(sBytes):], sBytes)
+
+	// Encode the signature in base64url format
 	return base64.RawURLEncoding.EncodeToString(signature), nil
 }
 
