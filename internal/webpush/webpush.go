@@ -657,4 +657,20 @@ func (s *Service) ResetVAPIDKeys() (publicKey, privateKey string, err error) {
 	
 	// Generate new keys
 	return s.GenerateVAPIDKeys()
+}
+
+// SendToAll sends a push notification to all subscriptions.
+func (s *Service) SendToAll(message string) (err error) {
+	subs, err := s.GetAllSubscriptions()
+	if err != nil {
+		return err
+	}
+	var lastErr error
+	for _, sub := range subs {
+		if err := s.SendNotification(sub, message); err != nil {
+			log.Printf("Error sending notification (endpoint %s): %v", sub.Endpoint, err)
+			lastErr = err
+		}
+	}
+	return lastErr
 } 
