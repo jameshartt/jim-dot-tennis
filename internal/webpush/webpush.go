@@ -8,20 +8,12 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/big"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/SherClockHolmes/webpush-go"
 	"jim-dot-tennis/internal/database"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	cryptorand "crypto/rand"
-	"crypto/sha256"
-	"bytes"
-	"crypto/tls"
-	"golang.org/x/net/http2"
 )
 
 // Subscription represents a web push subscription
@@ -32,7 +24,6 @@ type Subscription struct {
 	Auth      string    `db:"auth" json:"auth"`
 	UserAgent string    `db:"user_agent" json:"userAgent,omitempty"`
 	CreatedAt time.Time `db:"created_at" json:"createdAt,omitempty"`
-	Platform  string    `db:"platform" json:"platform,omitempty"` // "web", "safari", or "chrome"
 }
 
 // SubscriptionRequest represents the incoming subscription data from the browser
@@ -42,18 +33,6 @@ type SubscriptionRequest struct {
 		P256dh string `json:"p256dh"`
 		Auth   string `json:"auth"`
 	} `json:"keys"`
-}
-
-// SafariNotificationPayload represents the payload format required by Safari
-type SafariNotificationPayload struct {
-	Title    string `json:"title"`
-	Body     string `json:"body"`
-	Icon     string `json:"icon"`
-	Badge    string `json:"badge"`
-	Data     map[string]interface{} `json:"data,omitempty"`
-	Actions  []map[string]string    `json:"actions,omitempty"`
-	Tag      string                 `json:"tag,omitempty"`
-	Renotify bool                   `json:"renotify,omitempty"`
 }
 
 // Service manages web push operations
@@ -170,42 +149,14 @@ func (s *Service) GetVAPIDKeys() (publicKey, privateKey string, err error) {
 	}
 	
 	log.Printf("Successfully retrieved VAPID keys from database")
-	log.Printf("Public key length: %d", len(keys.PublicKey))
-	log.Printf("Private key length: %d", len(keys.PrivateKey))
-	
 	return keys.PublicKey, keys.PrivateKey, nil
-}
-
-// isSafariSubscription checks if a subscription is from Safari
-func isSafariSubscription(userAgent string) bool {
-	return strings.Contains(strings.ToLower(userAgent), "safari") && 
-	       !strings.Contains(strings.ToLower(userAgent), "chrome")
-}
-
-// getPlatform determines the platform from the user agent
-func getPlatform(userAgent string) string {
-	ua := strings.ToLower(userAgent)
-	if strings.Contains(ua, "chrome") {
-		return "chrome"
-	} else if strings.Contains(ua, "safari") {
-		return "safari"
-	}
-	return "web"
 }
 
 // SaveSubscription saves a push subscription to the database
 func (s *Service) SaveSubscription(sub *Subscription) error {
-	// Determine platform
-	sub.Platform = getPlatform(sub.UserAgent)
-	
-	// Log subscription details for debugging
-	log.Printf("Saving subscription for platform: %s", sub.Platform)
-	log.Printf("User Agent: %s", sub.UserAgent)
-	log.Printf("Endpoint: %s", sub.Endpoint)
-	
 	_, err := s.db.Exec(
-		"INSERT INTO push_subscriptions (endpoint, p256dh, auth, user_agent, platform) VALUES ($1, $2, $3, $4, $5)",
-		sub.Endpoint, sub.P256dh, sub.Auth, sub.UserAgent, sub.Platform,
+		"INSERT INTO push_subscriptions (endpoint, p256dh, auth, user_agent) VALUES ($1, $2, $3, $4)",
+		sub.Endpoint, sub.P256dh, sub.Auth, sub.UserAgent,
 	)
 	return err
 }
@@ -226,244 +177,6 @@ func (s *Service) GetAllSubscriptions() ([]Subscription, error) {
 	return subs, err
 }
 
-// SafariAuthHeaders returns the required headers for Safari push notifications
-func getSafariAuthHeaders(vapidPublic, vapidPrivate string) (map[string]string, error) {
-	// Safari requires a specific JWT token format for authentication
-	// We'll use the VAPID keys to create this token
-	now := time.Now().Unix()
-	exp := now + 12*3600 // 12 hours expiration
-
-	// Create the JWT header
-	header := map[string]string{
-		"typ": "JWT",
-		"alg": "ES256",
-	}
-	headerBytes, err := json.Marshal(header)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal JWT header: %v", err)
-	}
-
-	// Create the JWT claims
-	claims := map[string]interface{}{
-		"iss": "https://jim.tennis",
-		"sub": "mailto:admin@jim.tennis",
-		"aud": "https://web.push.apple.com",
-		"iat": now,
-		"exp": exp,
-	}
-	claimsBytes, err := json.Marshal(claims)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal JWT claims: %v", err)
-	}
-
-	// Encode header and claims
-	headerB64 := base64.RawURLEncoding.EncodeToString(headerBytes)
-	claimsB64 := base64.RawURLEncoding.EncodeToString(claimsBytes)
-	signingInput := headerB64 + "." + claimsB64
-
-	// Sign the JWT using the VAPID private key
-	// Note: This is a simplified version. In production, use a proper JWT library
-	signature, err := signJWT(signingInput, vapidPrivate)
-	if err != nil {
-		return nil, fmt.Errorf("failed to sign JWT: %v", err)
-	}
-
-	// Combine to form the JWT
-	jwt := signingInput + "." + signature
-
-	return map[string]string{
-		"Authorization": "Bearer " + jwt,
-		"apns-push-type": "web",
-		"apns-expiration": "0",
-		"apns-priority": "10",
-		"apns-topic": "web.jim.tennis", // Your website's push identifier
-	}, nil
-}
-
-// signJWT signs a JWT using ES256 (ECDSA with SHA-256) according to RFC 7518
-func signJWT(input, privateKey string) (string, error) {
-	// Decode the private key from base64url
-	keyBytes, err := base64.RawURLEncoding.DecodeString(privateKey)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode private key: %v", err)
-	}
-
-	// Create ECDSA private key
-	curve := elliptic.P256()
-	d := new(big.Int).SetBytes(keyBytes)
-	if d.Cmp(curve.Params().N) >= 0 {
-		return "", fmt.Errorf("private key is too large")
-	}
-
-	privKey := &ecdsa.PrivateKey{
-		PublicKey: ecdsa.PublicKey{
-			Curve: curve,
-		},
-		D: d,
-	}
-	privKey.PublicKey.X, privKey.PublicKey.Y = curve.ScalarBaseMult(d.Bytes())
-
-	// Hash the signing input using SHA-256
-	h := sha256.New()
-	h.Write([]byte(input))
-	digest := h.Sum(nil)
-
-	// Sign the digest using ECDSA
-	r, s, err := ecdsa.Sign(cryptorand.Reader, privKey, digest)
-	if err != nil {
-		return "", fmt.Errorf("failed to sign JWT: %v", err)
-	}
-
-	// Convert r and s to fixed-length byte slices
-	// P-256 curve requires 32 bytes for each component
-	rBytes := r.Bytes()
-	sBytes := s.Bytes()
-	signature := make([]byte, 64)
-	
-	// Pad r and s with leading zeros if necessary
-	copy(signature[32-len(rBytes):], rBytes)
-	copy(signature[64-len(sBytes):], sBytes)
-
-	// Encode the signature in base64url format
-	return base64.RawURLEncoding.EncodeToString(signature), nil
-}
-
-// customTransport adds custom headers to requests and handles TLS configuration
-type customTransport struct {
-	base    http.RoundTripper
-	headers map[string]string
-}
-
-func newCustomTransport(headers map[string]string) *customTransport {
-	// Create a custom TLS config for APNs
-	tlsConfig := &tls.Config{
-		// Enable SNI
-		ServerName: "web.push.apple.com",
-		// Enable ALPN for HTTP/2
-		NextProtos: []string{"h2", "http/1.1"},
-		// Require TLS 1.2 or higher
-		MinVersion: tls.VersionTLS12,
-	}
-
-	// Create a transport with our custom TLS config
-	transport := &http.Transport{
-		TLSClientConfig: tlsConfig,
-		// Force HTTP/2
-		ForceAttemptHTTP2: true,
-		// Disable HTTP/1.1 keep-alive
-		DisableKeepAlives: true,
-		// Set reasonable timeouts
-		IdleConnTimeout:     30 * time.Second,
-		TLSHandshakeTimeout: 10 * time.Second,
-		ResponseHeaderTimeout: 10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-	}
-
-	// Create an HTTP/2 client
-	http2Transport, err := http2.ConfigureTransports(transport)
-	if err != nil {
-		log.Printf("Warning: Failed to configure HTTP/2 transport: %v", err)
-	} else {
-		// Configure HTTP/2 specific settings
-		http2Transport.MaxReadFrameSize = 16384
-	}
-
-	return &customTransport{
-		base:    transport,
-		headers: headers,
-	}
-}
-
-func (t *customTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	// Add custom headers
-	for key, value := range t.headers {
-		req.Header.Set(key, value)
-	}
-	return t.base.RoundTrip(req)
-}
-
-// sendNotificationWithClient sends a notification using a custom HTTP client
-func sendNotificationWithClient(payload []byte, sub Subscription, options *webpush.Options, client *http.Client) (*http.Response, error) {
-	// Create the request
-	req, err := http.NewRequest("POST", sub.Endpoint, strings.NewReader(string(payload)))
-	if err != nil {
-		return nil, err
-	}
-
-	// Get the transport from the client
-	transport, ok := client.Transport.(*customTransport)
-	if !ok {
-		return nil, fmt.Errorf("client transport is not customTransport")
-	}
-
-	// Add required headers
-	req.Header.Set("Content-Type", "application/octet-stream")
-	req.Header.Set("TTL", fmt.Sprintf("%d", options.TTL))
-	req.Header.Set("Urgency", "high")
-
-	// For Safari, we need to add the headers directly to the request
-	if sub.Platform == "safari" {
-		for key, value := range transport.headers {
-			req.Header.Set(key, value)
-		}
-	}
-
-	// Log the full request details including TLS info
-	log.Printf("Sending notification request:")
-	log.Printf("  Method: %s", req.Method)
-	log.Printf("  URL: %s", req.URL.String())
-	log.Printf("  Protocol: %s", req.Proto)
-	log.Printf("  TLS Version: %s", transport.base.(*http.Transport).TLSClientConfig.MinVersion)
-	log.Printf("  Headers:")
-	for key, values := range req.Header {
-		for _, value := range values {
-			// Mask sensitive headers
-			if strings.EqualFold(key, "Authorization") {
-				log.Printf("    %s: %s", key, "Bearer [MASKED]")
-			} else {
-				log.Printf("    %s: %s", key, value)
-			}
-		}
-	}
-	log.Printf("  Payload: %s", string(payload))
-	log.Printf("  Subscription details:")
-	log.Printf("    Endpoint: %s", sub.Endpoint)
-	log.Printf("    Platform: %s", sub.Platform)
-	log.Printf("    P256dh: %s", sub.P256dh)
-	log.Printf("    Auth: %s", sub.Auth)
-
-	// Send the request
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Printf("Request failed: %v", err)
-		return nil, err
-	}
-
-	// Log response details including protocol version
-	log.Printf("Response received:")
-	log.Printf("  Status: %s", resp.Status)
-	log.Printf("  Status Code: %d", resp.StatusCode)
-	log.Printf("  Protocol: %s", resp.Proto)
-	log.Printf("  Response Headers:")
-	for key, values := range resp.Header {
-		for _, value := range values {
-			log.Printf("    %s: %s", key, value)
-		}
-	}
-
-	// Read and log response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Printf("Error reading response body: %v", err)
-	} else {
-		log.Printf("Response Body: %s", string(body))
-		// Create a new reader with the body for the response
-		resp.Body = io.NopCloser(bytes.NewReader(body))
-	}
-
-	return resp, nil
-}
-
 // SendNotification sends a push notification to a subscription
 func (s *Service) SendNotification(sub Subscription, message string) error {
 	vapidPublic, vapidPrivate, err := s.GetVAPIDKeys()
@@ -471,107 +184,40 @@ func (s *Service) SendNotification(sub Subscription, message string) error {
 		return err
 	}
 
-	// Create different payloads based on platform
-	var payload []byte
-	if sub.Platform == "safari" {
-		// Create Safari-specific payload
-		safariPayload := SafariNotificationPayload{
-			Title: "Jim.Tennis",
-			Body:  message,
-			Icon:  "/static/icon-192.svg",
-			Badge: "/static/icon-192.svg",
-			Data: map[string]interface{}{
-				"dateOfArrival": time.Now().Unix(),
-				"url":          "https://jim.tennis",
-			},
-			Actions: []map[string]string{
-				{
-					"action": "open",
-					"title":  "Open",
-				},
-				{
-					"action": "close",
-					"title":  "Close",
-				},
-			},
-			Tag:      "default",
-			Renotify: true,
-		}
-		payload, err = json.Marshal(safariPayload)
-	} else {
-		// Standard payload for other platforms
-		payload, err = json.Marshal(map[string]string{
-			"message":  message,
-			"platform": sub.Platform,
-		})
-	}
+	// Create standard payload
+	payload, err := json.Marshal(map[string]string{
+		"message": message,
+	})
 	if err != nil {
 		return err
 	}
 
 	// Log notification attempt
-	log.Printf("Sending notification to %s platform subscription", sub.Platform)
-	log.Printf("Endpoint: %s", sub.Endpoint)
+	log.Printf("Sending notification to endpoint: %s", sub.Endpoint)
 
 	// Create webpush options
 	options := &webpush.Options{
 		VAPIDPublicKey:  vapidPublic,
 		VAPIDPrivateKey: vapidPrivate,
 		TTL:             30,
-		Subscriber:      "mailto:admin@jim.tennis",
+		Subscriber:      "https://jim.tennis", // Use website URL instead of mailto:
 	}
 
-	// For Safari, we need to create a custom HTTP client with the required headers
-	var client *http.Client
-	if sub.Platform == "safari" {
-		headers, err := getSafariAuthHeaders(vapidPublic, vapidPrivate)
-		if err != nil {
-			log.Printf("Error generating Safari auth headers: %v", err)
-			return err
-		}
-		log.Printf("Using Safari auth headers: %v", headers)
-
-		// Create a custom transport with proper TLS configuration
-		transport := newCustomTransport(headers)
-		client = &http.Client{
-			Transport: transport,
-			Timeout:   30 * time.Second,
-		}
-	}
-
-	// Send the notification
-	var resp *http.Response
-	if sub.Platform == "safari" && client != nil {
-		// Use custom client for Safari
-		resp, err = sendNotificationWithClient(payload, sub, options, client)
-	} else {
-		// Use default client for other platforms
-		resp, err = webpush.SendNotification(
-			payload,
-			&webpush.Subscription{
-				Endpoint: sub.Endpoint,
-				Keys: webpush.Keys{
-					P256dh: sub.P256dh,
-					Auth:   sub.Auth,
-				},
+	// Send the notification using the webpush-go library
+	resp, err := webpush.SendNotification(
+		payload,
+		&webpush.Subscription{
+			Endpoint: sub.Endpoint,
+			Keys: webpush.Keys{
+				P256dh: sub.P256dh,
+				Auth:   sub.Auth,
 			},
-			options,
-		)
-	}
+		},
+		options,
+	)
 
 	if err != nil {
-		log.Printf("Error sending notification to %s: %v", sub.Platform, err)
-		// Check for Safari-specific errors
-		if sub.Platform == "safari" {
-			if strings.Contains(err.Error(), "403") {
-				log.Printf("Safari push notification rejected (403). This might be due to:")
-				log.Printf("- Invalid VAPID keys for Safari")
-				log.Printf("- Subscription expired")
-				log.Printf("- Missing or invalid Safari push certificate")
-				log.Printf("- Invalid JWT token")
-				log.Printf("Full error details: %+v", err)
-			}
-		}
+		log.Printf("Error sending notification: %v", err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -581,25 +227,7 @@ func (s *Service) SendNotification(sub Subscription, message string) error {
 	log.Printf("Response body: %s", string(body))
 
 	if resp.StatusCode >= 400 {
-		log.Printf("Failed to send notification to %s, status: %d", sub.Platform, resp.StatusCode)
-		// Handle Safari-specific status codes
-		if sub.Platform == "safari" {
-			switch resp.StatusCode {
-			case http.StatusForbidden:
-				log.Printf("Safari push notification forbidden (403). This might be due to:")
-				log.Printf("- Invalid VAPID keys for Safari")
-				log.Printf("- Subscription expired")
-				log.Printf("- Missing or invalid Safari push certificate")
-				log.Printf("- Invalid JWT token")
-				log.Printf("Response body: %s", string(body))
-			case http.StatusUnauthorized:
-				log.Printf("Safari push notification unauthorized (401). This might be due to:")
-				log.Printf("- Invalid authentication")
-				log.Printf("- Expired VAPID keys")
-				log.Printf("- Invalid JWT token")
-				log.Printf("Response body: %s", string(body))
-			}
-		}
+		log.Printf("Failed to send notification, status: %d", resp.StatusCode)
 		// If the subscription is invalid (404) or expired (410), remove it
 		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
 			s.DeleteSubscription(sub.Endpoint)
@@ -607,8 +235,24 @@ func (s *Service) SendNotification(sub Subscription, message string) error {
 		return fmt.Errorf("failed to send notification, status: %d, body: %s", resp.StatusCode, string(body))
 	}
 
-	log.Printf("Successfully sent notification to %s platform", sub.Platform)
+	log.Printf("Successfully sent notification")
 	return nil
+}
+
+// SendToAll sends a push notification to all subscriptions
+func (s *Service) SendToAll(message string) error {
+	subs, err := s.GetAllSubscriptions()
+	if err != nil {
+		return err
+	}
+	var lastErr error
+	for _, sub := range subs {
+		if err := s.SendNotification(sub, message); err != nil {
+			log.Printf("Error sending notification (endpoint %s): %v", sub.Endpoint, err)
+			lastErr = err
+		}
+	}
+	return lastErr
 }
 
 // ListVAPIDKeys returns all VAPID keys in the database (for debugging)
@@ -653,20 +297,4 @@ func (s *Service) ResetVAPIDKeys() (publicKey, privateKey string, err error) {
 	
 	// Generate new keys
 	return s.GenerateVAPIDKeys()
-}
-
-// SendToAll sends a push notification to all subscriptions.
-func (s *Service) SendToAll(message string) (err error) {
-	subs, err := s.GetAllSubscriptions()
-	if err != nil {
-		return err
-	}
-	var lastErr error
-	for _, sub := range subs {
-		if err := s.SendNotification(sub, message); err != nil {
-			log.Printf("Error sending notification (endpoint %s): %v", sub.Endpoint, err)
-			lastErr = err
-		}
-	}
-	return lastErr
 } 
