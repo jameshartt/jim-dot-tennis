@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/big"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/SherClockHolmes/webpush-go"
 	"jim-dot-tennis/internal/database"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/sha256"
 )
 
@@ -275,6 +277,33 @@ func getSafariAuthHeaders(vapidPublic, vapidPrivate string) (map[string]string, 
 	}, nil
 }
 
+// decodePrivateKey decodes a base64 URL-safe private key into an ECDSA private key
+func decodePrivateKey(keyBytes []byte) (*ecdsa.PrivateKey, error) {
+	// The key should be 32 bytes for P-256
+	if len(keyBytes) != 32 {
+		return nil, fmt.Errorf("invalid private key length: %d", len(keyBytes))
+	}
+
+	// Create a new P-256 curve
+	curve := elliptic.P256()
+
+	// Convert the key bytes to a big integer
+	d := new(big.Int).SetBytes(keyBytes)
+
+	// Create the private key
+	priv := &ecdsa.PrivateKey{
+		PublicKey: ecdsa.PublicKey{
+			Curve: curve,
+		},
+		D: d,
+	}
+
+	// Compute the public key
+	priv.PublicKey.X, priv.PublicKey.Y = curve.ScalarBaseMult(d.Bytes())
+
+	return priv, nil
+}
+
 // signJWT signs the JWT using the VAPID private key
 func signJWT(input, privateKey string) (string, error) {
 	// Decode the private key
@@ -284,7 +313,7 @@ func signJWT(input, privateKey string) (string, error) {
 	}
 
 	// Create a new ECDSA private key
-	privKey, err := webpush.DecodePrivateKey(keyBytes)
+	privKey, err := decodePrivateKey(keyBytes)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode private key: %v", err)
 	}
@@ -349,7 +378,7 @@ func (s *Service) SendNotification(sub Subscription, message string) error {
 	log.Printf("Sending notification to %s platform subscription", sub.Platform)
 	log.Printf("Endpoint: %s", sub.Endpoint)
 
-	// Create webpush options with platform-specific settings
+	// Create webpush options
 	options := &webpush.Options{
 		VAPIDPublicKey:  vapidPublic,
 		VAPIDPrivateKey: vapidPrivate,
@@ -357,29 +386,45 @@ func (s *Service) SendNotification(sub Subscription, message string) error {
 		Subscriber:      "mailto:admin@jim.tennis",
 	}
 
-	// Add Safari-specific headers if needed
+	// For Safari, we need to create a custom HTTP client with the required headers
+	var client *http.Client
 	if sub.Platform == "safari" {
 		headers, err := getSafariAuthHeaders(vapidPublic, vapidPrivate)
 		if err != nil {
 			log.Printf("Error generating Safari auth headers: %v", err)
 			return err
 		}
-		options.Headers = headers
 		log.Printf("Using Safari auth headers: %v", headers)
+
+		// Create a custom transport that adds the headers
+		transport := &http.Transport{}
+		client = &http.Client{
+			Transport: &customTransport{
+				base:    transport,
+				headers: headers,
+			},
+		}
 	}
 
 	// Send the notification
-	resp, err := webpush.SendNotification(
-		payload,
-		&webpush.Subscription{
-			Endpoint: sub.Endpoint,
-			Keys: webpush.Keys{
-				P256dh: sub.P256dh,
-				Auth:   sub.Auth,
+	var resp *http.Response
+	if sub.Platform == "safari" && client != nil {
+		// Use custom client for Safari
+		resp, err = sendNotificationWithClient(payload, sub, options, client)
+	} else {
+		// Use default client for other platforms
+		resp, err = webpush.SendNotification(
+			payload,
+			&webpush.Subscription{
+				Endpoint: sub.Endpoint,
+				Keys: webpush.Keys{
+					P256dh: sub.P256dh,
+					Auth:   sub.Auth,
+				},
 			},
-		},
-		options,
-	)
+			options,
+		)
+	}
 
 	if err != nil {
 		log.Printf("Error sending notification to %s: %v", sub.Platform, err)
@@ -391,7 +436,6 @@ func (s *Service) SendNotification(sub Subscription, message string) error {
 				log.Printf("- Subscription expired")
 				log.Printf("- Missing or invalid Safari push certificate")
 				log.Printf("- Invalid JWT token")
-				// Log the full error details
 				log.Printf("Full error details: %+v", err)
 			}
 		}
@@ -432,6 +476,37 @@ func (s *Service) SendNotification(sub Subscription, message string) error {
 
 	log.Printf("Successfully sent notification to %s platform", sub.Platform)
 	return nil
+}
+
+// customTransport adds custom headers to requests
+type customTransport struct {
+	base    http.RoundTripper
+	headers map[string]string
+}
+
+func (t *customTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Add custom headers
+	for key, value := range t.headers {
+		req.Header.Set(key, value)
+	}
+	return t.base.RoundTrip(req)
+}
+
+// sendNotificationWithClient sends a notification using a custom HTTP client
+func sendNotificationWithClient(payload []byte, sub Subscription, options *webpush.Options, client *http.Client) (*http.Response, error) {
+	// Create the request
+	req, err := http.NewRequest("POST", sub.Endpoint, strings.NewReader(string(payload)))
+	if err != nil {
+		return nil, err
+	}
+
+	// Add required headers
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("TTL", fmt.Sprintf("%d", options.TTL))
+	req.Header.Set("Urgency", "high")
+
+	// Send the request
+	return client.Do(req)
 }
 
 // SendToAll sends a push notification to all subscriptions
