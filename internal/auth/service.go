@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
 )
@@ -19,12 +20,13 @@ var (
 	ErrTokenUsed        = errors.New("token already used")
 	ErrTooManyAttempts  = errors.New("too many access attempts")
 	ErrSuspiciousAccess = errors.New("suspicious access pattern detected")
+	ErrInvalidCredentials = errors.New("invalid username or password")
+	ErrUserInactive     = errors.New("user account is inactive")
 )
 
 // Service handles authentication business logic
 type Service struct {
 	repo *repository.AuthRepository
-	// TODO: Add email service for magic links
 }
 
 // NewService creates a new auth service
@@ -97,8 +99,97 @@ func (s *Service) ValidatePlayerAccess(token string, r *http.Request) (*models.P
 	return t, nil
 }
 
+// CreateUser creates a new user account for captains/admins
+func (s *Service) CreateUser(username, password string, role models.AccessRole, playerID *string) (*models.User, error) {
+	if !models.ValidateRole(role) {
+		return nil, errors.New("invalid role")
+	}
+
+	// If playerID is provided, verify it exists
+	if playerID != nil {
+		exists, err := s.repo.PlayerExists(*playerID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to verify player: %w", err)
+		}
+		if !exists {
+			return nil, errors.New("player not found")
+		}
+
+		// Check if player is already associated with a user
+		existingUser, err := s.repo.GetUserByPlayerID(*playerID)
+		if err == nil && existingUser != nil {
+			return nil, errors.New("player is already associated with a user account")
+		}
+	}
+
+	// Hash the password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	user := &models.User{
+		Username:     username,
+		PasswordHash: string(hashedPassword),
+		Role:         role,
+		PlayerID:     playerID,
+		IsActive:     true,
+	}
+
+	if err := s.repo.CreateUser(user); err != nil {
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	return user, nil
+}
+
+// AuthenticateUser validates user credentials and logs the attempt
+func (s *Service) AuthenticateUser(username, password string, r *http.Request) (*models.User, error) {
+	// Check access stats for suspicious patterns
+	stats, err := s.repo.GetAccessStats(r.RemoteAddr, "user")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get access stats: %w", err)
+	}
+
+	if stats.IsSuspicious() {
+		s.logAccessAttempt("user", 0, r, false, ErrSuspiciousAccess.Error())
+		return nil, ErrSuspiciousAccess
+	}
+
+	// Get user by username
+	user, err := s.repo.GetUserByUsername(username)
+	if err != nil {
+		s.logAccessAttempt("user", 0, r, false, ErrInvalidCredentials.Error())
+		return nil, ErrInvalidCredentials
+	}
+
+	// Check if user is active
+	if !user.IsActive {
+		s.logAccessAttempt("user", user.ID, r, false, ErrUserInactive.Error())
+		return nil, ErrUserInactive
+	}
+
+	// Verify password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		s.logAccessAttempt("user", user.ID, r, false, ErrInvalidCredentials.Error())
+		return nil, ErrInvalidCredentials
+	}
+
+	// Log successful access
+	if err := s.logAccessAttempt("user", user.ID, r, true, ""); err != nil {
+		return nil, fmt.Errorf("failed to log access: %w", err)
+	}
+
+	// Update last login timestamp
+	if err := s.repo.UpdateUserLastLogin(user.ID); err != nil {
+		return nil, fmt.Errorf("failed to update last login: %w", err)
+	}
+
+	return user, nil
+}
+
 // CreateMagicLink creates a new magic link for captain/admin access
-func (s *Service) CreateMagicLink(email string, role models.AccessRole) (*models.MagicLink, error) {
+func (s *Service) CreateMagicLink(phoneNumber string, role models.AccessRole) (*models.MagicLink, error) {
 	if !models.ValidateRole(role) {
 		return nil, errors.New("invalid role")
 	}
@@ -111,18 +202,16 @@ func (s *Service) CreateMagicLink(email string, role models.AccessRole) (*models
 
 	// Create magic link with 1-hour expiration
 	link := &models.MagicLink{
-		Email:     email,
-		Token:     token,
-		Role:      role,
-		ExpiresAt: time.Now().Add(time.Hour),
+		PhoneNumber: phoneNumber,
+		Token:       token,
+		Role:        role,
+		ExpiresAt:   time.Now().Add(time.Hour),
 	}
 
 	if err := s.repo.CreateMagicLink(link); err != nil {
 		return nil, fmt.Errorf("failed to create magic link: %w", err)
 	}
 
-	// TODO: Send magic link via email
-	// For now, just return the token (in production, this would be sent via email)
 	return link, nil
 }
 
@@ -186,4 +275,61 @@ func (s *Service) CleanupExpiredTokens() error {
 // DeactivatePlayerToken deactivates a player access token
 func (s *Service) DeactivatePlayerToken(tokenID int64) error {
 	return s.repo.DeactivatePlayerAccessToken(tokenID)
+}
+
+// DeactivateUser deactivates a user account
+func (s *Service) DeactivateUser(userID int64) error {
+	return s.repo.DeactivateUser(userID)
+}
+
+// AssociatePlayerWithUser links a player to a user account
+func (s *Service) AssociatePlayerWithUser(userID int64, playerID string) error {
+	// Verify user exists and is active
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return fmt.Errorf("user not found: %w", err)
+	}
+	if !user.IsActive {
+		return errors.New("user account is inactive")
+	}
+
+	// Verify player exists
+	exists, err := s.repo.PlayerExists(playerID)
+	if err != nil {
+		return fmt.Errorf("failed to verify player: %w", err)
+	}
+	if !exists {
+		return errors.New("player not found")
+	}
+
+	// Check if player is already associated with a user
+	existingUser, err := s.repo.GetUserByPlayerID(playerID)
+	if err == nil && existingUser != nil {
+		return errors.New("player is already associated with a user account")
+	}
+
+	// Update user with player ID
+	return s.repo.UpdateUserPlayerID(userID, &playerID)
+}
+
+// DisassociatePlayerFromUser removes the player association from a user account
+func (s *Service) DisassociatePlayerFromUser(userID int64) error {
+	// Verify user exists
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return fmt.Errorf("user not found: %w", err)
+	}
+
+	// Only allow if user is not an admin (admins might need their player association)
+	if user.Role == models.RoleAdmin {
+		return errors.New("cannot remove player association from admin accounts")
+	}
+
+	// Update user to remove player ID
+	return s.repo.UpdateUserPlayerID(userID, nil)
+}
+
+// GetUserByPlayerID retrieves a user account by player ID
+func (s *Service) GetUserByPlayerID(playerID string) (*models.User, error) {
+	return s.repo.GetUserByPlayerID(playerID)
 } 

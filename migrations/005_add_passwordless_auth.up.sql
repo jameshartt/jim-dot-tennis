@@ -1,3 +1,19 @@
+-- Create users table for captain/admin authentication
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL,  -- 'captain' or 'admin'
+    player_id TEXT,             -- Optional reference to player profile
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    last_login_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (role) REFERENCES roles(name),
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE SET NULL,
+    UNIQUE(player_id)  -- Ensure a player can only be associated with one user account
+);
+
 -- Create access tokens table for player access
 CREATE TABLE IF NOT EXISTS player_access_tokens (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -10,23 +26,11 @@ CREATE TABLE IF NOT EXISTS player_access_tokens (
     FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 );
 
--- Create magic links table for captain/admin access
-CREATE TABLE IF NOT EXISTS magic_links (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT NOT NULL,
-    token TEXT NOT NULL UNIQUE,
-    role TEXT NOT NULL,  -- 'captain' or 'admin'
-    expires_at TIMESTAMP NOT NULL,
-    used_at TIMESTAMP,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (email) REFERENCES players(email) ON DELETE CASCADE
-);
-
 -- Create access logs table for security monitoring
 CREATE TABLE IF NOT EXISTS access_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    token_type TEXT NOT NULL,  -- 'player' or 'magic'
-    token_id INTEGER NOT NULL, -- ID from respective token table
+    token_type TEXT NOT NULL,  -- 'player' or 'user'
+    token_id INTEGER NOT NULL, -- ID from respective token/user table
     ip_address TEXT NOT NULL,
     user_agent TEXT,
     accessed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -35,10 +39,10 @@ CREATE TABLE IF NOT EXISTS access_logs (
 );
 
 -- Create indexes
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_player_access_tokens_token ON player_access_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_player_access_tokens_player_id ON player_access_tokens(player_id);
-CREATE INDEX IF NOT EXISTS idx_magic_links_token ON magic_links(token);
-CREATE INDEX IF NOT EXISTS idx_magic_links_email ON magic_links(email);
 CREATE INDEX IF NOT EXISTS idx_access_logs_token_type_token_id ON access_logs(token_type, token_id);
 CREATE INDEX IF NOT EXISTS idx_access_logs_ip_address ON access_logs(ip_address);
 CREATE INDEX IF NOT EXISTS idx_access_logs_accessed_at ON access_logs(accessed_at);

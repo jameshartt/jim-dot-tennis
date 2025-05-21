@@ -3,10 +3,17 @@ package auth
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
 	"jim-dot-tennis/internal/models"
+)
+
+const (
+	// Cookie durations
+	playerSessionDuration = 180 * 24 * time.Hour  // ~6 months (April to September)
+	userSessionDuration   = 180 * 24 * time.Hour  // Same duration for consistency
 )
 
 // Handler handles HTTP requests for authentication
@@ -25,9 +32,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/auth/player/access", h.handlePlayerAccess)
 	mux.HandleFunc("/auth/player/token", h.handleCreatePlayerToken)
 
-	// Magic link routes
-	mux.HandleFunc("/auth/magic/request", h.handleRequestMagicLink)
-	mux.HandleFunc("/auth/magic/validate", h.handleValidateMagicLink)
+	// User authentication routes
+	mux.HandleFunc("/auth/login", h.handleLogin)
+	mux.HandleFunc("/auth/logout", h.handleLogout)
+	mux.HandleFunc("/auth/user", h.handleCreateUser) // Admin only
+
+	// Player association routes
+	mux.HandleFunc("/auth/user/associate", h.handleAssociatePlayer)    // Admin only
+	mux.HandleFunc("/auth/user/disassociate", h.handleDisassociatePlayer) // Admin only
 }
 
 // handlePlayerAccess handles player access token validation
@@ -64,7 +76,7 @@ func (h *Handler) handlePlayerAccess(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
-		MaxAge:   int(30 * 24 * time.Hour.Seconds()), // 30 days
+		MaxAge:   int(playerSessionDuration.Seconds()),
 	})
 
 	// Return player info
@@ -83,8 +95,8 @@ func (h *Handler) handleCreatePlayerToken(w http.ResponseWriter, r *http.Request
 	}
 
 	var req struct {
-		PlayerID  string   `json:"player_id"`
-		ProNames  []string `json:"pro_names"`
+		PlayerID string   `json:"player_id"`
+		ProNames []string `json:"pro_names"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -98,22 +110,22 @@ func (h *Handler) handleCreatePlayerToken(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Return the token in the response
 	json.NewEncoder(w).Encode(map[string]string{
 		"token": token.Token,
-		"url":   "/auth/player/access?token=" + token.Token,
 	})
 }
 
-// handleRequestMagicLink handles requests for magic links
-func (h *Handler) handleRequestMagicLink(w http.ResponseWriter, r *http.Request) {
+// handleLogin handles user login
+func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	var req struct {
-		Email string        `json:"email"`
-		Role  models.AccessRole `json:"role"`
+		Username string `json:"username"`
+		Password string `json:"password"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -121,41 +133,13 @@ func (h *Handler) handleRequestMagicLink(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	link, err := h.service.CreateMagicLink(req.Email, req.Role)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// TODO: In production, send the magic link via email
-	// For now, just return the token (this should be removed in production)
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Magic link sent to email",
-		"token":   link.Token, // Remove this in production
-		"url":     "/auth/magic/validate?token=" + link.Token, // Remove this in production
-	})
-}
-
-// handleValidateMagicLink handles magic link validation
-func (h *Handler) handleValidateMagicLink(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	token := r.URL.Query().Get("token")
-	if token == "" {
-		http.Error(w, "Token is required", http.StatusBadRequest)
-		return
-	}
-
-	link, err := h.service.ValidateMagicLink(token, r)
+	user, err := h.service.AuthenticateUser(req.Username, req.Password, r)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrInvalidToken):
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
-		case errors.Is(err, ErrTokenExpired):
-			http.Error(w, "Token expired", http.StatusUnauthorized)
+		case errors.Is(err, ErrInvalidCredentials):
+			http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+		case errors.Is(err, ErrUserInactive):
+			http.Error(w, "Account is inactive", http.StatusUnauthorized)
 		case errors.Is(err, ErrSuspiciousAccess):
 			http.Error(w, "Access denied", http.StatusTooManyRequests)
 		default:
@@ -164,20 +148,134 @@ func (h *Handler) handleValidateMagicLink(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Set session cookie for magic link access
+	// Set session cookie for user access
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth_token",
-		Value:    token,
+		Value:    fmt.Sprintf("%d", user.ID),
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
-		MaxAge:   int(24 * time.Hour.Seconds()), // 24 hours
+		MaxAge:   int(userSessionDuration.Seconds()),
 	})
 
 	// Return user info
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"email": link.Email,
-		"role":  link.Role,
+		"username": user.Username,
+		"role":     user.Role,
 	})
+}
+
+// handleLogout handles user logout
+func (h *Handler) handleLogout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Clear both auth cookies
+	http.SetCookie(w, &http.Cookie{
+		Name:     "auth_token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+	})
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "player_token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+	})
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// handleCreateUser handles user creation (admin only)
+func (h *Handler) handleCreateUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Username string        `json:"username"`
+		Password string        `json:"password"`
+		Role     models.AccessRole `json:"role"`
+		PlayerID *string       `json:"player_id,omitempty"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	user, err := h.service.CreateUser(req.Username, req.Password, req.Role, req.PlayerID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Return user info (without password)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"id":        user.ID,
+		"username":  user.Username,
+		"role":      user.Role,
+		"player_id": user.PlayerID,
+	})
+}
+
+// handleAssociatePlayer handles associating a player with a user account (admin only)
+func (h *Handler) handleAssociatePlayer(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		UserID   int64  `json:"user_id"`
+		PlayerID string `json:"player_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.service.AssociatePlayerWithUser(req.UserID, req.PlayerID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// handleDisassociatePlayer handles removing a player association from a user account (admin only)
+func (h *Handler) handleDisassociatePlayer(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		UserID int64 `json:"user_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.service.DisassociatePlayerFromUser(req.UserID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 } 
