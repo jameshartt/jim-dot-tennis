@@ -55,11 +55,11 @@ The application will follow a server-side rendered architecture with minimal cli
 - [x] Database schema design
 - [x] Data models and relationships
 - [x] Migration framework
-- [ ] Web server setup
+- [x] Web server setup
 - [ ] Authentication system
 - [ ] Basic template structure
 - [ ] Routing architecture
-- [ ] Hosting on somewhere with ssl on jim.tennis
+- [x] Hosting on somewhere with ssl on jim.tennis
 
 ### Phase 2: Player Availability Management
 
@@ -89,7 +89,7 @@ The application will follow a server-side rendered architecture with minimal cli
 
 ### Phase 5: PWA and Push Notifications
 
-- [ ] Service worker implementation
+- [x] Service worker implementation
 - [ ] Push notification pipeline
 - [ ] Offline capability for core functions
 - [ ] Installation flow
