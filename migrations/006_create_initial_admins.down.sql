@@ -9,3 +9,6 @@ DELETE FROM users WHERE username IN (
     'stuart.hehir',
     'steve.dorney'
 ); 
+
+-- Remove roles table
+DROP TABLE IF EXISTS roles; 

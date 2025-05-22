@@ -68,56 +68,6 @@ func (r *AuthRepository) UpdatePlayerAccessTokenLastUsed(tokenID int64) error {
 	return err
 }
 
-// CreateMagicLink creates a new magic link
-func (r *AuthRepository) CreateMagicLink(link *models.MagicLink) error {
-	query := `
-		INSERT INTO magic_links (email, token, role, expires_at, created_at)
-		VALUES (?, ?, ?, ?, ?)
-	`
-	result, err := r.db.Exec(query, link.Email, link.Token, link.Role, link.ExpiresAt, time.Now())
-	if err != nil {
-		return err
-	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return err
-	}
-	link.ID = id
-	return nil
-}
-
-// GetMagicLink retrieves a magic link by token
-func (r *AuthRepository) GetMagicLink(token string) (*models.MagicLink, error) {
-	query := `
-		SELECT id, email, token, role, expires_at, used_at, created_at
-		FROM magic_links
-		WHERE token = ? AND expires_at > ? AND used_at IS NULL
-	`
-	link := &models.MagicLink{}
-	err := r.db.QueryRow(query, token, time.Now()).Scan(
-		&link.ID, &link.Email, &link.Token, &link.Role,
-		&link.ExpiresAt, &link.UsedAt, &link.CreatedAt,
-	)
-	if err == sql.ErrNoRows {
-		return nil, errors.New("magic link not found or expired")
-	}
-	if err != nil {
-		return nil, err
-	}
-	return link, nil
-}
-
-// MarkMagicLinkAsUsed marks a magic link as used
-func (r *AuthRepository) MarkMagicLinkAsUsed(tokenID int64) error {
-	query := `
-		UPDATE magic_links
-		SET used_at = ?
-		WHERE id = ?
-	`
-	_, err := r.db.Exec(query, time.Now(), tokenID)
-	return err
-}
-
 // LogAccess logs an access attempt
 func (r *AuthRepository) LogAccess(log *models.AccessLog) error {
 	query := `
@@ -170,16 +120,6 @@ func (r *AuthRepository) GetAccessStats(ipAddress string, tokenType string) (*mo
 	return stats, nil
 }
 
-// CleanupExpiredMagicLinks removes expired magic links
-func (r *AuthRepository) CleanupExpiredMagicLinks() error {
-	query := `
-		DELETE FROM magic_links
-		WHERE expires_at < ? OR (used_at IS NOT NULL AND used_at < datetime('now', '-7 days'))
-	`
-	_, err := r.db.Exec(query, time.Now())
-	return err
-}
-
 // DeactivatePlayerAccessToken deactivates a player access token
 func (r *AuthRepository) DeactivatePlayerAccessToken(tokenID int64) error {
 	query := `
@@ -189,4 +129,134 @@ func (r *AuthRepository) DeactivatePlayerAccessToken(tokenID int64) error {
 	`
 	_, err := r.db.Exec(query, time.Now(), tokenID)
 	return err
-} 
+}
+
+// CreateUser creates a new user account
+func (r *AuthRepository) CreateUser(user *models.User) error {
+	query := `
+		INSERT INTO users (username, password_hash, role, player_id, is_active, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`
+	result, err := r.db.Exec(query,
+		user.Username, user.PasswordHash, user.Role, user.PlayerID,
+		user.IsActive, time.Now(), time.Now(),
+	)
+	if err != nil {
+		return err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+	user.ID = id
+	return nil
+}
+
+// GetUserByUsername retrieves a user by username
+func (r *AuthRepository) GetUserByUsername(username string) (*models.User, error) {
+	query := `
+		SELECT id, username, password_hash, role, player_id, is_active, last_login_at, created_at, updated_at
+		FROM users
+		WHERE username = ?
+	`
+	user := &models.User{}
+	err := r.db.QueryRow(query, username).Scan(
+		&user.ID, &user.Username, &user.PasswordHash, &user.Role,
+		&user.PlayerID, &user.IsActive, &user.LastLoginAt,
+		&user.CreatedAt, &user.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, errors.New("user not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+// GetUserByID retrieves a user by ID
+func (r *AuthRepository) GetUserByID(id int64) (*models.User, error) {
+	query := `
+		SELECT id, username, password_hash, role, player_id, is_active, last_login_at, created_at, updated_at
+		FROM users
+		WHERE id = ?
+	`
+	user := &models.User{}
+	err := r.db.QueryRow(query, id).Scan(
+		&user.ID, &user.Username, &user.PasswordHash, &user.Role,
+		&user.PlayerID, &user.IsActive, &user.LastLoginAt,
+		&user.CreatedAt, &user.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, errors.New("user not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+// GetUserByPlayerID retrieves a user by player ID
+func (r *AuthRepository) GetUserByPlayerID(playerID string) (*models.User, error) {
+	query := `
+		SELECT id, username, password_hash, role, player_id, is_active, last_login_at, created_at, updated_at
+		FROM users
+		WHERE player_id = ?
+	`
+	user := &models.User{}
+	err := r.db.QueryRow(query, playerID).Scan(
+		&user.ID, &user.Username, &user.PasswordHash, &user.Role,
+		&user.PlayerID, &user.IsActive, &user.LastLoginAt,
+		&user.CreatedAt, &user.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, errors.New("user not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+// UpdateUserLastLogin updates the last login timestamp for a user
+func (r *AuthRepository) UpdateUserLastLogin(userID int64) error {
+	query := `
+		UPDATE users
+		SET last_login_at = ?, updated_at = ?
+		WHERE id = ?
+	`
+	_, err := r.db.Exec(query, time.Now(), time.Now(), userID)
+	return err
+}
+
+// UpdateUserPlayerID updates the player ID for a user
+func (r *AuthRepository) UpdateUserPlayerID(userID int64, playerID *string) error {
+	query := `
+		UPDATE users
+		SET player_id = ?, updated_at = ?
+		WHERE id = ?
+	`
+	_, err := r.db.Exec(query, playerID, time.Now(), userID)
+	return err
+}
+
+// DeactivateUser deactivates a user account
+func (r *AuthRepository) DeactivateUser(userID int64) error {
+	query := `
+		UPDATE users
+		SET is_active = false, updated_at = ?
+		WHERE id = ?
+	`
+	_, err := r.db.Exec(query, time.Now(), userID)
+	return err
+}
+
+// PlayerExists checks if a player exists
+func (r *AuthRepository) PlayerExists(playerID string) (bool, error) {
+	query := `
+		SELECT EXISTS(SELECT 1 FROM players WHERE id = ?)
+	`
+	var exists bool
+	err := r.db.QueryRow(query, playerID).Scan(&exists)
+	return exists, err
+}

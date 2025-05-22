@@ -5,23 +5,24 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
-	ErrInvalidToken     = errors.New("invalid token")
-	ErrTokenExpired     = errors.New("token expired")
-	ErrTokenUsed        = errors.New("token already used")
-	ErrTooManyAttempts  = errors.New("too many access attempts")
-	ErrSuspiciousAccess = errors.New("suspicious access pattern detected")
+	ErrInvalidToken       = errors.New("invalid token")
+	ErrTokenExpired       = errors.New("token expired")
+	ErrTooManyAttempts    = errors.New("too many access attempts")
+	ErrSuspiciousAccess   = errors.New("suspicious access pattern detected")
 	ErrInvalidCredentials = errors.New("invalid username or password")
-	ErrUserInactive     = errors.New("user account is inactive")
+	ErrUserInactive       = errors.New("user account is inactive")
 )
 
 // Service handles authentication business logic
@@ -145,13 +146,20 @@ func (s *Service) CreateUser(username, password string, role models.AccessRole, 
 
 // AuthenticateUser validates user credentials and logs the attempt
 func (s *Service) AuthenticateUser(username, password string, r *http.Request) (*models.User, error) {
+	log.Printf("Starting authentication process for username: %s from IP: %s", username, r.RemoteAddr)
+
 	// Check access stats for suspicious patterns
 	stats, err := s.repo.GetAccessStats(r.RemoteAddr, "user")
 	if err != nil {
+		log.Printf("Error getting access stats for IP %s: %v", r.RemoteAddr, err)
 		return nil, fmt.Errorf("failed to get access stats: %w", err)
 	}
 
+	log.Printf("Access stats for IP %s: attempts=%d, failures=%d", r.RemoteAddr, stats.AccessCount, stats.FailureCount)
+
 	if stats.IsSuspicious() {
+		log.Printf("Suspicious access pattern detected for IP %s: %d attempts, %d failures in the last hour",
+			r.RemoteAddr, stats.AccessCount, stats.FailureCount)
 		s.logAccessAttempt("user", 0, r, false, ErrSuspiciousAccess.Error())
 		return nil, ErrSuspiciousAccess
 	}
@@ -159,96 +167,40 @@ func (s *Service) AuthenticateUser(username, password string, r *http.Request) (
 	// Get user by username
 	user, err := s.repo.GetUserByUsername(username)
 	if err != nil {
+		log.Printf("Failed to find user with username: %s", username)
 		s.logAccessAttempt("user", 0, r, false, ErrInvalidCredentials.Error())
 		return nil, ErrInvalidCredentials
 	}
 
 	// Check if user is active
 	if !user.IsActive {
+		log.Printf("Login attempt for inactive user account: %s (ID: %d)", username, user.ID)
 		s.logAccessAttempt("user", user.ID, r, false, ErrUserInactive.Error())
 		return nil, ErrUserInactive
 	}
 
 	// Verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		log.Printf("Invalid password for user: %s (ID: %d)", username, user.ID)
 		s.logAccessAttempt("user", user.ID, r, false, ErrInvalidCredentials.Error())
 		return nil, ErrInvalidCredentials
 	}
 
 	// Log successful access
+	log.Printf("Password verified successfully for user: %s (ID: %d)", username, user.ID)
 	if err := s.logAccessAttempt("user", user.ID, r, true, ""); err != nil {
+		log.Printf("Error logging successful access attempt: %v", err)
 		return nil, fmt.Errorf("failed to log access: %w", err)
 	}
 
 	// Update last login timestamp
 	if err := s.repo.UpdateUserLastLogin(user.ID); err != nil {
+		log.Printf("Error updating last login timestamp for user %s (ID: %d): %v", username, user.ID, err)
 		return nil, fmt.Errorf("failed to update last login: %w", err)
 	}
+	log.Printf("Updated last login timestamp for user: %s (ID: %d)", username, user.ID)
 
 	return user, nil
-}
-
-// CreateMagicLink creates a new magic link for captain/admin access
-func (s *Service) CreateMagicLink(phoneNumber string, role models.AccessRole) (*models.MagicLink, error) {
-	if !models.ValidateRole(role) {
-		return nil, errors.New("invalid role")
-	}
-
-	// Generate a secure token
-	token, err := generateSecureToken(32)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate token: %w", err)
-	}
-
-	// Create magic link with 1-hour expiration
-	link := &models.MagicLink{
-		PhoneNumber: phoneNumber,
-		Token:       token,
-		Role:        role,
-		ExpiresAt:   time.Now().Add(time.Hour),
-	}
-
-	if err := s.repo.CreateMagicLink(link); err != nil {
-		return nil, fmt.Errorf("failed to create magic link: %w", err)
-	}
-
-	return link, nil
-}
-
-// ValidateMagicLink validates a magic link and logs the attempt
-func (s *Service) ValidateMagicLink(token string, r *http.Request) (*models.MagicLink, error) {
-	// Check access stats for suspicious patterns
-	stats, err := s.repo.GetAccessStats(r.RemoteAddr, "magic")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get access stats: %w", err)
-	}
-
-	if stats.IsSuspicious() {
-		s.logAccessAttempt("magic", 0, r, false, ErrSuspiciousAccess.Error())
-		return nil, ErrSuspiciousAccess
-	}
-
-	// Get and validate the magic link
-	link, err := s.repo.GetMagicLink(token)
-	if err != nil {
-		s.logAccessAttempt("magic", 0, r, false, err.Error())
-		if errors.Is(err, errors.New("magic link not found or expired")) {
-			return nil, ErrTokenExpired
-		}
-		return nil, ErrInvalidToken
-	}
-
-	// Mark the magic link as used
-	if err := s.repo.MarkMagicLinkAsUsed(link.ID); err != nil {
-		return nil, fmt.Errorf("failed to mark magic link as used: %w", err)
-	}
-
-	// Log successful access
-	if err := s.logAccessAttempt("magic", link.ID, r, true, ""); err != nil {
-		return nil, fmt.Errorf("failed to log access: %w", err)
-	}
-
-	return link, nil
 }
 
 // logAccessAttempt logs an access attempt
@@ -264,12 +216,6 @@ func (s *Service) logAccessAttempt(tokenType string, tokenID int64, r *http.Requ
 	}
 
 	return s.repo.LogAccess(log)
-}
-
-// CleanupExpiredTokens removes expired magic links
-// This should be called periodically (e.g., via a background job)
-func (s *Service) CleanupExpiredTokens() error {
-	return s.repo.CleanupExpiredMagicLinks()
 }
 
 // DeactivatePlayerToken deactivates a player access token
@@ -332,4 +278,4 @@ func (s *Service) DisassociatePlayerFromUser(userID int64) error {
 // GetUserByPlayerID retrieves a user account by player ID
 func (s *Service) GetUserByPlayerID(playerID string) (*models.User, error) {
 	return s.repo.GetUserByPlayerID(playerID)
-} 
+}

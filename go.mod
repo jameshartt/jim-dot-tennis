@@ -1,6 +1,6 @@
 module jim-dot-tennis
 
-go 1.18
+go 1.23.0
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.1
@@ -10,7 +10,7 @@ require (
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/lib/pq v1.10.9
 	github.com/mattn/go-sqlite3 v1.14.28
-	golang.org/x/net v0.40.0
+	golang.org/x/crypto v0.38.0
 )
 
 require (
@@ -19,6 +19,6 @@ require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
-	golang.org/x/crypto v0.38.0 // indirect
-	golang.org/x/text v0.25.0 // indirect
+	golang.org/x/net v0.40.0 // indirect
+	golang.org/x/sync v0.14.0 // indirect
 )

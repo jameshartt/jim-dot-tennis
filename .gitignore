@@ -66,4 +66,6 @@ debug
 # Temporary files
 tmp/
 temp/
-*.tmp 
+*.tmp
+
+tennis.db

@@ -1,11 +1,19 @@
+-- Create roles table first
+CREATE TABLE IF NOT EXISTS roles (
+    name TEXT PRIMARY KEY,
+    description TEXT NOT NULL
+);
+
+-- Insert all roles
+INSERT INTO roles (name, description) VALUES
+    ('admin', 'Administrator with full system access'),
+    ('captain', 'Team captain with team management access'),
+    ('player', 'Regular player access');
+
 -- Create initial admin users
 -- Passwords are hashed using bcrypt with cost 10
 -- Default password is 'changeme123' - users should change this on first login
 -- You can generate new hashes using: https://bcrypt-generator.com/
-
--- First, ensure we have the admin role
-INSERT OR IGNORE INTO roles (name, description) 
-VALUES ('admin', 'Administrator with full system access');
 
 -- Insert admin users
 INSERT INTO users (username, password_hash, role, is_active, created_at, updated_at) VALUES

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -12,8 +13,8 @@ import (
 
 const (
 	// Cookie durations
-	playerSessionDuration = 180 * 24 * time.Hour  // ~6 months (April to September)
-	userSessionDuration   = 180 * 24 * time.Hour  // Same duration for consistency
+	playerSessionDuration = 180 * 24 * time.Hour // ~6 months (April to September)
+	userSessionDuration   = 180 * 24 * time.Hour // Same duration for consistency
 )
 
 // Handler handles HTTP requests for authentication
@@ -38,7 +39,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/auth/user", h.handleCreateUser) // Admin only
 
 	// Player association routes
-	mux.HandleFunc("/auth/user/associate", h.handleAssociatePlayer)    // Admin only
+	mux.HandleFunc("/auth/user/associate", h.handleAssociatePlayer)       // Admin only
 	mux.HandleFunc("/auth/user/disassociate", h.handleDisassociatePlayer) // Admin only
 }
 
@@ -118,7 +119,10 @@ func (h *Handler) handleCreatePlayerToken(w http.ResponseWriter, r *http.Request
 
 // handleLogin handles user login
 func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Login attempt from IP: %s, User-Agent: %s", r.RemoteAddr, r.UserAgent())
+
 	if r.Method != http.MethodPost {
+		log.Printf("Invalid method %s for login attempt", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -129,27 +133,34 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("Failed to decode login request body: %v", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+
+	log.Printf("Login attempt for username: %s", req.Username)
 
 	user, err := h.service.AuthenticateUser(req.Username, req.Password, r)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidCredentials):
+			log.Printf("Invalid credentials for username: %s", req.Username)
 			http.Error(w, "Invalid username or password", http.StatusUnauthorized)
 		case errors.Is(err, ErrUserInactive):
+			log.Printf("Inactive account attempt for username: %s", req.Username)
 			http.Error(w, "Account is inactive", http.StatusUnauthorized)
 		case errors.Is(err, ErrSuspiciousAccess):
+			log.Printf("Suspicious access attempt for username: %s from IP: %s", req.Username, r.RemoteAddr)
 			http.Error(w, "Access denied", http.StatusTooManyRequests)
 		default:
+			log.Printf("Internal error during login for username %s: %v", req.Username, err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 		}
 		return
 	}
 
 	// Set session cookie for user access
-	http.SetCookie(w, &http.Cookie{
+	cookie := &http.Cookie{
 		Name:     "auth_token",
 		Value:    fmt.Sprintf("%d", user.ID),
 		Path:     "/",
@@ -157,13 +168,22 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   int(userSessionDuration.Seconds()),
-	})
+	}
+	http.SetCookie(w, cookie)
+	log.Printf("Successful login for username: %s (ID: %d, Role: %s)", user.Username, user.ID, user.Role)
 
 	// Return user info
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	w.Header().Set("Content-Type", "application/json")
+	response := map[string]interface{}{
 		"username": user.Username,
 		"role":     user.Role,
-	})
+	}
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding login response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	log.Printf("Login response sent successfully for username: %s", user.Username)
 }
 
 // handleLogout handles user logout
@@ -205,10 +225,10 @@ func (h *Handler) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Username string        `json:"username"`
-		Password string        `json:"password"`
+		Username string            `json:"username"`
+		Password string            `json:"password"`
 		Role     models.AccessRole `json:"role"`
-		PlayerID *string       `json:"player_id,omitempty"`
+		PlayerID *string           `json:"player_id,omitempty"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -278,4 +298,4 @@ func (h *Handler) handleDisassociatePlayer(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.WriteHeader(http.StatusOK)
-} 
+}

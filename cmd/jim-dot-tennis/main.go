@@ -8,7 +8,10 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/database"
+	"jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/webpush"
 )
 
@@ -19,20 +22,27 @@ func main() {
 		log.Fatalf("Failed to set up database: %v", err)
 	}
 	defer db.Close()
-	
+
 	// Execute migrations if needed
 	if err := db.ExecuteMigrations("./migrations"); err != nil {
 		log.Printf("Warning: Failed to run migrations: %v", err)
 	}
 
+	// Initialize auth service
+	authRepo := repository.NewAuthRepository(db.DB.DB)
+	authService := auth.NewService(authRepo)
+	authHandler := auth.NewHandler(authService)
+	allowInsecure := os.Getenv("ALLOW_INSECURE_HTTP") == "true"
+	authMiddleware := auth.NewAuthMiddleware(authService, allowInsecure)
+
 	// Initialize web push service
 	pushService := webpush.New(db)
-	
+
 	// List existing VAPID keys
 	if err := pushService.ListVAPIDKeys(); err != nil {
 		log.Printf("Warning: Failed to list VAPID keys: %v", err)
 	}
-	
+
 	// Generate VAPID keys on startup if none exist
 	publicKey, _, err := pushService.GenerateVAPIDKeys()
 	if err != nil {
@@ -40,15 +50,18 @@ func main() {
 	} else {
 		log.Printf("VAPID public key: %s", publicKey)
 	}
-	
+
 	// Set up push notification handlers
 	pushService.SetupHandlers()
+
+	// Set up auth routes
+	authHandler.RegisterRoutes(http.DefaultServeMux)
 
 	// Serve static files with special handling for service worker
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Static file request: %s", r.URL.Path)
-		
+
 		// Add Service-Worker-Allowed header for service worker file
 		if r.URL.Path == "/static/service-worker.js" {
 			log.Printf("Service worker request detected, setting Service-Worker-Allowed header")
@@ -59,24 +72,31 @@ func main() {
 				log.Printf("  %s: %v", k, v)
 			}
 		}
-		
+
 		// Log the request headers
 		log.Printf("Request headers:")
 		for k, v := range r.Header {
 			log.Printf("  %s: %v", k, v)
 		}
-		
+
 		http.StripPrefix("/static/", fs).ServeHTTP(w, r)
 	}))
 
-	// Serve index.html template
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			http.NotFound(w, r)
+	// Serve login page
+	http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		
-		tmpl, err := template.ParseFiles(filepath.Join("templates", "index.html"))
+
+		// Check if user is already logged in
+		if cookie, err := r.Cookie("auth_token"); err == nil && cookie.Value != "" {
+			// Redirect to home page if already logged in
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+			return
+		}
+
+		tmpl, err := template.ParseFiles(filepath.Join("templates", "login.html"))
 		if err != nil {
 			http.Error(w, "Template error", http.StatusInternalServerError)
 			return
@@ -87,6 +107,27 @@ func main() {
 		}
 	})
 
+	// Serve index.html template (protected by auth middleware)
+	http.Handle("/", authMiddleware.RequireHTTPS(authMiddleware.RequireRole(
+		models.RoleAdmin,
+		models.RoleCaptain,
+	)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+
+		tmpl, err := template.ParseFiles(filepath.Join("templates", "index.html"))
+		if err != nil {
+			http.Error(w, "Template error", http.StatusInternalServerError)
+			return
+		}
+		err = tmpl.Execute(w, nil)
+		if err != nil {
+			http.Error(w, "Template execution error", http.StatusInternalServerError)
+		}
+	}))))
+
 	port := getPort()
 	log.Printf("Server started at http://localhost:%s", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
@@ -96,11 +137,11 @@ func main() {
 func setupDatabase() (*database.DB, error) {
 	// Get database config from environment variables with defaults
 	dbType := getEnv("DB_TYPE", "sqlite3")
-	
+
 	config := database.Config{
 		Driver: dbType,
 	}
-	
+
 	if dbType == "postgres" {
 		config.Host = getEnv("DB_HOST", "localhost")
 		config.Port, _ = strconv.Atoi(getEnv("DB_PORT", "5432"))
@@ -112,7 +153,7 @@ func setupDatabase() (*database.DB, error) {
 		// SQLite
 		config.FilePath = getEnv("DB_PATH", "./tennis.db")
 	}
-	
+
 	return database.New(config)
 }
 
