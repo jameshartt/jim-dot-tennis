@@ -1,210 +1,207 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jim Dot Tennis</title>
-  <link rel="manifest" href="/static/manifest.json">
-  <style>
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      max-width: 600px;
-      margin: 0 auto;
-      padding: 20px;
-      line-height: 1.5;
-    }
-    .card {
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    button {
-      background-color: #4CAF50;
-      border: none;
-      color: white;
-      padding: 10px 15px;
-      text-align: center;
-      text-decoration: none;
-      display: inline-block;
-      font-size: 16px;
-      margin: 4px 2px;
-      cursor: pointer;
-      border-radius: 4px;
-      transition: background-color 0.3s;
-    }
-    button:hover {
-      background-color: #45a049;
-    }
-    button:disabled {
-      background-color: #cccccc;
-      cursor: not-allowed;
-    }
-    .notification-status {
-      margin-top: 10px;
-      font-style: italic;
-    }
-  </style>
-</head>
-<body>
-  <h1>Welcome to Jim Dot Tennis!</h1>
-  <p>This is a minimal Go SSR + PWA starter.</p>
-  
-  <div class="card">
-    <h2>Push Notifications</h2>
-    <p>Stay updated with the latest news and events by enabling push notifications.</p>
-    <div id="push-controls">
-      <button id="subscribe-btn">Enable Notifications</button>
-      <button id="unsubscribe-btn" style="display:none;">Disable Notifications</button>
-      <button id="test-notification-btn" style="display:none;">Send Test Notification</button>
-      <div class="notification-status" id="notification-status"></div>
-    </div>
-  </div>
+{{define "index.html"}}
+{{template "layout" .}}
+{{end}}
 
-  <script src="/static/push.js"></script>
-  <script>
-    // Initialize notification UI
-    async function initNotificationUI() {
-      console.log('Initializing notification UI...');
+{{define "content"}}
+<h1>Welcome to Jim Dot Tennis!</h1>
+<p>This is a minimal Go SSR + PWA starter.</p>
+  
+<div class="card">
+  <h2>Push Notifications</h2>
+  <p>Stay updated with the latest news and events by enabling push notifications.</p>
+  <div id="push-controls">
+    <button id="subscribe-btn">Enable Notifications</button>
+    <button id="unsubscribe-btn" style="display:none;">Disable Notifications</button>
+    <button id="test-notification-btn" style="display:none;">Send Test Notification</button>
+    <div class="notification-status" id="notification-status"></div>
+  </div>
+</div>
+{{end}}
+
+{{define "head"}}
+<style>
+  body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.5;
+  }
+  .card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  button {
+    background-color: #4CAF50;
+    border: none;
+    color: white;
+    padding: 10px 15px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+  }
+  button:hover {
+    background-color: #45a049;
+  }
+  button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+  }
+  .notification-status {
+    margin-top: 10px;
+    font-style: italic;
+  }
+</style>
+{{end}}
+
+{{define "scripts"}}
+<script src="/static/push.js"></script>
+<script>
+  // Initialize notification UI
+  async function initNotificationUI() {
+    console.log('Initializing notification UI...');
+    try {
+      const subscribeBtn = document.getElementById('subscribe-btn');
+      const unsubscribeBtn = document.getElementById('unsubscribe-btn');
+      const testNotificationBtn = document.getElementById('test-notification-btn');
+      const statusElement = document.getElementById('notification-status');
+      
+      if (!subscribeBtn || !unsubscribeBtn || !testNotificationBtn || !statusElement) {
+        console.error('Could not find all required UI elements');
+        return;
+      }
+      
+      if (!isPushNotificationSupported()) {
+        console.log('Push notifications not supported');
+        statusElement.textContent = 'Push notifications are not supported in your browser.';
+        subscribeBtn.disabled = true;
+        return;
+      }
+      
+      console.log('Push notifications are supported');
+      
+      // Check current subscription status
+      console.log('About to call checkPushSubscription...');
       try {
-        const subscribeBtn = document.getElementById('subscribe-btn');
-        const unsubscribeBtn = document.getElementById('unsubscribe-btn');
-        const testNotificationBtn = document.getElementById('test-notification-btn');
-        const statusElement = document.getElementById('notification-status');
-        
-        if (!subscribeBtn || !unsubscribeBtn || !testNotificationBtn || !statusElement) {
-          console.error('Could not find all required UI elements');
-          return;
-        }
-        
-        if (!isPushNotificationSupported()) {
-          console.log('Push notifications not supported');
-          statusElement.textContent = 'Push notifications are not supported in your browser.';
-          subscribeBtn.disabled = true;
-          return;
-        }
-        
-        console.log('Push notifications are supported');
-        
-        // Check current subscription status
-        console.log('About to call checkPushSubscription...');
-        try {
-          const isSubscribed = await checkPushSubscription();
-          console.log('Current subscription status:', isSubscribed);
-          updateUI(isSubscribed);
-        } catch (error) {
-          console.error('Error checking subscription status:', error);
-          console.error('Error name:', error.name);
-          console.error('Error message:', error.message);
-          console.error('Error stack:', error.stack);
-          statusElement.textContent = 'Error checking notification status. Please refresh the page.';
-        }
-        
-        // Set up button event listeners
-        console.log('Setting up button event listeners...');
-        
-        subscribeBtn.addEventListener('click', async () => {
-          console.log('Subscribe button clicked');
-          subscribeBtn.disabled = true;
-          statusElement.textContent = 'Subscribing...';
-          
-          const success = await subscribeToPushNotifications();
-          console.log('Subscribe result:', success);
-          updateUI(success);
-          
-          if (!success) {
-            statusElement.textContent = 'Failed to subscribe. Please try again.';
-            subscribeBtn.disabled = false;
-          }
-        });
-        
-        unsubscribeBtn.addEventListener('click', async () => {
-          console.log('Unsubscribe button clicked');
-          unsubscribeBtn.disabled = true;
-          statusElement.textContent = 'Unsubscribing...';
-          
-          const success = await unsubscribeFromPushNotifications();
-          console.log('Unsubscribe result:', success);
-          updateUI(!success);
-          
-          if (!success) {
-            statusElement.textContent = 'Failed to unsubscribe. Please try again.';
-            unsubscribeBtn.disabled = false;
-          }
-        });
-        
-        testNotificationBtn.addEventListener('click', async () => {
-          console.log('Test notification button clicked');
-          testNotificationBtn.disabled = true;
-          statusElement.textContent = 'Sending test notification...';
-          
-          await sendTestNotification();
-          
-          setTimeout(() => {
-            statusElement.textContent = isSubscribed ? 'Notifications are enabled.' : '';
-            testNotificationBtn.disabled = false;
-          }, 2000);
-        });
-        
-        function updateUI(isSubscribed) {
-          console.log('Updating UI, isSubscribed:', isSubscribed);
-          if (isSubscribed) {
-            subscribeBtn.style.display = 'none';
-            unsubscribeBtn.style.display = 'inline-block';
-            testNotificationBtn.style.display = 'inline-block';
-            statusElement.textContent = 'Notifications are enabled.';
-          } else {
-            subscribeBtn.style.display = 'inline-block';
-            subscribeBtn.disabled = false;
-            unsubscribeBtn.style.display = 'none';
-            testNotificationBtn.style.display = 'none';
-            statusElement.textContent = '';
-          }
-        }
+        const isSubscribed = await checkPushSubscription();
+        console.log('Current subscription status:', isSubscribed);
+        updateUI(isSubscribed);
       } catch (error) {
-        console.error('Error in initNotificationUI:', error);
+        console.error('Error checking subscription status:', error);
         console.error('Error name:', error.name);
         console.error('Error message:', error.message);
         console.error('Error stack:', error.stack);
+        statusElement.textContent = 'Error checking notification status. Please refresh the page.';
       }
+      
+      // Set up button event listeners
+      console.log('Setting up button event listeners...');
+      
+      subscribeBtn.addEventListener('click', async () => {
+        console.log('Subscribe button clicked');
+        subscribeBtn.disabled = true;
+        statusElement.textContent = 'Subscribing...';
+        
+        const success = await subscribeToPushNotifications();
+        console.log('Subscribe result:', success);
+        updateUI(success);
+        
+        if (!success) {
+          statusElement.textContent = 'Failed to subscribe. Please try again.';
+          subscribeBtn.disabled = false;
+        }
+      });
+      
+      unsubscribeBtn.addEventListener('click', async () => {
+        console.log('Unsubscribe button clicked');
+        unsubscribeBtn.disabled = true;
+        statusElement.textContent = 'Unsubscribing...';
+        
+        const success = await unsubscribeFromPushNotifications();
+        console.log('Unsubscribe result:', success);
+        updateUI(!success);
+        
+        if (!success) {
+          statusElement.textContent = 'Failed to unsubscribe. Please try again.';
+          unsubscribeBtn.disabled = false;
+        }
+      });
+      
+      testNotificationBtn.addEventListener('click', async () => {
+        console.log('Test notification button clicked');
+        testNotificationBtn.disabled = true;
+        statusElement.textContent = 'Sending test notification...';
+        
+        await sendTestNotification();
+        
+        setTimeout(() => {
+          statusElement.textContent = isSubscribed ? 'Notifications are enabled.' : '';
+          testNotificationBtn.disabled = false;
+        }, 2000);
+      });
+      
+      function updateUI(isSubscribed) {
+        console.log('Updating UI, isSubscribed:', isSubscribed);
+        if (isSubscribed) {
+          subscribeBtn.style.display = 'none';
+          unsubscribeBtn.style.display = 'inline-block';
+          testNotificationBtn.style.display = 'inline-block';
+          statusElement.textContent = 'Notifications are enabled.';
+        } else {
+          subscribeBtn.style.display = 'inline-block';
+          subscribeBtn.disabled = false;
+          unsubscribeBtn.style.display = 'none';
+          testNotificationBtn.style.display = 'none';
+          statusElement.textContent = '';
+        }
+      }
+    } catch (error) {
+      console.error('Error in initNotificationUI:', error);
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
     }
+  }
 
-    // Register the service worker when the page loads
-    window.addEventListener('load', function() {
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/static/service-worker.js', {
-          scope: '/',
-          updateViaCache: 'none'
-        }).then(function(registration) {
-          console.log('ServiceWorker registration successful with scope:', registration.scope);
-          // Now that the service worker is ready, initialize the UI
-          console.log('About to call initNotificationUI...');
-          initNotificationUI().catch(error => {
-            console.error('Error in initNotificationUI:', error);
-            console.error('Error name:', error.name);
-            console.error('Error message:', error.message);
-            console.error('Error stack:', error.stack);
-          });
-          console.log('initNotificationUI completed');
-        }).catch(error => {
-          console.error('ServiceWorker registration failed:', error);
-          console.error('Error name:', error.name);
-          console.error('Error message:', error.message);
-          console.error('Error stack:', error.stack);
-        });
-      } else {
-        console.log('Service Worker is not supported');
-        // Still try to initialize UI even if service worker is not supported
-        console.log('About to call initNotificationUI (no service worker)...');
+  // Register the service worker when the page loads
+  window.addEventListener('load', function() {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/static/service-worker.js', {
+        scope: '/',
+        updateViaCache: 'none'
+      }).then(function(registration) {
+        console.log('ServiceWorker registration successful with scope:', registration.scope);
+        // Now that the service worker is ready, initialize the UI
+        console.log('About to call initNotificationUI...');
         initNotificationUI().catch(error => {
-          console.error('Error in initNotificationUI (no service worker):', error);
+          console.error('Error in initNotificationUI:', error);
           console.error('Error name:', error.name);
           console.error('Error message:', error.message);
           console.error('Error stack:', error.stack);
         });
-      }
-    });
-  </script>
-</body>
-</html>
+        console.log('initNotificationUI completed');
+      }).catch(error => {
+        console.error('ServiceWorker registration failed:', error);
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      });
+    } else {
+      console.log('Service Worker is not supported');
+      // Still try to initialize UI even if service worker is not supported
+      console.log('About to call initNotificationUI (no service worker)...');
+      initNotificationUI().catch(error => {
+        console.error('Error in initNotificationUI (no service worker):', error);
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      });
+    }
+  });
+</script>
+{{end}}

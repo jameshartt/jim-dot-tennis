@@ -1,301 +1,177 @@
 package auth
 
 import (
-	"encoding/json"
-	"errors"
-	"fmt"
+	"html/template"
 	"log"
 	"net/http"
+	"path/filepath"
 	"time"
-
-	"jim-dot-tennis/internal/models"
 )
 
-const (
-	// Cookie durations
-	playerSessionDuration = 180 * 24 * time.Hour // ~6 months (April to September)
-	userSessionDuration   = 180 * 24 * time.Hour // Same duration for consistency
-)
-
-// Handler handles HTTP requests for authentication
+// Handler provides HTTP handlers for auth-related routes
 type Handler struct {
-	service *Service
+	service      *Service
+	templateDir  string
+	redirectPath string
 }
 
 // NewHandler creates a new auth handler
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(service *Service, templateDir string, redirectPath string) *Handler {
+	return &Handler{
+		service:      service,
+		templateDir:  templateDir,
+		redirectPath: redirectPath,
+	}
 }
 
-// RegisterRoutes registers the auth routes
+// LoginHandler handles the login page and form submission
+func (h *Handler) LoginHandler() http.HandlerFunc {
+	type loginData struct {
+		Error    string
+		Username string
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("LoginHandler called with method: %s, URL: %s", r.Method, r.URL.Path)
+
+		// If already logged in, redirect
+		cookie, err := r.Cookie(h.service.config.CookieName)
+		if err == nil {
+			log.Printf("Found existing cookie: %s", cookie.Value)
+			// Validate the session
+			_, err := h.service.ValidateSession(cookie.Value, r)
+			if err == nil {
+				log.Printf("Valid session found, redirecting to: %s", h.redirectPath)
+				// Valid session, redirect to the target page
+				http.Redirect(w, r, h.redirectPath, http.StatusSeeOther)
+				return
+			}
+			log.Printf("Invalid session: %v, clearing cookie", err)
+			// Invalid session, clear the cookie
+			h.service.ClearSessionCookie(w)
+		} else {
+			log.Printf("No session cookie found: %v", err)
+		}
+
+		// GET request - show login form
+		if r.Method == http.MethodGet {
+			log.Printf("Processing GET request for login page")
+			// Create template with functions
+			funcMap := template.FuncMap{
+				"currentYear": func() int {
+					return time.Now().Year()
+				},
+			}
+
+			tmpl, err := template.New("").Funcs(funcMap).ParseFiles(
+				filepath.Join(h.templateDir, "layout.html"),
+				filepath.Join(h.templateDir, "login.html"),
+			)
+			if err != nil {
+				log.Printf("Error parsing template: %v", err)
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+				return
+			}
+
+			data := loginData{}
+			if err := tmpl.ExecuteTemplate(w, "login.html", data); err != nil {
+				log.Printf("Error executing template: %v", err)
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+			}
+			return
+		}
+
+		// POST request - process login
+		if r.Method == http.MethodPost {
+			log.Printf("Processing POST request for login form")
+			if err := r.ParseForm(); err != nil {
+				log.Printf("Error parsing form: %v", err)
+				http.Error(w, "Invalid form data", http.StatusBadRequest)
+				return
+			}
+
+			username := r.Form.Get("username")
+			password := r.Form.Get("password")
+			log.Printf("Form submitted with username: %s", username)
+
+			session, err := h.service.Login(username, password, r)
+			if err != nil {
+				log.Printf("Login failed: %v", err)
+
+				data := loginData{
+					Error:    err.Error(),
+					Username: username,
+				}
+
+				// Create template with functions
+				funcMap := template.FuncMap{
+					"currentYear": func() int {
+						return time.Now().Year()
+					},
+				}
+
+				tmpl, err := template.New("").Funcs(funcMap).ParseFiles(
+					filepath.Join(h.templateDir, "layout.html"),
+					filepath.Join(h.templateDir, "login.html"),
+				)
+				if err != nil {
+					log.Printf("Error parsing template: %v", err)
+					http.Error(w, "Internal server error", http.StatusInternalServerError)
+					return
+				}
+
+				if err := tmpl.ExecuteTemplate(w, "login.html", data); err != nil {
+					log.Printf("Error executing template: %v", err)
+					http.Error(w, "Internal server error", http.StatusInternalServerError)
+				}
+				return
+			}
+
+			log.Printf("Login successful for user: %s, setting session cookie and redirecting to: %s", username, h.redirectPath)
+			// Set session cookie
+			h.service.SetSessionCookie(w, session)
+
+			// Ensure cookie is actually set before redirecting
+			log.Printf("Session cookie set with value: %s, expires: %v", session.ID, session.ExpiresAt)
+
+			// Use a direct response to debug
+			if h.redirectPath == "" {
+				log.Printf("WARNING: redirectPath is empty, defaulting to /admin")
+				h.redirectPath = "/admin"
+			}
+
+			// Explicitly set appropriate headers for redirect
+			w.Header().Set("Location", h.redirectPath)
+			w.WriteHeader(http.StatusSeeOther)
+			return
+		}
+
+		// Other methods not allowed
+		log.Printf("Method not allowed: %s", r.Method)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// LogoutHandler handles user logout
+func (h *Handler) LogoutHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get session cookie
+		cookie, err := r.Cookie(h.service.config.CookieName)
+		if err == nil {
+			// Invalidate the session
+			h.service.InvalidateSession(cookie.Value)
+		}
+
+		// Clear the cookie
+		h.service.ClearSessionCookie(w)
+
+		// Redirect to login page
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+	}
+}
+
+// RegisterRoutes registers auth routes
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
-	// Player access routes
-	mux.HandleFunc("/auth/player/access", h.handlePlayerAccess)
-	mux.HandleFunc("/auth/player/token", h.handleCreatePlayerToken)
-
-	// User authentication routes
-	mux.HandleFunc("/auth/login", h.handleLogin)
-	mux.HandleFunc("/auth/logout", h.handleLogout)
-	mux.HandleFunc("/auth/user", h.handleCreateUser) // Admin only
-
-	// Player association routes
-	mux.HandleFunc("/auth/user/associate", h.handleAssociatePlayer)       // Admin only
-	mux.HandleFunc("/auth/user/disassociate", h.handleDisassociatePlayer) // Admin only
-}
-
-// handlePlayerAccess handles player access token validation
-func (h *Handler) handlePlayerAccess(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	token := r.URL.Query().Get("token")
-	if token == "" {
-		http.Error(w, "Token is required", http.StatusBadRequest)
-		return
-	}
-
-	playerToken, err := h.service.ValidatePlayerAccess(token, r)
-	if err != nil {
-		switch {
-		case errors.Is(err, ErrInvalidToken):
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
-		case errors.Is(err, ErrSuspiciousAccess):
-			http.Error(w, "Access denied", http.StatusTooManyRequests)
-		default:
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-		}
-		return
-	}
-
-	// Set session cookie for player access
-	http.SetCookie(w, &http.Cookie{
-		Name:     "player_token",
-		Value:    token,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-		MaxAge:   int(playerSessionDuration.Seconds()),
-	})
-
-	// Return player info
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"player_id": playerToken.PlayerID,
-		"role":      models.RolePlayer,
-	})
-}
-
-// handleCreatePlayerToken handles creation of player access tokens
-// This should be an admin-only endpoint
-func (h *Handler) handleCreatePlayerToken(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req struct {
-		PlayerID string   `json:"player_id"`
-		ProNames []string `json:"pro_names"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	token, err := h.service.CreatePlayerAccessToken(req.PlayerID, req.ProNames)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Return the token in the response
-	json.NewEncoder(w).Encode(map[string]string{
-		"token": token.Token,
-	})
-}
-
-// handleLogin handles user login
-func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Login attempt from IP: %s, User-Agent: %s", r.RemoteAddr, r.UserAgent())
-
-	if r.Method != http.MethodPost {
-		log.Printf("Invalid method %s for login attempt", r.Method)
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("Failed to decode login request body: %v", err)
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	log.Printf("Login attempt for username: %s", req.Username)
-
-	user, err := h.service.AuthenticateUser(req.Username, req.Password, r)
-	if err != nil {
-		switch {
-		case errors.Is(err, ErrInvalidCredentials):
-			log.Printf("Invalid credentials for username: %s", req.Username)
-			http.Error(w, "Invalid username or password", http.StatusUnauthorized)
-		case errors.Is(err, ErrUserInactive):
-			log.Printf("Inactive account attempt for username: %s", req.Username)
-			http.Error(w, "Account is inactive", http.StatusUnauthorized)
-		case errors.Is(err, ErrSuspiciousAccess):
-			log.Printf("Suspicious access attempt for username: %s from IP: %s", req.Username, r.RemoteAddr)
-			http.Error(w, "Access denied", http.StatusTooManyRequests)
-		default:
-			log.Printf("Internal error during login for username %s: %v", req.Username, err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-		}
-		return
-	}
-
-	// Set session cookie for user access
-	cookie := &http.Cookie{
-		Name:     "auth_token",
-		Value:    fmt.Sprintf("%d", user.ID),
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-		MaxAge:   int(userSessionDuration.Seconds()),
-	}
-	http.SetCookie(w, cookie)
-	log.Printf("Successful login for username: %s (ID: %d, Role: %s)", user.Username, user.ID, user.Role)
-
-	// Return user info
-	w.Header().Set("Content-Type", "application/json")
-	response := map[string]interface{}{
-		"username": user.Username,
-		"role":     user.Role,
-	}
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding login response: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	log.Printf("Login response sent successfully for username: %s", user.Username)
-}
-
-// handleLogout handles user logout
-func (h *Handler) handleLogout(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Clear both auth cookies
-	http.SetCookie(w, &http.Cookie{
-		Name:     "auth_token",
-		Value:    "",
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-		MaxAge:   -1,
-	})
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     "player_token",
-		Value:    "",
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-		MaxAge:   -1,
-	})
-
-	w.WriteHeader(http.StatusOK)
-}
-
-// handleCreateUser handles user creation (admin only)
-func (h *Handler) handleCreateUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req struct {
-		Username string            `json:"username"`
-		Password string            `json:"password"`
-		Role     models.AccessRole `json:"role"`
-		PlayerID *string           `json:"player_id,omitempty"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	user, err := h.service.CreateUser(req.Username, req.Password, req.Role, req.PlayerID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Return user info (without password)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"id":        user.ID,
-		"username":  user.Username,
-		"role":      user.Role,
-		"player_id": user.PlayerID,
-	})
-}
-
-// handleAssociatePlayer handles associating a player with a user account (admin only)
-func (h *Handler) handleAssociatePlayer(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req struct {
-		UserID   int64  `json:"user_id"`
-		PlayerID string `json:"player_id"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	if err := h.service.AssociatePlayerWithUser(req.UserID, req.PlayerID); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-}
-
-// handleDisassociatePlayer handles removing a player association from a user account (admin only)
-func (h *Handler) handleDisassociatePlayer(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req struct {
-		UserID int64 `json:"user_id"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	if err := h.service.DisassociatePlayerFromUser(req.UserID); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
+	mux.HandleFunc("/login", h.LoginHandler())
+	mux.HandleFunc("/logout", h.LogoutHandler())
 }

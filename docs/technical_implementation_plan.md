@@ -135,13 +135,6 @@ Push notifications will be implemented using the Web Push API:
 3. Server sends notifications via Web Push API
 4. Service worker displays notifications even when app is closed
 
-### WhatsApp Integration
-
-WhatsApp integration will use deep linking to generate shareable content:
-
-```
-https://wa.me/?text=I'm%20available%20for%20the%20match%20on%20Sunday%20at%202pm
-```
 
 ## Testing Strategy
 
