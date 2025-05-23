@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"jim-dot-tennis/internal/admin"
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/webpush"
@@ -66,6 +67,9 @@ func main() {
 	templateDir := filepath.Join(projectRoot, "templates")
 	authHandler := auth.NewHandler(authService, templateDir, "/admin")
 
+	// Set up admin handlers
+	adminHandler := admin.New(db, templateDir)
+
 	// Set up template functions
 	templateFuncs := template.FuncMap{
 		"currentYear": func() int {
@@ -88,6 +92,9 @@ func main() {
 	// Auth routes
 	authHandler.RegisterRoutes(mux)
 
+	// Admin routes (protected)
+	adminHandler.RegisterRoutes(mux, authMiddleware)
+
 	// Public routes
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
@@ -98,60 +105,6 @@ func main() {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	})
-
-	// Admin routes (protected)
-	adminMux := http.NewServeMux()
-	adminMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("Admin handler called with path: %s", r.URL.Path)
-
-		// Modify this to handle both "/admin" and "/admin/" paths
-		if r.URL.Path != "/admin/" && r.URL.Path != "/admin" {
-			log.Printf("Not found for path: %s", r.URL.Path)
-			http.NotFound(w, r)
-			return
-		}
-
-		// Get user from context
-		user, err := auth.GetUserFromContext(r.Context())
-		if err != nil {
-			log.Printf("Failed to get user from context: %v", err)
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-		log.Printf("Admin page requested by user: %s (role: %s)", user.Username, user.Role)
-
-		// Mock stats for the admin page
-		mockStats := map[string]int{
-			"PlayerCount":  12,
-			"FixtureCount": 8,
-			"SessionCount": 1,
-		}
-
-		// Load the standalone admin template directly (bypass layout)
-		adminTemplatePath := filepath.Join(projectRoot, "templates", "admin_standalone.html")
-		tmpl, err := template.ParseFiles(adminTemplatePath)
-		if err != nil {
-			log.Printf("Error parsing standalone admin template: %v", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-
-		// Execute the standalone template
-		if err := tmpl.Execute(w, map[string]interface{}{
-			"User":  user,
-			"Stats": mockStats,
-		}); err != nil {
-			log.Printf("Error executing standalone admin template: %v", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	})
-	// Fix the admin path handling
-	mux.Handle("/admin", authMiddleware.RequireAuth(
-		authMiddleware.RequireRole("admin")(adminMux),
-	))
-	mux.Handle("/admin/", authMiddleware.RequireAuth(
-		authMiddleware.RequireRole("admin")(adminMux),
-	))
 
 	// Serve static files with special handling for service worker
 	staticDir := filepath.Join(projectRoot, "static")

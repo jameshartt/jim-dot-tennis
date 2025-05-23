@@ -11,6 +11,7 @@ import (
 
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/repository"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -51,15 +52,17 @@ func DefaultConfig() Config {
 
 // Service provides authentication-related functionality
 type Service struct {
-	db     *database.DB
-	config Config
+	db                     *database.DB
+	config                 Config
+	loginAttemptRepository repository.LoginAttemptRepository
 }
 
 // NewService creates a new auth service
 func NewService(db *database.DB, config Config) *Service {
 	return &Service{
-		db:     db,
-		config: config,
+		db:                     db,
+		config:                 config,
+		loginAttemptRepository: repository.NewLoginAttemptRepository(db),
 	}
 }
 
@@ -289,30 +292,36 @@ func (s *Service) CleanupExpiredSessions() error {
 
 // recordLoginAttempt records a login attempt
 func (s *Service) recordLoginAttempt(username string, r *http.Request, success bool) {
-	_, err := s.db.Exec(`
-		INSERT INTO login_attempts (
-			username, ip, user_agent, success, created_at
-		) VALUES (
-			?, ?, ?, ?, ?
-		)
-	`, username, r.RemoteAddr, r.UserAgent(), success, time.Now())
-	if err != nil {
+	attempt := &models.LoginAttempt{
+		Username:  username,
+		IP:        r.RemoteAddr,
+		UserAgent: r.UserAgent(),
+		Success:   success,
+		CreatedAt: time.Now(),
+	}
+
+	if err := s.loginAttemptRepository.Create(attempt); err != nil {
 		log.Printf("Failed to record login attempt: %v", err)
 	}
 }
 
 // tooManyFailedAttempts checks if there have been too many failed login attempts
 func (s *Service) tooManyFailedAttempts(username, ip string) (bool, error) {
-	var count int
-	err := s.db.Get(&count, `
-		SELECT COUNT(*) FROM login_attempts
-		WHERE (username = ? OR ip = ?)
-		AND success = false
-		AND created_at > ?
-	`, username, ip, time.Now().Add(-s.config.LoginAttemptWindow))
+	// Use repository to check recent failed attempts
+	attempts, err := s.loginAttemptRepository.FindByUsernameAndIP(username, ip, s.config.MaxLoginAttempts)
 	if err != nil {
 		return false, err
 	}
+
+	// Count failed attempts within the window
+	count := 0
+	cutoff := time.Now().Add(-s.config.LoginAttemptWindow)
+	for _, attempt := range attempts {
+		if !attempt.Success && attempt.CreatedAt.After(cutoff) {
+			count++
+		}
+	}
+
 	return count >= s.config.MaxLoginAttempts, nil
 }
 
