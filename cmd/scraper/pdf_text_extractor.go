@@ -196,21 +196,10 @@ func parseFixturesFromText(text, divisionName string) ([]FixtureRow, error) {
 				continue
 			}
 
-			// Only process weeks 1-9 as they start new fixture blocks
-			// Weeks 10-18 are second halves and will be handled within the blocks
-			if firstWeek <= 9 {
-				fmt.Printf("Found first-half week %d at line %d: '%s'\n", firstWeek, i+1, line)
-
-				// Parse the complete fixture block
-				blockFixtures, nextIndex := parseFixtureBlock(lines, i, firstWeek, divisionName)
-				fixtures = append(fixtures, blockFixtures...)
-				fmt.Printf("Parsed %d fixtures from week %d block, next index: %d\n", len(blockFixtures), firstWeek, nextIndex)
-				i = nextIndex
-			} else {
-				// Skip weeks 10-18 as they are handled as second halves
-				fmt.Printf("Skipping second-half week %d at line %d\n", firstWeek, i+1)
-				i++
-			}
+			// Parse the complete fixture block
+			blockFixtures, nextIndex := parseFixtureBlock(lines, i, firstWeek)
+			fixtures = append(fixtures, blockFixtures...)
+			i = nextIndex
 		} else {
 			i++
 		}
@@ -221,67 +210,42 @@ func parseFixturesFromText(text, divisionName string) ([]FixtureRow, error) {
 }
 
 // parseFixtureBlock parses a complete fixture block starting from the given index
-func parseFixtureBlock(lines []string, startIndex, firstWeek int, divisionName string) ([]FixtureRow, int) {
+func parseFixtureBlock(lines []string, startIndex, firstWeek int) ([]FixtureRow, int) {
 	var fixtures []FixtureRow
 	i := startIndex + 1 // Skip the "Wk X" line
 
-	// Determine number of teams based on division
-	teamCount := 5 // Default for Divisions 1-3
-	if strings.Contains(divisionName, "Division 4") {
-		teamCount = 6
-	}
-
-	fmt.Printf("  Parsing block starting at index %d for week %d (division: %s, teams: %d)\n", startIndex, firstWeek, divisionName, teamCount)
-
 	// Parse first half
 	firstMonth, firstDay, i := parseDate(lines, i)
-	fmt.Printf("  First half date: %s %s, next index: %d\n", firstMonth, firstDay, i)
-
-	homeTeams, i := parseTeams(lines, i, teamCount)
-	fmt.Printf("  Home teams: %v, next index: %d\n", homeTeams, i)
-
-	i = skipVs(lines, i, teamCount)
-	fmt.Printf("  After skipping vs, next index: %d\n", i)
-
-	awayTeams, i := parseTeams(lines, i, teamCount)
-	fmt.Printf("  Away teams: %v, next index: %d\n", awayTeams, i)
+	homeTeams, i := parseTeams(lines, i, 5)
+	i = skipVs(lines, i, 5)
+	awayTeams, i := parseTeams(lines, i, 5)
 
 	// Parse second half
 	secondWeek := 0
 	secondMonth := ""
 	secondDay := ""
 
-	// Look for second week number, skipping empty lines
-	for i < len(lines) {
-		line := strings.TrimSpace(lines[i])
-		if line == "" {
-			i++
-			continue
-		}
-
-		fmt.Printf("  Looking for second week at index %d: '%s'\n", i, line)
-		if weekMatch := regexp.MustCompile(`^Wk\s+(\d+)$`).FindStringSubmatch(line); weekMatch != nil {
+	// Look for second week number
+	if i < len(lines) {
+		if weekMatch := regexp.MustCompile(`^Wk\s+(\d+)$`).FindStringSubmatch(strings.TrimSpace(lines[i])); weekMatch != nil {
 			week, err := strconv.Atoi(weekMatch[1])
 			if err == nil {
 				secondWeek = week
 				i++
-				fmt.Printf("  Found second week: %d, next index: %d\n", secondWeek, i)
 				secondMonth, secondDay, i = parseDate(lines, i)
-				fmt.Printf("  Second half date: %s %s, next index: %d\n", secondMonth, secondDay, i)
 			}
 		}
-		break // Only check the first non-empty line
 	}
 
 	// Create fixtures for both halves if we have valid data
-	if len(homeTeams) == teamCount && len(awayTeams) == teamCount {
+	if len(homeTeams) == 5 && len(awayTeams) == 5 {
 		// First half fixtures
 		firstDate := ""
 		if firstMonth != "" && firstDay != "" {
 			firstDate = fmt.Sprintf("%s %s", firstMonth, firstDay)
 		}
 
-		for j := 0; j < teamCount; j++ {
+		for j := 0; j < 5; j++ {
 			fixture := FixtureRow{
 				Week:           firstWeek,
 				Date:           firstDate,
@@ -300,7 +264,7 @@ func parseFixtureBlock(lines []string, startIndex, firstWeek int, divisionName s
 				secondDate = fmt.Sprintf("%s %s", secondMonth, secondDay)
 			}
 
-			for j := 0; j < teamCount; j++ {
+			for j := 0; j < 5; j++ {
 				fixture := FixtureRow{
 					Week:           secondWeek,
 					Date:           secondDate,
@@ -314,7 +278,6 @@ func parseFixtureBlock(lines []string, startIndex, firstWeek int, divisionName s
 		}
 	}
 
-	fmt.Printf("  Block complete, returning %d fixtures, next index: %d\n", len(fixtures), i)
 	return fixtures, i
 }
 
@@ -411,19 +374,19 @@ func skipVs(lines []string, startIndex, count int) int {
 	return i
 }
 
-// cleanTeamName cleans up OCR artifacts from team names while preserving team identifiers
+// cleanTeamName cleans up OCR artifacts from team names
 func cleanTeamName(name string) string {
 	// Remove common OCR artifacts
 	name = strings.ReplaceAll(name, "vy", "")
 	name = strings.ReplaceAll(name, "vv", "")
 	name = strings.ReplaceAll(name, "Vv", "")
+	name = strings.ReplaceAll(name, "vy", "")
 
-	// Remove trailing numbers and ordinals that might be dates, but preserve team letters A-F
+	// Remove trailing numbers and ordinals that might be dates
 	name = regexp.MustCompile(`\s+\d+(st|nd|rd|th)?\s*$`).ReplaceAllString(name, "")
 
-	// Remove standalone letters at the end EXCEPT for A, B, C, D, E, F which are team identifiers
-	name = regexp.MustCompile(`\s+[G-Z]\s*$`).ReplaceAllString(name, "")
-	name = regexp.MustCompile(`\s+[g-z]\s*$`).ReplaceAllString(name, "")
+	// Remove standalone letters at the end
+	name = regexp.MustCompile(`\s+[a-zA-Z]\s*$`).ReplaceAllString(name, "")
 
 	// Clean up extra spaces
 	name = regexp.MustCompile(`\s+`).ReplaceAllString(name, " ")

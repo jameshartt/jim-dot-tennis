@@ -27,6 +27,11 @@ type FixtureRepository interface {
 	FindByDateRange(ctx context.Context, startDate, endDate time.Time) ([]models.Fixture, error)
 	FindByDayCaptain(ctx context.Context, dayCaptainID string) ([]models.Fixture, error)
 
+	// Week-related queries
+	FindByWeek(ctx context.Context, weekID uint) ([]models.Fixture, error)
+	FindByWeekNumber(ctx context.Context, seasonID uint, weekNumber int) ([]models.Fixture, error)
+	FindByWeekAndDivision(ctx context.Context, weekID, divisionID uint) ([]models.Fixture, error)
+
 	// Fixture with relationships
 	FindWithMatchups(ctx context.Context, id uint) (*models.Fixture, error)
 
@@ -47,6 +52,7 @@ type FixtureRepository interface {
 	CountByStatus(ctx context.Context, status models.FixtureStatus) (int, error)
 	CountByDivision(ctx context.Context, divisionID uint) (int, error)
 	CountBySeason(ctx context.Context, seasonID uint) (int, error)
+	CountByWeek(ctx context.Context, weekID uint) (int, error)
 }
 
 // fixtureRepository implements FixtureRepository
@@ -65,7 +71,7 @@ func NewFixtureRepository(db *database.DB) FixtureRepository {
 func (r *fixtureRepository) FindAll(ctx context.Context) ([]models.Fixture, error) {
 	var fixtures []models.Fixture
 	err := r.db.SelectContext(ctx, &fixtures, `
-		SELECT id, home_team_id, away_team_id, division_id, season_id, scheduled_date, 
+		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
 		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
 		FROM fixtures 
 		ORDER BY scheduled_date ASC
@@ -77,7 +83,7 @@ func (r *fixtureRepository) FindAll(ctx context.Context) ([]models.Fixture, erro
 func (r *fixtureRepository) FindByID(ctx context.Context, id uint) (*models.Fixture, error) {
 	var fixture models.Fixture
 	err := r.db.GetContext(ctx, &fixture, `
-		SELECT id, home_team_id, away_team_id, division_id, season_id, scheduled_date, 
+		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
 		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
 		FROM fixtures 
 		WHERE id = ?
@@ -95,9 +101,9 @@ func (r *fixtureRepository) Create(ctx context.Context, fixture *models.Fixture)
 	fixture.UpdatedAt = now
 
 	result, err := r.db.NamedExecContext(ctx, `
-		INSERT INTO fixtures (home_team_id, away_team_id, division_id, season_id, scheduled_date, 
+		INSERT INTO fixtures (home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
 		                     venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at)
-		VALUES (:home_team_id, :away_team_id, :division_id, :season_id, :scheduled_date, 
+		VALUES (:home_team_id, :away_team_id, :division_id, :season_id, :week_id, :scheduled_date, 
 		        :venue_location, :status, :completed_date, :day_captain_id, :notes, :created_at, :updated_at)
 	`, fixture)
 
@@ -120,7 +126,7 @@ func (r *fixtureRepository) Update(ctx context.Context, fixture *models.Fixture)
 	_, err := r.db.NamedExecContext(ctx, `
 		UPDATE fixtures 
 		SET home_team_id = :home_team_id, away_team_id = :away_team_id, division_id = :division_id, 
-		    season_id = :season_id, scheduled_date = :scheduled_date, venue_location = :venue_location, 
+		    season_id = :season_id, week_id = :week_id, scheduled_date = :scheduled_date, venue_location = :venue_location, 
 		    status = :status, completed_date = :completed_date, day_captain_id = :day_captain_id, 
 		    notes = :notes, updated_at = :updated_at
 		WHERE id = :id
@@ -139,7 +145,7 @@ func (r *fixtureRepository) Delete(ctx context.Context, id uint) error {
 func (r *fixtureRepository) FindByDivision(ctx context.Context, divisionID uint) ([]models.Fixture, error) {
 	var fixtures []models.Fixture
 	err := r.db.SelectContext(ctx, &fixtures, `
-		SELECT id, home_team_id, away_team_id, division_id, season_id, scheduled_date, 
+		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
 		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
 		FROM fixtures 
 		WHERE division_id = ?
@@ -152,7 +158,7 @@ func (r *fixtureRepository) FindByDivision(ctx context.Context, divisionID uint)
 func (r *fixtureRepository) FindBySeason(ctx context.Context, seasonID uint) ([]models.Fixture, error) {
 	var fixtures []models.Fixture
 	err := r.db.SelectContext(ctx, &fixtures, `
-		SELECT id, home_team_id, away_team_id, division_id, season_id, scheduled_date, 
+		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
 		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
 		FROM fixtures 
 		WHERE season_id = ?
@@ -165,7 +171,7 @@ func (r *fixtureRepository) FindBySeason(ctx context.Context, seasonID uint) ([]
 func (r *fixtureRepository) FindByDivisionAndSeason(ctx context.Context, divisionID, seasonID uint) ([]models.Fixture, error) {
 	var fixtures []models.Fixture
 	err := r.db.SelectContext(ctx, &fixtures, `
-		SELECT id, home_team_id, away_team_id, division_id, season_id, scheduled_date, 
+		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
 		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
 		FROM fixtures 
 		WHERE division_id = ? AND season_id = ?
@@ -178,7 +184,7 @@ func (r *fixtureRepository) FindByDivisionAndSeason(ctx context.Context, divisio
 func (r *fixtureRepository) FindByTeam(ctx context.Context, teamID uint) ([]models.Fixture, error) {
 	var fixtures []models.Fixture
 	err := r.db.SelectContext(ctx, &fixtures, `
-		SELECT id, home_team_id, away_team_id, division_id, season_id, scheduled_date, 
+		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
 		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
 		FROM fixtures 
 		WHERE home_team_id = ? OR away_team_id = ?
@@ -191,7 +197,7 @@ func (r *fixtureRepository) FindByTeam(ctx context.Context, teamID uint) ([]mode
 func (r *fixtureRepository) FindByHomeTeam(ctx context.Context, teamID uint) ([]models.Fixture, error) {
 	var fixtures []models.Fixture
 	err := r.db.SelectContext(ctx, &fixtures, `
-		SELECT id, home_team_id, away_team_id, division_id, season_id, scheduled_date, 
+		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
 		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
 		FROM fixtures 
 		WHERE home_team_id = ?
@@ -204,7 +210,7 @@ func (r *fixtureRepository) FindByHomeTeam(ctx context.Context, teamID uint) ([]
 func (r *fixtureRepository) FindByAwayTeam(ctx context.Context, teamID uint) ([]models.Fixture, error) {
 	var fixtures []models.Fixture
 	err := r.db.SelectContext(ctx, &fixtures, `
-		SELECT id, home_team_id, away_team_id, division_id, season_id, scheduled_date, 
+		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
 		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
 		FROM fixtures 
 		WHERE away_team_id = ?
@@ -217,7 +223,7 @@ func (r *fixtureRepository) FindByAwayTeam(ctx context.Context, teamID uint) ([]
 func (r *fixtureRepository) FindByStatus(ctx context.Context, status models.FixtureStatus) ([]models.Fixture, error) {
 	var fixtures []models.Fixture
 	err := r.db.SelectContext(ctx, &fixtures, `
-		SELECT id, home_team_id, away_team_id, division_id, season_id, scheduled_date, 
+		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
 		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
 		FROM fixtures 
 		WHERE status = ?
@@ -230,7 +236,7 @@ func (r *fixtureRepository) FindByStatus(ctx context.Context, status models.Fixt
 func (r *fixtureRepository) FindByDateRange(ctx context.Context, startDate, endDate time.Time) ([]models.Fixture, error) {
 	var fixtures []models.Fixture
 	err := r.db.SelectContext(ctx, &fixtures, `
-		SELECT id, home_team_id, away_team_id, division_id, season_id, scheduled_date, 
+		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
 		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
 		FROM fixtures 
 		WHERE scheduled_date >= ? AND scheduled_date <= ?
@@ -243,7 +249,7 @@ func (r *fixtureRepository) FindByDateRange(ctx context.Context, startDate, endD
 func (r *fixtureRepository) FindByDayCaptain(ctx context.Context, dayCaptainID string) ([]models.Fixture, error) {
 	var fixtures []models.Fixture
 	err := r.db.SelectContext(ctx, &fixtures, `
-		SELECT id, home_team_id, away_team_id, division_id, season_id, scheduled_date, 
+		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
 		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
 		FROM fixtures 
 		WHERE day_captain_id = ?
@@ -321,7 +327,7 @@ func (r *fixtureRepository) RemoveDayCaptain(ctx context.Context, id uint) error
 func (r *fixtureRepository) FindUpcoming(ctx context.Context, limit int) ([]models.Fixture, error) {
 	var fixtures []models.Fixture
 	err := r.db.SelectContext(ctx, &fixtures, `
-		SELECT id, home_team_id, away_team_id, division_id, season_id, scheduled_date, 
+		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
 		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
 		FROM fixtures 
 		WHERE scheduled_date >= CURRENT_TIMESTAMP AND status IN (?, ?)
@@ -335,7 +341,7 @@ func (r *fixtureRepository) FindUpcoming(ctx context.Context, limit int) ([]mode
 func (r *fixtureRepository) FindToday(ctx context.Context) ([]models.Fixture, error) {
 	var fixtures []models.Fixture
 	err := r.db.SelectContext(ctx, &fixtures, `
-		SELECT id, home_team_id, away_team_id, division_id, season_id, scheduled_date, 
+		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
 		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
 		FROM fixtures 
 		WHERE DATE(scheduled_date) = DATE(CURRENT_TIMESTAMP)
@@ -348,7 +354,7 @@ func (r *fixtureRepository) FindToday(ctx context.Context) ([]models.Fixture, er
 func (r *fixtureRepository) FindThisWeek(ctx context.Context) ([]models.Fixture, error) {
 	var fixtures []models.Fixture
 	err := r.db.SelectContext(ctx, &fixtures, `
-		SELECT id, home_team_id, away_team_id, division_id, season_id, scheduled_date, 
+		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
 		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
 		FROM fixtures 
 		WHERE scheduled_date >= DATE('now', 'weekday 0', '-6 days') 
@@ -363,7 +369,7 @@ func (r *fixtureRepository) FindByWeekday(ctx context.Context, weekday time.Week
 	var fixtures []models.Fixture
 	// SQLite uses 0=Sunday, 1=Monday, etc., same as Go's time.Weekday
 	err := r.db.SelectContext(ctx, &fixtures, `
-		SELECT id, home_team_id, away_team_id, division_id, season_id, scheduled_date, 
+		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
 		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
 		FROM fixtures 
 		WHERE CAST(strftime('%w', scheduled_date) AS INTEGER) = ?
@@ -376,7 +382,7 @@ func (r *fixtureRepository) FindByWeekday(ctx context.Context, weekday time.Week
 func (r *fixtureRepository) FindOverdue(ctx context.Context) ([]models.Fixture, error) {
 	var fixtures []models.Fixture
 	err := r.db.SelectContext(ctx, &fixtures, `
-		SELECT id, home_team_id, away_team_id, division_id, season_id, scheduled_date, 
+		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
 		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
 		FROM fixtures 
 		WHERE scheduled_date < CURRENT_TIMESTAMP AND status = ?
@@ -409,5 +415,54 @@ func (r *fixtureRepository) CountBySeason(ctx context.Context, seasonID uint) (i
 	err := r.db.GetContext(ctx, &count, `
 		SELECT COUNT(*) FROM fixtures WHERE season_id = ?
 	`, seasonID)
+	return count, err
+}
+
+// FindByWeek retrieves fixtures for a specific week
+func (r *fixtureRepository) FindByWeek(ctx context.Context, weekID uint) ([]models.Fixture, error) {
+	var fixtures []models.Fixture
+	err := r.db.SelectContext(ctx, &fixtures, `
+		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
+		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
+		FROM fixtures 
+		WHERE week_id = ?
+		ORDER BY scheduled_date ASC
+	`, weekID)
+	return fixtures, err
+}
+
+// FindByWeekNumber retrieves fixtures for a specific week number in a season
+func (r *fixtureRepository) FindByWeekNumber(ctx context.Context, seasonID uint, weekNumber int) ([]models.Fixture, error) {
+	var fixtures []models.Fixture
+	err := r.db.SelectContext(ctx, &fixtures, `
+		SELECT f.id, f.home_team_id, f.away_team_id, f.division_id, f.season_id, f.week_id, f.scheduled_date, 
+		       f.venue_location, f.status, f.completed_date, f.day_captain_id, f.notes, f.created_at, f.updated_at
+		FROM fixtures f
+		INNER JOIN weeks w ON f.week_id = w.id
+		WHERE f.season_id = ? AND w.week_number = ?
+		ORDER BY f.scheduled_date ASC
+	`, seasonID, weekNumber)
+	return fixtures, err
+}
+
+// FindByWeekAndDivision retrieves fixtures for a specific week and division
+func (r *fixtureRepository) FindByWeekAndDivision(ctx context.Context, weekID, divisionID uint) ([]models.Fixture, error) {
+	var fixtures []models.Fixture
+	err := r.db.SelectContext(ctx, &fixtures, `
+		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
+		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
+		FROM fixtures 
+		WHERE week_id = ? AND division_id = ?
+		ORDER BY scheduled_date ASC
+	`, weekID, divisionID)
+	return fixtures, err
+}
+
+// CountByWeek returns the number of fixtures in a specific week
+func (r *fixtureRepository) CountByWeek(ctx context.Context, weekID uint) (int, error) {
+	var count int
+	err := r.db.GetContext(ctx, &count, `
+		SELECT COUNT(*) FROM fixtures WHERE week_id = ?
+	`, weekID)
 	return count, err
 }

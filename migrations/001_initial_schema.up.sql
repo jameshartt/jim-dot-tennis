@@ -46,6 +46,20 @@ CREATE TABLE IF NOT EXISTS divisions (
     FOREIGN KEY (season_id) REFERENCES seasons(id)
 );
 
+CREATE TABLE IF NOT EXISTS weeks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    week_number INTEGER NOT NULL,
+    season_id INTEGER NOT NULL,
+    start_date TIMESTAMP NOT NULL,
+    end_date TIMESTAMP NOT NULL,
+    name VARCHAR(255), -- Optional name like "Week 1", "Semi-Finals", etc.
+    is_active BOOLEAN NOT NULL DEFAULT FALSE, -- Current week
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(week_number, season_id),
+    FOREIGN KEY (season_id) REFERENCES seasons(id)
+);
+
 CREATE TABLE IF NOT EXISTS clubs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(255) NOT NULL,
@@ -116,6 +130,7 @@ CREATE TABLE IF NOT EXISTS fixtures (
     away_team_id INTEGER NOT NULL,
     division_id INTEGER NOT NULL,
     season_id INTEGER NOT NULL,
+    week_id INTEGER NOT NULL,
     scheduled_date TIMESTAMP NOT NULL,
     venue_location TEXT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'Scheduled',
@@ -128,6 +143,7 @@ CREATE TABLE IF NOT EXISTS fixtures (
     FOREIGN KEY (away_team_id) REFERENCES teams(id),
     FOREIGN KEY (division_id) REFERENCES divisions(id),
     FOREIGN KEY (season_id) REFERENCES seasons(id),
+    FOREIGN KEY (week_id) REFERENCES weeks(id),
     FOREIGN KEY (day_captain_id) REFERENCES players(id)
 );
 
@@ -163,6 +179,10 @@ CREATE INDEX IF NOT EXISTS idx_leagues_year ON leagues(year);
 CREATE INDEX IF NOT EXISTS idx_leagues_type ON leagues(type);
 CREATE INDEX IF NOT EXISTS idx_league_seasons_league_id ON league_seasons(league_id);
 CREATE INDEX IF NOT EXISTS idx_league_seasons_season_id ON league_seasons(season_id);
+CREATE INDEX IF NOT EXISTS idx_weeks_season_id ON weeks(season_id);
+CREATE INDEX IF NOT EXISTS idx_weeks_week_number ON weeks(week_number);
+CREATE INDEX IF NOT EXISTS idx_weeks_start_date ON weeks(start_date);
+CREATE INDEX IF NOT EXISTS idx_weeks_is_active ON weeks(is_active);
 CREATE INDEX IF NOT EXISTS idx_players_club_id ON players(club_id);
 CREATE INDEX IF NOT EXISTS idx_teams_club_id ON teams(club_id);
 CREATE INDEX IF NOT EXISTS idx_teams_division_id ON teams(division_id);
@@ -178,6 +198,7 @@ CREATE INDEX IF NOT EXISTS idx_divisions_league_id ON divisions(league_id);
 CREATE INDEX IF NOT EXISTS idx_divisions_season_id ON divisions(season_id);
 CREATE INDEX IF NOT EXISTS idx_fixtures_division_id ON fixtures(division_id);
 CREATE INDEX IF NOT EXISTS idx_fixtures_season_id ON fixtures(season_id);
+CREATE INDEX IF NOT EXISTS idx_fixtures_week_id ON fixtures(week_id);
 CREATE INDEX IF NOT EXISTS idx_fixtures_home_team_id ON fixtures(home_team_id);
 CREATE INDEX IF NOT EXISTS idx_fixtures_away_team_id ON fixtures(away_team_id);
 CREATE INDEX IF NOT EXISTS idx_fixtures_scheduled_date ON fixtures(scheduled_date);
@@ -236,6 +257,15 @@ FOR EACH ROW
 WHEN NEW.type NOT IN ('Parks', 'Club')
 BEGIN
     SELECT RAISE(FAIL, 'Invalid league type');
+END;
+
+-- Ensure only one active week per season
+CREATE TRIGGER IF NOT EXISTS chk_active_week
+BEFORE INSERT ON weeks
+FOR EACH ROW
+WHEN NEW.is_active = TRUE
+BEGIN
+    UPDATE weeks SET is_active = FALSE WHERE season_id = NEW.season_id AND is_active = TRUE;
 END;
 
 -- Ensure only one active season at a time

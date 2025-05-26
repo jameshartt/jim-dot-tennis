@@ -88,7 +88,7 @@ go run pdf_extractor.go
 
 ## Output
 
-Creates CSV files in `test_pdf_output_fixed/` directory:
+Creates CSV files in `pdf_output/` directory:
 - `Div_1_2025_fixtures.csv` (90 fixtures)
 - `Div_2_2025_fixtures.csv` (90 fixtures) 
 - `Div_3_2025_fixtures.csv` (90 fixtures)

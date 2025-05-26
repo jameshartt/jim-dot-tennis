@@ -34,7 +34,7 @@ type TeamInfo struct {
 func main() {
 	config := &PopulateConfig{}
 
-	flag.StringVar(&config.CSVDir, "csv-dir", "test_pdf_output_fixed", "Directory containing CSV files")
+	flag.StringVar(&config.CSVDir, "csv-dir", "pdf_output", "Directory containing CSV files")
 	flag.StringVar(&config.DBPath, "db-path", "./tennis.db", "Path to SQLite database file")
 	flag.StringVar(&config.DBType, "db-type", "sqlite3", "Database type (sqlite3 or postgres)")
 	flag.BoolVar(&config.DryRun, "dry-run", false, "Print what would be done without making changes")
@@ -82,11 +82,18 @@ func populateDatabase(config *PopulateConfig) error {
 	clubRepo := repository.NewClubRepository(db)
 	teamRepo := repository.NewTeamRepository(db)
 	fixtureRepo := repository.NewFixtureRepository(db)
+	weekRepo := repository.NewWeekRepository(db)
 
 	// Create 2025 season
 	season, err := createSeason(ctx, seasonRepo, config)
 	if err != nil {
 		return fmt.Errorf("failed to create season: %w", err)
+	}
+
+	// Create weeks for the season
+	weeks, err := createWeeks(ctx, weekRepo, season, config)
+	if err != nil {
+		return fmt.Errorf("failed to create weeks: %w", err)
 	}
 
 	// Create Parks League
@@ -119,7 +126,7 @@ func populateDatabase(config *PopulateConfig) error {
 
 		// Process CSV file
 		csvPath := filepath.Join(config.CSVDir, csvFile)
-		if err := processCSVFile(ctx, csvPath, division, season, clubRepo, teamRepo, fixtureRepo, config); err != nil {
+		if err := processCSVFile(ctx, csvPath, division, season, weeks, clubRepo, teamRepo, fixtureRepo, config); err != nil {
 			return fmt.Errorf("failed to process CSV file %s: %w", csvFile, err)
 		}
 	}
@@ -160,6 +167,53 @@ func createSeason(ctx context.Context, repo repository.SeasonRepository, config 
 	}
 
 	return season, nil
+}
+
+func createWeeks(ctx context.Context, repo repository.WeekRepository, season *models.Season, config *PopulateConfig) (map[int]*models.Week, error) {
+	weekMap := make(map[int]*models.Week)
+
+	// Create 18 weeks for the season (typical tennis league season)
+	for weekNum := 1; weekNum <= 18; weekNum++ {
+		// Calculate week dates (assuming season starts April 1st, each week is 7 days)
+		weekStart := season.StartDate.AddDate(0, 0, (weekNum-1)*7)
+		weekEnd := weekStart.AddDate(0, 0, 6)
+
+		week := &models.Week{
+			WeekNumber: weekNum,
+			SeasonID:   season.ID,
+			StartDate:  weekStart,
+			EndDate:    weekEnd,
+			Name:       fmt.Sprintf("Week %d", weekNum),
+			IsActive:   weekNum == 1, // First week is active by default
+		}
+
+		if config.DryRun {
+			log.Printf("[DRY RUN] Would create week: %s (Week %d)", week.Name, week.WeekNumber)
+			week.ID = uint(weekNum) // Mock ID for dry run
+		} else {
+			// Check if week already exists
+			existing, err := repo.FindByWeekNumber(ctx, season.ID, weekNum)
+			if err == nil && existing != nil {
+				if config.Verbose {
+					log.Printf("Week %d already exists, using existing week (ID: %d)", weekNum, existing.ID)
+				}
+				weekMap[weekNum] = existing
+				continue
+			}
+
+			if err := repo.Create(ctx, week); err != nil {
+				return nil, fmt.Errorf("failed to create week %d: %w", weekNum, err)
+			}
+
+			if config.Verbose {
+				log.Printf("Created week: %s (ID: %d)", week.Name, week.ID)
+			}
+		}
+
+		weekMap[weekNum] = week
+	}
+
+	return weekMap, nil
 }
 
 func createLeague(ctx context.Context, repo repository.LeagueRepository, season *models.Season, config *PopulateConfig) (*models.League, error) {
@@ -245,7 +299,7 @@ func createDivision(ctx context.Context, repo repository.DivisionRepository, lea
 	return division, nil
 }
 
-func processCSVFile(ctx context.Context, csvPath string, division *models.Division, season *models.Season, clubRepo repository.ClubRepository, teamRepo repository.TeamRepository, fixtureRepo repository.FixtureRepository, config *PopulateConfig) error {
+func processCSVFile(ctx context.Context, csvPath string, division *models.Division, season *models.Season, weeks map[int]*models.Week, clubRepo repository.ClubRepository, teamRepo repository.TeamRepository, fixtureRepo repository.FixtureRepository, config *PopulateConfig) error {
 	file, err := os.Open(csvPath)
 	if err != nil {
 		return fmt.Errorf("failed to open CSV file: %w", err)
@@ -328,7 +382,13 @@ func processCSVFile(ctx context.Context, csvPath string, division *models.Divisi
 			homeTeamID := clubTeamMap[record[2]]
 			awayTeamID := clubTeamMap[record[3]]
 
-			if err := createFixture(ctx, fixtureRepo, homeTeamID, awayTeamID, division.ID, season.ID, fixtureDate, week, config); err != nil {
+			weekObj := weeks[week]
+			if weekObj == nil {
+				log.Printf("Warning: Week %d not found, skipping fixture", week)
+				continue
+			}
+
+			if err := createFixture(ctx, fixtureRepo, homeTeamID, awayTeamID, division.ID, season.ID, weekObj.ID, fixtureDate, week, config); err != nil {
 				log.Printf("Warning: failed to create fixture %s vs %s: %v", record[2], record[3], err)
 			}
 		}
@@ -338,7 +398,13 @@ func processCSVFile(ctx context.Context, csvPath string, division *models.Divisi
 			homeTeamID := clubTeamMap[record[4]]
 			awayTeamID := clubTeamMap[record[5]]
 
-			if err := createFixture(ctx, fixtureRepo, homeTeamID, awayTeamID, division.ID, season.ID, fixtureDate, week, config); err != nil {
+			weekObj := weeks[week]
+			if weekObj == nil {
+				log.Printf("Warning: Week %d not found, skipping fixture", week)
+				continue
+			}
+
+			if err := createFixture(ctx, fixtureRepo, homeTeamID, awayTeamID, division.ID, season.ID, weekObj.ID, fixtureDate, week, config); err != nil {
 				log.Printf("Warning: failed to create fixture %s vs %s: %v", record[4], record[5], err)
 			}
 		}
@@ -450,9 +516,9 @@ func createOrGetTeam(ctx context.Context, repo repository.TeamRepository, teamNa
 	return team, nil
 }
 
-func createFixture(ctx context.Context, repo repository.FixtureRepository, homeTeamID, awayTeamID, divisionID, seasonID uint, fixtureDate time.Time, week int, config *PopulateConfig) error {
+func createFixture(ctx context.Context, repo repository.FixtureRepository, homeTeamID, awayTeamID, divisionID, seasonID uint, weekID uint, fixtureDate time.Time, week int, config *PopulateConfig) error {
 	if config.DryRun {
-		log.Printf("[DRY RUN] Would create fixture: Home Team ID %d vs Away Team ID %d on %s", homeTeamID, awayTeamID, fixtureDate.Format("2006-01-02"))
+		log.Printf("[DRY RUN] Would create fixture: Home Team ID %d vs Away Team ID %d on %s (Week %d)", homeTeamID, awayTeamID, fixtureDate.Format("2006-01-02"), week)
 		return nil
 	}
 
@@ -461,9 +527,10 @@ func createFixture(ctx context.Context, repo repository.FixtureRepository, homeT
 	if err == nil {
 		for _, fixture := range existing {
 			if fixture.HomeTeamID == homeTeamID && fixture.AwayTeamID == awayTeamID &&
-				fixture.ScheduledDate.Format("2006-01-02") == fixtureDate.Format("2006-01-02") {
+				fixture.ScheduledDate.Format("2006-01-02") == fixtureDate.Format("2006-01-02") &&
+				fixture.WeekID == weekID {
 				if config.Verbose {
-					log.Printf("Fixture already exists: Home Team ID %d vs Away Team ID %d on %s", homeTeamID, awayTeamID, fixtureDate.Format("2006-01-02"))
+					log.Printf("Fixture already exists: Home Team ID %d vs Away Team ID %d on %s (Week %d)", homeTeamID, awayTeamID, fixtureDate.Format("2006-01-02"), week)
 				}
 				return nil
 			}
@@ -475,6 +542,7 @@ func createFixture(ctx context.Context, repo repository.FixtureRepository, homeT
 		AwayTeamID:    awayTeamID,
 		DivisionID:    divisionID,
 		SeasonID:      seasonID,
+		WeekID:        weekID,
 		ScheduledDate: fixtureDate,
 		VenueLocation: "TBD", // To be determined
 		Status:        models.Scheduled,
@@ -486,8 +554,8 @@ func createFixture(ctx context.Context, repo repository.FixtureRepository, homeT
 	}
 
 	if config.Verbose {
-		log.Printf("Created fixture: Home Team ID %d vs Away Team ID %d on %s (ID: %d)",
-			fixture.HomeTeamID, fixture.AwayTeamID, fixture.ScheduledDate.Format("2006-01-02"), fixture.ID)
+		log.Printf("Created fixture: Home Team ID %d vs Away Team ID %d on %s (Week %d, ID: %d)",
+			fixture.HomeTeamID, fixture.AwayTeamID, fixture.ScheduledDate.Format("2006-01-02"), week, fixture.ID)
 	}
 
 	return nil
