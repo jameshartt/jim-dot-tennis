@@ -1,6 +1,75 @@
-# Jim-Dot-Tennis
+# Tennis League Fixture Parser
 
-A Progressive Web App (PWA) using Go with server-side rendering (SSR) and minimal client-side JavaScript.
+A Go application that extracts tennis league fixtures from PDF files and converts them to structured CSV format.
+
+## Features
+
+- **PDF Text Extraction**: Uses go-fitz to extract clean text from PDF files
+- **Smart Parsing**: Automatically detects fixture blocks and handles both halves of the season
+- **Multi-Division Support**: Handles different division formats (5 teams vs 6 teams)
+- **Home/Away Logic**: Correctly processes the reversal between first and second halves
+- **Team Name Preservation**: Maintains important team identifiers (A, B, C, D, E, F suffixes)
+- **CSV Output**: Generates clean, structured CSV files ready for import
+
+## Usage
+
+### PDF Fixture Extraction
+
+Extract fixtures from all division PDFs:
+
+```bash
+go run cmd/scraper/pdf_extractor.go
+```
+
+This will:
+1. Download the latest PDF files from the league website
+2. Extract text using go-fitz
+3. Parse fixtures into structured format
+4. Generate CSV files for each division
+5. Clean up temporary files
+
+### Output Format
+
+The generated CSV files contain the following columns:
+- `Week`: Week number (1-18)
+- `Date`: Match date
+- `Home_Team_First_Half`: Home team for first half of season (weeks 1-9)
+- `Away_Team_First_Half`: Away team for first half of season (weeks 1-9)
+- `Home_Team_Second_Half`: Home team for second half of season (weeks 10-18)
+- `Away_Team_Second_Half`: Away team for second half of season (weeks 10-18)
+
+### Division Support
+
+- **Divisions 1-3**: 10 teams, 5 matches per week, 90 total fixtures
+- **Division 4**: 12 teams, 6 matches per week, 132 total fixtures
+
+## Dependencies
+
+```bash
+go mod tidy
+```
+
+Key dependencies:
+- `github.com/gen2brain/go-fitz` - PDF text extraction
+
+## Development
+
+The main parser is located in `cmd/scraper/pdf_extractor.go` and handles:
+- PDF downloading and text extraction
+- Fixture block parsing with proper team counting
+- Date parsing and formatting
+- Team name cleaning while preserving identifiers
+- CSV generation
+
+## Example Output
+
+```csv
+Week,Date,Home_Team_First_Half,Away_Team_First_Half,Home_Team_Second_Half,Away_Team_Second_Half
+1,April 17,Dyke A,Hove,,
+1,April 17,Hove A,Preston Park,,
+10,June 19,,,Hove,Dyke A
+10,June 19,,,Preston Park,Hove A
+```
 
 ## Project Overview
 
@@ -112,6 +181,93 @@ jim-dot-tennis/
 - **Mobile-Friendly**: Responsive design via viewport meta tag
 - **Installable**: Can be added to home screen on supported devices
 - **Automated Backups**: Daily database backups when running with Docker
+- **PDF Fixture Processing**: OCR-based extraction of tennis league fixtures from PDF documents
+
+## PDF Fixture Processing
+
+The application includes a powerful OCR-based system for processing tennis league fixture cards:
+
+### Features
+
+- **PDF Column Splitting**: Automatically downloads and splits fixture card PDFs into individual division columns
+- **OCR Text Extraction**: Uses Tesseract OCR to extract text from column images
+- **Intelligent Parsing**: Handles complex dual-column structure where first and second half seasons are displayed side-by-side
+- **Structured Week/Date Calculation**: Calculates proper weeks and dates based on division-specific schedules and fixture grouping
+- **CSV Export**: Generates clean CSV files with properly structured fixture data
+- **Advanced Team Name Cleaning**: Comprehensive cleaning system that removes OCR artifacts, month prefixes, ordinals, and normalizes team names
+- **Validation**: Checks for expected number of weeks and matchups per division
+
+#### Structured Week and Date Calculation
+
+The system uses a structured approach to calculate accurate weeks and dates:
+
+- **Division-Specific Start Dates**: 
+  - Division 1: Thursday, 17 Apr 2025
+  - Division 2: Wednesday, 16 Apr 2025  
+  - Division 3: Tuesday, 15 Apr 2025
+  - Division 4: Tuesday, 8 Apr 2025 (one week earlier)
+- **Fixture Grouping**: Groups fixtures by expected count (5 for Div 1-3, 6 for Div 4)
+- **Sequential Week Assignment**: Assigns weeks 1-18 (Div 1-3) or 1-20 (Div 4) based on fixture position
+- **Weekly Date Progression**: Calculates dates with 7-day intervals from start dates
+- **Dual Season Structure**: Generates both first half (weeks 1-9/10) and second half (weeks 10-18/11-20)
+
+#### Team Name Cleaning Features
+
+The OCR system includes sophisticated team name cleaning that handles:
+
+- **Month Prefix Removal**: "Apr King Alfred" → "King Alfred"
+- **Ordinal Removal**: "th Queens" → "Queens"  
+- **OCR Artifact Cleaning**: Removes "vy", "vv", "Vv" artifacts from "v" character misreads
+- **Name Restoration**: "Anns" → "St Ann's" for truncated names
+- **Compound Name Spacing**: "DykeA" → "Dyke A", "HoveA" → "Hove A"
+- **Name Completion**: "King" → "King Alfred", "Preston" → "Preston Park"
+- **Proper Apostrophes**: "StAnns" → "St Ann's"
+- **Standardization**: "hove a" → "Hove A" for consistent formatting
+- **Week Reference Removal**: Strips "Wk1", "Wk2" references mixed into team names
+- **Date Fragment Removal**: Removes standalone numbers, years, and date components
+
+Success rate: ~98% clean team names from raw OCR text.
+
+### Usage
+
+1. **Split PDF into column images**:
+   ```bash
+   ./bin/scraper -split-pdf
+   ```
+
+2. **OCR column images to CSV**:
+   ```bash
+   ./bin/scraper -ocr
+   ```
+
+3. **Run complete process**:
+   ```bash
+   ./scripts/full_ocr_process.sh
+   ```
+
+### Output Structure
+
+The OCR process generates:
+- **Column Images**: `output_columns/Division_X_fixtures.png`
+- **CSV Files**: `output_csv/Division_X_fixtures.csv`
+- **Debug Text**: `output_csv/Division_X_raw_ocr.txt`
+
+Each CSV contains:
+- Week number
+- Date
+- Home/Away teams for first half of season
+- Home/Away teams for second half of season
+
+### Division Configuration
+
+- **Divisions 1-3**: 18 weeks, 5 matchups per week
+- **Division 4**: 20 weeks, 6 matchups per week
+
+### Requirements
+
+- **Tesseract OCR**: Must be installed on the system
+- **Go Dependencies**: `github.com/otiai10/gosseract/v2` for OCR bindings
+- **PDF Processing**: `github.com/gen2brain/go-fitz` for PDF handling
 
 ## Development Roadmap
 
