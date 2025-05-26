@@ -1,82 +1,121 @@
 package main
 
 import (
-	"context"
-	"flag"
+	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 
-	"jim-dot-tennis/internal/database"
-	"jim-dot-tennis/internal/scraper"
+	"github.com/ledongthuc/pdf"
 )
 
 func main() {
-	// Define command-line flags
-	dbPath := flag.String("db", "tennis.db", "Path to SQLite database file")
-	seasonYear := flag.Int("year", 2025, "Season year")
-	seasonName := flag.String("season", "Summer 2025", "Season name")
-	useMock := flag.Bool("mock", true, "Use mock data instead of scraping website")
-	importFixtures := flag.Bool("fixtures", true, "Import fixtures data")
-	importPlayers := flag.Bool("players", true, "Import player data")
-	flag.Parse()
-
-	// Ensure the database file exists
-	if _, err := os.Stat(*dbPath); os.IsNotExist(err) {
-		log.Fatalf("Database file %s does not exist", *dbPath)
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: go run main.go <pdf-url-or-path>")
+		fmt.Println("Example: go run main.go https://www.bhplta.co.uk/wp-content/uploads/2025/03/Fixture-Card-2025.pdf")
+		os.Exit(1)
 	}
 
-	// Set up the database connection
-	dbConfig := database.Config{
-		Driver:   "sqlite3",
-		FilePath: *dbPath,
-	}
+	input := os.Args[1]
+	var pdfPath string
 
-	db, err := database.New(dbConfig)
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
-	}
-	defer db.Close()
-
-	// Create a context
-	ctx := context.Background()
-
-	// Initialize the scraper
-	s := scraper.NewScraper(db)
-
-	// Import fixtures data if requested
-	if *importFixtures {
-		// Run the appropriate import function
-		if *useMock {
-			// Use mock data
-			err = s.ImportMockData(ctx, *seasonYear, *seasonName)
-			if err != nil {
-				log.Fatalf("Error importing mock data: %v", err)
-			}
-			log.Println("Mock fixture data import completed successfully")
-		} else {
-			// Scrape from website
-			err = s.ImportData(ctx, scraper.ImportConfig{
-				FixturesURL: "https://www.bhplta.co.uk/bhplta_tables/fixtures/",
-				ResultsURL:  "https://www.bhplta.co.uk/bhplta_tables/results/",
-				TablesURL:   "https://www.bhplta.co.uk/bhplta_tables/league-table/",
-				SeasonYear:  *seasonYear,
-				SeasonName:  *seasonName,
-			})
-			if err != nil {
-				log.Fatalf("Error importing data: %v", err)
-			}
-			log.Println("Web fixture data import completed successfully")
-		}
-	}
-
-	// Import player data if requested
-	if *importPlayers {
-		err = s.ImportMockPlayers(ctx)
+	// Check if input is a URL or local file
+	if isURL(input) {
+		fmt.Printf("Downloading PDF from: %s\n", input)
+		downloadedPath, err := downloadPDF(input)
 		if err != nil {
-			log.Fatalf("Error importing player data: %v", err)
+			log.Fatalf("Failed to download PDF: %v", err)
 		}
-		log.Println("Player data import completed successfully")
+		pdfPath = downloadedPath
+		defer os.Remove(downloadedPath) // Clean up downloaded file
+	} else {
+		pdfPath = input
 	}
 
-	log.Println("All requested data imports completed")
-} 
+	fmt.Printf("Extracting text from: %s\n", pdfPath)
+	text, err := extractPDFText(pdfPath)
+	if err != nil {
+		log.Fatalf("Failed to extract PDF text: %v", err)
+	}
+
+	fmt.Println("\n" + "="*80)
+	fmt.Println("EXTRACTED TEXT:")
+	fmt.Println("=" * 80)
+	fmt.Println(text)
+	fmt.Println("=" * 80)
+	fmt.Printf("Total characters: %d\n", len(text))
+
+	// Save to file for easier analysis
+	outputFile := "fixture_card_text.txt"
+	err = os.WriteFile(outputFile, []byte(text), 0644)
+	if err != nil {
+		log.Printf("Warning: Failed to save text to %s: %v", outputFile, err)
+	} else {
+		fmt.Printf("Text saved to: %s\n", outputFile)
+	}
+}
+
+func isURL(str string) bool {
+	return len(str) > 7 && (str[:7] == "http://" || str[:8] == "https://")
+}
+
+func downloadPDF(url string) (string, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP error: %d", resp.StatusCode)
+	}
+
+	// Create temporary file
+	tmpFile, err := os.CreateTemp("", "fixture_card_*.pdf")
+	if err != nil {
+		return "", err
+	}
+	defer tmpFile.Close()
+
+	// Copy response body to file
+	_, err = io.Copy(tmpFile, resp.Body)
+	if err != nil {
+		os.Remove(tmpFile.Name())
+		return "", err
+	}
+
+	return tmpFile.Name(), nil
+}
+
+func extractPDFText(pdfPath string) (string, error) {
+	file, reader, err := pdf.Open(pdfPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open PDF: %w", err)
+	}
+	defer file.Close()
+
+	var text string
+	totalPages := reader.NumPage()
+
+	fmt.Printf("PDF has %d pages\n", totalPages)
+
+	for pageNum := 1; pageNum <= totalPages; pageNum++ {
+		page := reader.Page(pageNum)
+		if page.V.IsNull() {
+			continue
+		}
+
+		pageText, err := page.GetPlainText()
+		if err != nil {
+			fmt.Printf("Warning: Failed to extract text from page %d: %v\n", pageNum, err)
+			continue
+		}
+
+		text += fmt.Sprintf("\n--- PAGE %d ---\n", pageNum)
+		text += pageText
+		text += "\n"
+	}
+
+	return text, nil
+}
