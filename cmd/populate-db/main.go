@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -15,14 +16,18 @@ import (
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
+
+	"github.com/google/uuid"
+	"golang.org/x/net/html"
 )
 
 type PopulateConfig struct {
-	CSVDir  string
-	DBPath  string
-	DBType  string
-	DryRun  bool
-	Verbose bool
+	CSVDir      string
+	DBPath      string
+	DBType      string
+	DryRun      bool
+	Verbose     bool
+	PlayersFile string // New field for the players HTML file
 }
 
 type TeamInfo struct {
@@ -39,6 +44,7 @@ func main() {
 	flag.StringVar(&config.DBType, "db-type", "sqlite3", "Database type (sqlite3 or postgres)")
 	flag.BoolVar(&config.DryRun, "dry-run", false, "Print what would be done without making changes")
 	flag.BoolVar(&config.Verbose, "verbose", false, "Enable verbose logging")
+	flag.StringVar(&config.PlayersFile, "players-file", "players-import/players.html", "Path to the players HTML file")
 	flag.Parse()
 
 	if config.Verbose {
@@ -83,6 +89,7 @@ func populateDatabase(config *PopulateConfig) error {
 	teamRepo := repository.NewTeamRepository(db)
 	fixtureRepo := repository.NewFixtureRepository(db)
 	weekRepo := repository.NewWeekRepository(db)
+	playerRepo := repository.NewPlayerRepository(db)
 
 	// Create 2025 season
 	season, err := createSeason(ctx, seasonRepo, config)
@@ -129,6 +136,11 @@ func populateDatabase(config *PopulateConfig) error {
 		if err := processCSVFile(ctx, csvPath, division, season, weeks, clubRepo, teamRepo, fixtureRepo, config); err != nil {
 			return fmt.Errorf("failed to process CSV file %s: %w", csvFile, err)
 		}
+	}
+
+	// Import players from HTML
+	if err := importPlayers(ctx, config.PlayersFile, clubRepo, playerRepo, config); err != nil {
+		return fmt.Errorf("failed to import players: %w", err)
 	}
 
 	return nil
@@ -612,4 +624,263 @@ func parseFixtureDate(dateStr string, year int) (time.Time, error) {
 	}
 
 	return time.Time{}, fmt.Errorf("unable to parse date: %s", dateStr)
+}
+
+// generateRandomEmail creates a random email address based on the player's name
+func generateRandomEmail(firstName, lastName string) string {
+	// Convert to lowercase and remove spaces
+	first := strings.ToLower(strings.ReplaceAll(firstName, " ", ""))
+	last := strings.ToLower(strings.ReplaceAll(lastName, " ", ""))
+
+	// Random email domains
+	domains := []string{"gmail.com", "yahoo.co.uk", "hotmail.com", "outlook.com", "btinternet.com"}
+	domain := domains[len(first+last)%len(domains)]
+
+	// Different email patterns
+	patterns := []string{
+		fmt.Sprintf("%s.%s@%s", first, last, domain),
+		fmt.Sprintf("%s_%s@%s", first, last, domain),
+		fmt.Sprintf("%s%s@%s", first, last, domain),
+		fmt.Sprintf("%s.%s%d@%s", first, last, (len(firstName)+len(lastName))%99+1, domain),
+	}
+
+	pattern := patterns[len(firstName)%len(patterns)]
+	return pattern
+}
+
+// generateRandomPhone creates a random UK phone number
+func generateRandomPhone(firstName, lastName string) string {
+	// Use name length to create some variation but keep it deterministic for same names
+	seed := len(firstName) + len(lastName)*3
+
+	// UK mobile number patterns
+	prefixes := []string{"07700", "07701", "07702", "07703", "07704", "07705"}
+	prefix := prefixes[seed%len(prefixes)]
+
+	// Generate last 6 digits based on name
+	suffix := fmt.Sprintf("%06d", (seed*12345+67890)%1000000)
+
+	return fmt.Sprintf("%s %s", prefix, suffix)
+}
+
+// parsePlayersFromHTML extracts player names from the HTML file
+func parsePlayersFromHTML(filePath string) ([]string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open HTML file: %w", err)
+	}
+	defer file.Close()
+
+	doc, err := html.Parse(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse HTML: %w", err)
+	}
+
+	var players []string
+	var extractText func(*html.Node)
+	extractText = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "li" {
+			// Look for the selectable option class
+			hasSelectableClass := false
+			for _, attr := range n.Attr {
+				if attr.Key == "class" && strings.Contains(attr.Val, "select2-results__option--selectable") {
+					hasSelectableClass = true
+					break
+				}
+			}
+
+			if hasSelectableClass {
+				// Extract text content
+				var textContent strings.Builder
+				var getText func(*html.Node)
+				getText = func(node *html.Node) {
+					if node.Type == html.TextNode {
+						textContent.WriteString(node.Data)
+					}
+					for child := node.FirstChild; child != nil; child = child.NextSibling {
+						getText(child)
+					}
+				}
+				getText(n)
+
+				playerName := strings.TrimSpace(textContent.String())
+				if playerName != "" {
+					players = append(players, playerName)
+				}
+			}
+		}
+
+		for child := n.FirstChild; child != nil; child = child.NextSibling {
+			extractText(child)
+		}
+	}
+
+	extractText(doc)
+	return players, nil
+}
+
+// filterPlayerNames removes non-player entries from the list
+func filterPlayerNames(names []string) []string {
+	// Define patterns to exclude
+	excludePatterns := []string{
+		"Select Player",
+		"Player not listed",
+		"enter manually",
+		"Conceded by",
+		"Given to",
+		"St Ann's",
+	}
+
+	var filtered []string
+	for _, name := range names {
+		shouldExclude := false
+		for _, pattern := range excludePatterns {
+			if strings.Contains(name, pattern) {
+				shouldExclude = true
+				break
+			}
+		}
+
+		// Also exclude if it's too short or contains suspicious patterns
+		if !shouldExclude && len(strings.TrimSpace(name)) > 2 {
+			// Check if it looks like a real name (has at least one letter)
+			if matched, _ := regexp.MatchString(`[a-zA-Z]`, name); matched {
+				filtered = append(filtered, strings.TrimSpace(name))
+			}
+		}
+	}
+
+	return filtered
+}
+
+// splitPlayerName splits a full name into first and last name
+func splitPlayerName(fullName string) (string, string) {
+	parts := strings.Fields(fullName)
+	if len(parts) == 0 {
+		return "", ""
+	}
+	if len(parts) == 1 {
+		return parts[0], ""
+	}
+
+	// First name is the first part, last name is everything else joined
+	firstName := parts[0]
+	lastName := strings.Join(parts[1:], " ")
+	return firstName, lastName
+}
+
+// importPlayers imports players from the HTML file into the database
+func importPlayers(ctx context.Context, filePath string, clubRepo repository.ClubRepository, playerRepo repository.PlayerRepository, config *PopulateConfig) error {
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		if config.Verbose {
+			log.Printf("Players file %s not found, skipping player import", filePath)
+		}
+		return nil
+	}
+
+	if config.Verbose {
+		log.Printf("Starting player import from %s", filePath)
+	}
+
+	var stAnnsClub models.Club
+
+	if config.DryRun {
+		// In dry run mode, create a mock club
+		stAnnsClub = models.Club{ID: 1, Name: "St. Ann's"}
+		if config.Verbose {
+			log.Printf("[DRY RUN] Using mock St. Ann's club (ID: %d)", stAnnsClub.ID)
+		}
+	} else {
+		// Find St. Ann's club
+		clubs, err := clubRepo.FindByNameLike(ctx, "St Ann")
+		if err != nil {
+			return fmt.Errorf("failed to find St. Ann's club: %w", err)
+		}
+		if len(clubs) == 0 {
+			return fmt.Errorf("St. Ann's club not found in database")
+		}
+		stAnnsClub = clubs[0]
+
+		if config.Verbose {
+			log.Printf("Found St. Ann's club (ID: %d)", stAnnsClub.ID)
+		}
+	}
+
+	// Parse player names from HTML
+	playerNames, err := parsePlayersFromHTML(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to parse players from HTML: %w", err)
+	}
+
+	if config.Verbose {
+		log.Printf("Extracted %d potential player names from HTML", len(playerNames))
+	}
+
+	// Filter out non-player entries
+	filteredNames := filterPlayerNames(playerNames)
+
+	if config.Verbose {
+		log.Printf("Filtered to %d valid player names", len(filteredNames))
+	}
+
+	// Track imported players
+	importedCount := 0
+	skippedCount := 0
+
+	// Create players
+	for _, fullName := range filteredNames {
+		firstName, lastName := splitPlayerName(fullName)
+
+		if config.DryRun {
+			email := generateRandomEmail(firstName, lastName)
+			phone := generateRandomPhone(firstName, lastName)
+			log.Printf("[DRY RUN] Would create player: %s %s (Club: %s, Email: %s, Phone: %s)", firstName, lastName, stAnnsClub.Name, email, phone)
+			importedCount++
+			continue
+		}
+
+		// Check if player already exists with the same name and club
+		existing, err := playerRepo.FindByName(ctx, firstName, lastName)
+		if err == nil {
+			// Check if any existing player is from the same club
+			playerExists := false
+			for _, existingPlayer := range existing {
+				if existingPlayer.ClubID == stAnnsClub.ID {
+					playerExists = true
+					break
+				}
+			}
+			if playerExists {
+				if config.Verbose {
+					log.Printf("Player %s %s already exists in St. Ann's club, skipping", firstName, lastName)
+				}
+				skippedCount++
+				continue
+			}
+		}
+
+		// Create new player
+		player := &models.Player{
+			ID:        uuid.New().String(),
+			FirstName: firstName,
+			LastName:  lastName,
+			Email:     generateRandomEmail(firstName, lastName),
+			Phone:     generateRandomPhone(firstName, lastName),
+			ClubID:    stAnnsClub.ID,
+		}
+
+		if err := playerRepo.Create(ctx, player); err != nil {
+			log.Printf("Warning: failed to create player %s %s: %v", firstName, lastName, err)
+			continue
+		}
+
+		if config.Verbose {
+			log.Printf("Created player: %s %s (ID: %s)", firstName, lastName, player.ID)
+		}
+		importedCount++
+	}
+
+	log.Printf("Player import completed: %d imported, %d skipped", importedCount, skippedCount)
+	return nil
 }
