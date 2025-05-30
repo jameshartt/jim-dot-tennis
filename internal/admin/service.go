@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"time"
 
 	"jim-dot-tennis/internal/database"
@@ -12,6 +13,7 @@ import (
 type Service struct {
 	db                     *database.DB
 	loginAttemptRepository repository.LoginAttemptRepository
+	playerRepository       repository.PlayerRepository
 }
 
 // NewService creates a new admin service
@@ -19,6 +21,7 @@ func NewService(db *database.DB) *Service {
 	return &Service{
 		db:                     db,
 		loginAttemptRepository: repository.NewLoginAttemptRepository(db),
+		playerRepository:       repository.NewPlayerRepository(db),
 	}
 }
 
@@ -77,9 +80,13 @@ func (s *Service) GetDashboardData(user *models.User) (*DashboardData, error) {
 }
 
 // GetPlayers retrieves all players for admin management
-func (s *Service) GetPlayers() (interface{}, error) {
-	// TODO: Implement player retrieval from database
-	return nil, nil
+func (s *Service) GetPlayers() ([]models.Player, error) {
+	// Use the player repository to fetch all players
+	players, err := s.playerRepository.FindAll(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	return players, nil
 }
 
 // GetFixtures retrieves all fixtures for admin management

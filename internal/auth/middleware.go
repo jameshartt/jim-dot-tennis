@@ -76,7 +76,7 @@ func (m *Middleware) RequireAuth(next http.Handler) http.Handler {
 		log.Printf("Added user and role to request context")
 
 		// Call the next handler with the enriched context
-		log.Printf("Proceeding to next handler")
+		log.Printf("Proceeding to next handler, %s", r.URL.Path)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

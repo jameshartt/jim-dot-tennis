@@ -98,6 +98,7 @@ func main() {
 	// Public routes
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
+			log.Printf("Not found: %s", r.URL.Path)
 			http.NotFound(w, r)
 			return
 		}

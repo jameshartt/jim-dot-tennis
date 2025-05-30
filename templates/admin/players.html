@@ -73,7 +73,7 @@
     <div class="admin-header">
         <div class="container">
             <div class="breadcrumb">
-                <a href="/admin">Admin Dashboard</a> &gt; Player Management
+                <a href="/admin/dashboard">Admin Dashboard</a> &gt; Player Management
             </div>
             <h1>Player Management</h1>
         </div>
@@ -98,31 +98,28 @@
                 </tr>
             </thead>
             <tbody>
-                <!-- TODO: Replace with actual player data -->
-                <tr>
-                    <td>1</td>
-                    <td>John Doe</td>
-                    <td>john@example.com</td>
-                    <td>+1234567890</td>
-                    <td><span class="status-active">Active</span></td>
-                    <td>2024-01-15</td>
-                    <td>
-                        <a href="/admin/players/1/edit" class="btn btn-sm btn-secondary">Edit</a>
-                        <a href="/admin/players/1/delete" class="btn btn-sm btn-danger">Delete</a>
-                    </td>
-                </tr>
-                <tr>
-                    <td>2</td>
-                    <td>Jane Smith</td>
-                    <td>jane@example.com</td>
-                    <td>+1234567891</td>
-                    <td><span class="status-active">Active</span></td>
-                    <td>2024-01-20</td>
-                    <td>
-                        <a href="/admin/players/2/edit" class="btn btn-sm btn-secondary">Edit</a>
-                        <a href="/admin/players/2/delete" class="btn btn-sm btn-danger">Delete</a>
-                    </td>
-                </tr>
+                {{if .Players}}
+                    {{range .Players}}
+                    <tr>
+                        <td>{{.ID}}</td>
+                        <td>{{.FirstName}} {{.LastName}}</td>
+                        <td>{{.Email}}</td>
+                        <td>{{.Phone}}</td>
+                        <td><span class="status-active">Active</span></td>
+                        <td>{{.CreatedAt.Format "2006-01-02"}}</td>
+                        <td>
+                            <a href="/admin/players/{{.ID}}/edit" class="btn btn-sm btn-secondary">Edit</a>
+                            <a href="/admin/players/{{.ID}}/delete" class="btn btn-sm btn-danger">Delete</a>
+                        </td>
+                    </tr>
+                    {{end}}
+                {{else}}
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 2rem;">
+                            No players found. <a href="/admin/players/new">Add the first player</a>
+                        </td>
+                    </tr>
+                {{end}}
             </tbody>
         </table>
     </div>

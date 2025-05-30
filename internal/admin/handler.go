@@ -30,22 +30,27 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	// Create admin mux for all admin routes
 	adminMux := http.NewServeMux()
 
-	// Dashboard route
-	adminMux.HandleFunc("/", h.handleDashboard)
+	// Dashboard route with full path
+	adminMux.HandleFunc("/admin/dashboard", h.handleDashboard)
+	adminMux.HandleFunc("/admin/dashboard/", h.handleDashboard)
 
-	// Admin area routes
-	adminMux.HandleFunc("/players", h.handlePlayers)
-	adminMux.HandleFunc("/players/", h.handlePlayers)
-	adminMux.HandleFunc("/fixtures", h.handleFixtures)
-	adminMux.HandleFunc("/fixtures/", h.handleFixtures)
-	adminMux.HandleFunc("/users", h.handleUsers)
-	adminMux.HandleFunc("/users/", h.handleUsers)
-	adminMux.HandleFunc("/sessions", h.handleSessions)
-	adminMux.HandleFunc("/sessions/", h.handleSessions)
+	// Admin area routes with full paths
+	adminMux.HandleFunc("/admin/players", h.handlePlayers)
+	adminMux.HandleFunc("/admin/players/", h.handlePlayers)
+	adminMux.HandleFunc("/admin/fixtures", h.handleFixtures)
+	adminMux.HandleFunc("/admin/fixtures/", h.handleFixtures)
+	adminMux.HandleFunc("/admin/users", h.handleUsers)
+	adminMux.HandleFunc("/admin/users/", h.handleUsers)
+	adminMux.HandleFunc("/admin/sessions", h.handleSessions)
+	adminMux.HandleFunc("/admin/sessions/", h.handleSessions)
 
 	// Register admin routes with authentication middleware
 	mux.Handle("/admin", authMiddleware.RequireAuth(
-		authMiddleware.RequireRole("admin")(adminMux),
+		authMiddleware.RequireRole("admin")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Redirect /admin to /admin/dashboard
+			log.Printf("Redirecting to /admin/dashboard")
+			http.Redirect(w, r, "/admin/dashboard", http.StatusFound)
+		})),
 	))
 	mux.Handle("/admin/", authMiddleware.RequireAuth(
 		authMiddleware.RequireRole("admin")(adminMux),
@@ -56,9 +61,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 func (h *Handler) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Admin dashboard handler called with path: %s", r.URL.Path)
 
-	// Only handle root admin paths
-	if r.URL.Path != "/admin/" && r.URL.Path != "/admin" {
-		log.Printf("Not found for path: %s", r.URL.Path)
+	// Only handle dashboard path
+	if r.URL.Path != "/admin/dashboard" {
+		log.Printf("Dashboard handler: not found for path: %s", r.URL.Path)
 		http.NotFound(w, r)
 		return
 	}
@@ -210,6 +215,14 @@ func (h *Handler) handleSessionsGet(w http.ResponseWriter, r *http.Request, user
 
 // handlePlayersGet handles GET requests for player management
 func (h *Handler) handlePlayersGet(w http.ResponseWriter, r *http.Request, user *models.User) {
+	// Get players from the service
+	players, err := h.service.GetPlayers()
+	if err != nil {
+		log.Printf("Failed to get players: %v", err)
+		http.Error(w, "Failed to load players", http.StatusInternalServerError)
+		return
+	}
+
 	// Load the players template
 	playersTemplatePath := filepath.Join(h.templateDir, "admin", "players.html")
 	tmpl, err := template.ParseFiles(playersTemplatePath)
@@ -234,7 +247,8 @@ func (h *Handler) handlePlayersGet(w http.ResponseWriter, r *http.Request, user 
 
 	// Execute the template with data
 	if err := tmpl.Execute(w, map[string]interface{}{
-		"User": user,
+		"User":    user,
+		"Players": players,
 	}); err != nil {
 		log.Printf("Error executing players template: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
