@@ -225,11 +225,18 @@
             // Mobile: touch handling for navigation
             row.addEventListener('touchstart', (e) => {
                 touchStartTime = Date.now();
+                // Prevent text selection only during touch interactions
+                row.style.userSelect = 'none';
+                row.style.webkitUserSelect = 'none';
             });
             
             row.addEventListener('touchend', (e) => {
                 e.preventDefault();
                 const touchDuration = Date.now() - touchStartTime;
+                
+                // Restore text selection after touch
+                row.style.userSelect = '';
+                row.style.webkitUserSelect = '';
                 
                 // Touch up inside (short touch duration) navigates to edit
                 if (touchDuration < 200) {
@@ -237,9 +244,10 @@
                 }
             });
             
-            // Prevent text selection on mobile
-            row.addEventListener('selectstart', (e) => {
-                e.preventDefault();
+            // Also restore text selection if touch is cancelled
+            row.addEventListener('touchcancel', () => {
+                row.style.userSelect = '';
+                row.style.webkitUserSelect = '';
             });
         });
     </script>
