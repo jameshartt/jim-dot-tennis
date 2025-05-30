@@ -78,6 +78,48 @@ go mod download
 make migrate-up
 ```
 
+### Local Development
+
+#### Quick Start
+For local development, you can use either the Makefile commands or the convenience script:
+
+**Using Makefile (Recommended):**
+```bash
+# Build and run locally (database will be created at project root)
+make local
+
+# Or run individual commands:
+make build-local  # Build binary to bin/jim-dot-tennis
+make run-local    # Build and run with database at ./tennis.db
+make clean-local  # Clean up binary and database
+```
+
+**Using convenience script:**
+```bash
+# Run the application locally
+./scripts/run.sh
+```
+
+Both methods will:
+- Build the binary and place it in `bin/jim-dot-tennis`
+- Create the database at the project root (`./tennis.db`)
+- Start the server at `http://localhost:8080`
+
+#### Production Deployment (Docker)
+For production deployment, use Docker:
+
+```bash
+# Build and run with Docker
+make build
+make run
+
+# View logs
+make logs
+
+# Stop the application
+make stop
+```
+
 ### Usage
 
 #### Database Population

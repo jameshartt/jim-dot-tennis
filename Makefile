@@ -1,4 +1,4 @@
-.PHONY: build run stop clean backup logs restart
+.PHONY: build run stop clean backup logs restart build-local run-local local
 
 # Docker compose command
 DOCKER_COMPOSE = docker-compose
@@ -6,8 +6,34 @@ DOCKER_COMPOSE = docker-compose
 # Project name
 PROJECT = jim-dot-tennis
 
+# Local binary path
+BINARY_PATH = ./bin/jim-dot-tennis
+
 # Default target
 all: build run
+
+# Local development commands
+# Build the Go binary locally and put it in bin/
+build-local:
+	@echo "Building $(PROJECT) binary..."
+	@mkdir -p bin
+	go build -o $(BINARY_PATH) ./cmd/jim-dot-tennis
+
+# Run the application locally with database at project root
+run-local: build-local
+	@echo "Starting $(PROJECT) locally..."
+	@echo "Database will be created at: ./tennis.db"
+	@echo "Server will be available at: http://localhost:8080"
+	DB_PATH=./tennis.db $(BINARY_PATH)
+
+# Combined local development command
+local: run-local
+
+# Clean local build artifacts
+clean-local:
+	@echo "Cleaning local build artifacts..."
+	rm -f $(BINARY_PATH)
+	rm -f ./tennis.db
 
 # Build the Docker images
 build:
