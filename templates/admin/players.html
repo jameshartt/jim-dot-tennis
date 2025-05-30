@@ -30,7 +30,7 @@
         }
         .action-bar {
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             align-items: center;
             margin-bottom: 2rem;
         }
@@ -59,13 +59,102 @@
             background: #f8f9fa;
             font-weight: 600;
         }
-        .status-active {
-            color: var(--success-color);
-            font-weight: 500;
+        .players-table tbody tr {
+            cursor: pointer;
+            transition: background-color 0.2s ease;
         }
-        .status-inactive {
-            color: var(--danger-color);
-            font-weight: 500;
+        .players-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        /* Player status background colors */
+        .players-table tbody tr.player-active {
+            background-color: rgba(40, 167, 69, 0.1); /* Transparent green */
+        }
+        .players-table tbody tr.player-inactive {
+            background-color: rgba(220, 53, 69, 0.1); /* Transparent red */
+        }
+        
+        /* Hover states for status colors */
+        .players-table tbody tr.player-active:hover {
+            background-color: rgba(40, 167, 69, 0.15);
+        }
+        .players-table tbody tr.player-inactive:hover {
+            background-color: rgba(220, 53, 69, 0.15);
+        }
+        
+        /* Name column - never truncate */
+        .col-name {
+            min-width: 120px;
+            white-space: nowrap;
+        }
+        
+        /* Email and phone columns - responsive truncation */
+        .col-email,
+        .col-phone {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        /* Status column */
+        .col-status {
+            min-width: 80px;
+        }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .players-table th,
+            .players-table td {
+                padding: 0.75rem 0.5rem;
+            }
+            
+            .col-email {
+                max-width: 120px;
+            }
+            
+            .col-phone {
+                max-width: 100px;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .col-email {
+                max-width: 80px;
+            }
+            
+            .col-phone {
+                max-width: 80px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .players-table th,
+            .players-table td {
+                padding: 0.5rem 0.25rem;
+                font-size: 0.9rem;
+            }
+            
+            .col-email {
+                max-width: 60px;
+            }
+            
+            .col-phone {
+                max-width: 60px;
+            }
+            
+            /* Hide email on very small screens */
+            .col-email {
+                display: none;
+            }
+        }
+        
+        @media (max-width: 360px) {
+            /* Hide phone on extra small screens */
+            .col-phone {
+                display: none;
+            }
         }
     </style>
 </head>
@@ -88,34 +177,24 @@
         <table class="players-table">
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Status</th>
-                    <th>Joined</th>
-                    <th>Actions</th>
+                    <th class="col-name">Name</th>
+                    <th class="col-email">Email</th>
+                    <th class="col-phone">Phone</th>
+
                 </tr>
             </thead>
             <tbody>
                 {{if .Players}}
                     {{range .Players}}
-                    <tr>
-                        <td>{{.ID}}</td>
-                        <td>{{.FirstName}} {{.LastName}}</td>
-                        <td>{{.Email}}</td>
-                        <td>{{.Phone}}</td>
-                        <td><span class="status-active">Active</span></td>
-                        <td>{{.CreatedAt.Format "2006-01-02"}}</td>
-                        <td>
-                            <a href="/admin/players/{{.ID}}/edit" class="btn btn-sm btn-secondary">Edit</a>
-                            <a href="/admin/players/{{.ID}}/delete" class="btn btn-sm btn-danger">Delete</a>
-                        </td>
+                    <tr data-player-id="{{.ID}}" data-player-name="{{.FirstName}} {{.LastName}}" class="player-active">
+                        <td class="col-name">{{.FirstName}} {{.LastName}}</td>
+                        <td class="col-email" title="{{.Email}}">{{.Email}}</td>
+                        <td class="col-phone" title="{{.Phone}}">{{.Phone}}</td>
                     </tr>
                     {{end}}
                 {{else}}
                     <tr>
-                        <td colspan="7" style="text-align: center; padding: 2rem;">
+                        <td colspan="3" style="text-align: center; padding: 2rem;">
                             No players found. <a href="/admin/players/new">Add the first player</a>
                         </td>
                     </tr>
@@ -126,6 +205,43 @@
 
     <script>
         console.log("Player management page loaded");
+        
+        let touchStartTime = 0;
+        
+        // Handle row navigation to edit page
+        function navigateToEdit(playerId) {
+            window.location.href = `/admin/players/${playerId}/edit`;
+        }
+        
+        // Add event listeners to table rows
+        document.querySelectorAll('.players-table tbody tr[data-player-id]').forEach(row => {
+            const playerId = row.dataset.playerId;
+            
+            // Desktop: double-click
+            row.addEventListener('dblclick', () => {
+                navigateToEdit(playerId);
+            });
+            
+            // Mobile: touch handling for navigation
+            row.addEventListener('touchstart', (e) => {
+                touchStartTime = Date.now();
+            });
+            
+            row.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                const touchDuration = Date.now() - touchStartTime;
+                
+                // Touch up inside (short touch duration) navigates to edit
+                if (touchDuration < 200) {
+                    navigateToEdit(playerId);
+                }
+            });
+            
+            // Prevent text selection on mobile
+            row.addEventListener('selectstart', (e) => {
+                e.preventDefault();
+            });
+        });
     </script>
 </body>
 </html> 
