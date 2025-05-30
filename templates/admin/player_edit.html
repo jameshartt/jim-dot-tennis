@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Player - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+        .edit-form {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 600px;
+        }
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            transition: border-color 0.2s ease;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.2);
+        }
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            transition: background-color 0.2s ease;
+        }
+        .btn-primary:hover {
+            background: var(--primary-color-dark, #2980b9);
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            transition: background-color 0.2s ease;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .form-required {
+            color: #dc3545;
+        }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .edit-form {
+                padding: 1.5rem;
+                margin: 0 0.5rem;
+            }
+            .form-actions {
+                flex-direction: column;
+            }
+            .btn-primary,
+            .btn-secondary {
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin/dashboard">Admin Dashboard</a> &gt; 
+                <a href="/admin/players">Player Management</a> &gt; 
+                Edit Player
+            </div>
+            <h1>Edit Player</h1>
+        </div>
+    </div>
+
+    <div class="container admin-content">
+        <form class="edit-form" method="POST">
+            <h2>{{.Player.FirstName}} {{.Player.LastName}}</h2>
+            
+            <div class="form-group">
+                <label for="first_name">First Name <span class="form-required">*</span></label>
+                <input type="text" id="first_name" name="first_name" value="{{.Player.FirstName}}" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="last_name">Last Name <span class="form-required">*</span></label>
+                <input type="text" id="last_name" name="last_name" value="{{.Player.LastName}}" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email Address <span class="form-required">*</span></label>
+                <input type="email" id="email" name="email" value="{{.Player.Email}}" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="phone">Phone Number</label>
+                <input type="tel" id="phone" name="phone" value="{{.Player.Phone}}">
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Update Player</button>
+                <a href="/admin/players" class="btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // Add form validation feedback
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const requiredFields = this.querySelectorAll('input[required]');
+            let isValid = true;
+            
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    isValid = false;
+                    field.style.borderColor = '#dc3545';
+                } else {
+                    field.style.borderColor = '#ddd';
+                }
+            });
+            
+            if (!isValid) {
+                e.preventDefault();
+                alert('Please fill in all required fields.');
+            }
+        });
+        
+        // Clear error styling on input
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', function() {
+                this.style.borderColor = '#ddd';
+            });
+        });
+    </script>
+</body>
+</html> 

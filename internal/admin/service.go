@@ -14,6 +14,7 @@ type Service struct {
 	db                     *database.DB
 	loginAttemptRepository repository.LoginAttemptRepository
 	playerRepository       repository.PlayerRepository
+	clubRepository         repository.ClubRepository
 }
 
 // NewService creates a new admin service
@@ -22,6 +23,7 @@ func NewService(db *database.DB) *Service {
 		db:                     db,
 		loginAttemptRepository: repository.NewLoginAttemptRepository(db),
 		playerRepository:       repository.NewPlayerRepository(db),
+		clubRepository:         repository.NewClubRepository(db),
 	}
 }
 
@@ -87,6 +89,29 @@ func (s *Service) GetPlayers() ([]models.Player, error) {
 		return nil, err
 	}
 	return players, nil
+}
+
+// GetPlayerByID retrieves a player by ID for editing
+func (s *Service) GetPlayerByID(id string) (*models.Player, error) {
+	player, err := s.playerRepository.FindByID(context.Background(), id)
+	if err != nil {
+		return nil, err
+	}
+	return player, nil
+}
+
+// GetClubs retrieves all clubs for player club selection
+func (s *Service) GetClubs() ([]models.Club, error) {
+	clubs, err := s.clubRepository.FindAll(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	return clubs, nil
+}
+
+// UpdatePlayer updates a player's information
+func (s *Service) UpdatePlayer(player *models.Player) error {
+	return s.playerRepository.Update(context.Background(), player)
 }
 
 // GetFixtures retrieves all fixtures for admin management
