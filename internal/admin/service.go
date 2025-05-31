@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"jim-dot-tennis/internal/database"
@@ -48,6 +49,12 @@ type LoginAttempt struct {
 	Success   bool      `json:"success"`
 }
 
+// PlayerWithStatus represents a player with their activity status
+type PlayerWithStatus struct {
+	models.Player
+	IsActive bool `json:"is_active"`
+}
+
 // GetDashboardData retrieves data for the admin dashboard
 func (s *Service) GetDashboardData(user *models.User) (*DashboardData, error) {
 	// For now, return mock data for stats - these can be implemented later
@@ -89,6 +96,134 @@ func (s *Service) GetPlayers() ([]models.Player, error) {
 		return nil, err
 	}
 	return players, nil
+}
+
+// GetFilteredPlayers retrieves players based on search query and activity filter
+func (s *Service) GetFilteredPlayers(query string, activeFilter string, seasonID uint) ([]PlayerWithStatus, error) {
+	ctx := context.Background()
+
+	// If no seasonID provided, use a default (this would need to be improved to get current season)
+	if seasonID == 0 {
+		seasonID = 1 // Default to season 1 for now
+	}
+
+	var players []models.Player
+	var err error
+
+	// Apply activity filter first, then search within those results
+	switch activeFilter {
+	case "active":
+		if query != "" {
+			// Get active players, then filter by search
+			activePlayers, err := s.playerRepository.FindActivePlayersInSeason(ctx, seasonID)
+			if err != nil {
+				return nil, err
+			}
+			// Filter active players by search query
+			players = filterPlayersByQuery(activePlayers, query)
+		} else {
+			players, err = s.playerRepository.FindActivePlayersInSeason(ctx, seasonID)
+		}
+	case "inactive":
+		if query != "" {
+			// Get inactive players, then filter by search
+			inactivePlayers, err := s.playerRepository.FindInactivePlayersInSeason(ctx, seasonID)
+			if err != nil {
+				return nil, err
+			}
+			// Filter inactive players by search query
+			players = filterPlayersByQuery(inactivePlayers, query)
+		} else {
+			players, err = s.playerRepository.FindInactivePlayersInSeason(ctx, seasonID)
+		}
+	default: // "all" or empty
+		if query != "" {
+			players, err = s.playerRepository.SearchPlayers(ctx, query)
+		} else {
+			players, err = s.playerRepository.FindAll(ctx)
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to PlayerWithStatus and determine activity status
+	var playersWithStatus []PlayerWithStatus
+
+	// If we filtered by active/inactive, we already know the status
+	if activeFilter == "active" {
+		for _, player := range players {
+			playersWithStatus = append(playersWithStatus, PlayerWithStatus{
+				Player:   player,
+				IsActive: true,
+			})
+		}
+	} else if activeFilter == "inactive" {
+		for _, player := range players {
+			playersWithStatus = append(playersWithStatus, PlayerWithStatus{
+				Player:   player,
+				IsActive: false,
+			})
+		}
+	} else {
+		// For "all" filter, we need to check each player's status
+		activePlayerIDs, err := s.getActivePlayerIDsMap(ctx, seasonID)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, player := range players {
+			isActive := activePlayerIDs[player.ID]
+			playersWithStatus = append(playersWithStatus, PlayerWithStatus{
+				Player:   player,
+				IsActive: isActive,
+			})
+		}
+	}
+
+	return playersWithStatus, nil
+}
+
+// getActivePlayerIDsMap returns a map of player IDs that are active in the given season
+func (s *Service) getActivePlayerIDsMap(ctx context.Context, seasonID uint) (map[string]bool, error) {
+	activePlayers, err := s.playerRepository.FindActivePlayersInSeason(ctx, seasonID)
+	if err != nil {
+		return nil, err
+	}
+
+	activeMap := make(map[string]bool)
+	for _, player := range activePlayers {
+		activeMap[player.ID] = true
+	}
+
+	return activeMap, nil
+}
+
+// filterPlayersByQuery performs client-side filtering of players by search query
+// This is used when we need to combine activity filtering with search
+func filterPlayersByQuery(players []models.Player, query string) []models.Player {
+	if query == "" {
+		return players
+	}
+
+	queryLower := strings.ToLower(query)
+	var filtered []models.Player
+
+	for _, player := range players {
+		// Check if query matches name, email, or phone
+		fullName := strings.ToLower(player.FirstName + " " + player.LastName)
+		email := strings.ToLower(player.Email)
+		phone := strings.ToLower(player.Phone)
+
+		if strings.Contains(fullName, queryLower) ||
+			strings.Contains(email, queryLower) ||
+			strings.Contains(phone, queryLower) {
+			filtered = append(filtered, player)
+		}
+	}
+
+	return filtered
 }
 
 // GetPlayerByID retrieves a player by ID for editing

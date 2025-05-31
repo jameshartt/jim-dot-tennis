@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -39,6 +40,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	// Admin area routes with full paths
 	adminMux.HandleFunc("/admin/players", h.handlePlayers)
 	adminMux.HandleFunc("/admin/players/", h.handlePlayers)
+	adminMux.HandleFunc("/admin/players/filter", h.handlePlayersFilter)
 	adminMux.HandleFunc("/admin/fixtures", h.handleFixtures)
 	adminMux.HandleFunc("/admin/fixtures/", h.handleFixtures)
 	adminMux.HandleFunc("/admin/users", h.handleUsers)
@@ -223,10 +225,19 @@ func (h *Handler) handleSessionsGet(w http.ResponseWriter, r *http.Request, user
 
 // handlePlayersGet handles GET requests for player management
 func (h *Handler) handlePlayersGet(w http.ResponseWriter, r *http.Request, user *models.User) {
-	// Get players from the service
-	players, err := h.service.GetPlayers()
+	// Get filter parameters from URL query
+	query := r.URL.Query().Get("q")             // search query
+	activeFilter := r.URL.Query().Get("status") // "all", "active", "inactive"
+
+	// Default to showing all players if no filter specified
+	if activeFilter == "" {
+		activeFilter = "all"
+	}
+
+	// Get filtered players from the service
+	players, err := h.service.GetFilteredPlayers(query, activeFilter, 1) // Using season 1 for now
 	if err != nil {
-		log.Printf("Failed to get players: %v", err)
+		log.Printf("Failed to get filtered players: %v", err)
 		http.Error(w, "Failed to load players", http.StatusInternalServerError)
 		return
 	}
@@ -255,8 +266,10 @@ func (h *Handler) handlePlayersGet(w http.ResponseWriter, r *http.Request, user 
 
 	// Execute the template with data
 	if err := tmpl.Execute(w, map[string]interface{}{
-		"User":    user,
-		"Players": players,
+		"User":         user,
+		"Players":      players,
+		"SearchQuery":  query,
+		"ActiveFilter": activeFilter,
 	}); err != nil {
 		log.Printf("Error executing players template: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -445,4 +458,72 @@ func (h *Handler) handlePlayerEditPost(w http.ResponseWriter, r *http.Request, u
 
 	// Redirect back to players list
 	http.Redirect(w, r, "/admin/players", http.StatusSeeOther)
+}
+
+// handlePlayersFilter handles HTMX requests for filtering players
+func (h *Handler) handlePlayersFilter(w http.ResponseWriter, r *http.Request) {
+	// Get user from context for authentication
+	_, err := auth.GetUserFromContext(r.Context())
+	if err != nil {
+		log.Printf("Failed to get user from context: %v", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Only handle GET requests for filtering
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get filter parameters from URL query
+	query := r.URL.Query().Get("q")             // search query
+	activeFilter := r.URL.Query().Get("status") // "all", "active", "inactive"
+
+	// Default to showing all players if no filter specified
+	if activeFilter == "" {
+		activeFilter = "all"
+	}
+
+	// Get filtered players from the service
+	players, err := h.service.GetFilteredPlayers(query, activeFilter, 1) // Using season 1 for now
+	if err != nil {
+		log.Printf("Failed to get filtered players: %v", err)
+		http.Error(w, "Failed to load players", http.StatusInternalServerError)
+		return
+	}
+
+	// Return just the table body for HTMX to replace
+	w.Header().Set("Content-Type", "text/html")
+
+	// Generate table rows HTML
+	if len(players) > 0 {
+		for _, playerWithStatus := range players {
+			player := playerWithStatus.Player
+			// Use actual player status
+			activeClass := "player-active"
+			if !playerWithStatus.IsActive {
+				activeClass = "player-inactive"
+			}
+
+			w.Write([]byte(fmt.Sprintf(`
+				<tr data-player-id="%s" data-player-name="%s %s" class="%s">
+					<td class="col-name">%s %s</td>
+					<td class="col-email" title="%s">%s</td>
+					<td class="col-phone" title="%s">%s</td>
+				</tr>
+			`, player.ID, player.FirstName, player.LastName, activeClass,
+				player.FirstName, player.LastName,
+				player.Email, player.Email,
+				player.Phone, player.Phone)))
+		}
+	} else {
+		w.Write([]byte(`
+			<tr>
+				<td colspan="3" style="text-align: center; padding: 2rem;">
+					No players found matching your criteria.
+				</td>
+			</tr>
+		`))
+	}
 }

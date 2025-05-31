@@ -41,6 +41,46 @@
             text-decoration: none;
             border-radius: 4px;
         }
+        
+        /* Filter controls */
+        .filter-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .filter-controls input[type="text"] {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-width: 200px;
+        }
+        .filter-controls select {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+        }
+        .filter-controls label {
+            font-weight: 500;
+            margin-right: 0.5rem;
+        }
+        
+        @media (max-width: 768px) {
+            .filter-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .filter-controls > div {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+        }
+        
         .players-table {
             width: 100%;
             border-collapse: collapse;
@@ -174,22 +214,41 @@
             <a href="/admin/players/new" class="btn-add">+ Add New Player</a>
         </div>
 
+        <div class="filter-controls">
+            <label for="search">Search:</label>
+            <input type="text" id="search" name="q" placeholder="Search players..." 
+                   value="{{.SearchQuery}}"
+                   hx-get="/admin/players/filter"
+                   hx-target="#players-tbody"
+                   hx-trigger="keyup changed delay:300ms"
+                   hx-include="[name='status']">
+            <label for="status">Status:</label>
+            <select id="status" name="status"
+                    hx-get="/admin/players/filter"
+                    hx-target="#players-tbody"
+                    hx-trigger="change"
+                    hx-include="[name='q']">
+                <option value="" {{if eq .ActiveFilter ""}}selected{{end}}>All</option>
+                <option value="active" {{if eq .ActiveFilter "active"}}selected{{end}}>Active</option>
+                <option value="inactive" {{if eq .ActiveFilter "inactive"}}selected{{end}}>Inactive</option>
+            </select>
+        </div>
+
         <table class="players-table">
             <thead>
                 <tr>
                     <th class="col-name">Name</th>
                     <th class="col-email">Email</th>
                     <th class="col-phone">Phone</th>
-
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="players-tbody">
                 {{if .Players}}
                     {{range .Players}}
-                    <tr data-player-id="{{.ID}}" data-player-name="{{.FirstName}} {{.LastName}}" class="player-active">
-                        <td class="col-name">{{.FirstName}} {{.LastName}}</td>
-                        <td class="col-email" title="{{.Email}}">{{.Email}}</td>
-                        <td class="col-phone" title="{{.Phone}}">{{.Phone}}</td>
+                    <tr data-player-id="{{.Player.ID}}" data-player-name="{{.Player.FirstName}} {{.Player.LastName}}" class="{{if .IsActive}}player-active{{else}}player-inactive{{end}}">
+                        <td class="col-name">{{.Player.FirstName}} {{.Player.LastName}}</td>
+                        <td class="col-email" title="{{.Player.Email}}">{{.Player.Email}}</td>
+                        <td class="col-phone" title="{{.Player.Phone}}">{{.Player.Phone}}</td>
                     </tr>
                     {{end}}
                 {{else}}
@@ -213,42 +272,76 @@
             window.location.href = `/admin/players/${playerId}/edit`;
         }
         
-        // Add event listeners to table rows
-        document.querySelectorAll('.players-table tbody tr[data-player-id]').forEach(row => {
-            const playerId = row.dataset.playerId;
+        // Add event listeners to table rows - needs to be reapplied after HTMX updates
+        function attachRowEventListeners() {
+            document.querySelectorAll('.players-table tbody tr[data-player-id]').forEach(row => {
+                const playerId = row.dataset.playerId;
+                
+                // Remove existing event listeners to avoid duplicates
+                row.removeEventListener('dblclick', handleDoubleClick);
+                row.removeEventListener('touchstart', handleTouchStart);
+                row.removeEventListener('touchend', handleTouchEnd);
+                row.removeEventListener('touchcancel', handleTouchCancel);
+                
+                // Desktop: double-click
+                row.addEventListener('dblclick', handleDoubleClick);
+                
+                // Mobile: touch handling for navigation
+                row.addEventListener('touchstart', handleTouchStart);
+                row.addEventListener('touchend', handleTouchEnd);
+                row.addEventListener('touchcancel', handleTouchCancel);
+            });
+        }
+        
+        function handleDoubleClick(e) {
+            const playerId = e.currentTarget.dataset.playerId;
+            navigateToEdit(playerId);
+        }
+        
+        function handleTouchStart(e) {
+            touchStartTime = Date.now();
+            // Prevent text selection only during touch interactions
+            e.currentTarget.style.userSelect = 'none';
+            e.currentTarget.style.webkitUserSelect = 'none';
+        }
+        
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            const touchDuration = Date.now() - touchStartTime;
+            const row = e.currentTarget;
             
-            // Desktop: double-click
-            row.addEventListener('dblclick', () => {
+            // Restore text selection after touch
+            row.style.userSelect = '';
+            row.style.webkitUserSelect = '';
+            
+            // Touch up inside (short touch duration) navigates to edit
+            if (touchDuration < 200) {
+                const playerId = row.dataset.playerId;
                 navigateToEdit(playerId);
-            });
-            
-            // Mobile: touch handling for navigation
-            row.addEventListener('touchstart', (e) => {
-                touchStartTime = Date.now();
-                // Prevent text selection only during touch interactions
-                row.style.userSelect = 'none';
-                row.style.webkitUserSelect = 'none';
-            });
-            
-            row.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                const touchDuration = Date.now() - touchStartTime;
-                
-                // Restore text selection after touch
-                row.style.userSelect = '';
-                row.style.webkitUserSelect = '';
-                
-                // Touch up inside (short touch duration) navigates to edit
-                if (touchDuration < 200) {
-                    navigateToEdit(playerId);
-                }
-            });
-            
-            // Also restore text selection if touch is cancelled
-            row.addEventListener('touchcancel', () => {
-                row.style.userSelect = '';
-                row.style.webkitUserSelect = '';
-            });
+            }
+        }
+        
+        function handleTouchCancel(e) {
+            e.currentTarget.style.userSelect = '';
+            e.currentTarget.style.webkitUserSelect = '';
+        }
+        
+        // Initial attachment of event listeners
+        attachRowEventListeners();
+        
+        // Reattach event listeners after HTMX swaps content
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            if (evt.detail.target.id === 'players-tbody') {
+                attachRowEventListeners();
+            }
+        });
+        
+        // Clear search on page load if coming from browser navigation
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                // Page was loaded from cache (back/forward navigation)
+                document.getElementById('search').value = '';
+            }
         });
     </script>
 </body>
