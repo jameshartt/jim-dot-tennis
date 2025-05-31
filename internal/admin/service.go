@@ -57,12 +57,20 @@ type PlayerWithStatus struct {
 
 // GetDashboardData retrieves data for the admin dashboard
 func (s *Service) GetDashboardData(user *models.User) (*DashboardData, error) {
-	// For now, return mock data for stats - these can be implemented later
-	// TODO: Replace with actual database queries for stats
+	ctx := context.Background()
+
+	// Get actual player count from database
+	playerCount, err := s.playerRepository.CountAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// For now, return mock data for other stats - these can be implemented later
+	// TODO: Replace with actual database queries for fixture and session stats
 	stats := Stats{
-		PlayerCount:  12,
-		FixtureCount: 8,
-		SessionCount: 1,
+		PlayerCount:  playerCount,
+		FixtureCount: 8, // TODO: Implement actual fixture count
+		SessionCount: 1, // TODO: Implement actual session count
 	}
 
 	// Query login attempts for the current user using repository

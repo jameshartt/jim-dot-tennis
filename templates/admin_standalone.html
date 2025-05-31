@@ -29,6 +29,24 @@
             text-align: center;
         }
         
+        .stat-card-link {
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .stat-card-link:hover {
+            transform: translateY(-2px);
+            text-decoration: none;
+            color: inherit;
+        }
+        
+        .stat-card-link:hover .stat-card {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
         .stat-value {
             font-size: 2rem;
             font-weight: bold;
@@ -123,10 +141,12 @@
                 <h1>Admin Dashboard</h1>
                 
                 <div class="admin-stats">
-                    <div class="stat-card">
-                        <h3>Players</h3>
-                        <p class="stat-value">{{.Stats.PlayerCount}}</p>
-                    </div>
+                    <a href="/admin/players" class="stat-card-link">
+                        <div class="stat-card">
+                            <h3>Players</h3>
+                            <p class="stat-value">{{.Stats.PlayerCount}}</p>
+                        </div>
+                    </a>
                     <div class="stat-card">
                         <h3>Fixtures</h3>
                         <p class="stat-value">{{.Stats.FixtureCount}}</p>
@@ -196,6 +216,41 @@
 
     <script>
         console.log("Admin page loaded");
+        
+        // Debug the players card link
+        document.addEventListener('DOMContentLoaded', function() {
+            const playersLink = document.querySelector('.stat-card-link');
+            const playersCard = document.querySelector('.stat-card-link .stat-card');
+            
+            if (playersLink) {
+                console.log("Found players link:", playersLink);
+                console.log("Link href:", playersLink.href);
+                
+                // Add click listener to the link
+                playersLink.addEventListener('click', function(e) {
+                    console.log("Players link clicked!", e);
+                    console.log("Going to:", this.href);
+                });
+                
+                // Add click listener to the card as fallback
+                if (playersCard) {
+                    playersCard.addEventListener('click', function(e) {
+                        console.log("Players card clicked directly!");
+                        e.stopPropagation();
+                        window.location.href = '/admin/players';
+                    });
+                }
+            } else {
+                console.log("Players link not found");
+            }
+            
+            // Also check if navigation is being prevented
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.stat-card-link')) {
+                    console.log("Click detected on stat-card-link area");
+                }
+            });
+        });
     </script>
 </body>
 </html> 

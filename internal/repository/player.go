@@ -50,6 +50,7 @@ type PlayerRepository interface {
 	CountByClub(ctx context.Context, clubID uint) (int, error)
 	CountCaptains(ctx context.Context) (int, error)
 	CountActiveInSeason(ctx context.Context, seasonID uint) (int, error)
+	CountAll(ctx context.Context) (int, error)
 }
 
 // playerRepository implements PlayerRepository
@@ -395,5 +396,14 @@ func (r *playerRepository) CountActiveInSeason(ctx context.Context, seasonID uin
 		SELECT COUNT(DISTINCT player_id) FROM player_teams 
 		WHERE season_id = ? AND is_active = TRUE
 	`, seasonID)
+	return count, err
+}
+
+// CountAll returns the total number of players in the database
+func (r *playerRepository) CountAll(ctx context.Context) (int, error) {
+	var count int
+	err := r.db.GetContext(ctx, &count, `
+		SELECT COUNT(*) FROM players
+	`)
 	return count, err
 }
