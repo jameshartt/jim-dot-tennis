@@ -56,21 +56,12 @@ The application will follow a server-side rendered architecture with minimal cli
 - [x] Data models and relationships
 - [x] Migration framework
 - [x] Web server setup
-- [ ] Authentication system
-- [ ] Basic template structure
-- [ ] Routing architecture
+- [x] Authentication system
+- [x] Basic template structure
+- [x] Routing architecture
 - [x] Hosting on somewhere with ssl on jim.tennis
 
-### Phase 2: Player Availability Management
-
-- [ ] Player profile views
-- [ ] Availability form (calendar-based)
-- [ ] Availability exception handling
-- [ ] General availability settings
-- [ ] Email notification setup
-- [ ] WhatsApp sharing integration
-
-### Phase 3: Captain Selection Tools
+### Phase 2: Captain Selection Tools
 
 - [ ] Division-based access control
 - [ ] Available player listings
@@ -78,22 +69,29 @@ The application will follow a server-side rendered architecture with minimal cli
 - [ ] Selection confirmation and notifications
 - [ ] Selection overview across divisions
 - [ ] Player status tracking
+- [ ] Image fixture sharing for Whatsapp
 
-### Phase 4: Fixture Management
+### Phase 3: Player Availability Management
 
-- [ ] Fixture listing and details
-- [ ] Match result entry
-- [ ] Venue management with maps
-- [ ] Fixture reminder system
-- [ ] WhatsApp fixture sharing
+- [ ] Player profile views
+- [ ] Availability form (calendar-based)
+- [ ] Availability exception handling
+- [ ] General availability settings
 
-### Phase 5: PWA and Push Notifications
+### Phase 4: PWA and Push Notifications
 
 - [x] Service worker implementation
 - [ ] Push notification pipeline
 - [ ] Offline capability for core functions
 - [ ] Installation flow
 - [ ] Background sync for submissions
+
+### Phase 5: Fixture Result Management
+
+- [ ] Fixture listing and details
+- [ ] Match result entry/importation from match cards
+- [ ] Venue management with maps
+- [ ] Fixture reminder system
 
 ## Technical Considerations
 
