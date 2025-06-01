@@ -284,21 +284,45 @@ func (h *Handler) handlePlayersPost(w http.ResponseWriter, r *http.Request, user
 
 // handleFixturesGet handles GET requests for fixture management
 func (h *Handler) handleFixturesGet(w http.ResponseWriter, r *http.Request, user *models.User) {
-	// TODO: Implement fixtures view
-	// For now, render a simple placeholder page
-	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`
-	<!DOCTYPE html>
-	<html>
-	<head><title>Admin - Fixtures</title></head>
-	<body>
-		<h1>Fixture Management</h1>
-		<p>Fixture management page - coming soon</p>
-		<a href="/admin">Back to Dashboard</a>
-	</body>
-	</html>
-	`))
+	// Get St. Ann's fixtures with related data
+	club, fixtures, err := h.service.GetStAnnsFixtures()
+	if err != nil {
+		log.Printf("Failed to get St. Ann's fixtures: %v", err)
+		http.Error(w, "Failed to load fixtures", http.StatusInternalServerError)
+		return
+	}
+
+	// Load the fixtures template
+	fixturesTemplatePath := filepath.Join(h.templateDir, "admin", "fixtures.html")
+	tmpl, err := template.ParseFiles(fixturesTemplatePath)
+	if err != nil {
+		log.Printf("Error parsing fixtures template: %v", err)
+		// Fallback to simple HTML response
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`
+		<!DOCTYPE html>
+		<html>
+		<head><title>Admin - Fixtures</title></head>
+		<body>
+			<h1>Fixture Management</h1>
+			<p>Fixture management page - coming soon</p>
+			<a href="/admin">Back to Dashboard</a>
+		</body>
+		</html>
+		`))
+		return
+	}
+
+	// Execute the template with data
+	if err := tmpl.Execute(w, map[string]interface{}{
+		"User":     user,
+		"Club":     club,
+		"Fixtures": fixtures,
+	}); err != nil {
+		log.Printf("Error executing fixtures template: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 // handleFixturesPost handles POST requests for fixture management

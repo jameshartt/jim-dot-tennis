@@ -16,6 +16,9 @@ type Service struct {
 	loginAttemptRepository repository.LoginAttemptRepository
 	playerRepository       repository.PlayerRepository
 	clubRepository         repository.ClubRepository
+	fixtureRepository      repository.FixtureRepository
+	teamRepository         repository.TeamRepository
+	weekRepository         repository.WeekRepository
 }
 
 // NewService creates a new admin service
@@ -25,6 +28,9 @@ func NewService(db *database.DB) *Service {
 		loginAttemptRepository: repository.NewLoginAttemptRepository(db),
 		playerRepository:       repository.NewPlayerRepository(db),
 		clubRepository:         repository.NewClubRepository(db),
+		fixtureRepository:      repository.NewFixtureRepository(db),
+		teamRepository:         repository.NewTeamRepository(db),
+		weekRepository:         repository.NewWeekRepository(db),
 	}
 }
 
@@ -53,6 +59,14 @@ type LoginAttempt struct {
 type PlayerWithStatus struct {
 	models.Player
 	IsActive bool `json:"is_active"`
+}
+
+// FixtureWithRelations represents a fixture with its related team and week data
+type FixtureWithRelations struct {
+	models.Fixture
+	HomeTeam *models.Team `json:"home_team,omitempty"`
+	AwayTeam *models.Team `json:"away_team,omitempty"`
+	Week     *models.Week `json:"week,omitempty"`
 }
 
 // GetDashboardData retrieves data for the admin dashboard
@@ -261,6 +275,88 @@ func (s *Service) UpdatePlayer(player *models.Player) error {
 func (s *Service) GetFixtures() (interface{}, error) {
 	// TODO: Implement fixture retrieval from database
 	return nil, nil
+}
+
+// GetStAnnsFixtures retrieves upcoming fixtures for St. Ann's club with related data
+func (s *Service) GetStAnnsFixtures() (*models.Club, []FixtureWithRelations, error) {
+	ctx := context.Background()
+
+	// Find St. Ann's club
+	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(clubs) == 0 {
+		return nil, nil, nil // No club found
+	}
+	stAnnsClub := &clubs[0]
+
+	// Get all teams for St. Ann's club
+	teams, err := s.teamRepository.FindByClub(ctx, stAnnsClub.ID)
+	if err != nil {
+		return stAnnsClub, nil, err
+	}
+
+	if len(teams) == 0 {
+		return stAnnsClub, nil, nil // No teams found
+	}
+
+	// Get upcoming fixtures for all St. Ann's teams
+	var allFixtures []models.Fixture
+	for _, team := range teams {
+		teamFixtures, err := s.fixtureRepository.FindByTeam(ctx, team.ID)
+		if err != nil {
+			continue // Skip this team if there's an error
+		}
+		allFixtures = append(allFixtures, teamFixtures...)
+	}
+
+	// Filter for upcoming fixtures (scheduled or in progress) and sort by date
+	var upcomingFixtures []models.Fixture
+	now := time.Now()
+	for _, fixture := range allFixtures {
+		if fixture.Status == models.Scheduled || fixture.Status == models.InProgress {
+			if fixture.ScheduledDate.After(now) || fixture.ScheduledDate.Equal(now.Truncate(24*time.Hour)) {
+				upcomingFixtures = append(upcomingFixtures, fixture)
+			}
+		}
+	}
+
+	// Sort fixtures by scheduled date (nearest first)
+	for i := 0; i < len(upcomingFixtures); i++ {
+		for j := i + 1; j < len(upcomingFixtures); j++ {
+			if upcomingFixtures[i].ScheduledDate.After(upcomingFixtures[j].ScheduledDate) {
+				upcomingFixtures[i], upcomingFixtures[j] = upcomingFixtures[j], upcomingFixtures[i]
+			}
+		}
+	}
+
+	// Build FixtureWithRelations by fetching related data
+	var fixturesWithRelations []FixtureWithRelations
+	for _, fixture := range upcomingFixtures {
+		fixtureWithRelations := FixtureWithRelations{
+			Fixture: fixture,
+		}
+
+		// Get home team
+		if homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID); err == nil {
+			fixtureWithRelations.HomeTeam = homeTeam
+		}
+
+		// Get away team
+		if awayTeam, err := s.teamRepository.FindByID(ctx, fixture.AwayTeamID); err == nil {
+			fixtureWithRelations.AwayTeam = awayTeam
+		}
+
+		// Get week
+		if week, err := s.weekRepository.FindByID(ctx, fixture.WeekID); err == nil {
+			fixtureWithRelations.Week = week
+		}
+
+		fixturesWithRelations = append(fixturesWithRelations, fixtureWithRelations)
+	}
+
+	return stAnnsClub, fixturesWithRelations, nil
 }
 
 // GetUsers retrieves all users for admin management
