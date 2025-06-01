@@ -144,6 +144,12 @@ func (h *Handler) handlePlayers(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) handleFixtures(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Admin fixtures handler called with path: %s, method: %s", r.URL.Path, r.Method)
 
+	// Check if this is a specific fixture detail request
+	if strings.Contains(r.URL.Path, "/fixtures/") && r.URL.Path != "/admin/fixtures/" {
+		h.handleFixtureDetail(w, r)
+		return
+	}
+
 	// Get user from context
 	user, err := auth.GetUserFromContext(r.Context())
 	if err != nil {
@@ -550,4 +556,91 @@ func (h *Handler) handlePlayersFilter(w http.ResponseWriter, r *http.Request) {
 			</tr>
 		`))
 	}
+}
+
+// handleFixtureDetail handles requests for individual fixture details
+func (h *Handler) handleFixtureDetail(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Admin fixture detail handler called with path: %s, method: %s", r.URL.Path, r.Method)
+
+	// Get user from context
+	user, err := auth.GetUserFromContext(r.Context())
+	if err != nil {
+		log.Printf("Failed to get user from context: %v", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Extract fixture ID from URL path
+	// Path format: /admin/fixtures/{id}
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/fixtures/"), "/")
+	if len(pathParts) < 1 || pathParts[0] == "" {
+		http.Error(w, "Invalid fixture URL", http.StatusBadRequest)
+		return
+	}
+	fixtureIDStr := pathParts[0]
+
+	// Convert fixture ID to uint
+	fixtureID, err := strconv.ParseUint(fixtureIDStr, 10, 32)
+	if err != nil {
+		log.Printf("Invalid fixture ID: %s", fixtureIDStr)
+		http.Error(w, "Invalid fixture ID", http.StatusBadRequest)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		h.handleFixtureDetailGet(w, r, &user, uint(fixtureID))
+	case http.MethodPost:
+		h.handleFixtureDetailPost(w, r, &user, uint(fixtureID))
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleFixtureDetailGet handles GET requests to show the fixture detail page
+func (h *Handler) handleFixtureDetailGet(w http.ResponseWriter, r *http.Request, user *models.User, fixtureID uint) {
+	// Get the fixture with full details
+	fixtureDetail, err := h.service.GetFixtureDetail(fixtureID)
+	if err != nil {
+		log.Printf("Failed to get fixture detail for ID %d: %v", fixtureID, err)
+		http.Error(w, "Fixture not found", http.StatusNotFound)
+		return
+	}
+
+	// Load the fixture detail template
+	detailTemplatePath := filepath.Join(h.templateDir, "admin", "fixture_detail.html")
+	tmpl, err := template.ParseFiles(detailTemplatePath)
+	if err != nil {
+		log.Printf("Error parsing fixture detail template: %v", err)
+		// Fallback to simple HTML response
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`
+		<!DOCTYPE html>
+		<html>
+		<head><title>Fixture Detail</title></head>
+		<body>
+			<h1>Fixture Detail</h1>
+			<p>Fixture detail page - coming soon</p>
+			<a href="/admin/fixtures">Back to Fixtures</a>
+		</body>
+		</html>
+		`))
+		return
+	}
+
+	// Execute the template with data
+	if err := tmpl.Execute(w, map[string]interface{}{
+		"User":          user,
+		"FixtureDetail": fixtureDetail,
+	}); err != nil {
+		log.Printf("Error executing fixture detail template: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// handleFixtureDetailPost handles POST requests to update fixture details
+func (h *Handler) handleFixtureDetailPost(w http.ResponseWriter, r *http.Request, user *models.User, fixtureID uint) {
+	// TODO: Implement fixture detail updates
+	http.Error(w, "Fixture detail updates not yet implemented", http.StatusNotImplemented)
 }

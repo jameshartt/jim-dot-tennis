@@ -19,6 +19,8 @@ type Service struct {
 	fixtureRepository      repository.FixtureRepository
 	teamRepository         repository.TeamRepository
 	weekRepository         repository.WeekRepository
+	divisionRepository     repository.DivisionRepository
+	seasonRepository       repository.SeasonRepository
 }
 
 // NewService creates a new admin service
@@ -31,6 +33,8 @@ func NewService(db *database.DB) *Service {
 		fixtureRepository:      repository.NewFixtureRepository(db),
 		teamRepository:         repository.NewTeamRepository(db),
 		weekRepository:         repository.NewWeekRepository(db),
+		divisionRepository:     repository.NewDivisionRepository(db),
+		seasonRepository:       repository.NewSeasonRepository(db),
 	}
 }
 
@@ -67,6 +71,18 @@ type FixtureWithRelations struct {
 	HomeTeam *models.Team `json:"home_team,omitempty"`
 	AwayTeam *models.Team `json:"away_team,omitempty"`
 	Week     *models.Week `json:"week,omitempty"`
+}
+
+// FixtureDetail represents a fixture with comprehensive related data for detail view
+type FixtureDetail struct {
+	models.Fixture
+	HomeTeam   *models.Team     `json:"home_team,omitempty"`
+	AwayTeam   *models.Team     `json:"away_team,omitempty"`
+	Week       *models.Week     `json:"week,omitempty"`
+	Division   *models.Division `json:"division,omitempty"`
+	Season     *models.Season   `json:"season,omitempty"`
+	DayCaptain *models.Player   `json:"day_captain,omitempty"`
+	Matchups   []models.Matchup `json:"matchups,omitempty"`
 }
 
 // GetDashboardData retrieves data for the admin dashboard
@@ -369,4 +385,69 @@ func (s *Service) GetUsers() (interface{}, error) {
 func (s *Service) GetSessions() (interface{}, error) {
 	// TODO: Implement session retrieval from database
 	return nil, nil
+}
+
+// GetFixtureDetail retrieves comprehensive details for a specific fixture
+func (s *Service) GetFixtureDetail(fixtureID uint) (*FixtureDetail, error) {
+	ctx := context.Background()
+
+	// Get the base fixture
+	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create the detail struct
+	detail := &FixtureDetail{
+		Fixture: *fixture,
+	}
+
+	// Get home team
+	if homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID); err == nil {
+		detail.HomeTeam = homeTeam
+	}
+
+	// Get away team
+	if awayTeam, err := s.teamRepository.FindByID(ctx, fixture.AwayTeamID); err == nil {
+		detail.AwayTeam = awayTeam
+	}
+
+	// Get week
+	if week, err := s.weekRepository.FindByID(ctx, fixture.WeekID); err == nil {
+		detail.Week = week
+	}
+
+	// Get division
+	if division, err := s.getDivisionByID(ctx, fixture.DivisionID); err == nil {
+		detail.Division = division
+	}
+
+	// Get season
+	if season, err := s.getSeasonByID(ctx, fixture.SeasonID); err == nil {
+		detail.Season = season
+	}
+
+	// Get day captain if assigned
+	if fixture.DayCaptainID != nil {
+		if dayCaptain, err := s.playerRepository.FindByID(ctx, *fixture.DayCaptainID); err == nil {
+			detail.DayCaptain = dayCaptain
+		}
+	}
+
+	// Get matchups with the fixture
+	if fixtureWithMatchups, err := s.fixtureRepository.FindWithMatchups(ctx, fixtureID); err == nil {
+		detail.Matchups = fixtureWithMatchups.Matchups
+	}
+
+	return detail, nil
+}
+
+// Helper method to get division by ID
+func (s *Service) getDivisionByID(ctx context.Context, divisionID uint) (*models.Division, error) {
+	return s.divisionRepository.FindByID(ctx, divisionID)
+}
+
+// Helper method to get season by ID
+func (s *Service) getSeasonByID(ctx context.Context, seasonID uint) (*models.Season, error) {
+	return s.seasonRepository.FindByID(ctx, seasonID)
 }

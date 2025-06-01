@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fixture Detail - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .btn-back {
+            background: var(--secondary-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        
+        .fixture-detail {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .fixture-header {
+            text-align: center;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .fixture-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin: 0 0 0.5rem 0;
+            color: var(--primary-color);
+        }
+        
+        .teams-vs {
+            font-size: 1.4rem;
+            color: #495057;
+            margin: 0;
+        }
+        
+        .vs-text {
+            color: #6c757d;
+            font-weight: normal;
+            margin: 0 1rem;
+        }
+        
+        .status-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-top: 1rem;
+            display: inline-block;
+        }
+        .status-badge.Scheduled {
+            background-color: #007bff;
+            color: white;
+        }
+        .status-badge.InProgress {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .status-badge.Completed {
+            background-color: #28a745;
+            color: white;
+        }
+        .status-badge.Cancelled {
+            background-color: #dc3545;
+            color: white;
+        }
+        .status-badge.Postponed {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .detail-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .detail-section h3 {
+            margin: 0 0 1rem 0;
+            color: var(--primary-color);
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .detail-item {
+            margin-bottom: 1rem;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .detail-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            color: #495057;
+            display: inline-block;
+            min-width: 120px;
+            font-family: inherit;
+        }
+        
+        .detail-value {
+            color: #212529;
+            user-select: all;
+            cursor: text;
+        }
+        
+        .copyable {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            white-space: pre;
+            user-select: all;
+            cursor: text;
+            line-height: 1.4;
+        }
+        
+        .copyable:focus {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+        }
+        
+        .notes-section {
+            grid-column: 1 / -1;
+        }
+        
+        .notes-text {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 1rem;
+            min-height: 100px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            user-select: all;
+            cursor: text;
+        }
+        
+        .info-highlight {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 4px;
+            padding: 0.75rem;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+            color: #1565c0;
+        }
+        
+        .matchups-section {
+            grid-column: 1 / -1;
+            margin-top: 1rem;
+        }
+        
+        .matchup-item {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .matchup-type {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+        
+        @media (max-width: 768px) {
+            .detail-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            
+            .fixture-title {
+                font-size: 1.5rem;
+            }
+            
+            .teams-vs {
+                font-size: 1.2rem;
+            }
+            
+            .detail-section {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin">Admin Dashboard</a> &gt; 
+                <a href="/admin/fixtures">Fixtures</a> &gt; 
+                Fixture Detail
+            </div>
+        </div>
+    </header>
+
+    <main class="admin-content">
+        <div class="container">
+            <div class="action-bar">
+                <h2>Fixture Information</h2>
+                <a href="/admin/fixtures" class="btn-back">← Back to Fixtures</a>
+            </div>
+
+            {{if .FixtureDetail}}
+            <div class="fixture-detail">
+                <div class="fixture-header">
+                    <h1 class="fixture-title">
+                        {{if .FixtureDetail.Division}}{{.FixtureDetail.Division.Name}}{{else}}Division TBD{{end}}
+                        {{if .FixtureDetail.Week}} - Week {{.FixtureDetail.Week.WeekNumber}}{{end}}
+                    </h1>
+                    <p class="teams-vs">
+                        <span class="team-name">{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                        <span class="vs-text">vs</span>
+                        <span class="team-name">{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}</span>
+                    </p>
+                    <span class="status-badge {{.FixtureDetail.Status}}">{{.FixtureDetail.Status}}</span>
+                </div>
+
+                <div class="info-highlight">
+                    <strong>💡 Tip:</strong> All text below is selectable and copyable for easy sharing via WhatsApp, email, or other communication channels.
+                </div>
+
+                <div class="detail-grid">
+                    <div class="detail-section">
+                        <h3>📅 Schedule Information</h3>
+                        <div class="detail-item">
+                            <span class="detail-label">Date:</span>
+                            <span class="detail-value">{{.FixtureDetail.ScheduledDate.Format "Monday, January 2, 2006"}}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Time:</span>
+                            <span class="detail-value">{{.FixtureDetail.ScheduledDate.Format "3:04 PM"}}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Venue:</span>
+                            <span class="detail-value">{{.FixtureDetail.VenueLocation}}</span>
+                        </div>
+                        {{if .FixtureDetail.Week}}
+                        <div class="detail-item">
+                            <span class="detail-label">Week:</span>
+                            <span class="detail-value">Week {{.FixtureDetail.Week.WeekNumber}} ({{.FixtureDetail.Week.StartDate.Format "Jan 2"}} - {{.FixtureDetail.Week.EndDate.Format "Jan 2"}})</span>
+                        </div>
+                        {{end}}
+                        
+                        <div class="copyable" tabindex="0">📅 {{if .FixtureDetail.Division}}{{.FixtureDetail.Division.Name}}{{else}}Division TBD{{end}} Fixture
+{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}
+📍 {{.FixtureDetail.VenueLocation}}
+🕐 {{.FixtureDetail.ScheduledDate.Format "Monday, January 2, 2006 at 3:04 PM"}}
+{{if .FixtureDetail.Week}}📊 Week {{.FixtureDetail.Week.WeekNumber}}{{end}}
+🏆 Status: {{.FixtureDetail.Status}}</div>
+                    </div>
+
+                    <div class="detail-section">
+                        <h3>🏆 Competition Details</h3>
+                        {{if .FixtureDetail.Division}}
+                        <div class="detail-item">
+                            <span class="detail-label">Division:</span>
+                            <span class="detail-value">{{.FixtureDetail.Division.Name}} (Level {{.FixtureDetail.Division.Level}})</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Play Day:</span>
+                            <span class="detail-value">{{.FixtureDetail.Division.PlayDay}}</span>
+                        </div>
+                        {{end}}
+                        {{if .FixtureDetail.Season}}
+                        <div class="detail-item">
+                            <span class="detail-label">Season:</span>
+                            <span class="detail-value">{{.FixtureDetail.Season.Name}} ({{.FixtureDetail.Season.Year}})</span>
+                        </div>
+                        {{end}}
+                        <div class="detail-item">
+                            <span class="detail-label">Fixture ID:</span>
+                            <span class="detail-value">#{{.FixtureDetail.ID}}</span>
+                        </div>
+                    </div>
+
+                    {{if .FixtureDetail.DayCaptain}}
+                    <div class="detail-section">
+                        <h3>👨‍✈️ Day Captain</h3>
+                        <div class="detail-item">
+                            <span class="detail-label">Name:</span>
+                            <span class="detail-value">{{.FixtureDetail.DayCaptain.FirstName}} {{.FixtureDetail.DayCaptain.LastName}}</span>
+                        </div>
+                        {{if .FixtureDetail.DayCaptain.Email}}
+                        <div class="detail-item">
+                            <span class="detail-label">Email:</span>
+                            <span class="detail-value">{{.FixtureDetail.DayCaptain.Email}}</span>
+                        </div>
+                        {{end}}
+                        {{if .FixtureDetail.DayCaptain.Phone}}
+                        <div class="detail-item">
+                            <span class="detail-label">Phone:</span>
+                            <span class="detail-value">{{.FixtureDetail.DayCaptain.Phone}}</span>
+                        </div>
+                        {{end}}
+                    </div>
+                    {{end}}
+
+                    <div class="detail-section">
+                        <h3>📋 Teams</h3>
+                        {{if .FixtureDetail.HomeTeam}}
+                        <div class="detail-item">
+                            <span class="detail-label">Home Team:</span>
+                            <span class="detail-value">{{.FixtureDetail.HomeTeam.Name}} (ID: {{.FixtureDetail.HomeTeam.ID}})</span>
+                        </div>
+                        {{end}}
+                        {{if .FixtureDetail.AwayTeam}}
+                        <div class="detail-item">
+                            <span class="detail-label">Away Team:</span>
+                            <span class="detail-value">{{.FixtureDetail.AwayTeam.Name}} (ID: {{.FixtureDetail.AwayTeam.ID}})</span>
+                        </div>
+                        {{end}}
+                    </div>
+
+                    {{if .FixtureDetail.Matchups}}
+                    <div class="detail-section matchups-section">
+                        <h3>🎾 Matchups</h3>
+                        {{range .FixtureDetail.Matchups}}
+                        <div class="matchup-item">
+                            <div class="matchup-type">{{.Type}}</div>
+                            <div class="detail-item">
+                                <span class="detail-label">Status:</span>
+                                <span class="detail-value">{{.Status}}</span>
+                            </div>
+                            {{if .Notes}}
+                            <div class="detail-item">
+                                <span class="detail-label">Notes:</span>
+                                <span class="detail-value">{{.Notes}}</span>
+                            </div>
+                            {{end}}
+                        </div>
+                        {{end}}
+                    </div>
+                    {{end}}
+
+                    {{if .FixtureDetail.Notes}}
+                    <div class="detail-section notes-section">
+                        <h3>📝 Notes</h3>
+                        <div class="notes-text">{{.FixtureDetail.Notes}}</div>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+            {{else}}
+            <div class="fixture-detail">
+                <div class="fixture-header">
+                    <h1 class="fixture-title">Fixture Not Found</h1>
+                    <p class="teams-vs">The requested fixture could not be loaded.</p>
+                </div>
+            </div>
+            {{end}}
+        </div>
+    </main>
+</body>
+</html> 

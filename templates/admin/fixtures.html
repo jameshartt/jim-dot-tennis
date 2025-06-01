@@ -234,7 +234,7 @@
                     </thead>
                     <tbody>
                         {{range .Fixtures}}
-                        <tr class="status-{{.Status}}">
+                        <tr class="status-{{.Status}}" data-fixture-id="{{.ID}}">
                             <td class="col-date">
                                 <div class="date-time">
                                     {{.ScheduledDate.Format "Mon, Jan 2"}}<br>
@@ -266,5 +266,56 @@
             {{end}}
         </div>
     </main>
+
+    <script>
+        // Handle double-click and touch events on fixture rows
+        document.addEventListener('DOMContentLoaded', function() {
+            const fixtureRows = document.querySelectorAll('table.fixtures-table tbody tr[data-fixture-id]');
+            
+            fixtureRows.forEach(row => {
+                let touchTime = 0;
+                let clickCount = 0;
+                let clickTimer = null;
+                
+                // Handle double-click for desktop
+                row.addEventListener('dblclick', function(e) {
+                    e.preventDefault();
+                    const fixtureId = this.dataset.fixtureId;
+                    if (fixtureId) {
+                        window.location.href = `/admin/fixtures/${fixtureId}`;
+                    }
+                });
+                
+                // Handle touch events for mobile (double-tap)
+                row.addEventListener('touchend', function(e) {
+                    const currentTime = new Date().getTime();
+                    const tapLength = currentTime - touchTime;
+                    
+                    if (tapLength < 500 && tapLength > 0) {
+                        // Double tap detected
+                        e.preventDefault();
+                        const fixtureId = this.dataset.fixtureId;
+                        if (fixtureId) {
+                            window.location.href = `/admin/fixtures/${fixtureId}`;
+                        }
+                    }
+                    touchTime = currentTime;
+                });
+                
+                // Prevent text selection on double-click to avoid interference
+                row.addEventListener('selectstart', function(e) {
+                    if (e.detail > 1) { // Multiple clicks
+                        e.preventDefault();
+                    }
+                });
+                
+                // Add visual feedback on hover
+                row.style.cursor = 'pointer';
+                
+                // Add tooltip to indicate double-click functionality
+                row.title = 'Double-click to view fixture details';
+            });
+        });
+    </script>
 </body>
 </html> 
