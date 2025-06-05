@@ -415,11 +415,16 @@
                                 {{end}}
                             </div>
                         </div>
+                        {{else}}
+                        <div class="player-group">
+                            <h4>Team Players</h4>
+                            <p class="no-players">No team players available.</p>
+                        </div>
                         {{end}}
                         
                         {{if .AllStAnnPlayers}}
                         <div class="player-group">
-                            <h4>All St Ann Players ({{len .AllStAnnPlayers}} available)</h4>
+                            <h4>Other St Ann Players ({{len .AllStAnnPlayers}} available)</h4>
                             <div class="player-buttons">
                                 {{range .AllStAnnPlayers}}
                                 <form method="post" style="display: inline;">
@@ -434,7 +439,7 @@
                             </div>
                         </div>
                         {{else}}
-                        <p class="no-players">No available players found.</p>
+                        <p class="no-players">No other available players found.</p>
                         {{end}}
                     </div>
                 </div>

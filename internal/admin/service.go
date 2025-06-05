@@ -876,7 +876,7 @@ func (s *Service) GetUpcomingFixturesForTeam(teamID uint, limit int) ([]FixtureW
 }
 
 // GetAvailablePlayersForFixture retrieves players available for selection in a fixture
-// Returns team players first, then all St Ann players
+// Returns team players first, then other St Ann players (deduplicated)
 func (s *Service) GetAvailablePlayersForFixture(fixtureID uint) ([]models.Player, []models.Player, error) {
 	ctx := context.Background()
 
@@ -886,21 +886,51 @@ func (s *Service) GetAvailablePlayersForFixture(fixtureID uint) ([]models.Player
 		return nil, nil, err
 	}
 
-	// Get players from the home team
+	// Find the St Ann's club ID dynamically
+	stAnnsClubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(stAnnsClubs) == 0 {
+		return nil, nil, fmt.Errorf("St Ann's club not found")
+	}
+	stAnnsClubID := stAnnsClubs[0].ID
+
+	// Find the St Ann's team
+	var stAnnsTeam *models.Team
+
+	// Get home team
 	homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	teamPlayerTeams, err := s.teamRepository.FindPlayersInTeam(ctx, homeTeam.ID, homeTeam.SeasonID)
+	// Get away team
+	awayTeam, err := s.teamRepository.FindByID(ctx, fixture.AwayTeamID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Find which team is St Ann's
+	if homeTeam.ClubID == stAnnsClubID {
+		stAnnsTeam = homeTeam
+	} else if awayTeam.ClubID == stAnnsClubID {
+		stAnnsTeam = awayTeam
+	} else {
+		return nil, nil, fmt.Errorf("no St Ann's team found in this fixture")
+	}
+
+	teamPlayerTeams, err := s.teamRepository.FindPlayersInTeam(ctx, stAnnsTeam.ID, stAnnsTeam.SeasonID)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	var teamPlayers []models.Player
+	teamPlayerMap := make(map[string]bool) // Track team player IDs for deduplication
 	for _, pt := range teamPlayerTeams {
 		if player, err := s.playerRepository.FindByID(ctx, pt.PlayerID); err == nil {
 			teamPlayers = append(teamPlayers, *player)
+			teamPlayerMap[player.ID] = true
 		}
 	}
 
@@ -918,7 +948,15 @@ func (s *Service) GetAvailablePlayersForFixture(fixtureID uint) ([]models.Player
 		return teamPlayers, nil, err
 	}
 
-	return teamPlayers, allStAnnPlayers, nil
+	// Deduplicate: remove team players from the "other St Ann players" list
+	var otherStAnnPlayers []models.Player
+	for _, player := range allStAnnPlayers {
+		if !teamPlayerMap[player.ID] {
+			otherStAnnPlayers = append(otherStAnnPlayers, player)
+		}
+	}
+
+	return teamPlayers, otherStAnnPlayers, nil
 }
 
 // AddPlayerToFixture adds a player to the fixture selection
