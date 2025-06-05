@@ -97,7 +97,7 @@
             background: #218838;
         }
         
-        .players-section, .captains-section {
+        .players-section, .captains-section, .fixtures-section {
             background: white;
             border-radius: 8px;
             padding: 1.5rem;
@@ -105,7 +105,7 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
-        .players-table, .captains-table {
+        .players-table, .captains-table, .fixtures-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 1rem;
@@ -115,7 +115,9 @@
         .players-table th,
         .players-table td,
         .captains-table th,
-        .captains-table td {
+        .captains-table td,
+        .fixtures-table th,
+        .fixtures-table td {
             padding: 0.75rem;
             text-align: left;
             border-bottom: 1px solid #e9ecef;
@@ -143,7 +145,8 @@
         }
         
         .players-table th,
-        .captains-table th {
+        .captains-table th,
+        .fixtures-table th {
             background: #f8f9fa;
             font-weight: 600;
             font-size: 0.9rem;
@@ -281,6 +284,84 @@
         
         .btn-secondary:hover {
             background: #5a6268;
+        }
+
+        /* Fixture-specific styles */
+        .fixtures-table th:nth-child(1),
+        .fixtures-table td:nth-child(1) {
+            width: 25%;
+        }
+        
+        .fixtures-table th:nth-child(2),
+        .fixtures-table td:nth-child(2) {
+            width: 30%;
+        }
+        
+        .fixtures-table th:nth-child(3),
+        .fixtures-table td:nth-child(3) {
+            width: 20%;
+        }
+        
+        .fixtures-table th:nth-child(4),
+        .fixtures-table td:nth-child(4) {
+            width: 25%;
+        }
+        
+        /* Fixture status colors and badges */
+        .status-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .status-badge.Scheduled {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .status-badge.InProgress {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        
+        .status-badge.Completed {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .status-badge.Cancelled {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .status-badge.Postponed {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .team-name {
+            font-weight: 600;
+        }
+        
+        .vs-text {
+            color: #6c757d;
+            font-weight: normal;
+            margin: 0 0.5rem;
+        }
+        
+        .home-indicator {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        
+        .away-indicator {
+            color: #6c757d;
+        }
+        
+        .date-time {
+            color: #495057;
         }
 
         /* Modal styles */
@@ -482,7 +563,108 @@
                 </div>
             </div>
 
-            <!-- Captains Section -->
+            <!-- Upcoming Fixtures Section -->
+            <div class="fixtures-section">
+                <div class="section-header">
+                    <h2>Upcoming Fixtures</h2>
+                </div>
+                
+                {{if .UpcomingFixtures}}
+                <table class="fixtures-table">
+                    <thead>
+                        <tr>
+                            <th>Date & Time</th>
+                            <th>Opponent</th>
+                            <th>Status</th>
+                            <th>Venue</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .UpcomingFixtures}}
+                        <tr data-fixture-id="{{.ID}}">
+                            <td>
+                                <div class="date-time">
+                                    {{.ScheduledDate.Format "Mon, Jan 2"}}<br>
+                                    <small>{{.ScheduledDate.Format "3:04 PM"}}</small>
+                                </div>
+                            </td>
+                            <td>
+                                {{if eq $.TeamDetail.ID .HomeTeamID}}
+                                    <span class="home-indicator">vs</span>
+                                    <span class="team-name">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</span>
+                                    <small class="vs-text">(Home)</small>
+                                {{else}}
+                                    <span class="away-indicator">@</span>
+                                    <span class="team-name">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                                    <small class="vs-text">(Away)</small>
+                                {{end}}
+                            </td>
+                            <td>{{.VenueLocation}}</td>
+                            <td>
+                                <span class="status-badge {{.Status}}">{{.Status}}</span>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+                {{else}}
+                <div class="empty-state">
+                    <h3>No Upcoming Fixtures</h3>
+                    <p>This team doesn't have any upcoming fixtures scheduled.</p>
+                </div>
+                {{end}}
+            </div>
+
+            <!-- Players Section -->
+            <div class="players-section">
+                <div class="section-header">
+                    <h2>Team Players</h2>
+                    <a href="/admin/teams/{{.TeamDetail.ID}}/add-players" class="btn-add">Add Players</a>
+                </div>
+                
+                {{if .TeamDetail.Players}}
+                <table class="players-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Contact</th>
+                            <th>Added</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .TeamDetail.Players}}
+                        <tr>
+                            <td>
+                                <span class="player-name">{{.FirstName}} {{.LastName}}</span>
+                            </td>
+                            <td>
+                                <div class="player-contact">
+                                    {{if .Email}}<div>{{.Email}}</div>{{end}}
+                                    {{if .Phone}}<div>{{.Phone}}</div>{{end}}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="player-contact">{{.PlayerTeam.CreatedAt.Format "Jan 02, 2006"}}</span>
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="btn-sm btn-danger">Remove</button>
+                                </div>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+                {{else}}
+                <div class="empty-state">
+                    <h3>No Players Assigned</h3>
+                    <p>This team doesn't have any players assigned yet.</p>
+                </div>
+                {{end}}
+            </div>
+
+            <!-- Team Captains Section (moved to bottom) -->
             <div class="captains-section">
                 <div class="section-header">
                     <h2>Team Captains</h2>
@@ -533,59 +715,6 @@
                 <div class="empty-state">
                     <h3>No Captains Assigned</h3>
                     <p>This team doesn't have any captains assigned yet.</p>
-                </div>
-                {{end}}
-            </div>
-
-            <!-- Players Section -->
-            <div class="players-section">
-                <div class="section-header">
-                    <h2>Team Players</h2>
-                    <a href="/admin/teams/{{.TeamDetail.ID}}/add-players" class="btn-add">Add Players</a>
-                </div>
-                
-                {{if .TeamDetail.Players}}
-                <table class="players-table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Contact</th>
-                            <th>Status</th>
-                            <th>Added</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {{range .TeamDetail.Players}}
-                        <tr>
-                            <td>
-                                <span class="player-name">{{.FirstName}} {{.LastName}}</span>
-                            </td>
-                            <td>
-                                <div class="player-contact">
-                                    {{if .Email}}<div>{{.Email}}</div>{{end}}
-                                    {{if .Phone}}<div>{{.Phone}}</div>{{end}}
-                                </div>
-                            </td>
-                            <td>
-                                <span class="status-active">Active</span>
-                            </td>
-                            <td>
-                                <span class="player-contact">{{.PlayerTeam.CreatedAt.Format "Jan 02, 2006"}}</span>
-                            </td>
-                            <td>
-                                <div class="action-buttons">
-                                    <button class="btn-sm btn-danger">Remove</button>
-                                </div>
-                            </td>
-                        </tr>
-                        {{end}}
-                    </tbody>
-                </table>
-                {{else}}
-                <div class="empty-state">
-                    <h3>No Players Assigned</h3>
-                    <p>This team doesn't have any players assigned yet.</p>
                 </div>
                 {{end}}
             </div>

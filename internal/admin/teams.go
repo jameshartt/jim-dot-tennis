@@ -141,6 +141,14 @@ func (h *TeamsHandler) handleTeamDetailGet(w http.ResponseWriter, r *http.Reques
 		availablePlayers = []models.Player{}
 	}
 
+	// Get upcoming fixtures for the team (limit to next 2 including today)
+	upcomingFixtures, err := h.service.GetUpcomingFixturesForTeam(teamID, 2)
+	if err != nil {
+		log.Printf("Failed to get upcoming fixtures for team: %v", err)
+		// Continue without fixtures
+		upcomingFixtures = nil
+	}
+
 	// Load the team detail template
 	tmpl, err := parseTemplate(h.templateDir, "admin/team_detail.html")
 	if err != nil {
@@ -156,6 +164,7 @@ func (h *TeamsHandler) handleTeamDetailGet(w http.ResponseWriter, r *http.Reques
 		"User":             user,
 		"TeamDetail":       teamDetail,
 		"AvailablePlayers": availablePlayers,
+		"UpcomingFixtures": upcomingFixtures,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}

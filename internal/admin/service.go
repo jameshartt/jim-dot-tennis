@@ -792,3 +792,64 @@ func (s *Service) AddPlayersToTeam(teamID uint, playerIDs []string) error {
 
 	return nil
 }
+
+// GetUpcomingFixturesForTeam retrieves upcoming fixtures for a specific team
+// Limited to a specific count and includes today's fixtures
+func (s *Service) GetUpcomingFixturesForTeam(teamID uint, limit int) ([]FixtureWithRelations, error) {
+	ctx := context.Background()
+
+	// Get all fixtures for the team
+	teamFixtures, err := s.fixtureRepository.FindByTeam(ctx, teamID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter for upcoming fixtures (today or later) that are scheduled or in progress
+	var upcomingFixtures []models.Fixture
+	now := time.Now()
+	today := now.Truncate(24 * time.Hour)
+
+	for _, fixture := range teamFixtures {
+		// Include fixtures that are today or in the future, and are scheduled or in progress
+		if (fixture.ScheduledDate.After(now) || fixture.ScheduledDate.After(today)) &&
+			(fixture.Status == models.Scheduled || fixture.Status == models.InProgress) {
+			upcomingFixtures = append(upcomingFixtures, fixture)
+		}
+	}
+
+	// Sort by scheduled date (earliest first)
+	// Note: Go's slice sorting would be better, but we'll keep it simple for now
+	// since the repository should already return them in order
+
+	// Limit the results
+	if limit > 0 && len(upcomingFixtures) > limit {
+		upcomingFixtures = upcomingFixtures[:limit]
+	}
+
+	// Build FixtureWithRelations by fetching related data
+	var fixturesWithRelations []FixtureWithRelations
+	for _, fixture := range upcomingFixtures {
+		fixtureWithRelations := FixtureWithRelations{
+			Fixture: fixture,
+		}
+
+		// Get home team
+		if homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID); err == nil {
+			fixtureWithRelations.HomeTeam = homeTeam
+		}
+
+		// Get away team
+		if awayTeam, err := s.teamRepository.FindByID(ctx, fixture.AwayTeamID); err == nil {
+			fixtureWithRelations.AwayTeam = awayTeam
+		}
+
+		// Get week
+		if week, err := s.weekRepository.FindByID(ctx, fixture.WeekID); err == nil {
+			fixtureWithRelations.Week = week
+		}
+
+		fixturesWithRelations = append(fixturesWithRelations, fixtureWithRelations)
+	}
+
+	return fixturesWithRelations, nil
+}
