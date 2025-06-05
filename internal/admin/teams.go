@@ -94,6 +94,12 @@ func (h *TeamsHandler) handleTeamDetail(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Check for add players action
+	if strings.HasSuffix(r.URL.Path, "/add-players") {
+		h.handleAddPlayers(w, r)
+		return
+	}
+
 	// Get user from context
 	user, err := getUserFromContext(r)
 	if err != nil {
@@ -301,4 +307,159 @@ func (h *TeamsHandler) handleRemoveCaptainPost(w http.ResponseWriter, r *http.Re
 
 	// Redirect back to team detail page
 	http.Redirect(w, r, fmt.Sprintf("/admin/teams/%d", teamID), http.StatusSeeOther)
+}
+
+// handleAddPlayers handles the add players functionality
+func (h *TeamsHandler) handleAddPlayers(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Admin add players handler called with path: %s, method: %s", r.URL.Path, r.Method)
+
+	// Get user from context
+	user, err := getUserFromContext(r)
+	if err != nil {
+		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
+		return
+	}
+
+	// Extract team ID from URL path
+	// Path format: /admin/teams/{id}/add-players
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/teams/"), "/")
+	if len(pathParts) < 2 || pathParts[0] == "" || pathParts[1] != "add-players" {
+		http.Error(w, "Invalid add players URL", http.StatusBadRequest)
+		return
+	}
+
+	teamIDStr := pathParts[0]
+	teamID, err := strconv.ParseUint(teamIDStr, 10, 32)
+	if err != nil {
+		logAndError(w, "Invalid team ID", err, http.StatusBadRequest)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		h.handleAddPlayersGet(w, r, user, uint(teamID))
+	case http.MethodPost:
+		h.handleAddPlayersPost(w, r, user, uint(teamID))
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleAddPlayersGet displays the add players page
+func (h *TeamsHandler) handleAddPlayersGet(w http.ResponseWriter, r *http.Request, user *models.User, teamID uint) {
+	// Get the team details
+	teamDetail, err := h.service.GetTeamDetail(teamID)
+	if err != nil {
+		logAndError(w, "Team not found", err, http.StatusNotFound)
+		return
+	}
+
+	// Get filter parameters from URL query
+	query := r.URL.Query().Get("q")             // search query
+	statusFilter := r.URL.Query().Get("status") // "all", "active", "inactive"
+
+	// Default to showing active players if no filter specified
+	if statusFilter == "" {
+		statusFilter = "active"
+	}
+
+	// Get eligible players for this team
+	eligiblePlayers, err := h.service.GetEligiblePlayersForTeam(teamID, query, statusFilter)
+	if err != nil {
+		logAndError(w, "Failed to load eligible players", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Check if this is an HTMX request for just the table body
+	if r.Header.Get("HX-Request") == "true" {
+		h.renderAddPlayersTableBody(w, eligiblePlayers)
+		return
+	}
+
+	// Load the add players template
+	tmpl, err := parseTemplate(h.templateDir, "admin/team_add_players.html")
+	if err != nil {
+		log.Printf("Error parsing add players template: %v", err)
+		// Fallback to simple HTML response
+		renderFallbackHTML(w, "Add Players", "Add Players to Team",
+			"Add players page - coming soon", fmt.Sprintf("/admin/teams/%d", teamID))
+		return
+	}
+
+	// Execute the template with data
+	if err := renderTemplate(w, tmpl, map[string]interface{}{
+		"User":            user,
+		"TeamDetail":      teamDetail,
+		"EligiblePlayers": eligiblePlayers,
+		"SearchQuery":     query,
+		"StatusFilter":    statusFilter,
+	}); err != nil {
+		logAndError(w, err.Error(), err, http.StatusInternalServerError)
+	}
+}
+
+// renderAddPlayersTableBody renders just the table body for HTMX requests
+func (h *TeamsHandler) renderAddPlayersTableBody(w http.ResponseWriter, players []PlayerWithStatus) {
+	w.Header().Set("Content-Type", "text/html")
+
+	if len(players) > 0 {
+		for _, playerWithStatus := range players {
+			player := playerWithStatus.Player
+			activeClass := "player-active"
+			if !playerWithStatus.IsActive {
+				activeClass = "player-inactive"
+			}
+
+			w.Write([]byte(fmt.Sprintf(`
+				<tr data-player-id="%s" data-player-name="%s %s" class="%s">
+					<td class="col-checkbox">
+						<input type="checkbox" name="player_ids" value="%s" class="player-checkbox">
+					</td>
+					<td class="col-name">%s %s</td>
+					<td class="col-email" title="%s">%s</td>
+					<td class="col-phone" title="%s">%s</td>
+				</tr>
+			`, player.ID, player.FirstName, player.LastName, activeClass,
+				player.ID,
+				player.FirstName, player.LastName,
+				player.Email, player.Email,
+				player.Phone, player.Phone)))
+		}
+	} else {
+		w.Write([]byte(`
+			<tr>
+				<td colspan="4" style="text-align: center; padding: 2rem;">
+					No eligible players found matching your criteria.
+				</td>
+			</tr>
+		`))
+	}
+}
+
+// handleAddPlayersPost processes the form submission to add players to the team
+func (h *TeamsHandler) handleAddPlayersPost(w http.ResponseWriter, r *http.Request, user *models.User, teamID uint) {
+	// Parse form data
+	if err := r.ParseForm(); err != nil {
+		logAndError(w, "Invalid form data", err, http.StatusBadRequest)
+		return
+	}
+
+	// Get selected player IDs from form
+	selectedPlayerIDs := r.Form["player_ids"] // This will be an array of player IDs
+
+	// Validate that at least one player was selected
+	if len(selectedPlayerIDs) == 0 {
+		http.Error(w, "No players selected", http.StatusBadRequest)
+		return
+	}
+
+	// Add the players to the team
+	if err := h.service.AddPlayersToTeam(teamID, selectedPlayerIDs); err != nil {
+		log.Printf("Failed to add players to team: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to add players: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Redirect back to team detail page with success message
+	http.Redirect(w, r, fmt.Sprintf("/admin/teams/%d?success=players_added", teamID), http.StatusSeeOther)
 }

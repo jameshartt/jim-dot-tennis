@@ -774,3 +774,131 @@ func (s *Service) RemoveTeamCaptain(teamID uint, playerID string) error {
 	// Remove the captain
 	return s.teamRepository.RemoveCaptain(ctx, teamID, playerID, team.SeasonID)
 }
+
+// GetEligiblePlayersForTeam retrieves players who can be added to a team
+// This excludes players who are already on the team and applies filtering
+func (s *Service) GetEligiblePlayersForTeam(teamID uint, query, statusFilter string) ([]PlayerWithStatus, error) {
+	ctx := context.Background()
+
+	// Get the team to find its club and season
+	team, err := s.teamRepository.FindByID(ctx, teamID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get all players from the same club (or all players if needed)
+	var allPlayers []models.Player
+	if query != "" {
+		// If there's a search query, search across all players but prioritize same club
+		searchResults, err := s.playerRepository.SearchPlayers(ctx, query)
+		if err != nil {
+			return nil, err
+		}
+		allPlayers = searchResults
+	} else {
+		// Default to players from the same club
+		clubPlayers, err := s.playerRepository.FindByClub(ctx, team.ClubID)
+		if err != nil {
+			return nil, err
+		}
+		allPlayers = clubPlayers
+	}
+
+	// Get current team members to exclude them
+	currentPlayerTeams, err := s.teamRepository.FindPlayersInTeam(ctx, teamID, team.SeasonID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a map of current team member IDs for fast lookup
+	currentMemberMap := make(map[string]bool)
+	for _, playerTeam := range currentPlayerTeams {
+		currentMemberMap[playerTeam.PlayerID] = true
+	}
+
+	// Filter players and determine their status
+	var eligiblePlayers []PlayerWithStatus
+	for _, player := range allPlayers {
+		// Skip players who are already on the team
+		if currentMemberMap[player.ID] {
+			continue
+		}
+
+		// Determine if player is active (has active team memberships in current season)
+		isActive := false
+		playerTeams, err := s.playerRepository.FindTeamsForPlayer(ctx, player.ID, team.SeasonID)
+		if err == nil {
+			for _, pt := range playerTeams {
+				if pt.IsActive {
+					isActive = true
+					break
+				}
+			}
+		}
+
+		// Apply status filter
+		if statusFilter == "active" && !isActive {
+			continue
+		}
+		if statusFilter == "inactive" && isActive {
+			continue
+		}
+
+		eligiblePlayers = append(eligiblePlayers, PlayerWithStatus{
+			Player:   player,
+			IsActive: isActive,
+		})
+	}
+
+	return eligiblePlayers, nil
+}
+
+// AddPlayersToTeam adds multiple players to a team at once
+func (s *Service) AddPlayersToTeam(teamID uint, playerIDs []string) error {
+	ctx := context.Background()
+
+	// Get the team to find its season
+	team, err := s.teamRepository.FindByID(ctx, teamID)
+	if err != nil {
+		return err
+	}
+
+	// Validate all player IDs exist
+	for _, playerID := range playerIDs {
+		_, err := s.playerRepository.FindByID(ctx, playerID)
+		if err != nil {
+			return fmt.Errorf("player %s not found: %v", playerID, err)
+		}
+	}
+
+	// Check if any players are already on the team
+	currentPlayerTeams, err := s.teamRepository.FindPlayersInTeam(ctx, teamID, team.SeasonID)
+	if err != nil {
+		return err
+	}
+
+	currentMemberMap := make(map[string]bool)
+	for _, playerTeam := range currentPlayerTeams {
+		currentMemberMap[playerTeam.PlayerID] = true
+	}
+
+	// Add each player to the team (skip if already a member)
+	var addedCount int
+	for _, playerID := range playerIDs {
+		if currentMemberMap[playerID] {
+			continue // Skip players already on team
+		}
+
+		err := s.teamRepository.AddPlayer(ctx, teamID, playerID, team.SeasonID)
+		if err != nil {
+			return fmt.Errorf("failed to add player %s: %v", playerID, err)
+		}
+		addedCount++
+	}
+
+	if addedCount == 0 {
+		return fmt.Errorf("no new players were added (all selected players are already on the team)")
+	}
+
+	return nil
+}

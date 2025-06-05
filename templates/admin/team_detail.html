@@ -416,6 +416,40 @@
 
     <main class="admin-content">
         <div class="container">
+            <!-- Success Message -->
+            <script>
+                // Check for success parameter in URL
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('success') === 'players_added') {
+                    // Create and show success message
+                    const successDiv = document.createElement('div');
+                    successDiv.style.cssText = `
+                        background: #d4edda;
+                        color: #155724;
+                        padding: 1rem;
+                        border-radius: 8px;
+                        margin-bottom: 2rem;
+                        border: 1px solid #c3e6cb;
+                    `;
+                    successDiv.innerHTML = '✅ Players successfully added to the team!';
+                    
+                    // Insert after this script
+                    document.currentScript.parentNode.insertBefore(successDiv, document.currentScript.nextSibling);
+                    
+                    // Remove success parameter from URL without page reload
+                    const newUrl = new URL(window.location);
+                    newUrl.searchParams.delete('success');
+                    window.history.replaceState({}, '', newUrl);
+                    
+                    // Auto-hide after 5 seconds
+                    setTimeout(() => {
+                        successDiv.style.transition = 'opacity 0.5s ease';
+                        successDiv.style.opacity = '0';
+                        setTimeout(() => successDiv.remove(), 500);
+                    }, 5000);
+                }
+            </script>
+            
             <div class="team-header">
                 <h1>{{.TeamDetail.Name}}</h1>
                 
@@ -515,7 +549,7 @@
             <div class="players-section">
                 <div class="section-header">
                     <h2>Team Players</h2>
-                    <a href="#" class="btn-add">Add Player</a>
+                    <a href="/admin/teams/{{.TeamDetail.ID}}/add-players" class="btn-add">Add Players</a>
                 </div>
                 
                 {{if .TeamDetail.Players}}
@@ -669,16 +703,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Setup remove captain confirmation
             setupRemoveCaptainConfirmation();
-            
-            // Add player button
-            const addPlayerBtn = document.querySelector('.players-section .btn-add');
-            if (addPlayerBtn) {
-                addPlayerBtn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    // TODO: Implement add player functionality
-                    console.log('Add player clicked');
-                });
-            }
         });
     </script>
 </body>

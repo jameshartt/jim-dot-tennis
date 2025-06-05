@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Players to {{.TeamDetail.Name}} - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+        
+        /* Team info bar */
+        .team-info-bar {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .team-info h3 {
+            margin: 0;
+            color: var(--primary-color);
+        }
+        
+        .team-info p {
+            margin: 0.25rem 0 0 0;
+            color: #6c757d;
+        }
+        
+        /* Selection controls */
+        .selection-controls {
+            background: #e3f2fd;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .selection-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .selection-count {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .select-all-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        /* Filter controls */
+        .filter-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .filter-controls input[type="text"] {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-width: 200px;
+        }
+        .filter-controls select {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+        }
+        .filter-controls label {
+            font-weight: 500;
+            margin-right: 0.5rem;
+        }
+        
+        @media (max-width: 768px) {
+            .filter-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .filter-controls > div {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            .team-info-bar,
+            .selection-controls {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+        }
+        
+        .players-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .players-table th,
+        .players-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .players-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        .players-table tbody tr {
+            transition: background-color 0.2s ease;
+        }
+        
+        /* Player status background colors */
+        .players-table tbody tr.player-active {
+            background-color: rgba(40, 167, 69, 0.1); /* Transparent green */
+        }
+        .players-table tbody tr.player-inactive {
+            background-color: rgba(220, 53, 69, 0.1); /* Transparent red */
+        }
+        
+        /* Selected row highlighting */
+        .players-table tbody tr.selected {
+            background-color: rgba(0, 123, 255, 0.2) !important; /* Blue highlight */
+        }
+        
+        /* Hover states */
+        .players-table tbody tr:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+        
+        .players-table tbody tr.player-active:hover {
+            background-color: rgba(40, 167, 69, 0.15);
+        }
+        .players-table tbody tr.player-inactive:hover {
+            background-color: rgba(220, 53, 69, 0.15);
+        }
+        
+        .players-table tbody tr.selected:hover {
+            background-color: rgba(0, 123, 255, 0.25) !important;
+        }
+        
+        /* Checkbox column */
+        .col-checkbox {
+            width: 50px;
+            text-align: center;
+        }
+        
+        .col-checkbox input[type="checkbox"] {
+            transform: scale(1.2);
+            cursor: pointer;
+        }
+        
+        /* Name column - never truncate */
+        .col-name {
+            min-width: 120px;
+            white-space: nowrap;
+        }
+        
+        /* Email and phone columns - responsive truncation */
+        .col-email,
+        .col-phone {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        /* Action buttons */
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            justify-content: center;
+        }
+        
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+        
+        .btn-primary:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .players-table th,
+            .players-table td {
+                padding: 0.75rem 0.5rem;
+            }
+            
+            .col-email {
+                max-width: 120px;
+            }
+            
+            .col-phone {
+                max-width: 100px;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .col-email {
+                max-width: 80px;
+            }
+            
+            .col-phone {
+                max-width: 80px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .players-table th,
+            .players-table td {
+                padding: 0.5rem 0.25rem;
+                font-size: 0.9rem;
+            }
+            
+            .col-email {
+                max-width: 60px;
+            }
+            
+            .col-phone {
+                max-width: 60px;
+            }
+            
+            /* Hide email on very small screens */
+            .col-email {
+                display: none;
+            }
+        }
+        
+        @media (max-width: 360px) {
+            /* Hide phone on extra small screens */
+            .col-phone {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin/dashboard">Admin Dashboard</a> &gt; 
+                <a href="/admin/teams">Teams</a> &gt; 
+                <a href="/admin/teams/{{.TeamDetail.ID}}">{{.TeamDetail.Name}}</a> &gt; 
+                Add Players
+            </div>
+            <h1>Add Players to Team</h1>
+        </div>
+    </div>
+
+    <div class="container admin-content">
+        <!-- Team Info Bar -->
+        <div class="team-info-bar">
+            <div class="team-info">
+                <h3>{{.TeamDetail.Name}}</h3>
+                <p>{{if .TeamDetail.Division}}{{.TeamDetail.Division.Name}}{{end}} • Current players: {{.TeamDetail.PlayerCount}}</p>
+            </div>
+            <div class="team-meta">
+                {{if .TeamDetail.Club}}<span>{{.TeamDetail.Club.Name}}</span>{{end}}
+            </div>
+        </div>
+
+        <form id="addPlayersForm" method="POST">
+            <!-- Selection Controls -->
+            <div class="selection-controls">
+                <div class="selection-info">
+                    <span class="selection-count" id="selectionCount">0 players selected</span>
+                </div>
+                <div class="select-all-container">
+                    <input type="checkbox" id="selectAll">
+                    <label for="selectAll">Select All Visible</label>
+                </div>
+            </div>
+
+            <!-- Filter Controls -->
+            <div class="filter-controls">
+                <div>
+                    <label for="search">Search:</label>
+                    <input type="text" id="search" name="q" placeholder="Search players..." 
+                           value="{{.SearchQuery}}"
+                           hx-get="/admin/teams/{{.TeamDetail.ID}}/add-players"
+                           hx-target="#players-tbody"
+                           hx-trigger="keyup changed delay:300ms"
+                           hx-include="[name='status']">
+                </div>
+                <div>
+                    <label for="status">Status:</label>
+                    <select id="status" name="status"
+                            hx-get="/admin/teams/{{.TeamDetail.ID}}/add-players"
+                            hx-target="#players-tbody"
+                            hx-trigger="change"
+                            hx-include="[name='q']">
+                        <option value="" {{if eq .StatusFilter ""}}selected{{end}}>All</option>
+                        <option value="active" {{if eq .StatusFilter "active"}}selected{{end}}>Active</option>
+                        <option value="inactive" {{if eq .StatusFilter "inactive"}}selected{{end}}>Inactive</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Players Table -->
+            <table class="players-table">
+                <thead>
+                    <tr>
+                        <th class="col-checkbox">Select</th>
+                        <th class="col-name">Name</th>
+                        <th class="col-email">Email</th>
+                        <th class="col-phone">Phone</th>
+                    </tr>
+                </thead>
+                <tbody id="players-tbody">
+                    {{if .EligiblePlayers}}
+                        {{range .EligiblePlayers}}
+                        <tr data-player-id="{{.Player.ID}}" 
+                            data-player-name="{{.Player.FirstName}} {{.Player.LastName}}" 
+                            class="{{if .IsActive}}player-active{{else}}player-inactive{{end}}">
+                            <td class="col-checkbox">
+                                <input type="checkbox" name="player_ids" value="{{.Player.ID}}" class="player-checkbox">
+                            </td>
+                            <td class="col-name">{{.Player.FirstName}} {{.Player.LastName}}</td>
+                            <td class="col-email" title="{{.Player.Email}}">{{.Player.Email}}</td>
+                            <td class="col-phone" title="{{.Player.Phone}}">{{.Player.Phone}}</td>
+                        </tr>
+                        {{end}}
+                    {{else}}
+                        <tr>
+                            <td colspan="4" style="text-align: center; padding: 2rem;">
+                                No eligible players found. All players from this club may already be on the team.
+                            </td>
+                        </tr>
+                    {{end}}
+                </tbody>
+            </table>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button type="submit" class="btn-primary" id="addPlayersBtn" disabled>
+                    Add Selected Players
+                </button>
+                <a href="/admin/teams/{{.TeamDetail.ID}}" class="btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        console.log("Add players page loaded for team:", "{{.TeamDetail.Name}}");
+        
+        let selectedCount = 0;
+        
+        // Update selection count and button state
+        function updateSelectionState() {
+            const checkboxes = document.querySelectorAll('.player-checkbox:checked');
+            selectedCount = checkboxes.length;
+            
+            const selectionCount = document.getElementById('selectionCount');
+            const addPlayersBtn = document.getElementById('addPlayersBtn');
+            
+            selectionCount.textContent = `${selectedCount} player${selectedCount !== 1 ? 's' : ''} selected`;
+            addPlayersBtn.disabled = selectedCount === 0;
+            
+            // Update row highlighting
+            document.querySelectorAll('.player-checkbox').forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                if (checkbox.checked) {
+                    row.classList.add('selected');
+                } else {
+                    row.classList.remove('selected');
+                }
+            });
+        }
+        
+        // Setup event listeners for checkboxes
+        function setupCheckboxListeners() {
+            // Individual checkboxes
+            document.querySelectorAll('.player-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', updateSelectionState);
+            });
+            
+            // Select all checkbox
+            const selectAllCheckbox = document.getElementById('selectAll');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.addEventListener('change', function() {
+                    const checkboxes = document.querySelectorAll('.player-checkbox');
+                    checkboxes.forEach(checkbox => {
+                        checkbox.checked = this.checked;
+                    });
+                    updateSelectionState();
+                });
+            }
+        }
+        
+        // Initial setup
+        setupCheckboxListeners();
+        updateSelectionState();
+        
+        // Re-setup after HTMX updates
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            if (evt.detail.target.id === 'players-tbody') {
+                setupCheckboxListeners();
+                updateSelectionState();
+                // Reset select all checkbox
+                const selectAllCheckbox = document.getElementById('selectAll');
+                if (selectAllCheckbox) {
+                    selectAllCheckbox.checked = false;
+                }
+            }
+        });
+        
+        // Form submission validation
+        document.getElementById('addPlayersForm').addEventListener('submit', function(e) {
+            if (selectedCount === 0) {
+                e.preventDefault();
+                alert('Please select at least one player to add to the team.');
+            }
+        });
+    </script>
+</body>
+</html> 
