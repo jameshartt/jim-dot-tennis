@@ -170,6 +170,8 @@ func (h *FixturesHandler) handleFixtureDetailPost(w http.ResponseWriter, r *http
 		h.handleRemovePlayerFromFixture(w, r, fixtureID)
 	case "clear_players":
 		h.handleClearFixturePlayers(w, r, fixtureID)
+	case "update_matchup":
+		h.handleUpdateMatchup(w, r, fixtureID)
 	default:
 		http.Error(w, "Unknown action", http.StatusBadRequest)
 	}
@@ -227,6 +229,38 @@ func (h *FixturesHandler) handleClearFixturePlayers(w http.ResponseWriter, r *ht
 	// Redirect back to appropriate page
 	redirectURL := h.getTeamSelectionRedirectURL(r, fixtureID)
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+}
+
+// handleUpdateMatchup handles updating matchup player assignments
+func (h *FixturesHandler) handleUpdateMatchup(w http.ResponseWriter, r *http.Request, fixtureID uint) {
+	matchupType := models.MatchupType(r.FormValue("matchup_type"))
+	homePlayer1ID := r.FormValue("home_player_1")
+	homePlayer2ID := r.FormValue("home_player_2")
+	awayPlayer1ID := r.FormValue("away_player_1")
+	awayPlayer2ID := r.FormValue("away_player_2")
+
+	// Validate matchup type
+	if matchupType == "" {
+		http.Error(w, "Matchup type is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get or create the matchup
+	matchup, err := h.service.GetOrCreateMatchup(fixtureID, matchupType)
+	if err != nil {
+		logAndError(w, "Failed to get or create matchup", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Update the players for this matchup
+	err = h.service.UpdateMatchupPlayers(matchup.ID, homePlayer1ID, homePlayer2ID, awayPlayer1ID, awayPlayer2ID)
+	if err != nil {
+		logAndError(w, "Failed to update matchup players", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Redirect back to fixture detail
+	http.Redirect(w, r, fmt.Sprintf("/admin/fixtures/%d", fixtureID), http.StatusSeeOther)
 }
 
 // handlePlayerSelection handles requests for the player selection interface

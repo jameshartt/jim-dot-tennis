@@ -22,6 +22,7 @@ type Service struct {
 	weekRepository         repository.WeekRepository
 	divisionRepository     repository.DivisionRepository
 	seasonRepository       repository.SeasonRepository
+	matchupRepository      repository.MatchupRepository
 }
 
 // NewService creates a new admin service
@@ -36,6 +37,7 @@ func NewService(db *database.DB) *Service {
 		weekRepository:         repository.NewWeekRepository(db),
 		divisionRepository:     repository.NewDivisionRepository(db),
 		seasonRepository:       repository.NewSeasonRepository(db),
+		matchupRepository:      repository.NewMatchupRepository(db),
 	}
 }
 
@@ -85,6 +87,24 @@ type FixtureDetail struct {
 type SelectedPlayerInfo struct {
 	models.FixturePlayer
 	Player models.Player `json:"player"`
+}
+
+// MatchupPlayerWithInfo represents a matchup player with their details
+type MatchupPlayerWithInfo struct {
+	MatchupPlayer models.MatchupPlayer `json:"matchup_player"`
+	Player        models.Player        `json:"player"`
+}
+
+// MatchupWithPlayers represents a matchup with its assigned players
+type MatchupWithPlayers struct {
+	Matchup models.Matchup          `json:"matchup"`
+	Players []MatchupPlayerWithInfo `json:"players"`
+}
+
+// FixtureDetailWithMatchups represents fixture detail with matchups and players
+type FixtureDetailWithMatchups struct {
+	FixtureDetail       FixtureDetail        `json:"fixture_detail"`
+	MatchupsWithPlayers []MatchupWithPlayers `json:"matchups_with_players"`
 }
 
 // TeamWithRelations represents a team with its related data for display
@@ -1004,4 +1024,167 @@ func (s *Service) UpdatePlayerPositionInFixture(fixtureID uint, playerID string,
 func (s *Service) ClearFixturePlayerSelection(fixtureID uint) error {
 	ctx := context.Background()
 	return s.fixtureRepository.ClearSelectedPlayers(ctx, fixtureID)
+}
+
+// CreateMatchup creates a new matchup for a fixture
+func (s *Service) CreateMatchup(fixtureID uint, matchupType models.MatchupType) (*models.Matchup, error) {
+	ctx := context.Background()
+
+	// Check if matchup already exists for this fixture and type
+	existingMatchup, err := s.matchupRepository.FindByFixtureAndType(ctx, fixtureID, matchupType)
+	if err == nil && existingMatchup != nil {
+		return existingMatchup, fmt.Errorf("matchup of type %s already exists for this fixture", matchupType)
+	}
+
+	// Create new matchup
+	matchup := &models.Matchup{
+		FixtureID: fixtureID,
+		Type:      matchupType,
+		Status:    models.Pending,
+		HomeScore: 0,
+		AwayScore: 0,
+		Notes:     "",
+	}
+
+	err = s.matchupRepository.Create(ctx, matchup)
+	if err != nil {
+		return nil, err
+	}
+
+	return matchup, nil
+}
+
+// GetOrCreateMatchup gets an existing matchup or creates a new one
+func (s *Service) GetOrCreateMatchup(fixtureID uint, matchupType models.MatchupType) (*models.Matchup, error) {
+	ctx := context.Background()
+
+	// Try to find existing matchup
+	matchup, err := s.matchupRepository.FindByFixtureAndType(ctx, fixtureID, matchupType)
+	if err == nil && matchup != nil {
+		return matchup, nil
+	}
+
+	// Create new matchup if it doesn't exist
+	return s.CreateMatchup(fixtureID, matchupType)
+}
+
+// UpdateMatchupPlayers updates the players assigned to a matchup
+func (s *Service) UpdateMatchupPlayers(matchupID uint, homePlayer1ID, homePlayer2ID, awayPlayer1ID, awayPlayer2ID string) error {
+	ctx := context.Background()
+
+	// Clear existing players
+	err := s.matchupRepository.ClearPlayers(ctx, matchupID)
+	if err != nil {
+		return err
+	}
+
+	// Add home players
+	if homePlayer1ID != "" {
+		err = s.matchupRepository.AddPlayer(ctx, matchupID, homePlayer1ID, true)
+		if err != nil {
+			return err
+		}
+	}
+	if homePlayer2ID != "" {
+		err = s.matchupRepository.AddPlayer(ctx, matchupID, homePlayer2ID, true)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Add away players
+	if awayPlayer1ID != "" {
+		err = s.matchupRepository.AddPlayer(ctx, matchupID, awayPlayer1ID, false)
+		if err != nil {
+			return err
+		}
+	}
+	if awayPlayer2ID != "" {
+		err = s.matchupRepository.AddPlayer(ctx, matchupID, awayPlayer2ID, false)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Update status to Playing if all 4 players are assigned
+	if homePlayer1ID != "" && homePlayer2ID != "" && awayPlayer1ID != "" && awayPlayer2ID != "" {
+		err = s.matchupRepository.UpdateStatus(ctx, matchupID, models.Playing)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// GetFixtureWithMatchups gets fixture details including matchups and their players
+func (s *Service) GetFixtureWithMatchups(fixtureID uint) (*FixtureDetailWithMatchups, error) {
+	ctx := context.Background()
+
+	// Get basic fixture detail
+	fixtureDetail, err := s.GetFixtureDetail(fixtureID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get matchups for this fixture
+	matchups, err := s.matchupRepository.FindByFixture(ctx, fixtureID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get players for each matchup
+	var matchupsWithPlayers []MatchupWithPlayers
+	for _, matchup := range matchups {
+		matchupPlayers, err := s.matchupRepository.FindPlayersInMatchup(ctx, matchup.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		var playersWithInfo []MatchupPlayerWithInfo
+		for _, mp := range matchupPlayers {
+			if player, err := s.playerRepository.FindByID(ctx, mp.PlayerID); err == nil {
+				playersWithInfo = append(playersWithInfo, MatchupPlayerWithInfo{
+					MatchupPlayer: mp,
+					Player:        *player,
+				})
+			}
+		}
+
+		matchupsWithPlayers = append(matchupsWithPlayers, MatchupWithPlayers{
+			Matchup: matchup,
+			Players: playersWithInfo,
+		})
+	}
+
+	return &FixtureDetailWithMatchups{
+		FixtureDetail:       *fixtureDetail,
+		MatchupsWithPlayers: matchupsWithPlayers,
+	}, nil
+}
+
+// GetAvailablePlayersForMatchup gets available players for a specific matchup
+func (s *Service) GetAvailablePlayersForMatchup(fixtureID uint) ([]models.Player, error) {
+	ctx := context.Background()
+
+	// First try to get selected players from the fixture
+	selectedPlayers, err := s.fixtureRepository.FindSelectedPlayers(ctx, fixtureID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(selectedPlayers) > 0 {
+		// Use selected players from fixture
+		var players []models.Player
+		for _, sp := range selectedPlayers {
+			if player, err := s.playerRepository.FindByID(ctx, sp.PlayerID); err == nil {
+				players = append(players, *player)
+			}
+		}
+		return players, nil
+	}
+
+	// Fallback to team players if no players selected
+	teamPlayers, _, err := s.GetAvailablePlayersForFixture(fixtureID)
+	return teamPlayers, err
 }
