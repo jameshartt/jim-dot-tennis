@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -97,12 +98,18 @@ type TeamWithRelations struct {
 // TeamDetail represents a team with comprehensive related data for detail view
 type TeamDetail struct {
 	models.Team
-	Club        *models.Club     `json:"club,omitempty"`
-	Division    *models.Division `json:"division,omitempty"`
-	Season      *models.Season   `json:"season,omitempty"`
-	Captains    []models.Captain `json:"captains,omitempty"`
-	Players     []PlayerInTeam   `json:"players,omitempty"`
-	PlayerCount int              `json:"player_count"`
+	Club        *models.Club      `json:"club,omitempty"`
+	Division    *models.Division  `json:"division,omitempty"`
+	Season      *models.Season    `json:"season,omitempty"`
+	Captains    []CaptainWithInfo `json:"captains,omitempty"`
+	Players     []PlayerInTeam    `json:"players,omitempty"`
+	PlayerCount int               `json:"player_count"`
+}
+
+// CaptainWithInfo represents a captain with their player information
+type CaptainWithInfo struct {
+	models.Captain
+	Player models.Player `json:"player"`
 }
 
 // PlayerInTeam represents a player with their team membership details
@@ -652,7 +659,16 @@ func (s *Service) GetTeamDetail(teamID uint) (*TeamDetail, error) {
 
 	// Get captains
 	if captains, err := s.teamRepository.FindCaptainsInTeam(ctx, teamID, team.SeasonID); err == nil {
-		detail.Captains = captains
+		var captainsWithInfo []CaptainWithInfo
+		for _, captain := range captains {
+			if player, err := s.playerRepository.FindByID(ctx, captain.PlayerID); err == nil {
+				captainsWithInfo = append(captainsWithInfo, CaptainWithInfo{
+					Captain: captain,
+					Player:  *player,
+				})
+			}
+		}
+		detail.Captains = captainsWithInfo
 	}
 
 	// Get players in team
@@ -671,4 +687,90 @@ func (s *Service) GetTeamDetail(teamID uint) (*TeamDetail, error) {
 	}
 
 	return detail, nil
+}
+
+// GetAvailablePlayersForCaptain retrieves players who can be made captains for a team
+// This includes players from the same club who are not already captains of this team
+func (s *Service) GetAvailablePlayersForCaptain(teamID uint) ([]models.Player, error) {
+	ctx := context.Background()
+
+	// Get the team to find its club and season
+	team, err := s.teamRepository.FindByID(ctx, teamID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get all players from the same club
+	clubPlayers, err := s.playerRepository.FindByClub(ctx, team.ClubID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get existing captains for this team in this season
+	existingCaptains, err := s.teamRepository.FindCaptainsInTeam(ctx, teamID, team.SeasonID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a map of existing captain IDs for fast lookup
+	captainMap := make(map[string]bool)
+	for _, captain := range existingCaptains {
+		captainMap[captain.PlayerID] = true
+	}
+
+	// Filter out players who are already captains
+	var availablePlayers []models.Player
+	for _, player := range clubPlayers {
+		if !captainMap[player.ID] {
+			availablePlayers = append(availablePlayers, player)
+		}
+	}
+
+	return availablePlayers, nil
+}
+
+// AddTeamCaptain adds a player as a captain to a team
+func (s *Service) AddTeamCaptain(teamID uint, playerID string, role models.CaptainRole) error {
+	ctx := context.Background()
+
+	// Get the team to find its season
+	team, err := s.teamRepository.FindByID(ctx, teamID)
+	if err != nil {
+		return err
+	}
+
+	// Verify the player exists
+	_, err = s.playerRepository.FindByID(ctx, playerID)
+	if err != nil {
+		return err
+	}
+
+	// Check if player is already a captain with this role for this team
+	existingCaptains, err := s.teamRepository.FindCaptainsInTeam(ctx, teamID, team.SeasonID)
+	if err != nil {
+		return err
+	}
+
+	for _, captain := range existingCaptains {
+		if captain.PlayerID == playerID && captain.Role == role {
+			return fmt.Errorf("player is already a %s captain for this team", role)
+		}
+	}
+
+	// Add the captain
+	return s.teamRepository.AddCaptain(ctx, teamID, playerID, role, team.SeasonID)
+}
+
+// RemoveTeamCaptain removes a captain from a team
+func (s *Service) RemoveTeamCaptain(teamID uint, playerID string) error {
+	ctx := context.Background()
+
+	// Get the team to find its season
+	team, err := s.teamRepository.FindByID(ctx, teamID)
+	if err != nil {
+		return err
+	}
+
+	// Remove the captain
+	return s.teamRepository.RemoveCaptain(ctx, teamID, playerID, team.SeasonID)
 }

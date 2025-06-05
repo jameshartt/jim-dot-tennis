@@ -89,6 +89,12 @@
             text-decoration: none;
             border-radius: 4px;
             font-size: 0.9rem;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn-add:hover {
+            background: #218838;
         }
         
         .players-section, .captains-section {
@@ -201,6 +207,99 @@
             background: #ffc107;
             color: #212529;
         }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            color: var(--primary-color);
+        }
+        
+        .close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6c757d;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+        
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
         
         /* Mobile responsiveness */
         @media (max-width: 768px) {
@@ -278,7 +377,7 @@
             <div class="captains-section">
                 <div class="section-header">
                     <h2>Team Captains</h2>
-                    <a href="#" class="btn-add">Add Captain</a>
+                    <button class="btn-add" onclick="showAddCaptainModal()">Add Captain</button>
                 </div>
                 
                 {{if .TeamDetail.Captains}}
@@ -295,7 +394,7 @@
                         {{range .TeamDetail.Captains}}
                         <tr>
                             <td>
-                                <span class="captain-name">{{.PlayerID}}</span>
+                                <span class="captain-name">{{.Player.FirstName}} {{.Player.LastName}}</span>
                             </td>
                             <td>
                                 <span class="role-badge {{if eq .Role "Day"}}day{{end}}">{{.Role}}</span>
@@ -310,7 +409,7 @@
                             <td>
                                 <div class="action-buttons">
                                     <button class="btn-sm btn-warning">Edit</button>
-                                    <button class="btn-sm btn-danger">Remove</button>
+                                    <button class="btn-sm btn-danger" onclick="removeCaptain('{{.PlayerID}}', '{{.Player.FirstName}} {{.Player.LastName}}')">Remove</button>
                                 </div>
                             </td>
                         </tr>
@@ -385,24 +484,72 @@
         </div>
     </main>
 
+    <!-- Add Captain Modal -->
+    <div id="addCaptainModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Team Captain</h3>
+                <button class="close" onclick="hideAddCaptainModal()">&times;</button>
+            </div>
+            
+            <form id="addCaptainForm" method="POST" action="/admin/teams/{{.TeamDetail.ID}}/add-captain">
+                <div class="form-group">
+                    <label for="player_id">Select Player:</label>
+                    <select id="player_id" name="player_id" required>
+                        <option value="">Choose a player...</option>
+                        {{range .AvailablePlayers}}
+                        <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="role">Captain Role:</label>
+                    <select id="role" name="role" required>
+                        <option value="">Choose a role...</option>
+                        <option value="Team">Team Captain</option>
+                        <option value="Day">Day Captain</option>
+                    </select>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Add Captain</button>
+                    <button type="button" class="btn-secondary" onclick="hideAddCaptainModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         console.log("Team detail page loaded for team:", "{{.TeamDetail.Name}}");
         
+        // Modal functions
+        function showAddCaptainModal() {
+            document.getElementById('addCaptainModal').classList.add('show');
+        }
+        
+        function hideAddCaptainModal() {
+            document.getElementById('addCaptainModal').classList.remove('show');
+            document.getElementById('addCaptainForm').reset();
+        }
+        
+        // Close modal when clicking outside
+        document.getElementById('addCaptainModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                hideAddCaptainModal();
+            }
+        });
+        
+        // Captain removal
+        function removeCaptain(playerID, playerName) {
+            if (confirm(`Are you sure you want to remove ${playerName} as captain?`)) {
+                // TODO: Implement captain removal
+                console.log('Remove captain:', playerID, playerName);
+            }
+        }
+        
         // Add event listeners for action buttons
         document.addEventListener('DOMContentLoaded', function() {
-            // Remove player buttons
-            document.querySelectorAll('.btn-danger').forEach(button => {
-                button.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const row = this.closest('tr');
-                    const playerName = row.querySelector('.player-name, .captain-name');
-                    if (playerName && confirm(`Are you sure you want to remove ${playerName.textContent}?`)) {
-                        // TODO: Implement removal functionality
-                        console.log('Remove clicked for:', playerName.textContent);
-                    }
-                });
-            });
-            
             // Edit buttons
             document.querySelectorAll('.btn-warning').forEach(button => {
                 button.addEventListener('click', function(e) {
@@ -412,13 +559,11 @@
                 });
             });
             
-            // Add player/captain buttons
-            document.querySelectorAll('.btn-add').forEach(button => {
-                button.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    // TODO: Implement add functionality
-                    console.log('Add clicked');
-                });
+            // Add player button
+            document.querySelector('.players-section .btn-add').addEventListener('click', function(e) {
+                e.preventDefault();
+                // TODO: Implement add player functionality
+                console.log('Add player clicked');
             });
         });
     </script>

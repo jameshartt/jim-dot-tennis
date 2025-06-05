@@ -1,8 +1,10 @@
 package admin
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"jim-dot-tennis/internal/models"
@@ -80,6 +82,12 @@ func (h *TeamsHandler) handleTeamsGet(w http.ResponseWriter, r *http.Request, us
 func (h *TeamsHandler) handleTeamDetail(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Admin team detail handler called with path: %s, method: %s", r.URL.Path, r.Method)
 
+	// Check for add captain action
+	if strings.HasSuffix(r.URL.Path, "/add-captain") {
+		h.handleAddCaptain(w, r)
+		return
+	}
+
 	// Get user from context
 	user, err := getUserFromContext(r)
 	if err != nil {
@@ -113,6 +121,14 @@ func (h *TeamsHandler) handleTeamDetailGet(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Get available players for captain selection
+	availablePlayers, err := h.service.GetAvailablePlayersForCaptain(teamID)
+	if err != nil {
+		log.Printf("Failed to get available players for captain: %v", err)
+		// Continue without available players
+		availablePlayers = []models.Player{}
+	}
+
 	// Load the team detail template
 	tmpl, err := parseTemplate(h.templateDir, "admin/team_detail.html")
 	if err != nil {
@@ -125,8 +141,9 @@ func (h *TeamsHandler) handleTeamDetailGet(w http.ResponseWriter, r *http.Reques
 
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
-		"User":       user,
-		"TeamDetail": teamDetail,
+		"User":             user,
+		"TeamDetail":       teamDetail,
+		"AvailablePlayers": availablePlayers,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -136,4 +153,84 @@ func (h *TeamsHandler) handleTeamDetailGet(w http.ResponseWriter, r *http.Reques
 func (h *TeamsHandler) handleTeamDetailPost(w http.ResponseWriter, r *http.Request, user *models.User, teamID uint) {
 	// TODO: Implement team detail updates (adding/removing players, etc.)
 	http.Error(w, "Team detail updates not yet implemented", http.StatusNotImplemented)
+}
+
+// handleAddCaptain handles the add captain functionality
+func (h *TeamsHandler) handleAddCaptain(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Admin add captain handler called with path: %s, method: %s", r.URL.Path, r.Method)
+
+	// Get user from context
+	user, err := getUserFromContext(r)
+	if err != nil {
+		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
+		return
+	}
+
+	// Extract team ID from URL path
+	// Path format: /admin/teams/{id}/add-captain
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/teams/"), "/")
+	if len(pathParts) < 2 || pathParts[0] == "" || pathParts[1] != "add-captain" {
+		http.Error(w, "Invalid add captain URL", http.StatusBadRequest)
+		return
+	}
+
+	teamIDStr := pathParts[0]
+	teamID, err := strconv.ParseUint(teamIDStr, 10, 32)
+	if err != nil {
+		logAndError(w, "Invalid team ID", err, http.StatusBadRequest)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodPost:
+		h.handleAddCaptainPost(w, r, user, uint(teamID))
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleAddCaptainPost processes the form submission to add a captain
+func (h *TeamsHandler) handleAddCaptainPost(w http.ResponseWriter, r *http.Request, user *models.User, teamID uint) {
+	// Parse form data
+	if err := r.ParseForm(); err != nil {
+		logAndError(w, "Invalid form data", err, http.StatusBadRequest)
+		return
+	}
+
+	// Get form values
+	playerID := strings.TrimSpace(r.FormValue("player_id"))
+	roleStr := strings.TrimSpace(r.FormValue("role"))
+
+	// Validate required fields
+	if playerID == "" {
+		http.Error(w, "Player ID is required", http.StatusBadRequest)
+		return
+	}
+
+	if roleStr == "" {
+		http.Error(w, "Role is required", http.StatusBadRequest)
+		return
+	}
+
+	// Convert role string to CaptainRole
+	var role models.CaptainRole
+	switch roleStr {
+	case "Team":
+		role = models.TeamCaptain
+	case "Day":
+		role = models.DayCaptain
+	default:
+		http.Error(w, "Invalid role specified", http.StatusBadRequest)
+		return
+	}
+
+	// Add the captain
+	if err := h.service.AddTeamCaptain(teamID, playerID, role); err != nil {
+		log.Printf("Failed to add captain: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to add captain: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Redirect back to team detail page
+	http.Redirect(w, r, fmt.Sprintf("/admin/teams/%d", teamID), http.StatusSeeOther)
 }
