@@ -121,6 +121,13 @@ func (h *FixturesHandler) handleFixtureDetailGet(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// Capture navigation context from query parameters
+	navigationContext := map[string]string{
+		"from":     r.URL.Query().Get("from"),
+		"teamId":   r.URL.Query().Get("teamId"),
+		"teamName": r.URL.Query().Get("teamName"),
+	}
+
 	// Load the fixture detail template
 	tmpl, err := parseTemplate(h.templateDir, "admin/fixture_detail.html")
 	if err != nil {
@@ -133,8 +140,9 @@ func (h *FixturesHandler) handleFixtureDetailGet(w http.ResponseWriter, r *http.
 
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
-		"User":          user,
-		"FixtureDetail": fixtureDetail,
+		"User":              user,
+		"FixtureDetail":     fixtureDetail,
+		"NavigationContext": navigationContext,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}

@@ -363,6 +363,15 @@
         .date-time {
             color: #495057;
         }
+        
+        /* Clickable fixture rows */
+        .fixtures-table tbody tr[data-fixture-id] {
+            transition: background-color 0.2s ease;
+        }
+        
+        .fixtures-table tbody tr[data-fixture-id]:hover {
+            background-color: #f8f9fa !important;
+        }
 
         /* Modal styles */
         .modal {
@@ -820,7 +829,44 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Setup remove captain confirmation
             setupRemoveCaptainConfirmation();
+            
+            // Setup fixture row clicks
+            setupFixtureRowClicks();
         });
+        
+        // Setup clickable fixture rows
+        function setupFixtureRowClicks() {
+            const fixtureRows = document.querySelectorAll('.fixtures-table tbody tr[data-fixture-id]');
+            
+            fixtureRows.forEach(row => {
+                // Add visual feedback
+                row.style.cursor = 'pointer';
+                row.title = 'Click to view fixture details';
+                
+                // Handle single click for navigation
+                row.addEventListener('click', function(e) {
+                    // Don't navigate if clicking on interactive elements
+                    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.closest('button') || e.target.closest('a')) {
+                        return;
+                    }
+                    
+                    const fixtureId = this.dataset.fixtureId;
+                    if (fixtureId) {
+                        const teamName = encodeURIComponent('{{$.TeamDetail.Name}}');
+                        window.location.href = `/admin/fixtures/${fixtureId}?from=team&teamId={{$.TeamDetail.ID}}&teamName=${teamName}`;
+                    }
+                });
+                
+                // Add hover effect
+                row.addEventListener('mouseenter', function() {
+                    this.style.backgroundColor = '#f8f9fa';
+                });
+                
+                row.addEventListener('mouseleave', function() {
+                    this.style.backgroundColor = '';
+                });
+            });
+        }
     </script>
 </body>
 </html> 

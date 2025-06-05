@@ -239,8 +239,14 @@
         <div class="container">
             <div class="breadcrumb">
                 <a href="/admin">Admin Dashboard</a> &gt; 
-                <a href="/admin/fixtures">Fixtures</a> &gt; 
-                Fixture Detail
+                {{if and .NavigationContext (eq .NavigationContext.from "team")}}
+                    <a href="/admin/teams">Teams</a> &gt; 
+                    <a href="/admin/teams/{{.NavigationContext.teamId}}">{{.NavigationContext.teamName}}</a> &gt; 
+                    Fixture Detail
+                {{else}}
+                    <a href="/admin/fixtures">Fixtures</a> &gt; 
+                    Fixture Detail
+                {{end}}
             </div>
         </div>
     </header>
@@ -249,7 +255,11 @@
         <div class="container">
             <div class="action-bar">
                 <h2>Fixture Information</h2>
-                <a href="/admin/fixtures" class="btn-back">← Back to Fixtures</a>
+                {{if and .NavigationContext (eq .NavigationContext.from "team")}}
+                    <a href="/admin/teams/{{.NavigationContext.teamId}}" class="btn-back">← Back to {{.NavigationContext.teamName}}</a>
+                {{else}}
+                    <a href="/admin/fixtures" class="btn-back">← Back to Fixtures</a>
+                {{end}}
             </div>
 
             {{if .FixtureDetail}}
