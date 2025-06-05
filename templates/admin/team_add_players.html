@@ -145,14 +145,6 @@
             transition: background-color 0.2s ease;
         }
         
-        /* Player status background colors */
-        .players-table tbody tr.player-active {
-            background-color: rgba(40, 167, 69, 0.1); /* Transparent green */
-        }
-        .players-table tbody tr.player-inactive {
-            background-color: rgba(220, 53, 69, 0.1); /* Transparent red */
-        }
-        
         /* Selected row highlighting */
         .players-table tbody tr.selected {
             background-color: rgba(0, 123, 255, 0.2) !important; /* Blue highlight */
@@ -161,13 +153,6 @@
         /* Hover states */
         .players-table tbody tr:hover {
             background-color: rgba(0, 0, 0, 0.05);
-        }
-        
-        .players-table tbody tr.player-active:hover {
-            background-color: rgba(40, 167, 69, 0.15);
-        }
-        .players-table tbody tr.player-inactive:hover {
-            background-color: rgba(220, 53, 69, 0.15);
         }
         
         .players-table tbody tr.selected:hover {
@@ -345,20 +330,7 @@
                            value="{{.SearchQuery}}"
                            hx-get="/admin/teams/{{.TeamDetail.ID}}/add-players"
                            hx-target="#players-tbody"
-                           hx-trigger="keyup changed delay:300ms"
-                           hx-include="[name='status']">
-                </div>
-                <div>
-                    <label for="status">Status:</label>
-                    <select id="status" name="status"
-                            hx-get="/admin/teams/{{.TeamDetail.ID}}/add-players"
-                            hx-target="#players-tbody"
-                            hx-trigger="change"
-                            hx-include="[name='q']">
-                        <option value="" {{if eq .StatusFilter ""}}selected{{end}}>All</option>
-                        <option value="active" {{if eq .StatusFilter "active"}}selected{{end}}>Active</option>
-                        <option value="inactive" {{if eq .StatusFilter "inactive"}}selected{{end}}>Inactive</option>
-                    </select>
+                           hx-trigger="keyup changed delay:300ms">
                 </div>
             </div>
 
@@ -375,15 +347,15 @@
                 <tbody id="players-tbody">
                     {{if .EligiblePlayers}}
                         {{range .EligiblePlayers}}
-                        <tr data-player-id="{{.Player.ID}}" 
-                            data-player-name="{{.Player.FirstName}} {{.Player.LastName}}" 
-                            class="{{if .IsActive}}player-active{{else}}player-inactive{{end}}">
+                        <tr data-player-id="{{.ID}}" 
+                            data-player-name="{{.FirstName}} {{.LastName}}" 
+                            class="player-active">
                             <td class="col-checkbox">
-                                <input type="checkbox" name="player_ids" value="{{.Player.ID}}" class="player-checkbox">
+                                <input type="checkbox" name="player_ids" value="{{.ID}}" class="player-checkbox">
                             </td>
-                            <td class="col-name">{{.Player.FirstName}} {{.Player.LastName}}</td>
-                            <td class="col-email" title="{{.Player.Email}}">{{.Player.Email}}</td>
-                            <td class="col-phone" title="{{.Player.Phone}}">{{.Player.Phone}}</td>
+                            <td class="col-name">{{.FirstName}} {{.LastName}}</td>
+                            <td class="col-email" title="{{.Email}}">{{.Email}}</td>
+                            <td class="col-phone" title="{{.Phone}}">{{.Phone}}</td>
                         </tr>
                         {{end}}
                     {{else}}

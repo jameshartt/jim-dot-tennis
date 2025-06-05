@@ -399,16 +399,13 @@ func (h *TeamsHandler) handleAddPlayersGet(w http.ResponseWriter, r *http.Reques
 }
 
 // renderAddPlayersTableBody renders just the table body for HTMX requests
-func (h *TeamsHandler) renderAddPlayersTableBody(w http.ResponseWriter, players []PlayerWithStatus) {
+func (h *TeamsHandler) renderAddPlayersTableBody(w http.ResponseWriter, players []models.Player) {
 	w.Header().Set("Content-Type", "text/html")
 
 	if len(players) > 0 {
-		for _, playerWithStatus := range players {
-			player := playerWithStatus.Player
+		for _, player := range players {
+			// No more active/inactive distinction - all players get the same styling
 			activeClass := "player-active"
-			if !playerWithStatus.IsActive {
-				activeClass = "player-inactive"
-			}
 
 			w.Write([]byte(fmt.Sprintf(`
 				<tr data-player-id="%s" data-player-name="%s %s" class="%s">

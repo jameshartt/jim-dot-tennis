@@ -107,20 +107,9 @@
             background-color: #f8f9fa;
         }
         
-        /* Player status background colors */
-        .players-table tbody tr.player-active {
-            background-color: rgba(40, 167, 69, 0.1); /* Transparent green */
-        }
-        .players-table tbody tr.player-inactive {
-            background-color: rgba(220, 53, 69, 0.1); /* Transparent red */
-        }
-        
-        /* Hover states for status colors */
+        /* Player row hover state */
         .players-table tbody tr.player-active:hover {
-            background-color: rgba(40, 167, 69, 0.15);
-        }
-        .players-table tbody tr.player-inactive:hover {
-            background-color: rgba(220, 53, 69, 0.15);
+            background-color: #e9ecef;
         }
         
         /* Name column - never truncate */
@@ -219,18 +208,7 @@
                    value="{{.SearchQuery}}"
                    hx-get="/admin/players/filter"
                    hx-target="#players-tbody"
-                   hx-trigger="keyup changed delay:300ms"
-                   hx-include="[name='status']">
-            <label for="status">Status:</label>
-            <select id="status" name="status"
-                    hx-get="/admin/players/filter"
-                    hx-target="#players-tbody"
-                    hx-trigger="change"
-                    hx-include="[name='q']">
-                <option value="" {{if eq .ActiveFilter ""}}selected{{end}}>All</option>
-                <option value="active" {{if eq .ActiveFilter "active"}}selected{{end}}>Active</option>
-                <option value="inactive" {{if eq .ActiveFilter "inactive"}}selected{{end}}>Inactive</option>
-            </select>
+                   hx-trigger="keyup changed delay:300ms">
         </div>
 
         <table class="players-table">
@@ -244,10 +222,10 @@
             <tbody id="players-tbody">
                 {{if .Players}}
                     {{range .Players}}
-                    <tr data-player-id="{{.Player.ID}}" data-player-name="{{.Player.FirstName}} {{.Player.LastName}}" class="{{if .IsActive}}player-active{{else}}player-inactive{{end}}">
-                        <td class="col-name">{{.Player.FirstName}} {{.Player.LastName}}</td>
-                        <td class="col-email" title="{{.Player.Email}}">{{.Player.Email}}</td>
-                        <td class="col-phone" title="{{.Player.Phone}}">{{.Player.Phone}}</td>
+                    <tr data-player-id="{{.ID}}" data-player-name="{{.FirstName}} {{.LastName}}" class="player-active">
+                        <td class="col-name">{{.FirstName}} {{.LastName}}</td>
+                        <td class="col-email" title="{{.Email}}">{{.Email}}</td>
+                        <td class="col-phone" title="{{.Phone}}">{{.Phone}}</td>
                     </tr>
                     {{end}}
                 {{else}}

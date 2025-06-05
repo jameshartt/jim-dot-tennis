@@ -60,12 +60,6 @@ type LoginAttempt struct {
 	Success   bool      `json:"success"`
 }
 
-// PlayerWithStatus represents a player with their activity status
-type PlayerWithStatus struct {
-	models.Player
-	IsActive bool `json:"is_active"`
-}
-
 // FixtureWithRelations represents a fixture with its related team and week data
 type FixtureWithRelations struct {
 	models.Fixture
@@ -179,106 +173,25 @@ func (s *Service) GetPlayers() ([]models.Player, error) {
 	return players, nil
 }
 
-// GetFilteredPlayers retrieves players based on search query and activity filter
-func (s *Service) GetFilteredPlayers(query string, activeFilter string, seasonID uint) ([]PlayerWithStatus, error) {
+// GetFilteredPlayers retrieves players based on search query
+func (s *Service) GetFilteredPlayers(query string, activeFilter string, seasonID uint) ([]models.Player, error) {
 	ctx := context.Background()
-
-	// If no seasonID provided, use a default (this would need to be improved to get current season)
-	if seasonID == 0 {
-		seasonID = 1 // Default to season 1 for now
-	}
 
 	var players []models.Player
 	var err error
 
-	// Apply activity filter first, then search within those results
-	switch activeFilter {
-	case "active":
-		if query != "" {
-			// Get active players, then filter by search
-			activePlayers, err := s.playerRepository.FindActivePlayersInSeason(ctx, seasonID)
-			if err != nil {
-				return nil, err
-			}
-			// Filter active players by search query
-			players = filterPlayersByQuery(activePlayers, query)
-		} else {
-			players, err = s.playerRepository.FindActivePlayersInSeason(ctx, seasonID)
-		}
-	case "inactive":
-		if query != "" {
-			// Get inactive players, then filter by search
-			inactivePlayers, err := s.playerRepository.FindInactivePlayersInSeason(ctx, seasonID)
-			if err != nil {
-				return nil, err
-			}
-			// Filter inactive players by search query
-			players = filterPlayersByQuery(inactivePlayers, query)
-		} else {
-			players, err = s.playerRepository.FindInactivePlayersInSeason(ctx, seasonID)
-		}
-	default: // "all" or empty
-		if query != "" {
-			players, err = s.playerRepository.SearchPlayers(ctx, query)
-		} else {
-			players, err = s.playerRepository.FindAll(ctx)
-		}
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert to PlayerWithStatus and determine activity status
-	var playersWithStatus []PlayerWithStatus
-
-	// If we filtered by active/inactive, we already know the status
-	if activeFilter == "active" {
-		for _, player := range players {
-			playersWithStatus = append(playersWithStatus, PlayerWithStatus{
-				Player:   player,
-				IsActive: true,
-			})
-		}
-	} else if activeFilter == "inactive" {
-		for _, player := range players {
-			playersWithStatus = append(playersWithStatus, PlayerWithStatus{
-				Player:   player,
-				IsActive: false,
-			})
-		}
+	// Just search based on query, ignore activeFilter as it's no longer relevant
+	if query != "" {
+		players, err = s.playerRepository.SearchPlayers(ctx, query)
 	} else {
-		// For "all" filter, we need to check each player's status
-		activePlayerIDs, err := s.getActivePlayerIDsMap(ctx, seasonID)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, player := range players {
-			isActive := activePlayerIDs[player.ID]
-			playersWithStatus = append(playersWithStatus, PlayerWithStatus{
-				Player:   player,
-				IsActive: isActive,
-			})
-		}
+		players, err = s.playerRepository.FindAll(ctx)
 	}
 
-	return playersWithStatus, nil
-}
-
-// getActivePlayerIDsMap returns a map of player IDs that are active in the given season
-func (s *Service) getActivePlayerIDsMap(ctx context.Context, seasonID uint) (map[string]bool, error) {
-	activePlayers, err := s.playerRepository.FindActivePlayersInSeason(ctx, seasonID)
 	if err != nil {
 		return nil, err
 	}
 
-	activeMap := make(map[string]bool)
-	for _, player := range activePlayers {
-		activeMap[player.ID] = true
-	}
-
-	return activeMap, nil
+	return players, nil
 }
 
 // filterPlayersByQuery performs client-side filtering of players by search query
@@ -776,8 +689,8 @@ func (s *Service) RemoveTeamCaptain(teamID uint, playerID string) error {
 }
 
 // GetEligiblePlayersForTeam retrieves players who can be added to a team
-// This excludes players who are already on the team and applies filtering
-func (s *Service) GetEligiblePlayersForTeam(teamID uint, query, statusFilter string) ([]PlayerWithStatus, error) {
+// This excludes players who are already on the team
+func (s *Service) GetEligiblePlayersForTeam(teamID uint, query, statusFilter string) ([]models.Player, error) {
 	ctx := context.Background()
 
 	// Get the team to find its club and season
@@ -816,38 +729,15 @@ func (s *Service) GetEligiblePlayersForTeam(teamID uint, query, statusFilter str
 		currentMemberMap[playerTeam.PlayerID] = true
 	}
 
-	// Filter players and determine their status
-	var eligiblePlayers []PlayerWithStatus
+	// Filter out players who are already on the team
+	var eligiblePlayers []models.Player
 	for _, player := range allPlayers {
 		// Skip players who are already on the team
 		if currentMemberMap[player.ID] {
 			continue
 		}
 
-		// Determine if player is active (has active team memberships in current season)
-		isActive := false
-		playerTeams, err := s.playerRepository.FindTeamsForPlayer(ctx, player.ID, team.SeasonID)
-		if err == nil {
-			for _, pt := range playerTeams {
-				if pt.IsActive {
-					isActive = true
-					break
-				}
-			}
-		}
-
-		// Apply status filter
-		if statusFilter == "active" && !isActive {
-			continue
-		}
-		if statusFilter == "inactive" && isActive {
-			continue
-		}
-
-		eligiblePlayers = append(eligiblePlayers, PlayerWithStatus{
-			Player:   player,
-			IsActive: isActive,
-		})
+		eligiblePlayers = append(eligiblePlayers, player)
 	}
 
 	return eligiblePlayers, nil

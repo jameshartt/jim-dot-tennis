@@ -495,7 +495,6 @@
                         <tr>
                             <th>Name</th>
                             <th>Role</th>
-                            <th>Status</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -507,13 +506,6 @@
                             </td>
                             <td>
                                 <span class="role-badge {{if eq .Role "Day"}}day{{end}}">{{.Role}}</span>
-                            </td>
-                            <td>
-                                {{if .IsActive}}
-                                <span class="status-active">Active</span>
-                                {{else}}
-                                <span class="status-inactive">Inactive</span>
-                                {{end}}
                             </td>
                             <td>
                                 <div class="action-buttons">
@@ -576,11 +568,7 @@
                                 </div>
                             </td>
                             <td>
-                                {{if .PlayerTeam.IsActive}}
                                 <span class="status-active">Active</span>
-                                {{else}}
-                                <span class="status-inactive">Inactive</span>
-                                {{end}}
                             </td>
                             <td>
                                 <span class="player-contact">{{.PlayerTeam.CreatedAt.Format "Jan 02, 2006"}}</span>

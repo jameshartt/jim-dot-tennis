@@ -240,13 +240,9 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 
 	// Generate table rows HTML
 	if len(players) > 0 {
-		for _, playerWithStatus := range players {
-			player := playerWithStatus.Player
-			// Use actual player status
+		for _, player := range players {
+			// No more active/inactive distinction - all players get the same styling
 			activeClass := "player-active"
-			if !playerWithStatus.IsActive {
-				activeClass = "player-inactive"
-			}
 
 			w.Write([]byte(fmt.Sprintf(`
 				<tr data-player-id="%s" data-player-name="%s %s" class="%s">
