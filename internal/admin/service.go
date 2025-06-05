@@ -79,7 +79,7 @@ type FixtureDetail struct {
 	Division        *models.Division     `json:"division,omitempty"`
 	Season          *models.Season       `json:"season,omitempty"`
 	DayCaptain      *models.Player       `json:"day_captain,omitempty"`
-	Matchups        []models.Matchup     `json:"matchups,omitempty"`
+	Matchups        []MatchupWithPlayers `json:"matchups,omitempty"`
 	SelectedPlayers []SelectedPlayerInfo `json:"selected_players,omitempty"`
 }
 
@@ -417,9 +417,37 @@ func (s *Service) GetFixtureDetail(fixtureID uint) (*FixtureDetail, error) {
 		}
 	}
 
-	// Get matchups with the fixture
-	if fixtureWithMatchups, err := s.fixtureRepository.FindWithMatchups(ctx, fixtureID); err == nil {
-		detail.Matchups = fixtureWithMatchups.Matchups
+	// Get matchups with players for the fixture
+	if matchups, err := s.matchupRepository.FindByFixture(ctx, fixtureID); err == nil {
+		var matchupsWithPlayers []MatchupWithPlayers
+		for _, matchup := range matchups {
+			// Get players for this matchup
+			matchupPlayers, err := s.matchupRepository.FindPlayersInMatchup(ctx, matchup.ID)
+			if err != nil {
+				// If we can't get players, still include the matchup with empty players
+				matchupsWithPlayers = append(matchupsWithPlayers, MatchupWithPlayers{
+					Matchup: matchup,
+					Players: []MatchupPlayerWithInfo{},
+				})
+				continue
+			}
+
+			var playersWithInfo []MatchupPlayerWithInfo
+			for _, mp := range matchupPlayers {
+				if player, err := s.playerRepository.FindByID(ctx, mp.PlayerID); err == nil {
+					playersWithInfo = append(playersWithInfo, MatchupPlayerWithInfo{
+						MatchupPlayer: mp,
+						Player:        *player,
+					})
+				}
+			}
+
+			matchupsWithPlayers = append(matchupsWithPlayers, MatchupWithPlayers{
+				Matchup: matchup,
+				Players: playersWithInfo,
+			})
+		}
+		detail.Matchups = matchupsWithPlayers
 	}
 
 	// Get selected players for the fixture
@@ -1117,6 +1145,79 @@ func (s *Service) UpdateMatchupPlayers(matchupID uint, homePlayer1ID, homePlayer
 	return nil
 }
 
+// UpdateStAnnsMatchupPlayers updates St Ann's players for a matchup, determining if they're home or away
+func (s *Service) UpdateStAnnsMatchupPlayers(matchupID uint, fixtureID uint, stAnnsPlayer1ID, stAnnsPlayer2ID string) error {
+	ctx := context.Background()
+
+	// Get the fixture to determine if St Ann's is home or away
+	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
+	if err != nil {
+		return err
+	}
+
+	// Find the St Ann's club ID
+	stAnnsClubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil {
+		return err
+	}
+	if len(stAnnsClubs) == 0 {
+		return fmt.Errorf("St Ann's club not found")
+	}
+	stAnnsClubID := stAnnsClubs[0].ID
+
+	// Get home and away teams
+	homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
+	if err != nil {
+		return err
+	}
+
+	awayTeam, err := s.teamRepository.FindByID(ctx, fixture.AwayTeamID)
+	if err != nil {
+		return err
+	}
+
+	// Determine if St Ann's is home or away
+	var isStAnnsHome bool
+	if homeTeam.ClubID == stAnnsClubID {
+		isStAnnsHome = true
+	} else if awayTeam.ClubID == stAnnsClubID {
+		isStAnnsHome = false
+	} else {
+		return fmt.Errorf("no St Ann's team found in this fixture")
+	}
+
+	// Clear existing players
+	err = s.matchupRepository.ClearPlayers(ctx, matchupID)
+	if err != nil {
+		return err
+	}
+
+	// Add St Ann's players with correct home/away designation
+	if stAnnsPlayer1ID != "" {
+		err = s.matchupRepository.AddPlayer(ctx, matchupID, stAnnsPlayer1ID, isStAnnsHome)
+		if err != nil {
+			return err
+		}
+	}
+	if stAnnsPlayer2ID != "" {
+		err = s.matchupRepository.AddPlayer(ctx, matchupID, stAnnsPlayer2ID, isStAnnsHome)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Update status to Playing if both St Ann's players are assigned
+	// (In a real-world scenario, you'd need opponent players too, but for St Ann's tool this is sufficient)
+	if stAnnsPlayer1ID != "" && stAnnsPlayer2ID != "" {
+		err = s.matchupRepository.UpdateStatus(ctx, matchupID, models.Playing)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // GetFixtureWithMatchups gets fixture details including matchups and their players
 func (s *Service) GetFixtureWithMatchups(fixtureID uint) (*FixtureDetailWithMatchups, error) {
 	ctx := context.Background()
@@ -1164,6 +1265,7 @@ func (s *Service) GetFixtureWithMatchups(fixtureID uint) (*FixtureDetailWithMatc
 }
 
 // GetAvailablePlayersForMatchup gets available players for a specific matchup
+// Returns selected players if any, otherwise falls back to all St Ann's team players
 func (s *Service) GetAvailablePlayersForMatchup(fixtureID uint) ([]models.Player, error) {
 	ctx := context.Background()
 
@@ -1184,7 +1286,18 @@ func (s *Service) GetAvailablePlayersForMatchup(fixtureID uint) ([]models.Player
 		return players, nil
 	}
 
-	// Fallback to team players if no players selected
-	teamPlayers, _, err := s.GetAvailablePlayersForFixture(fixtureID)
-	return teamPlayers, err
+	// Fallback to St Ann's team players if no players selected
+	teamPlayers, allStAnnPlayers, err := s.GetAvailablePlayersForFixture(fixtureID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Prefer team players, but if none exist, use all St Ann's players
+	if len(teamPlayers) > 0 {
+		return teamPlayers, nil
+	}
+
+	// Combine team players and all St Ann's players as final fallback
+	allPlayers := append(teamPlayers, allStAnnPlayers...)
+	return allPlayers, nil
 }

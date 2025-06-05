@@ -297,25 +297,19 @@
             font-size: 1.1rem;
         }
         
-        .team-players {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
+        .stanns-players {
+            background: white;
+            border-radius: 6px;
+            padding: 1.5rem;
+            border: 2px solid #007bff;
             margin-bottom: 1.5rem;
         }
         
-        .home-team, .away-team {
-            background: white;
-            border-radius: 6px;
-            padding: 1rem;
-            border: 1px solid #dee2e6;
-        }
-        
-        .home-team h5, .away-team h5 {
-            margin: 0 0 0.75rem 0;
-            font-size: 0.9rem;
+        .stanns-players h5 {
+            margin: 0 0 1rem 0;
+            font-size: 1rem;
             font-weight: 600;
-            color: #495057;
+            color: #007bff;
             text-align: center;
         }
         
@@ -364,8 +358,66 @@
         }
         
         .existing-matchups h4 {
-            margin: 0 0 1rem 0;
+            margin: 0 0 1.5rem 0;
             color: var(--primary-color);
+        }
+        
+        .matchups-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .matchup-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .matchup-header {
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .matchup-type {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--primary-color);
+        }
+        
+        .player-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+        
+        .player-name {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 0.25rem 0.5rem;
+            margin: 0.25rem 0;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .no-players-assigned {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 1rem;
+        }
+        
+        .matchup-notes {
+            margin-top: 1rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid #e9ecef;
+            font-size: 0.9rem;
+            color: #495057;
         }
 
         @media (max-width: 768px) {
@@ -395,13 +447,13 @@
                 gap: 1rem;
             }
             
-            .team-players {
-                grid-template-columns: 1fr;
-                gap: 0.75rem;
-            }
-            
             .matchup-form {
                 padding: 1rem;
+            }
+            
+            .matchups-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
             }
         }
     </style>
@@ -554,13 +606,17 @@
                         </div>
                         {{else}}
                         <div class="info-highlight">
-                            <strong>⚠️ No Players Selected:</strong> Will use all team players for matchup creation. Consider <a href="/admin/fixtures/{{.FixtureDetail.ID}}/team-selection">selecting specific players</a> first.
+                            <strong>⚠️ No Players Selected:</strong> Using all St Ann's team players for matchup creation. Consider <a href="/admin/fixtures/{{.FixtureDetail.ID}}/team-selection">selecting specific players</a> first.
                         </div>
                         {{end}}
+                        
+                        <div class="info-highlight">
+                            <strong>🏆 St Ann's Players Only:</strong> This tool is for managing St Ann's player assignments. The opposing team will handle their own player selection.
+                        </div>
 
                         <div class="matchup-creation-grid">
                             {{$fixtureID := .FixtureDetail.ID}}
-                            {{$availablePlayers := .FixtureDetail.SelectedPlayers}}
+                            {{$availablePlayers := .AvailablePlayers}}
                             
                             <!-- Men's Doubles -->
                             <div class="matchup-form">
@@ -569,53 +625,25 @@
                                     <input type="hidden" name="action" value="update_matchup">
                                     <input type="hidden" name="matchup_type" value="Mens">
                                     
-                                    <div class="team-players">
-                                        <div class="home-team">
-                                            <h5>{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}Home Team{{end}}</h5>
-                                            <div class="player-dropdowns">
-                                                <select name="home_player_1" class="player-select">
-                                                    <option value="">Select Player 1</option>
-                                                    {{if $availablePlayers}}
-                                                        {{range $availablePlayers}}
-                                                        <option value="{{.Player.ID}}">{{.Player.FirstName}} {{.Player.LastName}}</option>
-                                                        {{end}}
-                                                    {{end}}
-                                                </select>
-                                                <select name="home_player_2" class="player-select">
-                                                    <option value="">Select Player 2</option>
-                                                    {{if $availablePlayers}}
-                                                        {{range $availablePlayers}}
-                                                        <option value="{{.Player.ID}}">{{.Player.FirstName}} {{.Player.LastName}}</option>
-                                                        {{end}}
-                                                    {{end}}
-                                                </select>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="away-team">
-                                            <h5>{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}Away Team{{end}}</h5>
-                                            <div class="player-dropdowns">
-                                                <select name="away_player_1" class="player-select">
-                                                    <option value="">Select Player 1</option>
-                                                    {{if $availablePlayers}}
-                                                        {{range $availablePlayers}}
-                                                        <option value="{{.Player.ID}}">{{.Player.FirstName}} {{.Player.LastName}}</option>
-                                                        {{end}}
-                                                    {{end}}
-                                                </select>
-                                                <select name="away_player_2" class="player-select">
-                                                    <option value="">Select Player 2</option>
-                                                    {{if $availablePlayers}}
-                                                        {{range $availablePlayers}}
-                                                        <option value="{{.Player.ID}}">{{.Player.FirstName}} {{.Player.LastName}}</option>
-                                                        {{end}}
-                                                    {{end}}
-                                                </select>
-                                            </div>
+                                    <div class="stanns-players">
+                                        <h5>🔵 St Ann's Players</h5>
+                                        <div class="player-dropdowns">
+                                            <select name="stanns_player_1" class="player-select">
+                                                <option value="">Select Player 1</option>
+                                                {{range $availablePlayers}}
+                                                <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                                {{end}}
+                                            </select>
+                                            <select name="stanns_player_2" class="player-select">
+                                                <option value="">Select Player 2</option>
+                                                {{range $availablePlayers}}
+                                                <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                                {{end}}
+                                            </select>
                                         </div>
                                     </div>
                                     
-                                    <button type="submit" class="btn-create-matchup">Create/Update Men's Doubles</button>
+                                    <button type="submit" class="btn-create-matchup">Set St Ann's Men's Doubles</button>
                                 </form>
                             </div>
 
@@ -626,53 +654,25 @@
                                     <input type="hidden" name="action" value="update_matchup">
                                     <input type="hidden" name="matchup_type" value="Womens">
                                     
-                                    <div class="team-players">
-                                        <div class="home-team">
-                                            <h5>{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}Home Team{{end}}</h5>
-                                            <div class="player-dropdowns">
-                                                <select name="home_player_1" class="player-select">
-                                                    <option value="">Select Player 1</option>
-                                                    {{if $availablePlayers}}
-                                                        {{range $availablePlayers}}
-                                                        <option value="{{.Player.ID}}">{{.Player.FirstName}} {{.Player.LastName}}</option>
-                                                        {{end}}
-                                                    {{end}}
-                                                </select>
-                                                <select name="home_player_2" class="player-select">
-                                                    <option value="">Select Player 2</option>
-                                                    {{if $availablePlayers}}
-                                                        {{range $availablePlayers}}
-                                                        <option value="{{.Player.ID}}">{{.Player.FirstName}} {{.Player.LastName}}</option>
-                                                        {{end}}
-                                                    {{end}}
-                                                </select>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="away-team">
-                                            <h5>{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}Away Team{{end}}</h5>
-                                            <div class="player-dropdowns">
-                                                <select name="away_player_1" class="player-select">
-                                                    <option value="">Select Player 1</option>
-                                                    {{if $availablePlayers}}
-                                                        {{range $availablePlayers}}
-                                                        <option value="{{.Player.ID}}">{{.Player.FirstName}} {{.Player.LastName}}</option>
-                                                        {{end}}
-                                                    {{end}}
-                                                </select>
-                                                <select name="away_player_2" class="player-select">
-                                                    <option value="">Select Player 2</option>
-                                                    {{if $availablePlayers}}
-                                                        {{range $availablePlayers}}
-                                                        <option value="{{.Player.ID}}">{{.Player.FirstName}} {{.Player.LastName}}</option>
-                                                        {{end}}
-                                                    {{end}}
-                                                </select>
-                                            </div>
+                                    <div class="stanns-players">
+                                        <h5>🔵 St Ann's Players</h5>
+                                        <div class="player-dropdowns">
+                                            <select name="stanns_player_1" class="player-select">
+                                                <option value="">Select Player 1</option>
+                                                {{range $availablePlayers}}
+                                                <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                                {{end}}
+                                            </select>
+                                            <select name="stanns_player_2" class="player-select">
+                                                <option value="">Select Player 2</option>
+                                                {{range $availablePlayers}}
+                                                <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                                {{end}}
+                                            </select>
                                         </div>
                                     </div>
                                     
-                                    <button type="submit" class="btn-create-matchup">Create/Update Women's Doubles</button>
+                                    <button type="submit" class="btn-create-matchup">Set St Ann's Women's Doubles</button>
                                 </form>
                             </div>
 
@@ -683,53 +683,25 @@
                                     <input type="hidden" name="action" value="update_matchup">
                                     <input type="hidden" name="matchup_type" value="1st Mixed">
                                     
-                                    <div class="team-players">
-                                        <div class="home-team">
-                                            <h5>{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}Home Team{{end}}</h5>
-                                            <div class="player-dropdowns">
-                                                <select name="home_player_1" class="player-select">
-                                                    <option value="">Select Player 1</option>
-                                                    {{if $availablePlayers}}
-                                                        {{range $availablePlayers}}
-                                                        <option value="{{.Player.ID}}">{{.Player.FirstName}} {{.Player.LastName}}</option>
-                                                        {{end}}
-                                                    {{end}}
-                                                </select>
-                                                <select name="home_player_2" class="player-select">
-                                                    <option value="">Select Player 2</option>
-                                                    {{if $availablePlayers}}
-                                                        {{range $availablePlayers}}
-                                                        <option value="{{.Player.ID}}">{{.Player.FirstName}} {{.Player.LastName}}</option>
-                                                        {{end}}
-                                                    {{end}}
-                                                </select>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="away-team">
-                                            <h5>{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}Away Team{{end}}</h5>
-                                            <div class="player-dropdowns">
-                                                <select name="away_player_1" class="player-select">
-                                                    <option value="">Select Player 1</option>
-                                                    {{if $availablePlayers}}
-                                                        {{range $availablePlayers}}
-                                                        <option value="{{.Player.ID}}">{{.Player.FirstName}} {{.Player.LastName}}</option>
-                                                        {{end}}
-                                                    {{end}}
-                                                </select>
-                                                <select name="away_player_2" class="player-select">
-                                                    <option value="">Select Player 2</option>
-                                                    {{if $availablePlayers}}
-                                                        {{range $availablePlayers}}
-                                                        <option value="{{.Player.ID}}">{{.Player.FirstName}} {{.Player.LastName}}</option>
-                                                        {{end}}
-                                                    {{end}}
-                                                </select>
-                                            </div>
+                                    <div class="stanns-players">
+                                        <h5>🔵 St Ann's Players</h5>
+                                        <div class="player-dropdowns">
+                                            <select name="stanns_player_1" class="player-select">
+                                                <option value="">Select Player 1</option>
+                                                {{range $availablePlayers}}
+                                                <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                                {{end}}
+                                            </select>
+                                            <select name="stanns_player_2" class="player-select">
+                                                <option value="">Select Player 2</option>
+                                                {{range $availablePlayers}}
+                                                <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                                {{end}}
+                                            </select>
                                         </div>
                                     </div>
                                     
-                                    <button type="submit" class="btn-create-matchup">Create/Update 1st Mixed Doubles</button>
+                                    <button type="submit" class="btn-create-matchup">Set St Ann's 1st Mixed</button>
                                 </form>
                             </div>
 
@@ -740,75 +712,61 @@
                                     <input type="hidden" name="action" value="update_matchup">
                                     <input type="hidden" name="matchup_type" value="2nd Mixed">
                                     
-                                    <div class="team-players">
-                                        <div class="home-team">
-                                            <h5>{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}Home Team{{end}}</h5>
-                                            <div class="player-dropdowns">
-                                                <select name="home_player_1" class="player-select">
-                                                    <option value="">Select Player 1</option>
-                                                    {{if $availablePlayers}}
-                                                        {{range $availablePlayers}}
-                                                        <option value="{{.Player.ID}}">{{.Player.FirstName}} {{.Player.LastName}}</option>
-                                                        {{end}}
-                                                    {{end}}
-                                                </select>
-                                                <select name="home_player_2" class="player-select">
-                                                    <option value="">Select Player 2</option>
-                                                    {{if $availablePlayers}}
-                                                        {{range $availablePlayers}}
-                                                        <option value="{{.Player.ID}}">{{.Player.FirstName}} {{.Player.LastName}}</option>
-                                                        {{end}}
-                                                    {{end}}
-                                                </select>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="away-team">
-                                            <h5>{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}Away Team{{end}}</h5>
-                                            <div class="player-dropdowns">
-                                                <select name="away_player_1" class="player-select">
-                                                    <option value="">Select Player 1</option>
-                                                    {{if $availablePlayers}}
-                                                        {{range $availablePlayers}}
-                                                        <option value="{{.Player.ID}}">{{.Player.FirstName}} {{.Player.LastName}}</option>
-                                                        {{end}}
-                                                    {{end}}
-                                                </select>
-                                                <select name="away_player_2" class="player-select">
-                                                    <option value="">Select Player 2</option>
-                                                    {{if $availablePlayers}}
-                                                        {{range $availablePlayers}}
-                                                        <option value="{{.Player.ID}}">{{.Player.FirstName}} {{.Player.LastName}}</option>
-                                                        {{end}}
-                                                    {{end}}
-                                                </select>
-                                            </div>
+                                    <div class="stanns-players">
+                                        <h5>🔵 St Ann's Players</h5>
+                                        <div class="player-dropdowns">
+                                            <select name="stanns_player_1" class="player-select">
+                                                <option value="">Select Player 1</option>
+                                                {{range $availablePlayers}}
+                                                <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                                {{end}}
+                                            </select>
+                                            <select name="stanns_player_2" class="player-select">
+                                                <option value="">Select Player 2</option>
+                                                {{range $availablePlayers}}
+                                                <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                                {{end}}
+                                            </select>
                                         </div>
                                     </div>
                                     
-                                    <button type="submit" class="btn-create-matchup">Create/Update 2nd Mixed Doubles</button>
+                                    <button type="submit" class="btn-create-matchup">Set St Ann's 2nd Mixed</button>
                                 </form>
                             </div>
                         </div>
 
-                        {{if .FixtureDetail.Matchups}}
+                                                {{if .FixtureDetail.Matchups}}
                         <div class="existing-matchups">
                             <h4>📋 Current Matchups</h4>
-                            {{range .FixtureDetail.Matchups}}
-                            <div class="matchup-item">
-                                <div class="matchup-type">{{.Type}}</div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Status:</span>
-                                    <span class="detail-value">{{.Status}}</span>
-                                </div>
-                                {{if .Notes}}
-                                <div class="detail-item">
-                                    <span class="detail-label">Notes:</span>
-                                    <span class="detail-value">{{.Notes}}</span>
+                            <div class="matchups-grid">
+                                {{range .FixtureDetail.Matchups}}
+                                <div class="matchup-card">
+                                    <div class="matchup-header">
+                                        <div class="matchup-type">{{.Matchup.Type}}</div>
+                                    </div>
+                                    
+                                    <div class="matchup-players">
+                                        {{if .Players}}
+                                            <div class="player-list">
+                                                {{range .Players}}
+                                                <div class="player-name">{{.Player.FirstName}} {{.Player.LastName}}</div>
+                                                {{end}}
+                                            </div>
+                                        {{else}}
+                                            <div class="no-players-assigned">
+                                                <p>No players assigned yet</p>
+                                            </div>
+                                        {{end}}
+                                    </div>
+                                    
+                                    {{if .Matchup.Notes}}
+                                    <div class="matchup-notes">
+                                        <strong>Notes:</strong> {{.Matchup.Notes}}
+                                    </div>
+                                    {{end}}
                                 </div>
                                 {{end}}
                             </div>
-                            {{end}}
                         </div>
                         {{end}}
                     </div>

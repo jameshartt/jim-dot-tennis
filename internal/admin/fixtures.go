@@ -132,6 +132,13 @@ func (h *FixturesHandler) handleFixtureDetailGet(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// Get available players for matchup creation
+	availablePlayers, err := h.service.GetAvailablePlayersForMatchup(fixtureID)
+	if err != nil {
+		logAndError(w, "Failed to load available players for matchup", err, http.StatusInternalServerError)
+		return
+	}
+
 	// Capture navigation context from query parameters
 	navigationContext := map[string]string{
 		"from":     r.URL.Query().Get("from"),
@@ -153,6 +160,7 @@ func (h *FixturesHandler) handleFixtureDetailGet(w http.ResponseWriter, r *http.
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
 		"User":              user,
 		"FixtureDetail":     fixtureDetail,
+		"AvailablePlayers":  availablePlayers,
 		"NavigationContext": navigationContext,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
@@ -231,13 +239,11 @@ func (h *FixturesHandler) handleClearFixturePlayers(w http.ResponseWriter, r *ht
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
 
-// handleUpdateMatchup handles updating matchup player assignments
+// handleUpdateMatchup handles updating matchup player assignments for St Ann's players
 func (h *FixturesHandler) handleUpdateMatchup(w http.ResponseWriter, r *http.Request, fixtureID uint) {
 	matchupType := models.MatchupType(r.FormValue("matchup_type"))
-	homePlayer1ID := r.FormValue("home_player_1")
-	homePlayer2ID := r.FormValue("home_player_2")
-	awayPlayer1ID := r.FormValue("away_player_1")
-	awayPlayer2ID := r.FormValue("away_player_2")
+	stAnnsPlayer1ID := r.FormValue("stanns_player_1")
+	stAnnsPlayer2ID := r.FormValue("stanns_player_2")
 
 	// Validate matchup type
 	if matchupType == "" {
@@ -252,8 +258,9 @@ func (h *FixturesHandler) handleUpdateMatchup(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Update the players for this matchup
-	err = h.service.UpdateMatchupPlayers(matchup.ID, homePlayer1ID, homePlayer2ID, awayPlayer1ID, awayPlayer2ID)
+	// Update the St Ann's players for this matchup
+	// We determine if St Ann's is home or away and assign accordingly
+	err = h.service.UpdateStAnnsMatchupPlayers(matchup.ID, fixtureID, stAnnsPlayer1ID, stAnnsPlayer2ID)
 	if err != nil {
 		logAndError(w, "Failed to update matchup players", err, http.StatusInternalServerError)
 		return
