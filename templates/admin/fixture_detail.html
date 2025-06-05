@@ -352,71 +352,74 @@
         }
         
         .existing-matchups {
-            margin-top: 2rem;
-            padding-top: 2rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
             border-top: 2px solid #e9ecef;
         }
         
         .existing-matchups h4 {
-            margin: 0 0 1.5rem 0;
+            margin: 0 0 0.75rem 0;
             color: var(--primary-color);
+            font-size: 1rem;
         }
         
         .matchups-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.25rem;
         }
         
         .matchup-card {
             background: white;
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            padding: 1.5rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 0.5rem;
+            box-shadow: none;
         }
         
         .matchup-header {
-            margin-bottom: 1rem;
-            padding-bottom: 0.75rem;
-            border-bottom: 1px solid #e9ecef;
+            margin-bottom: 0.25rem;
+            padding-bottom: 0;
+            border-bottom: none;
         }
         
         .matchup-type {
-            font-weight: 700;
-            font-size: 1.1rem;
+            font-weight: 600;
+            font-size: 0.9rem;
             color: var(--primary-color);
         }
         
         .player-list {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.5rem;
+            gap: 0.25rem;
             justify-content: center;
         }
         
         .player-name {
             background: #e3f2fd;
             color: #1565c0;
-            padding: 0.25rem 0.5rem;
-            margin: 0.25rem 0;
-            border-radius: 4px;
-            font-size: 0.9rem;
+            padding: 0.15rem 0.4rem;
+            margin: 0;
+            border-radius: 3px;
+            font-size: 0.8rem;
             font-weight: 500;
+            line-height: 1.2;
         }
         
         .no-players-assigned {
             text-align: center;
             color: #6c757d;
             font-style: italic;
-            padding: 1rem;
+            padding: 0.5rem;
+            font-size: 0.8rem;
         }
         
         .matchup-notes {
-            margin-top: 1rem;
-            padding-top: 0.75rem;
+            margin-top: 0.5rem;
+            padding-top: 0.25rem;
             border-top: 1px solid #e9ecef;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             color: #495057;
         }
 
@@ -447,13 +450,36 @@
                 gap: 1rem;
             }
             
+            .matchups-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.1rem;
+            }
+            
+            .matchup-card {
+                padding: 0.3rem;
+            }
+            
+            .player-name {
+                padding: 0.1rem 0.3rem;
+                font-size: 0.7rem;
+            }
+            
             .matchup-form {
                 padding: 1rem;
             }
             
             .matchups-grid {
-                grid-template-columns: 1fr;
-                gap: 1rem;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.25rem;
+            }
+            
+            .matchup-card {
+                padding: 0.5rem;
+            }
+            
+            .player-name {
+                font-size: 0.75rem;
+                padding: 0.1rem 0.3rem;
             }
         }
     </style>
@@ -606,76 +632,15 @@
                         </div>
                         {{else}}
                         <div class="info-highlight">
-                            <strong>⚠️ No Players Selected:</strong> Using all St Ann's team players for matchup creation. Consider <a href="/admin/fixtures/{{.FixtureDetail.ID}}/team-selection">selecting specific players</a> first.
+                            <strong>⚠️ No Players Selected:</strong> Using all team players for matchup creation. Consider <a href="/admin/fixtures/{{.FixtureDetail.ID}}/team-selection">selecting specific players</a> first.
                         </div>
                         {{end}}
-                        
-                        <div class="info-highlight">
-                            <strong>🏆 St Ann's Players Only:</strong> This tool is for managing St Ann's player assignments. The opposing team will handle their own player selection.
-                        </div>
+
 
                         <div class="matchup-creation-grid">
                             {{$fixtureID := .FixtureDetail.ID}}
                             {{$availablePlayers := .AvailablePlayers}}
                             
-                            <!-- Men's Doubles -->
-                            <div class="matchup-form">
-                                <h4>👨‍🤝‍👨 Men's Doubles</h4>
-                                <form method="post" action="/admin/fixtures/{{$fixtureID}}">
-                                    <input type="hidden" name="action" value="update_matchup">
-                                    <input type="hidden" name="matchup_type" value="Mens">
-                                    
-                                    <div class="stanns-players">
-                                        <h5>🔵 St Ann's Players</h5>
-                                        <div class="player-dropdowns">
-                                            <select name="stanns_player_1" class="player-select">
-                                                <option value="">Select Player 1</option>
-                                                {{range $availablePlayers}}
-                                                <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
-                                                {{end}}
-                                            </select>
-                                            <select name="stanns_player_2" class="player-select">
-                                                <option value="">Select Player 2</option>
-                                                {{range $availablePlayers}}
-                                                <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
-                                                {{end}}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    
-                                    <button type="submit" class="btn-create-matchup">Set St Ann's Men's Doubles</button>
-                                </form>
-                            </div>
-
-                            <!-- Women's Doubles -->
-                            <div class="matchup-form">
-                                <h4>👩‍🤝‍👩 Women's Doubles</h4>
-                                <form method="post" action="/admin/fixtures/{{$fixtureID}}">
-                                    <input type="hidden" name="action" value="update_matchup">
-                                    <input type="hidden" name="matchup_type" value="Womens">
-                                    
-                                    <div class="stanns-players">
-                                        <h5>🔵 St Ann's Players</h5>
-                                        <div class="player-dropdowns">
-                                            <select name="stanns_player_1" class="player-select">
-                                                <option value="">Select Player 1</option>
-                                                {{range $availablePlayers}}
-                                                <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
-                                                {{end}}
-                                            </select>
-                                            <select name="stanns_player_2" class="player-select">
-                                                <option value="">Select Player 2</option>
-                                                {{range $availablePlayers}}
-                                                <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
-                                                {{end}}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    
-                                    <button type="submit" class="btn-create-matchup">Set St Ann's Women's Doubles</button>
-                                </form>
-                            </div>
-
                             <!-- First Mixed Doubles -->
                             <div class="matchup-form">
                                 <h4>👫 1st Mixed Doubles</h4>
@@ -684,7 +649,6 @@
                                     <input type="hidden" name="matchup_type" value="1st Mixed">
                                     
                                     <div class="stanns-players">
-                                        <h5>🔵 St Ann's Players</h5>
                                         <div class="player-dropdowns">
                                             <select name="stanns_player_1" class="player-select">
                                                 <option value="">Select Player 1</option>
@@ -701,7 +665,7 @@
                                         </div>
                                     </div>
                                     
-                                    <button type="submit" class="btn-create-matchup">Set St Ann's 1st Mixed</button>
+                                    <button type="submit" class="btn-create-matchup">Set 1st Mixed</button>
                                 </form>
                             </div>
 
@@ -713,7 +677,6 @@
                                     <input type="hidden" name="matchup_type" value="2nd Mixed">
                                     
                                     <div class="stanns-players">
-                                        <h5>🔵 St Ann's Players</h5>
                                         <div class="player-dropdowns">
                                             <select name="stanns_player_1" class="player-select">
                                                 <option value="">Select Player 1</option>
@@ -730,7 +693,63 @@
                                         </div>
                                     </div>
                                     
-                                    <button type="submit" class="btn-create-matchup">Set St Ann's 2nd Mixed</button>
+                                    <button type="submit" class="btn-create-matchup">Set 2nd Mixed</button>
+                                </form>
+                            </div>
+
+                            <!-- Men's Doubles -->
+                            <div class="matchup-form">
+                                <h4>👨‍🤝‍👨 Men's Doubles</h4>
+                                <form method="post" action="/admin/fixtures/{{$fixtureID}}">
+                                    <input type="hidden" name="action" value="update_matchup">
+                                    <input type="hidden" name="matchup_type" value="Mens">
+                                    
+                                    <div class="stanns-players">
+                                        <div class="player-dropdowns">
+                                            <select name="stanns_player_1" class="player-select">
+                                                <option value="">Select Player 1</option>
+                                                {{range $availablePlayers}}
+                                                <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                                {{end}}
+                                            </select>
+                                            <select name="stanns_player_2" class="player-select">
+                                                <option value="">Select Player 2</option>
+                                                {{range $availablePlayers}}
+                                                <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                                {{end}}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <button type="submit" class="btn-create-matchup">Set Men's Doubles</button>
+                                </form>
+                            </div>
+
+                            <!-- Women's Doubles -->
+                            <div class="matchup-form">
+                                <h4>👩‍🤝‍👩 Women's Doubles</h4>
+                                <form method="post" action="/admin/fixtures/{{$fixtureID}}">
+                                    <input type="hidden" name="action" value="update_matchup">
+                                    <input type="hidden" name="matchup_type" value="Womens">
+                                    
+                                    <div class="stanns-players">
+                                        <div class="player-dropdowns">
+                                            <select name="stanns_player_1" class="player-select">
+                                                <option value="">Select Player 1</option>
+                                                {{range $availablePlayers}}
+                                                <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                                {{end}}
+                                            </select>
+                                            <select name="stanns_player_2" class="player-select">
+                                                <option value="">Select Player 2</option>
+                                                {{range $availablePlayers}}
+                                                <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                                {{end}}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <button type="submit" class="btn-create-matchup">Set Women's Doubles</button>
                                 </form>
                             </div>
                         </div>

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -447,6 +448,12 @@ func (s *Service) GetFixtureDetail(fixtureID uint) (*FixtureDetail, error) {
 				Players: playersWithInfo,
 			})
 		}
+
+		// Sort matchups in the desired order: 1st Mixed, 2nd Mixed, Mens, Womens
+		sort.Slice(matchupsWithPlayers, func(i, j int) bool {
+			return getMatchupOrder(matchupsWithPlayers[i].Matchup.Type) < getMatchupOrder(matchupsWithPlayers[j].Matchup.Type)
+		})
+
 		detail.Matchups = matchupsWithPlayers
 	}
 
@@ -465,6 +472,23 @@ func (s *Service) GetFixtureDetail(fixtureID uint) (*FixtureDetail, error) {
 	}
 
 	return detail, nil
+}
+
+// getMatchupOrder returns the sort order for matchup types
+// Order: 1st Mixed, 2nd Mixed, Mens, Womens
+func getMatchupOrder(matchupType models.MatchupType) int {
+	switch matchupType {
+	case models.FirstMixed:
+		return 0
+	case models.SecondMixed:
+		return 1
+	case models.Mens:
+		return 2
+	case models.Womens:
+		return 3
+	default:
+		return 4 // Unknown types go last
+	}
 }
 
 // Helper method to get division by ID
