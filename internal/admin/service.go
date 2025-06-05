@@ -85,6 +85,15 @@ type FixtureDetail struct {
 	Matchups   []models.Matchup `json:"matchups,omitempty"`
 }
 
+// TeamWithRelations represents a team with its related data for display
+type TeamWithRelations struct {
+	models.Team
+	Division    *models.Division `json:"division,omitempty"`
+	Season      *models.Season   `json:"season,omitempty"`
+	Captain     *models.Player   `json:"captain,omitempty"`
+	PlayerCount int              `json:"player_count"`
+}
+
 // GetDashboardData retrieves data for the admin dashboard
 func (s *Service) GetDashboardData(user *models.User) (*DashboardData, error) {
 	ctx := context.Background()
@@ -532,4 +541,64 @@ func (s *Service) getStAnnsFixtureCount(ctx context.Context) (int, error) {
 func (s *Service) GetTeams() (interface{}, error) {
 	// TODO: Implement team retrieval from database
 	return nil, nil
+}
+
+// GetStAnnsTeams retrieves teams for St. Ann's club with related data
+func (s *Service) GetStAnnsTeams() (*models.Club, []TeamWithRelations, error) {
+	ctx := context.Background()
+
+	// Find St. Ann's club
+	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(clubs) == 0 {
+		return nil, nil, nil // No club found
+	}
+	stAnnsClub := &clubs[0]
+
+	// Get all teams for St. Ann's club
+	teams, err := s.teamRepository.FindByClub(ctx, stAnnsClub.ID)
+	if err != nil {
+		return stAnnsClub, nil, err
+	}
+
+	if len(teams) == 0 {
+		return stAnnsClub, nil, nil // No teams found
+	}
+
+	// Build TeamsWithRelations by fetching related data
+	var teamsWithRelations []TeamWithRelations
+	for _, team := range teams {
+		teamWithRelations := TeamWithRelations{
+			Team: team,
+		}
+
+		// Get division
+		if division, err := s.divisionRepository.FindByID(ctx, team.DivisionID); err == nil {
+			teamWithRelations.Division = division
+		}
+
+		// Get season
+		if season, err := s.seasonRepository.FindByID(ctx, team.SeasonID); err == nil {
+			teamWithRelations.Season = season
+		}
+
+		// Get team captain
+		if captain, err := s.teamRepository.FindTeamCaptain(ctx, team.ID, team.SeasonID); err == nil {
+			// Get captain player details
+			if playerDetails, err := s.playerRepository.FindByID(ctx, captain.PlayerID); err == nil {
+				teamWithRelations.Captain = playerDetails
+			}
+		}
+
+		// Get player count
+		if playerCount, err := s.teamRepository.CountPlayers(ctx, team.ID, team.SeasonID); err == nil {
+			teamWithRelations.PlayerCount = playerCount
+		}
+
+		teamsWithRelations = append(teamsWithRelations, teamWithRelations)
+	}
+
+	return stAnnsClub, teamsWithRelations, nil
 }

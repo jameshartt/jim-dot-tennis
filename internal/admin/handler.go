@@ -253,21 +253,45 @@ func (h *Handler) handleTeams(w http.ResponseWriter, r *http.Request) {
 
 // handleTeamsGet handles GET requests for team management
 func (h *Handler) handleTeamsGet(w http.ResponseWriter, r *http.Request, user *models.User) {
-	// TODO: Implement teams view
-	// For now, render a simple placeholder page
-	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`
-	<!DOCTYPE html>
-	<html>
-	<head><title>Admin - Teams</title></head>
-	<body>
-		<h1>Team Management</h1>
-		<p>Team management page - coming soon</p>
-		<a href="/admin">Back to Dashboard</a>
-	</body>
-	</html>
-	`))
+	// Get St. Ann's teams with related data
+	club, teams, err := h.service.GetStAnnsTeams()
+	if err != nil {
+		log.Printf("Failed to get St. Ann's teams: %v", err)
+		http.Error(w, "Failed to load teams", http.StatusInternalServerError)
+		return
+	}
+
+	// Load the teams template
+	teamsTemplatePath := filepath.Join(h.templateDir, "admin", "teams.html")
+	tmpl, err := template.ParseFiles(teamsTemplatePath)
+	if err != nil {
+		log.Printf("Error parsing teams template: %v", err)
+		// Fallback to simple HTML response
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`
+		<!DOCTYPE html>
+		<html>
+		<head><title>Admin - Teams</title></head>
+		<body>
+			<h1>Team Management</h1>
+			<p>Team management page - coming soon</p>
+			<a href="/admin">Back to Dashboard</a>
+		</body>
+		</html>
+		`))
+		return
+	}
+
+	// Execute the template with data
+	if err := tmpl.Execute(w, map[string]interface{}{
+		"User":  user,
+		"Club":  club,
+		"Teams": teams,
+	}); err != nil {
+		log.Printf("Error executing teams template: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 // handlePlayersGet handles GET requests for player management

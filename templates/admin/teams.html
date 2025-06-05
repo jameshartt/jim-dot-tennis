@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Management - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .btn-add {
+            background: var(--success-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        
+        .teams-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .teams-table th,
+        .teams-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .teams-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        .teams-table tbody tr {
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .teams-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        /* Responsive columns */
+        .col-name {
+            min-width: 150px;
+            font-weight: 600;
+        }
+        .col-division {
+            min-width: 120px;
+        }
+        .col-season {
+            min-width: 100px;
+        }
+        .col-players {
+            min-width: 100px;
+            text-align: center;
+        }
+        .col-captain {
+            min-width: 150px;
+        }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .teams-table th,
+            .teams-table td {
+                padding: 0.75rem 0.5rem;
+            }
+            
+            .col-season {
+                display: none;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .col-captain {
+                display: none;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .teams-table th,
+            .teams-table td {
+                padding: 0.5rem 0.25rem;
+                font-size: 0.9rem;
+            }
+            
+            .col-division {
+                display: none;
+            }
+        }
+        
+        .no-teams {
+            text-align: center;
+            padding: 3rem;
+            color: #6c757d;
+        }
+        
+        .club-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .club-info h3 {
+            margin: 0 0 0.5rem 0;
+            color: var(--primary-color);
+        }
+        
+        .team-name {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .division-name {
+            color: #495057;
+            font-size: 0.9rem;
+        }
+        
+        .season-info {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .player-count {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .captain-info {
+            color: #495057;
+        }
+        
+        .no-captain {
+            color: #6c757d;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin">Admin Dashboard</a> &gt; Teams
+            </div>
+            <h1>Team Management</h1>
+        </div>
+    </header>
+
+    <main class="admin-content">
+        <div class="container">
+
+            {{if .Club}}
+            <div class="club-info">
+                <h3>{{.Club.Name}}</h3>
+                <p>{{.Club.Address}}</p>
+                {{if .Club.Website}}<p><strong>Website:</strong> <a href="{{.Club.Website}}" target="_blank">{{.Club.Website}}</a></p>{{end}}
+                {{if .Club.PhoneNumber}}<p><strong>Phone:</strong> {{.Club.PhoneNumber}}</p>{{end}}
+            </div>
+            {{end}}
+
+            {{if .Teams}}
+            <div class="table-container">
+                <table class="teams-table">
+                    <thead>
+                        <tr>
+                            <th class="col-name">Team Name</th>
+                            <th class="col-division">Division</th>
+                            <th class="col-season">Season</th>
+                            <th class="col-players">Players</th>
+                            <th class="col-captain">Team Captain</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .Teams}}
+                        <tr data-team-id="{{.ID}}">
+                            <td class="col-name">
+                                <span class="team-name">{{.Name}}</span>
+                            </td>
+                            <td class="col-division">
+                                {{if .Division}}
+                                    <span class="division-name">{{.Division.Name}}</span>
+                                {{else}}
+                                    <span class="no-captain">TBD</span>
+                                {{end}}
+                            </td>
+                            <td class="col-season">
+                                {{if .Season}}
+                                    <span class="season-info">{{.Season.Name}}</span>
+                                {{else}}
+                                    <span class="no-captain">TBD</span>
+                                {{end}}
+                            </td>
+                            <td class="col-players">
+                                <span class="player-count">{{.PlayerCount}}</span>
+                            </td>
+                            <td class="col-captain">
+                                {{if .Captain}}
+                                    <span class="captain-info">{{.Captain.FirstName}} {{.Captain.LastName}}</span>
+                                {{else}}
+                                    <span class="no-captain">No captain assigned</span>
+                                {{end}}
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+            {{else}}
+            <div class="no-teams">
+                <h3>No Teams Found</h3>
+                <p>There are currently no teams for St. Ann's club.</p>
+            </div>
+            {{end}}
+        </div>
+    </main>
+
+    <script>
+        // Handle double-click and touch events on team rows
+        document.addEventListener('DOMContentLoaded', function() {
+            const teamRows = document.querySelectorAll('table.teams-table tbody tr[data-team-id]');
+            
+            teamRows.forEach(row => {
+                let touchTime = 0;
+                
+                // Handle double-click for desktop
+                row.addEventListener('dblclick', function(e) {
+                    e.preventDefault();
+                    const teamId = this.dataset.teamId;
+                    if (teamId) {
+                        window.location.href = `/admin/teams/${teamId}`;
+                    }
+                });
+                
+                // Handle touch events for mobile (double-tap)
+                row.addEventListener('touchend', function(e) {
+                    const currentTime = new Date().getTime();
+                    const tapLength = currentTime - touchTime;
+                    
+                    if (tapLength < 500 && tapLength > 0) {
+                        // Double tap detected
+                        e.preventDefault();
+                        const teamId = this.dataset.teamId;
+                        if (teamId) {
+                            window.location.href = `/admin/teams/${teamId}`;
+                        }
+                    }
+                    touchTime = currentTime;
+                });
+                
+                // Prevent text selection on double-click to avoid interference
+                row.addEventListener('selectstart', function(e) {
+                    if (e.detail > 1) { // Multiple clicks
+                        e.preventDefault();
+                    }
+                });
+                
+                // Add visual feedback on hover
+                row.style.cursor = 'pointer';
+                
+                // Add tooltip to indicate double-click functionality
+                row.title = 'Double-click to view team details';
+            });
+        });
+    </script>
+</body>
+</html> 
