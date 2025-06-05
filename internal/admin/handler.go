@@ -47,6 +47,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/users/", h.handleUsers)
 	adminMux.HandleFunc("/admin/sessions", h.handleSessions)
 	adminMux.HandleFunc("/admin/sessions/", h.handleSessions)
+	adminMux.HandleFunc("/admin/teams", h.handleTeams)
+	adminMux.HandleFunc("/admin/teams/", h.handleTeams)
 
 	// Register admin routes with authentication middleware
 	mux.Handle("/admin", authMiddleware.RequireAuth(
@@ -223,6 +225,45 @@ func (h *Handler) handleSessionsGet(w http.ResponseWriter, r *http.Request, user
 	<body>
 		<h1>Session Management</h1>
 		<p>Sessions management page - coming soon</p>
+		<a href="/admin">Back to Dashboard</a>
+	</body>
+	</html>
+	`))
+}
+
+// handleTeams handles team management routes
+func (h *Handler) handleTeams(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Admin teams handler called with path: %s, method: %s", r.URL.Path, r.Method)
+
+	// Get user from context
+	user, err := auth.GetUserFromContext(r.Context())
+	if err != nil {
+		log.Printf("Failed to get user from context: %v", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		h.handleTeamsGet(w, r, &user)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleTeamsGet handles GET requests for team management
+func (h *Handler) handleTeamsGet(w http.ResponseWriter, r *http.Request, user *models.User) {
+	// TODO: Implement teams view
+	// For now, render a simple placeholder page
+	w.Header().Set("Content-Type", "text/html")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`
+	<!DOCTYPE html>
+	<html>
+	<head><title>Admin - Teams</title></head>
+	<body>
+		<h1>Team Management</h1>
+		<p>Team management page - coming soon</p>
 		<a href="/admin">Back to Dashboard</a>
 	</body>
 	</html>

@@ -48,7 +48,7 @@ type DashboardData struct {
 type Stats struct {
 	PlayerCount  int `json:"player_count"`
 	FixtureCount int `json:"fixture_count"`
-	SessionCount int `json:"session_count"`
+	TeamCount    int `json:"team_count"`
 }
 
 // LoginAttempt represents a login attempt record
@@ -95,12 +95,22 @@ func (s *Service) GetDashboardData(user *models.User) (*DashboardData, error) {
 		return nil, err
 	}
 
-	// For now, return mock data for other stats - these can be implemented later
-	// TODO: Replace with actual database queries for fixture and session stats
+	// Get team count for St. Ann's club
+	teamCount, err := s.getStAnnsTeamCount(ctx)
+	if err != nil {
+		teamCount = 0 // Default to 0 if error
+	}
+
+	// Get fixture count for St. Ann's club
+	fixtureCount, err := s.getStAnnsFixtureCount(ctx)
+	if err != nil {
+		fixtureCount = 0 // Default to 0 if error
+	}
+
 	stats := Stats{
 		PlayerCount:  playerCount,
-		FixtureCount: 8, // TODO: Implement actual fixture count
-		SessionCount: 1, // TODO: Implement actual session count
+		FixtureCount: fixtureCount,
+		TeamCount:    teamCount,
 	}
 
 	// Query login attempts for the current user using repository
@@ -450,4 +460,76 @@ func (s *Service) getDivisionByID(ctx context.Context, divisionID uint) (*models
 // Helper method to get season by ID
 func (s *Service) getSeasonByID(ctx context.Context, seasonID uint) (*models.Season, error) {
 	return s.seasonRepository.FindByID(ctx, seasonID)
+}
+
+// getStAnnsTeamCount gets the count of teams for St. Ann's club
+func (s *Service) getStAnnsTeamCount(ctx context.Context) (int, error) {
+	// Find St. Ann's club
+	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil {
+		return 0, err
+	}
+	if len(clubs) == 0 {
+		return 0, nil // No club found
+	}
+	stAnnsClub := &clubs[0]
+
+	// Get all teams for St. Ann's club
+	teams, err := s.teamRepository.FindByClub(ctx, stAnnsClub.ID)
+	if err != nil {
+		return 0, err
+	}
+
+	return len(teams), nil
+}
+
+// getStAnnsFixtureCount gets the count of remaining fixtures for St. Ann's club
+func (s *Service) getStAnnsFixtureCount(ctx context.Context) (int, error) {
+	// Find St. Ann's club
+	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil {
+		return 0, err
+	}
+	if len(clubs) == 0 {
+		return 0, nil // No club found
+	}
+	stAnnsClub := &clubs[0]
+
+	// Get all teams for St. Ann's club
+	teams, err := s.teamRepository.FindByClub(ctx, stAnnsClub.ID)
+	if err != nil {
+		return 0, err
+	}
+
+	if len(teams) == 0 {
+		return 0, nil // No teams found
+	}
+
+	// Count remaining fixtures (today or later) for St. Ann's teams
+	totalRemainingFixtures := 0
+	now := time.Now()
+
+	for _, team := range teams {
+		teamFixtures, err := s.fixtureRepository.FindByTeam(ctx, team.ID)
+		if err != nil {
+			continue // Skip this team if there's an error
+		}
+
+		// Filter for remaining fixtures (scheduled or in progress, today or later)
+		for _, fixture := range teamFixtures {
+			if fixture.Status == models.Scheduled || fixture.Status == models.InProgress {
+				if fixture.ScheduledDate.After(now) || fixture.ScheduledDate.Equal(now.Truncate(24*time.Hour)) {
+					totalRemainingFixtures++
+				}
+			}
+		}
+	}
+
+	return totalRemainingFixtures, nil
+}
+
+// GetTeams retrieves all teams for admin management
+func (s *Service) GetTeams() (interface{}, error) {
+	// TODO: Implement team retrieval from database
+	return nil, nil
 }

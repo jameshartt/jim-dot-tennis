@@ -147,14 +147,18 @@
                             <p class="stat-value">{{.Stats.PlayerCount}}</p>
                         </div>
                     </a>
-                    <div class="stat-card">
-                        <h3>Fixtures</h3>
-                        <p class="stat-value">{{.Stats.FixtureCount}}</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Active Sessions</h3>
-                        <p class="stat-value">{{.Stats.SessionCount}}</p>
-                    </div>
+                    <a href="/admin/fixtures" class="stat-card-link">
+                        <div class="stat-card">
+                            <h3>Fixtures</h3>
+                            <p class="stat-value">{{.Stats.FixtureCount}}</p>
+                        </div>
+                    </a>
+                    <a href="/admin/teams" class="stat-card-link">
+                        <div class="stat-card">
+                            <h3>Teams</h3>
+                            <p class="stat-value">{{.Stats.TeamCount}}</p>
+                        </div>
+                    </a>
                 </div>
                 
                 <div class="admin-sections">
@@ -165,6 +169,7 @@
                             <a href="/admin/fixtures" class="btn btn-primary">Manage Fixtures</a>
                             <a href="/admin/users" class="btn btn-primary">Manage Users</a>
                             <a href="/admin/sessions" class="btn btn-primary">View Sessions</a>
+                            <a href="/admin/teams" class="btn btn-primary">Manage Teams</a>
                         </div>
                     </div>
                     
