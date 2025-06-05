@@ -74,14 +74,15 @@ type FixtureWithRelations struct {
 // FixtureDetail represents a fixture with comprehensive related data for detail view
 type FixtureDetail struct {
 	models.Fixture
-	HomeTeam        *models.Team         `json:"home_team,omitempty"`
-	AwayTeam        *models.Team         `json:"away_team,omitempty"`
-	Week            *models.Week         `json:"week,omitempty"`
-	Division        *models.Division     `json:"division,omitempty"`
-	Season          *models.Season       `json:"season,omitempty"`
-	DayCaptain      *models.Player       `json:"day_captain,omitempty"`
-	Matchups        []MatchupWithPlayers `json:"matchups,omitempty"`
-	SelectedPlayers []SelectedPlayerInfo `json:"selected_players,omitempty"`
+	HomeTeam          *models.Team             `json:"home_team,omitempty"`
+	AwayTeam          *models.Team             `json:"away_team,omitempty"`
+	Week              *models.Week             `json:"week,omitempty"`
+	Division          *models.Division         `json:"division,omitempty"`
+	Season            *models.Season           `json:"season,omitempty"`
+	DayCaptain        *models.Player           `json:"day_captain,omitempty"`
+	Matchups          []MatchupWithPlayers     `json:"matchups,omitempty"`
+	SelectedPlayers   []SelectedPlayerInfo     `json:"selected_players,omitempty"`
+	DuplicateWarnings []DuplicatePlayerWarning `json:"duplicate_warnings,omitempty"`
 }
 
 // SelectedPlayerInfo represents a player selected for a fixture with additional context
@@ -100,6 +101,13 @@ type MatchupPlayerWithInfo struct {
 type MatchupWithPlayers struct {
 	Matchup models.Matchup          `json:"matchup"`
 	Players []MatchupPlayerWithInfo `json:"players"`
+}
+
+// DuplicatePlayerWarning represents a warning about duplicate player assignments
+type DuplicatePlayerWarning struct {
+	PlayerID   string   `json:"player_id"`
+	PlayerName string   `json:"player_name"`
+	Matchups   []string `json:"matchups"` // List of matchup types where this player appears
 }
 
 // FixtureDetailWithMatchups represents fixture detail with matchups and players
@@ -455,6 +463,9 @@ func (s *Service) GetFixtureDetail(fixtureID uint) (*FixtureDetail, error) {
 		})
 
 		detail.Matchups = matchupsWithPlayers
+
+		// Check for duplicate players across matchups
+		detail.DuplicateWarnings = s.detectDuplicatePlayersInMatchups(matchupsWithPlayers)
 	}
 
 	// Get selected players for the fixture
@@ -472,6 +483,39 @@ func (s *Service) GetFixtureDetail(fixtureID uint) (*FixtureDetail, error) {
 	}
 
 	return detail, nil
+}
+
+// detectDuplicatePlayersInMatchups checks for players assigned to multiple matchups
+func (s *Service) detectDuplicatePlayersInMatchups(matchups []MatchupWithPlayers) []DuplicatePlayerWarning {
+	// Map to track which matchups each player appears in
+	playerMatchups := make(map[string][]string)
+	playerNames := make(map[string]string)
+
+	// Collect all player assignments
+	for _, matchup := range matchups {
+		matchupType := string(matchup.Matchup.Type)
+		for _, player := range matchup.Players {
+			playerID := player.Player.ID
+			playerName := player.Player.FirstName + " " + player.Player.LastName
+
+			playerMatchups[playerID] = append(playerMatchups[playerID], matchupType)
+			playerNames[playerID] = playerName
+		}
+	}
+
+	// Find duplicates
+	var warnings []DuplicatePlayerWarning
+	for playerID, matchupTypes := range playerMatchups {
+		if len(matchupTypes) > 1 {
+			warnings = append(warnings, DuplicatePlayerWarning{
+				PlayerID:   playerID,
+				PlayerName: playerNames[playerID],
+				Matchups:   matchupTypes,
+			})
+		}
+	}
+
+	return warnings
 }
 
 // getMatchupOrder returns the sort order for matchup types

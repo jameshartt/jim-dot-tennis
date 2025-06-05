@@ -34,6 +34,11 @@ func (h *FixturesHandler) HandleFixtures(w http.ResponseWriter, r *http.Request)
 			h.handleTeamSelection(w, r)
 			return
 		}
+		// Check if this is a matchup selection request
+		if strings.HasSuffix(r.URL.Path, "/matchup-selection") {
+			h.handleMatchupSelection(w, r)
+			return
+		}
 		// Check if this is a player selection request (legacy)
 		if strings.HasSuffix(r.URL.Path, "/player-selection") {
 			h.handlePlayerSelection(w, r)
@@ -470,6 +475,110 @@ func (h *FixturesHandler) handleTeamSelectionPost(w http.ResponseWriter, r *http
 	default:
 		http.Error(w, "Unknown action", http.StatusBadRequest)
 	}
+}
+
+// handleMatchupSelection handles requests for the dedicated matchup selection page
+func (h *FixturesHandler) handleMatchupSelection(w http.ResponseWriter, r *http.Request) {
+	// Get user from context
+	_, err := getUserFromContext(r)
+	if err != nil {
+		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
+		return
+	}
+
+	// Extract fixture ID from URL path, removing the "/matchup-selection" suffix
+	path := strings.TrimSuffix(r.URL.Path, "/matchup-selection")
+	fixtureID, err := parseIDFromPath(path, "/admin/fixtures/")
+	if err != nil {
+		logAndError(w, "Invalid fixture ID", err, http.StatusBadRequest)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		h.handleMatchupSelectionGet(w, r, fixtureID)
+	case http.MethodPost:
+		h.handleMatchupSelectionPost(w, r, fixtureID)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleMatchupSelectionGet handles GET requests to show the matchup selection page
+func (h *FixturesHandler) handleMatchupSelectionGet(w http.ResponseWriter, r *http.Request, fixtureID uint) {
+	// Get the fixture with full details
+	fixtureDetail, err := h.service.GetFixtureDetail(fixtureID)
+	if err != nil {
+		logAndError(w, "Fixture not found", err, http.StatusNotFound)
+		return
+	}
+
+	// Get available players for matchup creation
+	availablePlayers, err := h.service.GetAvailablePlayersForMatchup(fixtureID)
+	if err != nil {
+		logAndError(w, "Failed to load available players for matchup", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Load the matchup selection template
+	tmpl, err := parseTemplate(h.templateDir, "admin/fixture_matchup_selection.html")
+	if err != nil {
+		log.Printf("Error parsing matchup selection template: %v", err)
+		// Fallback to simple HTML response
+		renderFallbackHTML(w, "Matchup Selection", "Matchup Selection",
+			"Matchup selection page - coming soon", "/admin/fixtures/"+fmt.Sprintf("%d", fixtureID))
+		return
+	}
+
+	// Execute the template with data
+	if err := renderTemplate(w, tmpl, map[string]interface{}{
+		"FixtureDetail":    fixtureDetail,
+		"AvailablePlayers": availablePlayers,
+	}); err != nil {
+		logAndError(w, err.Error(), err, http.StatusInternalServerError)
+	}
+}
+
+// handleMatchupSelectionPost handles POST requests to update matchup selection
+func (h *FixturesHandler) handleMatchupSelectionPost(w http.ResponseWriter, r *http.Request, fixtureID uint) {
+	action := r.FormValue("action")
+
+	switch action {
+	case "update_matchup":
+		h.handleUpdateMatchupFromSelection(w, r, fixtureID)
+	default:
+		http.Error(w, "Unknown action", http.StatusBadRequest)
+	}
+}
+
+// handleUpdateMatchupFromSelection handles updating matchup player assignments from the matchup selection page
+func (h *FixturesHandler) handleUpdateMatchupFromSelection(w http.ResponseWriter, r *http.Request, fixtureID uint) {
+	matchupType := models.MatchupType(r.FormValue("matchup_type"))
+	stAnnsPlayer1ID := r.FormValue("stanns_player_1")
+	stAnnsPlayer2ID := r.FormValue("stanns_player_2")
+
+	// Validate matchup type
+	if matchupType == "" {
+		http.Error(w, "Matchup type is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get or create the matchup
+	matchup, err := h.service.GetOrCreateMatchup(fixtureID, matchupType)
+	if err != nil {
+		logAndError(w, "Failed to get or create matchup", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Update the St Ann's players for this matchup
+	err = h.service.UpdateStAnnsMatchupPlayers(matchup.ID, fixtureID, stAnnsPlayer1ID, stAnnsPlayer2ID)
+	if err != nil {
+		logAndError(w, "Failed to update matchup players", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Redirect back to matchup selection page
+	http.Redirect(w, r, fmt.Sprintf("/admin/fixtures/%d/matchup-selection", fixtureID), http.StatusSeeOther)
 }
 
 // Update the redirect targets for team selection actions

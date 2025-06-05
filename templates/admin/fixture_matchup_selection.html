@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matchup Selection - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .btn-back {
+            background: var(--secondary-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        
+        .matchup-selection {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .fixture-summary {
+            text-align: center;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .fixture-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0 0 0.5rem 0;
+            color: var(--primary-color);
+        }
+        
+        .teams-vs {
+            font-size: 1.2rem;
+            color: #495057;
+            margin: 0;
+        }
+        
+        .vs-text {
+            color: #6c757d;
+            font-weight: normal;
+            margin: 0 1rem;
+        }
+        
+        .info-highlight {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 4px;
+            padding: 0.75rem;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+            color: #1565c0;
+        }
+        
+        .matchup-creation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 2rem;
+            margin-top: 1.5rem;
+        }
+        
+        .matchup-form {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+        
+        .matchup-form h4 {
+            margin: 0 0 1rem 0;
+            color: var(--primary-color);
+            text-align: center;
+            font-size: 1.1rem;
+        }
+        
+        .stanns-players {
+            background: white;
+            border-radius: 6px;
+            padding: 1.5rem;
+            border: 2px solid #007bff;
+            margin-bottom: 1.5rem;
+        }
+        
+        .stanns-players h5 {
+            margin: 0 0 1rem 0;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #007bff;
+            text-align: center;
+        }
+        
+        .player-dropdowns {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .player-select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            background-color: white;
+        }
+        
+        .player-select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+        
+        .btn-create-matchup {
+            width: 100%;
+            background: var(--primary-color);
+            color: white;
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .btn-create-matchup:hover {
+            background: #0056b3;
+        }
+        
+        .existing-matchups {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid #e9ecef;
+        }
+        
+        .existing-matchups h4 {
+            margin: 0 0 1rem 0;
+            color: var(--primary-color);
+            font-size: 1.2rem;
+        }
+        
+        .matchups-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+        }
+        
+        .matchup-card {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 0.75rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .matchup-header {
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.25rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .matchup-type {
+            font-weight: 600;
+            font-size: 1rem;
+            color: var(--primary-color);
+        }
+        
+        .player-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            justify-content: center;
+        }
+        
+        .player-name {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 0.2rem 0.5rem;
+            margin: 0;
+            border-radius: 3px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            line-height: 1.2;
+        }
+        
+        .no-players-assigned {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .matchup-notes {
+            margin-top: 0.5rem;
+            padding-top: 0.25rem;
+            border-top: 1px solid #e9ecef;
+            font-size: 0.8rem;
+            color: #495057;
+        }
+        
+        .duplicate-warnings {
+            margin-bottom: 1.5rem;
+        }
+        
+        .warning-alert {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-left: 4px solid #f39c12;
+            border-radius: 4px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .warning-alert:last-child {
+            margin-bottom: 0;
+        }
+        
+        .warning-icon {
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        
+        .warning-alert strong {
+            color: #856404;
+        }
+
+        @media (max-width: 768px) {
+            .matchup-creation-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            
+            .matchups-grid {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+            
+            .matchup-form {
+                padding: 1rem;
+            }
+            
+            .stanns-players {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin">Admin Dashboard</a> &gt; 
+                <a href="/admin/fixtures">Fixtures</a> &gt; 
+                <a href="/admin/fixtures/{{.FixtureDetail.ID}}">Fixture #{{.FixtureDetail.ID}}</a> &gt; 
+                Matchup Selection
+            </div>
+        </div>
+    </header>
+
+    <main class="admin-content">
+        <div class="container">
+            <div class="action-bar">
+                <h2>Matchup Selection</h2>
+                <a href="/admin/fixtures/{{.FixtureDetail.ID}}" class="btn-back">← Back to Fixture Detail</a>
+            </div>
+
+            {{if .FixtureDetail}}
+            <div class="matchup-selection">
+                <div class="fixture-summary">
+                    <h1 class="fixture-title">
+                        {{if .FixtureDetail.Division}}{{.FixtureDetail.Division.Name}}{{else}}Division TBD{{end}}
+                        {{if .FixtureDetail.Week}} - Week {{.FixtureDetail.Week.WeekNumber}}{{end}}
+                    </h1>
+                    <p class="teams-vs">
+                        <span class="team-name">{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                        <span class="vs-text">vs</span>
+                        <span class="team-name">{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}</span>
+                    </p>
+                </div>
+
+                {{if .FixtureDetail.DuplicateWarnings}}
+                <div class="duplicate-warnings">
+                    {{range .FixtureDetail.DuplicateWarnings}}
+                    <div class="warning-alert">
+                        <span class="warning-icon">⚠️</span>
+                        <strong>{{.PlayerName}}</strong> is assigned to multiple matchups: {{range $index, $matchup := .Matchups}}{{if $index}}, {{end}}{{$matchup}}{{end}}
+                    </div>
+                    {{end}}
+                </div>
+                {{end}}
+
+                {{if .FixtureDetail.SelectedPlayers}}
+                <div class="info-highlight">
+                    <strong>👥 Using Selected Players:</strong> Creating matchups from the {{len .FixtureDetail.SelectedPlayers}} players selected for this fixture.
+                </div>
+                {{else}}
+                <div class="info-highlight">
+                    <strong>⚠️ No Players Selected:</strong> Using all team players for matchup creation. Consider <a href="/admin/fixtures/{{.FixtureDetail.ID}}/team-selection">selecting specific players</a> first.
+                </div>
+                {{end}}
+
+                <div class="matchup-creation-grid">
+                    {{$fixtureID := .FixtureDetail.ID}}
+                    {{$availablePlayers := .AvailablePlayers}}
+                    
+                    <!-- First Mixed Doubles -->
+                    <div class="matchup-form">
+                        <h4>👫 1st Mixed Doubles</h4>
+                        <form method="post" action="/admin/fixtures/{{$fixtureID}}/matchup-selection">
+                            <input type="hidden" name="action" value="update_matchup">
+                            <input type="hidden" name="matchup_type" value="1st Mixed">
+                            
+                            <div class="stanns-players">
+                                <div class="player-dropdowns">
+                                    <select name="stanns_player_1" class="player-select">
+                                        <option value="">Select Player 1</option>
+                                        {{range $availablePlayers}}
+                                        <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                        {{end}}
+                                    </select>
+                                    <select name="stanns_player_2" class="player-select">
+                                        <option value="">Select Player 2</option>
+                                        {{range $availablePlayers}}
+                                        <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn-create-matchup">Set 1st Mixed</button>
+                        </form>
+                    </div>
+
+                    <!-- Second Mixed Doubles -->
+                    <div class="matchup-form">
+                        <h4>👫 2nd Mixed Doubles</h4>
+                        <form method="post" action="/admin/fixtures/{{$fixtureID}}/matchup-selection">
+                            <input type="hidden" name="action" value="update_matchup">
+                            <input type="hidden" name="matchup_type" value="2nd Mixed">
+                            
+                            <div class="stanns-players">
+                                <div class="player-dropdowns">
+                                    <select name="stanns_player_1" class="player-select">
+                                        <option value="">Select Player 1</option>
+                                        {{range $availablePlayers}}
+                                        <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                        {{end}}
+                                    </select>
+                                    <select name="stanns_player_2" class="player-select">
+                                        <option value="">Select Player 2</option>
+                                        {{range $availablePlayers}}
+                                        <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn-create-matchup">Set 2nd Mixed</button>
+                        </form>
+                    </div>
+
+                    <!-- Men's Doubles -->
+                    <div class="matchup-form">
+                        <h4>👨‍🤝‍👨 Men's Doubles</h4>
+                        <form method="post" action="/admin/fixtures/{{$fixtureID}}/matchup-selection">
+                            <input type="hidden" name="action" value="update_matchup">
+                            <input type="hidden" name="matchup_type" value="Mens">
+                            
+                            <div class="stanns-players">
+                                <div class="player-dropdowns">
+                                    <select name="stanns_player_1" class="player-select">
+                                        <option value="">Select Player 1</option>
+                                        {{range $availablePlayers}}
+                                        <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                        {{end}}
+                                    </select>
+                                    <select name="stanns_player_2" class="player-select">
+                                        <option value="">Select Player 2</option>
+                                        {{range $availablePlayers}}
+                                        <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn-create-matchup">Set Men's Doubles</button>
+                        </form>
+                    </div>
+
+                    <!-- Women's Doubles -->
+                    <div class="matchup-form">
+                        <h4>👩‍🤝‍👩 Women's Doubles</h4>
+                        <form method="post" action="/admin/fixtures/{{$fixtureID}}/matchup-selection">
+                            <input type="hidden" name="action" value="update_matchup">
+                            <input type="hidden" name="matchup_type" value="Womens">
+                            
+                            <div class="stanns-players">
+                                <div class="player-dropdowns">
+                                    <select name="stanns_player_1" class="player-select">
+                                        <option value="">Select Player 1</option>
+                                        {{range $availablePlayers}}
+                                        <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                        {{end}}
+                                    </select>
+                                    <select name="stanns_player_2" class="player-select">
+                                        <option value="">Select Player 2</option>
+                                        {{range $availablePlayers}}
+                                        <option value="{{.ID}}">{{.FirstName}} {{.LastName}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn-create-matchup">Set Women's Doubles</button>
+                        </form>
+                    </div>
+                </div>
+
+                {{if .FixtureDetail.Matchups}}
+                <div class="existing-matchups">
+                    <h4>📋 Current Matchups</h4>
+                    <div class="matchups-grid">
+                        {{range .FixtureDetail.Matchups}}
+                        <div class="matchup-card">
+                            <div class="matchup-header">
+                                <div class="matchup-type">{{.Matchup.Type}}</div>
+                            </div>
+                            
+                            <div class="matchup-players">
+                                {{if .Players}}
+                                    <div class="player-list">
+                                        {{range .Players}}
+                                        <div class="player-name">{{.Player.FirstName}} {{.Player.LastName}}</div>
+                                        {{end}}
+                                    </div>
+                                {{else}}
+                                    <div class="no-players-assigned">
+                                        <p>No players assigned yet</p>
+                                    </div>
+                                {{end}}
+                            </div>
+                            
+                            {{if .Matchup.Notes}}
+                            <div class="matchup-notes">
+                                <strong>Notes:</strong> {{.Matchup.Notes}}
+                            </div>
+                            {{end}}
+                        </div>
+                        {{end}}
+                    </div>
+                </div>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="matchup-selection">
+                <div class="fixture-summary">
+                    <h1 class="fixture-title">Fixture Not Found</h1>
+                    <p class="teams-vs">The requested fixture could not be loaded.</p>
+                </div>
+            </div>
+            {{end}}
+        </div>
+    </main>
+</body>
+</html> 
