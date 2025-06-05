@@ -94,6 +94,23 @@ type TeamWithRelations struct {
 	PlayerCount int              `json:"player_count"`
 }
 
+// TeamDetail represents a team with comprehensive related data for detail view
+type TeamDetail struct {
+	models.Team
+	Club        *models.Club     `json:"club,omitempty"`
+	Division    *models.Division `json:"division,omitempty"`
+	Season      *models.Season   `json:"season,omitempty"`
+	Captains    []models.Captain `json:"captains,omitempty"`
+	Players     []PlayerInTeam   `json:"players,omitempty"`
+	PlayerCount int              `json:"player_count"`
+}
+
+// PlayerInTeam represents a player with their team membership details
+type PlayerInTeam struct {
+	models.Player
+	PlayerTeam models.PlayerTeam `json:"player_team"`
+}
+
 // GetDashboardData retrieves data for the admin dashboard
 func (s *Service) GetDashboardData(user *models.User) (*DashboardData, error) {
 	ctx := context.Background()
@@ -601,4 +618,57 @@ func (s *Service) GetStAnnsTeams() (*models.Club, []TeamWithRelations, error) {
 	}
 
 	return stAnnsClub, teamsWithRelations, nil
+}
+
+// GetTeamDetail retrieves comprehensive details for a specific team
+func (s *Service) GetTeamDetail(teamID uint) (*TeamDetail, error) {
+	ctx := context.Background()
+
+	// Get the base team
+	team, err := s.teamRepository.FindByID(ctx, teamID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create the detail struct
+	detail := &TeamDetail{
+		Team: *team,
+	}
+
+	// Get club
+	if club, err := s.clubRepository.FindByID(ctx, team.ClubID); err == nil {
+		detail.Club = club
+	}
+
+	// Get division
+	if division, err := s.divisionRepository.FindByID(ctx, team.DivisionID); err == nil {
+		detail.Division = division
+	}
+
+	// Get season
+	if season, err := s.seasonRepository.FindByID(ctx, team.SeasonID); err == nil {
+		detail.Season = season
+	}
+
+	// Get captains
+	if captains, err := s.teamRepository.FindCaptainsInTeam(ctx, teamID, team.SeasonID); err == nil {
+		detail.Captains = captains
+	}
+
+	// Get players in team
+	if playerTeams, err := s.teamRepository.FindPlayersInTeam(ctx, teamID, team.SeasonID); err == nil {
+		var playersInTeam []PlayerInTeam
+		for _, playerTeam := range playerTeams {
+			if player, err := s.playerRepository.FindByID(ctx, playerTeam.PlayerID); err == nil {
+				playersInTeam = append(playersInTeam, PlayerInTeam{
+					Player:     *player,
+					PlayerTeam: playerTeam,
+				})
+			}
+		}
+		detail.Players = playersInTeam
+		detail.PlayerCount = len(playersInTeam)
+	}
+
+	return detail, nil
 }

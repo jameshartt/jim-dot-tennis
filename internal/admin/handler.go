@@ -235,6 +235,12 @@ func (h *Handler) handleSessionsGet(w http.ResponseWriter, r *http.Request, user
 func (h *Handler) handleTeams(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Admin teams handler called with path: %s, method: %s", r.URL.Path, r.Method)
 
+	// Check if this is a specific team detail request
+	if strings.Contains(r.URL.Path, "/teams/") && r.URL.Path != "/admin/teams/" {
+		h.handleTeamDetail(w, r)
+		return
+	}
+
 	// Get user from context
 	user, err := auth.GetUserFromContext(r.Context())
 	if err != nil {
@@ -292,6 +298,93 @@ func (h *Handler) handleTeamsGet(w http.ResponseWriter, r *http.Request, user *m
 		log.Printf("Error executing teams template: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// handleTeamDetail handles requests for individual team details
+func (h *Handler) handleTeamDetail(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Admin team detail handler called with path: %s, method: %s", r.URL.Path, r.Method)
+
+	// Get user from context
+	user, err := auth.GetUserFromContext(r.Context())
+	if err != nil {
+		log.Printf("Failed to get user from context: %v", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Extract team ID from URL path
+	// Path format: /admin/teams/{id}
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/teams/"), "/")
+	if len(pathParts) < 1 || pathParts[0] == "" {
+		http.Error(w, "Invalid team URL", http.StatusBadRequest)
+		return
+	}
+	teamIDStr := pathParts[0]
+
+	// Convert team ID to uint
+	teamID, err := strconv.ParseUint(teamIDStr, 10, 32)
+	if err != nil {
+		log.Printf("Invalid team ID: %s", teamIDStr)
+		http.Error(w, "Invalid team ID", http.StatusBadRequest)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		h.handleTeamDetailGet(w, r, &user, uint(teamID))
+	case http.MethodPost:
+		h.handleTeamDetailPost(w, r, &user, uint(teamID))
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleTeamDetailGet handles GET requests to show the team detail page
+func (h *Handler) handleTeamDetailGet(w http.ResponseWriter, r *http.Request, user *models.User, teamID uint) {
+	// Get the team with full details
+	teamDetail, err := h.service.GetTeamDetail(teamID)
+	if err != nil {
+		log.Printf("Failed to get team detail for ID %d: %v", teamID, err)
+		http.Error(w, "Team not found", http.StatusNotFound)
+		return
+	}
+
+	// Load the team detail template
+	detailTemplatePath := filepath.Join(h.templateDir, "admin", "team_detail.html")
+	tmpl, err := template.ParseFiles(detailTemplatePath)
+	if err != nil {
+		log.Printf("Error parsing team detail template: %v", err)
+		// Fallback to simple HTML response
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`
+		<!DOCTYPE html>
+		<html>
+		<head><title>Team Detail</title></head>
+		<body>
+			<h1>Team Detail</h1>
+			<p>Team detail page - coming soon</p>
+			<a href="/admin/teams">Back to Teams</a>
+		</body>
+		</html>
+		`))
+		return
+	}
+
+	// Execute the template with data
+	if err := tmpl.Execute(w, map[string]interface{}{
+		"User":       user,
+		"TeamDetail": teamDetail,
+	}); err != nil {
+		log.Printf("Error executing team detail template: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// handleTeamDetailPost handles POST requests to update team details
+func (h *Handler) handleTeamDetailPost(w http.ResponseWriter, r *http.Request, user *models.User, teamID uint) {
+	// TODO: Implement team detail updates (adding/removing players, etc.)
+	http.Error(w, "Team detail updates not yet implemented", http.StatusNotImplemented)
 }
 
 // handlePlayersGet handles GET requests for player management

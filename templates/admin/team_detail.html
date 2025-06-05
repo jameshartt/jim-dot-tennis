@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.TeamDetail.Name}} - Team Detail - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+        
+        .team-header {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .team-header h1 {
+            margin: 0 0 1rem 0;
+            color: var(--primary-color);
+        }
+        
+        .team-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .team-meta-item {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 6px;
+        }
+        
+        .team-meta-item h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 0.9rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+        
+        .team-meta-item p {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .section-header h2 {
+            margin: 0;
+            color: var(--primary-color);
+        }
+        
+        .btn-add {
+            background: var(--success-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .players-section, .captains-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .players-table, .captains-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        .players-table th,
+        .players-table td,
+        .captains-table th,
+        .captains-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .players-table th,
+        .captains-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #495057;
+        }
+        
+        .player-name, .captain-name {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .player-contact {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .status-inactive {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .role-badge {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .role-badge.day {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #6c757d;
+        }
+        
+        .empty-state h3 {
+            margin: 0 0 0.5rem 0;
+            color: #6c757d;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+            border-radius: 0.25rem;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .team-meta {
+                grid-template-columns: 1fr;
+            }
+            
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+            
+            .players-table th:nth-child(3),
+            .players-table td:nth-child(3) {
+                display: none;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .players-table th:nth-child(4),
+            .players-table td:nth-child(4) {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin">Admin Dashboard</a> &gt; 
+                <a href="/admin/teams">Teams</a> &gt; 
+                {{.TeamDetail.Name}}
+            </div>
+            <h1>Team Detail</h1>
+        </div>
+    </header>
+
+    <main class="admin-content">
+        <div class="container">
+            <div class="team-header">
+                <h1>{{.TeamDetail.Name}}</h1>
+                
+                <div class="team-meta">
+                    {{if .TeamDetail.Club}}
+                    <div class="team-meta-item">
+                        <h3>Club</h3>
+                        <p>{{.TeamDetail.Club.Name}}</p>
+                    </div>
+                    {{end}}
+                    
+                    {{if .TeamDetail.Division}}
+                    <div class="team-meta-item">
+                        <h3>Division</h3>
+                        <p>{{.TeamDetail.Division.Name}}</p>
+                    </div>
+                    {{end}}
+                    
+                    {{if .TeamDetail.Season}}
+                    <div class="team-meta-item">
+                        <h3>Season</h3>
+                        <p>{{.TeamDetail.Season.Name}}</p>
+                    </div>
+                    {{end}}
+                    
+                    <div class="team-meta-item">
+                        <h3>Players</h3>
+                        <p>{{.TeamDetail.PlayerCount}} registered</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Captains Section -->
+            <div class="captains-section">
+                <div class="section-header">
+                    <h2>Team Captains</h2>
+                    <a href="#" class="btn-add">Add Captain</a>
+                </div>
+                
+                {{if .TeamDetail.Captains}}
+                <table class="captains-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .TeamDetail.Captains}}
+                        <tr>
+                            <td>
+                                <span class="captain-name">{{.PlayerID}}</span>
+                            </td>
+                            <td>
+                                <span class="role-badge {{if eq .Role "Day"}}day{{end}}">{{.Role}}</span>
+                            </td>
+                            <td>
+                                {{if .IsActive}}
+                                <span class="status-active">Active</span>
+                                {{else}}
+                                <span class="status-inactive">Inactive</span>
+                                {{end}}
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="btn-sm btn-warning">Edit</button>
+                                    <button class="btn-sm btn-danger">Remove</button>
+                                </div>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+                {{else}}
+                <div class="empty-state">
+                    <h3>No Captains Assigned</h3>
+                    <p>This team doesn't have any captains assigned yet.</p>
+                </div>
+                {{end}}
+            </div>
+
+            <!-- Players Section -->
+            <div class="players-section">
+                <div class="section-header">
+                    <h2>Team Players</h2>
+                    <a href="#" class="btn-add">Add Player</a>
+                </div>
+                
+                {{if .TeamDetail.Players}}
+                <table class="players-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Contact</th>
+                            <th>Status</th>
+                            <th>Added</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .TeamDetail.Players}}
+                        <tr>
+                            <td>
+                                <span class="player-name">{{.FirstName}} {{.LastName}}</span>
+                            </td>
+                            <td>
+                                <div class="player-contact">
+                                    {{if .Email}}<div>{{.Email}}</div>{{end}}
+                                    {{if .Phone}}<div>{{.Phone}}</div>{{end}}
+                                </div>
+                            </td>
+                            <td>
+                                {{if .PlayerTeam.IsActive}}
+                                <span class="status-active">Active</span>
+                                {{else}}
+                                <span class="status-inactive">Inactive</span>
+                                {{end}}
+                            </td>
+                            <td>
+                                <span class="player-contact">{{.PlayerTeam.CreatedAt.Format "Jan 02, 2006"}}</span>
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="btn-sm btn-warning">Edit</button>
+                                    <button class="btn-sm btn-danger">Remove</button>
+                                </div>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+                {{else}}
+                <div class="empty-state">
+                    <h3>No Players Assigned</h3>
+                    <p>This team doesn't have any players assigned yet.</p>
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </main>
+
+    <script>
+        console.log("Team detail page loaded for team:", "{{.TeamDetail.Name}}");
+        
+        // Add event listeners for action buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            // Remove player buttons
+            document.querySelectorAll('.btn-danger').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const row = this.closest('tr');
+                    const playerName = row.querySelector('.player-name, .captain-name');
+                    if (playerName && confirm(`Are you sure you want to remove ${playerName.textContent}?`)) {
+                        // TODO: Implement removal functionality
+                        console.log('Remove clicked for:', playerName.textContent);
+                    }
+                });
+            });
+            
+            // Edit buttons
+            document.querySelectorAll('.btn-warning').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    // TODO: Implement edit functionality
+                    console.log('Edit clicked');
+                });
+            });
+            
+            // Add player/captain buttons
+            document.querySelectorAll('.btn-add').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    // TODO: Implement add functionality
+                    console.log('Add clicked');
+                });
+            });
+        });
+    </script>
+</body>
+</html> 
