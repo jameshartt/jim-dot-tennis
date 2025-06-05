@@ -88,6 +88,12 @@ func (h *TeamsHandler) handleTeamDetail(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Check for remove captain action
+	if strings.HasSuffix(r.URL.Path, "/remove-captain") {
+		h.handleRemoveCaptain(w, r)
+		return
+	}
+
 	// Get user from context
 	user, err := getUserFromContext(r)
 	if err != nil {
@@ -228,6 +234,68 @@ func (h *TeamsHandler) handleAddCaptainPost(w http.ResponseWriter, r *http.Reque
 	if err := h.service.AddTeamCaptain(teamID, playerID, role); err != nil {
 		log.Printf("Failed to add captain: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to add captain: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Redirect back to team detail page
+	http.Redirect(w, r, fmt.Sprintf("/admin/teams/%d", teamID), http.StatusSeeOther)
+}
+
+// handleRemoveCaptain handles the remove captain functionality
+func (h *TeamsHandler) handleRemoveCaptain(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Admin remove captain handler called with path: %s, method: %s", r.URL.Path, r.Method)
+
+	// Get user from context
+	user, err := getUserFromContext(r)
+	if err != nil {
+		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
+		return
+	}
+
+	// Extract team ID from URL path
+	// Path format: /admin/teams/{id}/remove-captain
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/teams/"), "/")
+	if len(pathParts) < 2 || pathParts[0] == "" || pathParts[1] != "remove-captain" {
+		http.Error(w, "Invalid remove captain URL", http.StatusBadRequest)
+		return
+	}
+
+	teamIDStr := pathParts[0]
+	teamID, err := strconv.ParseUint(teamIDStr, 10, 32)
+	if err != nil {
+		logAndError(w, "Invalid team ID", err, http.StatusBadRequest)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodPost:
+		h.handleRemoveCaptainPost(w, r, user, uint(teamID))
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleRemoveCaptainPost processes the form submission to remove a captain
+func (h *TeamsHandler) handleRemoveCaptainPost(w http.ResponseWriter, r *http.Request, user *models.User, teamID uint) {
+	// Parse form data
+	if err := r.ParseForm(); err != nil {
+		logAndError(w, "Invalid form data", err, http.StatusBadRequest)
+		return
+	}
+
+	// Get form values
+	playerID := strings.TrimSpace(r.FormValue("player_id"))
+
+	// Validate required fields
+	if playerID == "" {
+		http.Error(w, "Player ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Remove the captain
+	if err := h.service.RemoveTeamCaptain(teamID, playerID); err != nil {
+		log.Printf("Failed to remove captain: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to remove captain: %v", err), http.StatusInternalServerError)
 		return
 	}
 

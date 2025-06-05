@@ -109,6 +109,7 @@
             width: 100%;
             border-collapse: collapse;
             margin-top: 1rem;
+            table-layout: fixed;
         }
         
         .players-table th,
@@ -118,6 +119,27 @@
             padding: 0.75rem;
             text-align: left;
             border-bottom: 1px solid #e9ecef;
+        }
+        
+        .captains-table th:nth-child(1),
+        .captains-table td:nth-child(1) {
+            width: 30%;
+        }
+        
+        .captains-table th:nth-child(2),
+        .captains-table td:nth-child(2) {
+            width: 20%;
+        }
+        
+        .captains-table th:nth-child(3),
+        .captains-table td:nth-child(3) {
+            width: 20%;
+        }
+        
+        .captains-table th:nth-child(4),
+        .captains-table td:nth-child(4) {
+            width: 30%;
+            min-width: 140px;
         }
         
         .players-table th,
@@ -187,15 +209,55 @@
         .action-buttons {
             display: flex;
             gap: 0.5rem;
+            min-height: 32px;
+            align-items: center;
+        }
+        
+        .remove-captain-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            width: 100%;
+            min-height: 32px;
+            position: relative;
+        }
+        
+        .confirm-remove {
+            display: flex;
+            gap: 0.25rem;
+            align-items: center;
+            flex-wrap: nowrap;
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            background: white;
+            padding: 2px;
+            border-radius: 4px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        
+        .remove-captain-btn {
+            transition: opacity 0.2s ease;
         }
         
         .btn-sm {
             padding: 0.25rem 0.5rem;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             border-radius: 0.25rem;
             text-decoration: none;
             border: none;
             cursor: pointer;
+            white-space: nowrap;
+            min-width: 55px;
+            text-align: center;
+            box-sizing: border-box;
+            height: 28px;
+            line-height: 1.2;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .btn-danger {
@@ -203,9 +265,22 @@
             color: white;
         }
         
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
         .btn-warning {
             background: #ffc107;
             color: #212529;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
         }
 
         /* Modal styles */
@@ -392,7 +467,7 @@
                     </thead>
                     <tbody>
                         {{range .TeamDetail.Captains}}
-                        <tr>
+                        <tr data-captain-id="{{.PlayerID}}">
                             <td>
                                 <span class="captain-name">{{.Player.FirstName}} {{.Player.LastName}}</span>
                             </td>
@@ -408,8 +483,20 @@
                             </td>
                             <td>
                                 <div class="action-buttons">
-                                    <button class="btn-sm btn-warning">Edit</button>
-                                    <button class="btn-sm btn-danger" onclick="removeCaptain('{{.PlayerID}}', '{{.Player.FirstName}} {{.Player.LastName}}')">Remove</button>
+                                    <div class="remove-captain-container">
+                                        <button class="btn-sm btn-danger remove-captain-btn" 
+                                                data-player-id="{{.PlayerID}}"
+                                                data-player-name="{{.Player.FirstName}} {{.Player.LastName}}">
+                                            Remove
+                                        </button>
+                                        <div class="confirm-remove" style="display: none;">
+                                            <form class="remove-captain-form" method="POST" action="/admin/teams/{{$.TeamDetail.ID}}/remove-captain" style="display: inline;">
+                                                <input type="hidden" name="player_id" value="{{.PlayerID}}">
+                                                <button type="submit" class="btn-sm btn-danger">Confirm</button>
+                                            </form>
+                                            <button class="btn-sm btn-secondary cancel-remove-btn">Cancel</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </td>
                         </tr>
@@ -466,7 +553,6 @@
                             </td>
                             <td>
                                 <div class="action-buttons">
-                                    <button class="btn-sm btn-warning">Edit</button>
                                     <button class="btn-sm btn-danger">Remove</button>
                                 </div>
                             </td>
@@ -540,31 +626,59 @@
             }
         });
         
-        // Captain removal
-        function removeCaptain(playerID, playerName) {
-            if (confirm(`Are you sure you want to remove ${playerName} as captain?`)) {
-                // TODO: Implement captain removal
-                console.log('Remove captain:', playerID, playerName);
-            }
+        // Inline confirmation for removing captains
+        function setupRemoveCaptainConfirmation() {
+            // Handle remove captain button clicks
+            document.querySelectorAll('.remove-captain-btn').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const container = this.closest('.remove-captain-container');
+                    const confirmDiv = container.querySelector('.confirm-remove');
+                    
+                    // Fade out the remove button and show confirmation
+                    this.style.opacity = '0';
+                    this.style.pointerEvents = 'none';
+                    confirmDiv.style.display = 'flex';
+                    // Small delay to ensure smooth transition
+                    setTimeout(() => {
+                        confirmDiv.style.opacity = '1';
+                    }, 10);
+                });
+            });
+            
+            // Handle cancel buttons
+            document.querySelectorAll('.cancel-remove-btn').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const container = this.closest('.remove-captain-container');
+                    const removeBtn = container.querySelector('.remove-captain-btn');
+                    const confirmDiv = container.querySelector('.confirm-remove');
+                    
+                    // Fade out confirmation and show remove button
+                    confirmDiv.style.opacity = '0';
+                    setTimeout(() => {
+                        confirmDiv.style.display = 'none';
+                        removeBtn.style.opacity = '1';
+                        removeBtn.style.pointerEvents = 'auto';
+                    }, 200);
+                });
+            });
         }
         
         // Add event listeners for action buttons
         document.addEventListener('DOMContentLoaded', function() {
-            // Edit buttons
-            document.querySelectorAll('.btn-warning').forEach(button => {
-                button.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    // TODO: Implement edit functionality
-                    console.log('Edit clicked');
-                });
-            });
+            // Setup remove captain confirmation
+            setupRemoveCaptainConfirmation();
             
             // Add player button
-            document.querySelector('.players-section .btn-add').addEventListener('click', function(e) {
-                e.preventDefault();
-                // TODO: Implement add player functionality
-                console.log('Add player clicked');
-            });
+            const addPlayerBtn = document.querySelector('.players-section .btn-add');
+            if (addPlayerBtn) {
+                addPlayerBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    // TODO: Implement add player functionality
+                    console.log('Add player clicked');
+                });
+            }
         });
     </script>
 </body>
