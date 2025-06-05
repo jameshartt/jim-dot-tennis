@@ -214,6 +214,68 @@
             margin-bottom: 0.5rem;
         }
         
+        .team-selection-section {
+            grid-column: 1 / -1;
+        }
+        
+        .selection-summary {
+            margin-bottom: 2rem;
+        }
+        
+        .selection-count {
+            text-align: center;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            color: var(--primary-color);
+        }
+        
+        .quick-player-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+        
+        .quick-player {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .team-selection-actions {
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+        
+        .btn-team-selection {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            display: inline-block;
+            transition: background-color 0.2s;
+        }
+        
+        .btn-team-selection:hover {
+            background: #0056b3;
+            text-decoration: none;
+            color: white;
+        }
+        
+        .no-selection {
+            color: #6c757d;
+            font-style: italic;
+            text-align: center;
+            margin: 2rem 0;
+        }
+
         @media (max-width: 768px) {
             .detail-grid {
                 grid-template-columns: 1fr;
@@ -230,6 +292,10 @@
             
             .detail-section {
                 padding: 1rem;
+            }
+            
+            .selected-player-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -400,6 +466,35 @@
                         <div class="notes-text">{{.FixtureDetail.Notes}}</div>
                     </div>
                     {{end}}
+
+                    <div class="detail-section team-selection-section">
+                        <h3>👥 Team Selection</h3>
+                        
+                        {{if .FixtureDetail.SelectedPlayers}}
+                        <div class="selection-summary">
+                            <div class="selection-count">
+                                <strong>{{len .FixtureDetail.SelectedPlayers}}/8 players selected</strong>
+                            </div>
+                            <div class="quick-player-list">
+                                {{range .FixtureDetail.SelectedPlayers}}
+                                <span class="quick-player">{{.Player.FirstName}} {{.Player.LastName}}</span>
+                                {{end}}
+                            </div>
+                        </div>
+                        {{else}}
+                        <p class="no-selection">No players selected yet.</p>
+                        {{end}}
+
+                        <div class="team-selection-actions">
+                            <a href="/admin/fixtures/{{.FixtureDetail.ID}}/team-selection" class="btn-team-selection">
+                                {{if .FixtureDetail.SelectedPlayers}}
+                                    ✏️ Manage Team Selection
+                                {{else}}
+                                    🏆 Select Team Players
+                                {{end}}
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
             {{else}}

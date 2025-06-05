@@ -63,8 +63,8 @@ The application will follow a server-side rendered architecture with minimal cli
 
 ### Phase 2: Captain Selection Tools
 
-- [ ] Division-based access control
-- [ ] Available player listings
+- [x] Division-based access control
+- [x] Available player listings
 - [ ] Team selection interface
 - [ ] Selection confirmation and notifications
 - [ ] Selection overview across divisions

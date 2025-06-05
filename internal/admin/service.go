@@ -71,13 +71,20 @@ type FixtureWithRelations struct {
 // FixtureDetail represents a fixture with comprehensive related data for detail view
 type FixtureDetail struct {
 	models.Fixture
-	HomeTeam   *models.Team     `json:"home_team,omitempty"`
-	AwayTeam   *models.Team     `json:"away_team,omitempty"`
-	Week       *models.Week     `json:"week,omitempty"`
-	Division   *models.Division `json:"division,omitempty"`
-	Season     *models.Season   `json:"season,omitempty"`
-	DayCaptain *models.Player   `json:"day_captain,omitempty"`
-	Matchups   []models.Matchup `json:"matchups,omitempty"`
+	HomeTeam        *models.Team         `json:"home_team,omitempty"`
+	AwayTeam        *models.Team         `json:"away_team,omitempty"`
+	Week            *models.Week         `json:"week,omitempty"`
+	Division        *models.Division     `json:"division,omitempty"`
+	Season          *models.Season       `json:"season,omitempty"`
+	DayCaptain      *models.Player       `json:"day_captain,omitempty"`
+	Matchups        []models.Matchup     `json:"matchups,omitempty"`
+	SelectedPlayers []SelectedPlayerInfo `json:"selected_players,omitempty"`
+}
+
+// SelectedPlayerInfo represents a player selected for a fixture with additional context
+type SelectedPlayerInfo struct {
+	models.FixturePlayer
+	Player models.Player `json:"player"`
 }
 
 // TeamWithRelations represents a team with its related data for display
@@ -393,6 +400,20 @@ func (s *Service) GetFixtureDetail(fixtureID uint) (*FixtureDetail, error) {
 	// Get matchups with the fixture
 	if fixtureWithMatchups, err := s.fixtureRepository.FindWithMatchups(ctx, fixtureID); err == nil {
 		detail.Matchups = fixtureWithMatchups.Matchups
+	}
+
+	// Get selected players for the fixture
+	if selectedPlayers, err := s.fixtureRepository.FindSelectedPlayers(ctx, fixtureID); err == nil {
+		var selectedPlayerInfos []SelectedPlayerInfo
+		for _, sp := range selectedPlayers {
+			if player, err := s.playerRepository.FindByID(ctx, sp.PlayerID); err == nil {
+				selectedPlayerInfos = append(selectedPlayerInfos, SelectedPlayerInfo{
+					FixturePlayer: sp,
+					Player:        *player,
+				})
+			}
+		}
+		detail.SelectedPlayers = selectedPlayerInfos
 	}
 
 	return detail, nil
@@ -852,4 +873,97 @@ func (s *Service) GetUpcomingFixturesForTeam(teamID uint, limit int) ([]FixtureW
 	}
 
 	return fixturesWithRelations, nil
+}
+
+// GetAvailablePlayersForFixture retrieves players available for selection in a fixture
+// Returns team players first, then all St Ann players
+func (s *Service) GetAvailablePlayersForFixture(fixtureID uint) ([]models.Player, []models.Player, error) {
+	ctx := context.Background()
+
+	// Get the fixture to determine the home team
+	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Get players from the home team
+	homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	teamPlayerTeams, err := s.teamRepository.FindPlayersInTeam(ctx, homeTeam.ID, homeTeam.SeasonID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var teamPlayers []models.Player
+	for _, pt := range teamPlayerTeams {
+		if player, err := s.playerRepository.FindByID(ctx, pt.PlayerID); err == nil {
+			teamPlayers = append(teamPlayers, *player)
+		}
+	}
+
+	// Get all St Ann players
+	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil {
+		return teamPlayers, nil, err
+	}
+	if len(clubs) == 0 {
+		return teamPlayers, nil, nil
+	}
+
+	allStAnnPlayers, err := s.playerRepository.FindByClub(ctx, clubs[0].ID)
+	if err != nil {
+		return teamPlayers, nil, err
+	}
+
+	return teamPlayers, allStAnnPlayers, nil
+}
+
+// AddPlayerToFixture adds a player to the fixture selection
+func (s *Service) AddPlayerToFixture(fixtureID uint, playerID string, isHome bool) error {
+	ctx := context.Background()
+
+	// Check if player is already selected for this fixture
+	selectedPlayers, err := s.fixtureRepository.FindSelectedPlayers(ctx, fixtureID)
+	if err != nil {
+		return err
+	}
+
+	for _, sp := range selectedPlayers {
+		if sp.PlayerID == playerID {
+			return fmt.Errorf("player is already selected for this fixture")
+		}
+	}
+
+	// Calculate next position
+	position := len(selectedPlayers) + 1
+
+	fixturePlayer := &models.FixturePlayer{
+		FixtureID: fixtureID,
+		PlayerID:  playerID,
+		IsHome:    isHome,
+		Position:  position,
+	}
+
+	return s.fixtureRepository.AddSelectedPlayer(ctx, fixturePlayer)
+}
+
+// RemovePlayerFromFixture removes a player from the fixture selection
+func (s *Service) RemovePlayerFromFixture(fixtureID uint, playerID string) error {
+	ctx := context.Background()
+	return s.fixtureRepository.RemoveSelectedPlayer(ctx, fixtureID, playerID)
+}
+
+// UpdatePlayerPositionInFixture updates the position/order of a selected player
+func (s *Service) UpdatePlayerPositionInFixture(fixtureID uint, playerID string, position int) error {
+	ctx := context.Background()
+	return s.fixtureRepository.UpdateSelectedPlayerPosition(ctx, fixtureID, playerID, position)
+}
+
+// ClearFixturePlayerSelection removes all selected players from a fixture
+func (s *Service) ClearFixturePlayerSelection(fixtureID uint) error {
+	ctx := context.Background()
+	return s.fixtureRepository.ClearSelectedPlayers(ctx, fixtureID)
 }

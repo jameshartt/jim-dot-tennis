@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Selection - {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}} - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .btn-back {
+            background: var(--secondary-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        
+        .team-selection-container {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .fixture-summary {
+            text-align: center;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .fixture-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0 0 0.5rem 0;
+            color: var(--primary-color);
+        }
+        
+        .teams-vs {
+            font-size: 1.2rem;
+            color: #495057;
+            margin: 0 0 0.5rem 0;
+        }
+        
+        .vs-text {
+            color: #6c757d;
+            font-weight: normal;
+            margin: 0 1rem;
+        }
+        
+        .fixture-date {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .selection-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .selected-players-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .selected-players-section h3 {
+            margin: 0 0 1rem 0;
+            color: var(--primary-color);
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .selected-player-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+        
+        .selected-player-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            padding: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: border-color 0.2s;
+        }
+        
+        .selected-player-card:hover {
+            border-color: var(--primary-color);
+        }
+        
+        .player-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        
+        .player-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .player-position {
+            font-size: 0.7rem;
+            color: #6c757d;
+        }
+        
+        .team-badge {
+            font-size: 0.6rem;
+            padding: 0.2rem 0.4rem;
+            border-radius: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .team-badge.home {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        
+        .team-badge.away {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+        
+        .btn-remove {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn-remove:hover {
+            background: #c82333;
+        }
+        
+        .selection-count {
+            text-align: center;
+            margin: 1rem 0;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .selection-actions {
+            text-align: center;
+            margin-top: 1rem;
+        }
+        
+        .btn-clear {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .btn-clear:hover {
+            background: #5a6268;
+        }
+        
+        .no-selection {
+            color: #6c757d;
+            font-style: italic;
+            text-align: center;
+            margin: 2rem 0;
+        }
+        
+        .available-players-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            border-left: 4px solid #28a745;
+        }
+        
+        .available-players-section h3 {
+            margin: 0 0 1rem 0;
+            color: #28a745;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .player-group {
+            margin-bottom: 2rem;
+        }
+        
+        .player-group h4 {
+            color: #495057;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+        
+        .player-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .btn-add-player {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background-color 0.2s;
+            white-space: nowrap;
+        }
+        
+        .btn-add-player:hover {
+            background: #0056b3;
+        }
+        
+        .no-players {
+            color: #6c757d;
+            font-style: italic;
+            margin: 1rem 0;
+        }
+        
+        .progress-indicator {
+            background: #e9ecef;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        
+        .progress-bar {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 8px;
+            margin: 0.5rem 0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            background: var(--primary-color);
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+            font-size: 0.9rem;
+            color: #495057;
+        }
+
+        @media (max-width: 768px) {
+            .selection-layout {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            
+            .fixture-title {
+                font-size: 1.3rem;
+            }
+            
+            .teams-vs {
+                font-size: 1rem;
+            }
+            
+            .selected-player-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .player-buttons {
+                flex-direction: column;
+            }
+            
+            .btn-add-player {
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin">Admin Dashboard</a> &gt; 
+                <a href="/admin/fixtures">Fixtures</a> &gt; 
+                <a href="/admin/fixtures/{{.FixtureDetail.ID}}">Fixture Detail</a> &gt;
+                Team Selection
+            </div>
+        </div>
+    </header>
+
+    <main class="admin-content">
+        <div class="container">
+            <div class="action-bar">
+                <h2>Team Selection</h2>
+                <a href="/admin/fixtures/{{.FixtureDetail.ID}}" class="btn-back">← Back to Fixture</a>
+            </div>
+
+            <div class="team-selection-container">
+                <div class="fixture-summary">
+                    <h1 class="fixture-title">
+                        {{if .FixtureDetail.Division}}{{.FixtureDetail.Division.Name}}{{else}}Division TBD{{end}}
+                        {{if .FixtureDetail.Week}} - Week {{.FixtureDetail.Week.WeekNumber}}{{end}}
+                    </h1>
+                    <p class="teams-vs">
+                        <span class="team-name">{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                        <span class="vs-text">vs</span>
+                        <span class="team-name">{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}</span>
+                    </p>
+                    <p class="fixture-date">
+                        📅 {{.FixtureDetail.ScheduledDate.Format "Monday, January 2, 2006 at 3:04 PM"}}
+                        📍 {{.FixtureDetail.VenueLocation}}
+                    </p>
+                </div>
+
+                <div class="progress-indicator">
+                    <div class="progress-text">
+                        {{$selectedCount := len .FixtureDetail.SelectedPlayers}}
+                        Players Selected: {{$selectedCount}}/8
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {{.SelectionPercentage}}%"></div>
+                    </div>
+                </div>
+
+                <div class="selection-layout">
+                    <div class="selected-players-section">
+                        <h3>👥 Selected Players</h3>
+                        
+                        {{if .FixtureDetail.SelectedPlayers}}
+                        <div class="selected-players">
+                            <div class="selected-player-grid">
+                                {{range .FixtureDetail.SelectedPlayers}}
+                                <div class="selected-player-card">
+                                    <div class="player-info">
+                                        <div class="player-name">{{.Player.FirstName}} {{.Player.LastName}}</div>
+                                        <div class="player-position">Position {{.Position}}</div>
+                                        {{if .IsHome}}<span class="team-badge home">Home</span>{{else}}<span class="team-badge away">Away</span>{{end}}
+                                    </div>
+                                    <form method="post" style="display: inline;">
+                                        <input type="hidden" name="action" value="remove_player">
+                                        <input type="hidden" name="player_id" value="{{.PlayerID}}">
+                                        <button type="submit" class="btn-remove" onclick="return confirm('Remove {{.Player.FirstName}} {{.Player.LastName}} from selection?')">×</button>
+                                    </form>
+                                </div>
+                                {{end}}
+                            </div>
+                            <div class="selection-actions">
+                                <form method="post" style="display: inline;">
+                                    <input type="hidden" name="action" value="clear_players">
+                                    <button type="submit" class="btn-clear" onclick="return confirm('Clear all selected players?')">Clear All Players</button>
+                                </form>
+                            </div>
+                        </div>
+                        {{else}}
+                        <p class="no-selection">No players selected yet. Start by adding players from the available list.</p>
+                        {{end}}
+                    </div>
+
+                    <div class="available-players-section">
+                        <h3>🎾 Available Players</h3>
+                        
+                        {{if .TeamPlayers}}
+                        <div class="player-group">
+                            <h4>Team Players ({{len .TeamPlayers}} available)</h4>
+                            <div class="player-buttons">
+                                {{range .TeamPlayers}}
+                                <form method="post" style="display: inline;">
+                                    <input type="hidden" name="action" value="add_player">
+                                    <input type="hidden" name="player_id" value="{{.ID}}">
+                                    <input type="hidden" name="is_home" value="true">
+                                    <button type="submit" class="btn-add-player">
+                                        {{.FirstName}} {{.LastName}}
+                                    </button>
+                                </form>
+                                {{end}}
+                            </div>
+                        </div>
+                        {{end}}
+                        
+                        {{if .AllStAnnPlayers}}
+                        <div class="player-group">
+                            <h4>All St Ann Players ({{len .AllStAnnPlayers}} available)</h4>
+                            <div class="player-buttons">
+                                {{range .AllStAnnPlayers}}
+                                <form method="post" style="display: inline;">
+                                    <input type="hidden" name="action" value="add_player">
+                                    <input type="hidden" name="player_id" value="{{.ID}}">
+                                    <input type="hidden" name="is_home" value="true">
+                                    <button type="submit" class="btn-add-player">
+                                        {{.FirstName}} {{.LastName}}
+                                    </button>
+                                </form>
+                                {{end}}
+                            </div>
+                        </div>
+                        {{else}}
+                        <p class="no-players">No available players found.</p>
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html> 

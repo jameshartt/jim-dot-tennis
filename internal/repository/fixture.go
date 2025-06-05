@@ -53,6 +53,13 @@ type FixtureRepository interface {
 	CountByDivision(ctx context.Context, divisionID uint) (int, error)
 	CountBySeason(ctx context.Context, seasonID uint) (int, error)
 	CountByWeek(ctx context.Context, weekID uint) (int, error)
+
+	// Fixture Player Selection methods
+	FindSelectedPlayers(ctx context.Context, fixtureID uint) ([]models.FixturePlayer, error)
+	AddSelectedPlayer(ctx context.Context, fixturePlayer *models.FixturePlayer) error
+	RemoveSelectedPlayer(ctx context.Context, fixtureID uint, playerID string) error
+	UpdateSelectedPlayerPosition(ctx context.Context, fixtureID uint, playerID string, position int) error
+	ClearSelectedPlayers(ctx context.Context, fixtureID uint) error
 }
 
 // fixtureRepository implements FixtureRepository
@@ -465,4 +472,66 @@ func (r *fixtureRepository) CountByWeek(ctx context.Context, weekID uint) (int, 
 		SELECT COUNT(*) FROM fixtures WHERE week_id = ?
 	`, weekID)
 	return count, err
+}
+
+// FindSelectedPlayers retrieves all players selected for a specific fixture
+func (r *fixtureRepository) FindSelectedPlayers(ctx context.Context, fixtureID uint) ([]models.FixturePlayer, error) {
+	var players []models.FixturePlayer
+	err := r.db.SelectContext(ctx, &players, `
+		SELECT id, fixture_id, player_id, is_home, position, created_at, updated_at
+		FROM fixture_players 
+		WHERE fixture_id = ?
+		ORDER BY position ASC, created_at ASC
+	`, fixtureID)
+	return players, err
+}
+
+// AddSelectedPlayer adds a player to the fixture selection
+func (r *fixtureRepository) AddSelectedPlayer(ctx context.Context, fixturePlayer *models.FixturePlayer) error {
+	now := time.Now()
+	fixturePlayer.CreatedAt = now
+	fixturePlayer.UpdatedAt = now
+
+	result, err := r.db.NamedExecContext(ctx, `
+		INSERT INTO fixture_players (fixture_id, player_id, is_home, position, created_at, updated_at)
+		VALUES (:fixture_id, :player_id, :is_home, :position, :created_at, :updated_at)
+	`, fixturePlayer)
+
+	if err != nil {
+		return err
+	}
+
+	// Get the last inserted ID and set it on the fixture player
+	if id, err := result.LastInsertId(); err == nil {
+		fixturePlayer.ID = uint(id)
+	}
+
+	return nil
+}
+
+// RemoveSelectedPlayer removes a player from the fixture selection
+func (r *fixtureRepository) RemoveSelectedPlayer(ctx context.Context, fixtureID uint, playerID string) error {
+	_, err := r.db.ExecContext(ctx, `
+		DELETE FROM fixture_players 
+		WHERE fixture_id = ? AND player_id = ?
+	`, fixtureID, playerID)
+	return err
+}
+
+// UpdateSelectedPlayerPosition updates the position of a selected player
+func (r *fixtureRepository) UpdateSelectedPlayerPosition(ctx context.Context, fixtureID uint, playerID string, position int) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE fixture_players 
+		SET position = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE fixture_id = ? AND player_id = ?
+	`, position, fixtureID, playerID)
+	return err
+}
+
+// ClearSelectedPlayers removes all selected players from a fixture
+func (r *fixtureRepository) ClearSelectedPlayers(ctx context.Context, fixtureID uint) error {
+	_, err := r.db.ExecContext(ctx, `
+		DELETE FROM fixture_players WHERE fixture_id = ?
+	`, fixtureID)
+	return err
 }
