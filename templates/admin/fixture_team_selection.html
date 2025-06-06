@@ -446,5 +446,40 @@
             </div>
         </div>
     </main>
+
+    <script>
+        // Save scroll position relative to bottom before form submission
+        document.addEventListener('DOMContentLoaded', function() {
+            // Restore scroll position if returning from form submission
+            const savedDistanceFromBottom = sessionStorage.getItem('teamSelectionScrollPos');
+            if (savedDistanceFromBottom) {
+                // Calculate new scroll position based on distance from bottom
+                const totalHeight = document.body.scrollHeight;
+                const viewportHeight = window.innerHeight;
+                const targetScrollTop = totalHeight - parseInt(savedDistanceFromBottom) - viewportHeight;
+                
+                // Ensure we don't scroll beyond the page bounds
+                const maxScroll = Math.max(0, totalHeight - viewportHeight);
+                const scrollPosition = Math.max(0, Math.min(targetScrollTop, maxScroll));
+                
+                window.scrollTo(0, scrollPosition);
+                sessionStorage.removeItem('teamSelectionScrollPos');
+            }
+
+            // Save scroll position relative to bottom before any form submission
+            const forms = document.querySelectorAll('form');
+            forms.forEach(form => {
+                form.addEventListener('submit', function() {
+                    // Calculate distance from bottom of page
+                    const totalHeight = document.body.scrollHeight;
+                    const currentScrollTop = window.scrollY;
+                    const viewportHeight = window.innerHeight;
+                    const distanceFromBottom = totalHeight - currentScrollTop - viewportHeight;
+                    
+                    sessionStorage.setItem('teamSelectionScrollPos', distanceFromBottom);
+                });
+            });
+        });
+    </script>
 </body>
 </html> 
