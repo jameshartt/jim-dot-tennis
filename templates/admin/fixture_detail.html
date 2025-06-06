@@ -841,7 +841,7 @@
                 </div>
 
                 <div class="info-highlight">
-                    <strong>💡 Tip:</strong> All text below is selectable and copyable for easy sharing via WhatsApp, email, or other communication channels.
+                    <strong>💡 Tip:</strong> All text below is selectable and copyable. The blue dashed box can be clicked to automatically copy the fixture summary to your clipboard for easy sharing via WhatsApp, email, or other communication channels.
                 </div>
 
                 <!-- Fixture At A Glance -->
@@ -854,23 +854,10 @@
                         </div>
                         
                         <div class="glance-teams">
-                            {{$isStAnnsHome := false}}
-                            {{$isStAnnsAway := false}}
-                            {{if .FixtureDetail.HomeTeam}}
-                                {{if eq .FixtureDetail.HomeTeam.Name "St. Ann's"}}
-                                    {{$isStAnnsHome = true}}
-                                {{end}}
-                            {{end}}
-                            {{if .FixtureDetail.AwayTeam}}
-                                {{if eq .FixtureDetail.AwayTeam.Name "St. Ann's"}}
-                                    {{$isStAnnsAway = true}}
-                                {{end}}
-                            {{end}}
-                            
-                            {{if $isStAnnsHome}}
-                                <span class="team-home">🏠 St. Ann's</span> vs <span class="team-away">{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}</span>
-                            {{else if $isStAnnsAway}}
-                                <span class="team-away">✈️ St. Ann's</span> @ <span class="team-home">{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                            {{if .IsStAnnsHome}}
+                                <span class="team-home">🏠 {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}{{end}}</span> vs <span class="team-away">{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}</span>
+                            {{else if .IsStAnnsAway}}
+                                <span class="team-away">✈️ {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}{{end}}</span> @ <span class="team-home">{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}</span>
                             {{else}}
                                 <span class="team-home">{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}</span> vs <span class="team-away">{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}</span>
                             {{end}}
@@ -880,7 +867,7 @@
                     </div>
                     
                     <div class="glance-copyable" tabindex="0">{{if .FixtureDetail.Division}}{{.FixtureDetail.Division.Name}}{{else}}Division TBD{{end}}{{if .FixtureDetail.Week}} - Week {{.FixtureDetail.Week.WeekNumber}}{{end}}
-{{if .FixtureDetail.HomeTeam}}{{if eq .FixtureDetail.HomeTeam.Name "St. Ann's"}}🏠 St. Ann's vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{else}}✈️ St. Ann's @ {{.FixtureDetail.HomeTeam.Name}}{{end}}{{else}}{{if .FixtureDetail.AwayTeam}}{{if eq .FixtureDetail.AwayTeam.Name "St. Ann's"}}✈️ St. Ann's @ TBD{{else}}TBD vs {{.FixtureDetail.AwayTeam.Name}}{{end}}{{else}}TBD vs TBD{{end}}{{end}}
+{{if .IsStAnnsHome}}🏠 {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{else if .IsStAnnsAway}}✈️ {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}{{end}} @ {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}{{else}}{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{end}}
 📅 {{.FixtureDetail.ScheduledDate.Format "Mon, Jan 2, 2006"}}
 
 Team:{{if .FixtureDetail.Matchups}}{{range .FixtureDetail.Matchups}}

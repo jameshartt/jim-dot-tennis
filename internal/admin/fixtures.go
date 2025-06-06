@@ -161,12 +161,24 @@ func (h *FixturesHandler) handleFixtureDetailGet(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// Determine if St. Ann's is home or away
+	isStAnnsHome := false
+	isStAnnsAway := false
+	if fixtureDetail.HomeTeam != nil && strings.Contains(fixtureDetail.HomeTeam.Name, "St Ann") {
+		isStAnnsHome = true
+	}
+	if fixtureDetail.AwayTeam != nil && strings.Contains(fixtureDetail.AwayTeam.Name, "St Ann") {
+		isStAnnsAway = true
+	}
+
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
 		"User":              user,
 		"FixtureDetail":     fixtureDetail,
 		"AvailablePlayers":  availablePlayers,
 		"NavigationContext": navigationContext,
+		"IsStAnnsHome":      isStAnnsHome,
+		"IsStAnnsAway":      isStAnnsAway,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
