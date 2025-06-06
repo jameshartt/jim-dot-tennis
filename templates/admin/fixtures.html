@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,26 +15,32 @@
             padding: 1rem 0;
             margin-bottom: 2rem;
         }
+
         .breadcrumb {
             font-size: 0.9rem;
             margin-bottom: 0.5rem;
         }
+
         .breadcrumb a {
             color: #ffffff80;
             text-decoration: none;
         }
+
         .breadcrumb a:hover {
             color: white;
         }
+
         .admin-content {
             padding: 0 1rem;
         }
+
         .action-bar {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 2rem;
         }
+
         .btn-add {
             background: var(--success-color);
             color: white;
@@ -41,50 +48,63 @@
             text-decoration: none;
             border-radius: 4px;
         }
-        
+
         .fixtures-table {
             width: 100%;
             border-collapse: collapse;
             background: white;
             border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
+
         .fixtures-table th,
         .fixtures-table td {
             padding: 1rem;
             text-align: left;
             border-bottom: 1px solid #e9ecef;
         }
+
         .fixtures-table th {
             background: #f8f9fa;
             font-weight: 600;
         }
+
         .fixtures-table tbody tr {
             cursor: pointer;
             transition: background-color 0.2s ease;
         }
+
         .fixtures-table tbody tr:hover {
             background-color: #f8f9fa;
         }
-        
+
         /* Fixture status colors */
         .status-Scheduled {
-            background-color: rgba(0, 123, 255, 0.1); /* Light blue */
+            background-color: rgba(0, 123, 255, 0.1);
+            /* Light blue */
         }
+
         .status-InProgress {
-            background-color: rgba(255, 193, 7, 0.1); /* Light yellow */
+            background-color: rgba(255, 193, 7, 0.1);
+            /* Light yellow */
         }
+
         .status-Completed {
-            background-color: rgba(40, 167, 69, 0.1); /* Light green */
+            background-color: rgba(40, 167, 69, 0.1);
+            /* Light green */
         }
+
         .status-Cancelled {
-            background-color: rgba(220, 53, 69, 0.1); /* Light red */
+            background-color: rgba(220, 53, 69, 0.1);
+            /* Light red */
         }
+
         .status-Postponed {
-            background-color: rgba(108, 117, 125, 0.1); /* Light gray */
+            background-color: rgba(108, 117, 125, 0.1);
+            /* Light gray */
         }
-        
+
         /* Status badge */
         .status-badge {
             padding: 0.25rem 0.5rem;
@@ -93,107 +113,118 @@
             font-weight: 500;
             text-transform: uppercase;
         }
+
         .status-badge.Scheduled {
             background-color: #007bff;
             color: white;
         }
+
         .status-badge.InProgress {
             background-color: #ffc107;
             color: #212529;
         }
+
         .status-badge.Completed {
             background-color: #28a745;
             color: white;
         }
+
         .status-badge.Cancelled {
             background-color: #dc3545;
             color: white;
         }
+
         .status-badge.Postponed {
             background-color: #6c757d;
             color: white;
         }
-        
+
         /* Responsive columns */
         .col-date {
             min-width: 120px;
         }
+
         .col-teams {
             min-width: 200px;
         }
+
         .col-venue {
             max-width: 150px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+
         .col-status {
             min-width: 100px;
         }
-        
+
         /* Mobile responsiveness */
         @media (max-width: 768px) {
+
             .fixtures-table th,
             .fixtures-table td {
                 padding: 0.75rem 0.5rem;
             }
-            
+
             .col-venue {
                 max-width: 100px;
             }
         }
-        
+
         @media (max-width: 600px) {
             .col-venue {
                 display: none;
             }
         }
-        
+
         @media (max-width: 480px) {
+
             .fixtures-table th,
             .fixtures-table td {
                 padding: 0.5rem 0.25rem;
                 font-size: 0.9rem;
             }
-            
+
             .col-teams {
                 min-width: 150px;
             }
         }
-        
+
         .no-fixtures {
             text-align: center;
             padding: 3rem;
             color: #6c757d;
         }
-        
+
         .club-info {
             background: #f8f9fa;
             border-radius: 8px;
             padding: 1rem;
             margin-bottom: 2rem;
         }
-        
+
         .club-info h3 {
             margin: 0 0 0.5rem 0;
             color: var(--primary-color);
         }
-        
+
         .team-name {
             font-weight: 600;
         }
-        
+
         .vs-text {
             color: #6c757d;
             font-weight: normal;
             margin: 0 0.5rem;
         }
-        
+
         .date-time {
             color: #495057;
         }
     </style>
 </head>
+
 <body>
     <header class="admin-header">
         <div class="container">
@@ -208,14 +239,14 @@
         <div class="container">
             <div class="action-bar">
                 <h2>St. Ann's Upcoming Fixtures</h2>
-                <a href="#" class="btn-add">Add Fixture</a>
             </div>
 
             {{if .Club}}
             <div class="club-info">
                 <h3>{{.Club.Name}}</h3>
                 <p>{{.Club.Address}}</p>
-                {{if .Club.Website}}<p><strong>Website:</strong> <a href="{{.Club.Website}}" target="_blank">{{.Club.Website}}</a></p>{{end}}
+                {{if .Club.Website}}<p><strong>Website:</strong> <a href="{{.Club.Website}}"
+                        target="_blank">{{.Club.Website}}</a></p>{{end}}
                 {{if .Club.PhoneNumber}}<p><strong>Phone:</strong> {{.Club.PhoneNumber}}</p>{{end}}
             </div>
             {{end}}
@@ -228,13 +259,12 @@
                             <th class="col-date">Date & Time</th>
                             <th class="col-teams">Teams</th>
                             <th class="col-venue">Venue</th>
-                            <th class="col-status">Status</th>
                             <th>Week</th>
                         </tr>
                     </thead>
                     <tbody>
                         {{range .Fixtures}}
-                        <tr class="status-{{.Status}}" data-fixture-id="{{.ID}}">
+                        <tr class="status-{{.Status}}" onclick="window.location.href='/admin/fixtures/{{.ID}}'" style="cursor: pointer;">
                             <td class="col-date">
                                 <div class="date-time">
                                     {{.ScheduledDate.Format "Mon, Jan 2"}}<br>
@@ -247,9 +277,6 @@
                                 <span class="team-name">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</span>
                             </td>
                             <td class="col-venue">{{.VenueLocation}}</td>
-                            <td class="col-status">
-                                <span class="status-badge {{.Status}}">{{.Status}}</span>
-                            </td>
                             <td>
                                 {{if .Week}}Week {{.Week.WeekNumber}}{{else}}TBD{{end}}
                             </td>
@@ -267,55 +294,7 @@
         </div>
     </main>
 
-    <script>
-        // Handle double-click and touch events on fixture rows
-        document.addEventListener('DOMContentLoaded', function() {
-            const fixtureRows = document.querySelectorAll('table.fixtures-table tbody tr[data-fixture-id]');
-            
-            fixtureRows.forEach(row => {
-                let touchTime = 0;
-                let clickCount = 0;
-                let clickTimer = null;
-                
-                // Handle double-click for desktop
-                row.addEventListener('dblclick', function(e) {
-                    e.preventDefault();
-                    const fixtureId = this.dataset.fixtureId;
-                    if (fixtureId) {
-                        window.location.href = `/admin/fixtures/${fixtureId}`;
-                    }
-                });
-                
-                // Handle touch events for mobile (double-tap)
-                row.addEventListener('touchend', function(e) {
-                    const currentTime = new Date().getTime();
-                    const tapLength = currentTime - touchTime;
-                    
-                    if (tapLength < 500 && tapLength > 0) {
-                        // Double tap detected
-                        e.preventDefault();
-                        const fixtureId = this.dataset.fixtureId;
-                        if (fixtureId) {
-                            window.location.href = `/admin/fixtures/${fixtureId}`;
-                        }
-                    }
-                    touchTime = currentTime;
-                });
-                
-                // Prevent text selection on double-click to avoid interference
-                row.addEventListener('selectstart', function(e) {
-                    if (e.detail > 1) { // Multiple clicks
-                        e.preventDefault();
-                    }
-                });
-                
-                // Add visual feedback on hover
-                row.style.cursor = 'pointer';
-                
-                // Add tooltip to indicate double-click functionality
-                row.title = 'Double-click to view fixture details';
-            });
-        });
-    </script>
+
 </body>
-</html> 
+
+</html>

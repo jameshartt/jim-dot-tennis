@@ -838,58 +838,6 @@ No matchups set yet{{end}}</div>
                 </div>
 
                 <div class="detail-grid">
-                    <div class="detail-section">
-                        <h3>📅 Schedule Information</h3>
-                        <div class="detail-item">
-                            <span class="detail-label">Date:</span>
-                            <span class="detail-value">{{.FixtureDetail.ScheduledDate.Format "Monday, January 2, 2006"}}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Time:</span>
-                            <span class="detail-value">{{.FixtureDetail.ScheduledDate.Format "3:04 PM"}}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Venue:</span>
-                            <span class="detail-value">{{.FixtureDetail.VenueLocation}}</span>
-                        </div>
-                        {{if .FixtureDetail.Week}}
-                        <div class="detail-item">
-                            <span class="detail-label">Week:</span>
-                            <span class="detail-value">Week {{.FixtureDetail.Week.WeekNumber}} ({{.FixtureDetail.Week.StartDate.Format "Jan 2"}} - {{.FixtureDetail.Week.EndDate.Format "Jan 2"}})</span>
-                        </div>
-                        {{end}}
-                        
-                        <div class="copyable" tabindex="0">📅 {{if .FixtureDetail.Division}}{{.FixtureDetail.Division.Name}}{{else}}Division TBD{{end}} Fixture
-{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}
-📍 {{.FixtureDetail.VenueLocation}}
-🕐 {{.FixtureDetail.ScheduledDate.Format "Monday, January 2, 2006 at 3:04 PM"}}
-{{if .FixtureDetail.Week}}📊 Week {{.FixtureDetail.Week.WeekNumber}}{{end}}
-🏆 Status: {{.FixtureDetail.Status}}</div>
-                    </div>
-
-                    <div class="detail-section">
-                        <h3>🏆 Competition Details</h3>
-                        {{if .FixtureDetail.Division}}
-                        <div class="detail-item">
-                            <span class="detail-label">Division:</span>
-                            <span class="detail-value">{{.FixtureDetail.Division.Name}} (Level {{.FixtureDetail.Division.Level}})</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Play Day:</span>
-                            <span class="detail-value">{{.FixtureDetail.Division.PlayDay}}</span>
-                        </div>
-                        {{end}}
-                        {{if .FixtureDetail.Season}}
-                        <div class="detail-item">
-                            <span class="detail-label">Season:</span>
-                            <span class="detail-value">{{.FixtureDetail.Season.Name}} ({{.FixtureDetail.Season.Year}})</span>
-                        </div>
-                        {{end}}
-                        <div class="detail-item">
-                            <span class="detail-label">Fixture ID:</span>
-                            <span class="detail-value">#{{.FixtureDetail.ID}}</span>
-                        </div>
-                    </div>
 
                     {{if .FixtureDetail.DayCaptain}}
                     <div class="detail-section">
@@ -912,22 +860,6 @@ No matchups set yet{{end}}</div>
                         {{end}}
                     </div>
                     {{end}}
-
-                    <div class="detail-section">
-                        <h3>📋 Teams</h3>
-                        {{if .FixtureDetail.HomeTeam}}
-                        <div class="detail-item">
-                            <span class="detail-label">Home Team:</span>
-                            <span class="detail-value">{{.FixtureDetail.HomeTeam.Name}} (ID: {{.FixtureDetail.HomeTeam.ID}})</span>
-                        </div>
-                        {{end}}
-                        {{if .FixtureDetail.AwayTeam}}
-                        <div class="detail-item">
-                            <span class="detail-label">Away Team:</span>
-                            <span class="detail-value">{{.FixtureDetail.AwayTeam.Name}} (ID: {{.FixtureDetail.AwayTeam.ID}})</span>
-                        </div>
-                        {{end}}
-                    </div>
 
                     <div class="detail-section matchups-section">
                         <h3>🎾 Matchups</h3>
@@ -975,14 +907,6 @@ No matchups set yet{{end}}</div>
                             </a>
                         </div>
                     </div>
-
-                    {{if .FixtureDetail.Notes}}
-                    <div class="detail-section notes-section">
-                        <h3>📝 Notes</h3>
-                        <div class="notes-text">{{.FixtureDetail.Notes}}</div>
-                    </div>
-                    {{end}}
-
                     <div class="detail-section team-selection-section">
                         <h3>👥 Team Selection</h3>
                         

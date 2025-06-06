@@ -205,7 +205,7 @@
                     </thead>
                     <tbody>
                         {{range .Teams}}
-                        <tr data-team-id="{{.ID}}">
+                        <tr onclick="window.location.href='/admin/teams/{{.ID}}'" style="cursor: pointer;">
                             <td class="col-name">
                                 <span class="team-name">{{.Name}}</span>
                             </td>
@@ -247,53 +247,6 @@
         </div>
     </main>
 
-    <script>
-        // Handle double-click and touch events on team rows
-        document.addEventListener('DOMContentLoaded', function() {
-            const teamRows = document.querySelectorAll('table.teams-table tbody tr[data-team-id]');
-            
-            teamRows.forEach(row => {
-                let touchTime = 0;
-                
-                // Handle double-click for desktop
-                row.addEventListener('dblclick', function(e) {
-                    e.preventDefault();
-                    const teamId = this.dataset.teamId;
-                    if (teamId) {
-                        window.location.href = `/admin/teams/${teamId}`;
-                    }
-                });
-                
-                // Handle touch events for mobile (double-tap)
-                row.addEventListener('touchend', function(e) {
-                    const currentTime = new Date().getTime();
-                    const tapLength = currentTime - touchTime;
-                    
-                    if (tapLength < 500 && tapLength > 0) {
-                        // Double tap detected
-                        e.preventDefault();
-                        const teamId = this.dataset.teamId;
-                        if (teamId) {
-                            window.location.href = `/admin/teams/${teamId}`;
-                        }
-                    }
-                    touchTime = currentTime;
-                });
-                
-                // Prevent text selection on double-click to avoid interference
-                row.addEventListener('selectstart', function(e) {
-                    if (e.detail > 1) { // Multiple clicks
-                        e.preventDefault();
-                    }
-                });
-                
-                // Add visual feedback on hover
-                row.style.cursor = 'pointer';
-                
-                // Add tooltip to indicate double-click functionality
-                row.title = 'Double-click to view team details';
-            });
-        });
-    </script>
+
 </body>
 </html> 
