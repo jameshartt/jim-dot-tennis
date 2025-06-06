@@ -206,7 +206,14 @@ func (h *FixturesHandler) handleAddPlayerToFixture(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// Redirect back to appropriate page
+	// Check if this is an HTMX request
+	if r.Header.Get("HX-Request") == "true" {
+		// Return updated team selection container
+		h.renderTeamSelectionContainer(w, r, fixtureID)
+		return
+	}
+
+	// Redirect back to appropriate page for non-HTMX requests
 	redirectURL := h.getTeamSelectionRedirectURL(r, fixtureID)
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
@@ -226,7 +233,14 @@ func (h *FixturesHandler) handleRemovePlayerFromFixture(w http.ResponseWriter, r
 		return
 	}
 
-	// Redirect back to appropriate page
+	// Check if this is an HTMX request
+	if r.Header.Get("HX-Request") == "true" {
+		// Return updated team selection container
+		h.renderTeamSelectionContainer(w, r, fixtureID)
+		return
+	}
+
+	// Redirect back to appropriate page for non-HTMX requests
 	redirectURL := h.getTeamSelectionRedirectURL(r, fixtureID)
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
@@ -239,7 +253,14 @@ func (h *FixturesHandler) handleClearFixturePlayers(w http.ResponseWriter, r *ht
 		return
 	}
 
-	// Redirect back to appropriate page
+	// Check if this is an HTMX request
+	if r.Header.Get("HX-Request") == "true" {
+		// Return updated team selection container
+		h.renderTeamSelectionContainer(w, r, fixtureID)
+		return
+	}
+
+	// Redirect back to appropriate page for non-HTMX requests
 	redirectURL := h.getTeamSelectionRedirectURL(r, fixtureID)
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
@@ -589,4 +610,66 @@ func (h *FixturesHandler) getTeamSelectionRedirectURL(r *http.Request, fixtureID
 	}
 	// Otherwise redirect to fixture detail
 	return fmt.Sprintf("/admin/fixtures/%d", fixtureID)
+}
+
+// renderTeamSelectionContainer renders just the team selection container for HTMX requests
+func (h *FixturesHandler) renderTeamSelectionContainer(w http.ResponseWriter, r *http.Request, fixtureID uint) {
+	// Get the fixture with full details
+	fixtureDetail, err := h.service.GetFixtureDetail(fixtureID)
+	if err != nil {
+		logAndError(w, "Fixture not found", err, http.StatusNotFound)
+		return
+	}
+
+	// Get available players for this fixture
+	teamPlayers, allStAnnPlayers, err := h.service.GetAvailablePlayersForFixture(fixtureID)
+	if err != nil {
+		logAndError(w, "Failed to load available players", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Create a map of already selected player IDs for quick filtering
+	selectedMap := make(map[string]bool)
+	for _, sp := range fixtureDetail.SelectedPlayers {
+		selectedMap[sp.PlayerID] = true
+	}
+
+	// Filter out already selected players
+	var availableTeamPlayers []models.Player
+	for _, player := range teamPlayers {
+		if !selectedMap[player.ID] {
+			availableTeamPlayers = append(availableTeamPlayers, player)
+		}
+	}
+
+	var availableStAnnPlayers []models.Player
+	for _, player := range allStAnnPlayers {
+		if !selectedMap[player.ID] {
+			availableStAnnPlayers = append(availableStAnnPlayers, player)
+		}
+	}
+
+	// Load the partial team selection container template for HTMX
+	tmpl, err := parseTemplate(h.templateDir, "admin/fixture_team_selection_container.html")
+	if err != nil {
+		logAndError(w, "Failed to parse team selection container template", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Calculate selection percentage
+	selectedCount := len(fixtureDetail.SelectedPlayers)
+	selectionPercentage := 0
+	if selectedCount > 0 {
+		selectionPercentage = (selectedCount * 100) / 8
+	}
+
+	// Execute the template with data
+	if err := renderTemplate(w, tmpl, map[string]interface{}{
+		"FixtureDetail":       fixtureDetail,
+		"TeamPlayers":         availableTeamPlayers,
+		"AllStAnnPlayers":     availableStAnnPlayers,
+		"SelectionPercentage": selectionPercentage,
+	}); err != nil {
+		logAndError(w, err.Error(), err, http.StatusInternalServerError)
+	}
 }

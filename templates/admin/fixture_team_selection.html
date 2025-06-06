@@ -376,18 +376,26 @@
                                         <div class="player-position">Position {{.Position}}</div>
                                         {{if .IsHome}}<span class="team-badge home">Home</span>{{else}}<span class="team-badge away">Away</span>{{end}}
                                     </div>
-                                    <form method="post" style="display: inline;">
+                                    <form method="post" style="display: inline;" 
+                                          hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
+                                          hx-target=".team-selection-container"
+                                          hx-swap="outerHTML"
+                                          hx-confirm="Remove {{.Player.FirstName}} {{.Player.LastName}} from selection?">
                                         <input type="hidden" name="action" value="remove_player">
                                         <input type="hidden" name="player_id" value="{{.PlayerID}}">
-                                        <button type="submit" class="btn-remove" onclick="return confirm('Remove {{.Player.FirstName}} {{.Player.LastName}} from selection?')">×</button>
+                                        <button type="submit" class="btn-remove">×</button>
                                     </form>
                                 </div>
                                 {{end}}
                             </div>
                             <div class="selection-actions">
-                                <form method="post" style="display: inline;">
+                                <form method="post" style="display: inline;"
+                                      hx-post="/admin/fixtures/{{.FixtureDetail.ID}}/team-selection"
+                                      hx-target=".team-selection-container"
+                                      hx-swap="outerHTML"
+                                      hx-confirm="Clear all selected players?">
                                     <input type="hidden" name="action" value="clear_players">
-                                    <button type="submit" class="btn-clear" onclick="return confirm('Clear all selected players?')">Clear All Players</button>
+                                    <button type="submit" class="btn-clear">Clear All Players</button>
                                 </form>
                             </div>
                         </div>
@@ -404,7 +412,10 @@
                             <h4>Team Players ({{len .TeamPlayers}} available)</h4>
                             <div class="player-buttons">
                                 {{range .TeamPlayers}}
-                                <form method="post" style="display: inline;">
+                                <form method="post" style="display: inline;"
+                                      hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
+                                      hx-target=".team-selection-container"
+                                      hx-swap="outerHTML">
                                     <input type="hidden" name="action" value="add_player">
                                     <input type="hidden" name="player_id" value="{{.ID}}">
                                     <input type="hidden" name="is_home" value="true">
@@ -427,7 +438,10 @@
                             <h4>Other St Ann Players ({{len .AllStAnnPlayers}} available)</h4>
                             <div class="player-buttons">
                                 {{range .AllStAnnPlayers}}
-                                <form method="post" style="display: inline;">
+                                <form method="post" style="display: inline;"
+                                      hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
+                                      hx-target=".team-selection-container"
+                                      hx-swap="outerHTML">
                                     <input type="hidden" name="action" value="add_player">
                                     <input type="hidden" name="player_id" value="{{.ID}}">
                                     <input type="hidden" name="is_home" value="true">
@@ -446,40 +460,5 @@
             </div>
         </div>
     </main>
-
-    <script>
-        // Save scroll position relative to bottom before form submission
-        document.addEventListener('DOMContentLoaded', function() {
-            // Restore scroll position if returning from form submission
-            const savedDistanceFromBottom = sessionStorage.getItem('teamSelectionScrollPos');
-            if (savedDistanceFromBottom) {
-                // Calculate new scroll position based on distance from bottom
-                const totalHeight = document.body.scrollHeight;
-                const viewportHeight = window.innerHeight;
-                const targetScrollTop = totalHeight - parseInt(savedDistanceFromBottom) - viewportHeight;
-                
-                // Ensure we don't scroll beyond the page bounds
-                const maxScroll = Math.max(0, totalHeight - viewportHeight);
-                const scrollPosition = Math.max(0, Math.min(targetScrollTop, maxScroll));
-                
-                window.scrollTo(0, scrollPosition);
-                sessionStorage.removeItem('teamSelectionScrollPos');
-            }
-
-            // Save scroll position relative to bottom before any form submission
-            const forms = document.querySelectorAll('form');
-            forms.forEach(form => {
-                form.addEventListener('submit', function() {
-                    // Calculate distance from bottom of page
-                    const totalHeight = document.body.scrollHeight;
-                    const currentScrollTop = window.scrollY;
-                    const viewportHeight = window.innerHeight;
-                    const distanceFromBottom = totalHeight - currentScrollTop - viewportHeight;
-                    
-                    sessionStorage.setItem('teamSelectionScrollPos', distanceFromBottom);
-                });
-            });
-        });
-    </script>
 </body>
 </html> 
