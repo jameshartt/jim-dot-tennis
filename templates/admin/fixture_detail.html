@@ -744,6 +744,57 @@
                 font-size: 0.8rem;
             }
         }
+        
+        /* Copy animation styles */
+        .glance-copyable.copied {
+            background: #d4edda !important;
+            border-color: #28a745 !important;
+            transition: all 0.3s ease;
+        }
+        
+        .copy-feedback {
+            position: absolute;
+            background: #28a745;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+        }
+        
+        .copy-feedback.show {
+            opacity: 1;
+            transform: translateY(-20px);
+        }
+        
+        .glance-copyable {
+            position: relative;
+        }
+        
+        .glance-copyable::before {
+            content: "📋 Tap to copy";
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--primary-color);
+            color: white;
+            font-size: 0.7rem;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .glance-copyable:hover::before {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -947,5 +998,104 @@ No matchups set yet{{end}}</div>
             {{end}}
         </div>
     </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add click-to-copy functionality to glance-copyable elements
+            const copyableElements = document.querySelectorAll('.glance-copyable');
+            
+            copyableElements.forEach(element => {
+                element.addEventListener('click', async function() {
+                    try {
+                        // Get the text content, preserving line breaks
+                        const text = this.textContent || this.innerText;
+                        
+                        // Copy to clipboard
+                        if (navigator.clipboard && window.isSecureContext) {
+                            // Use modern clipboard API
+                            await navigator.clipboard.writeText(text);
+                        } else {
+                            // Fallback for older browsers or non-HTTPS
+                            const textArea = document.createElement('textarea');
+                            textArea.value = text;
+                            textArea.style.position = 'fixed';
+                            textArea.style.left = '-999999px';
+                            textArea.style.top = '-999999px';
+                            document.body.appendChild(textArea);
+                            textArea.focus();
+                            textArea.select();
+                            document.execCommand('copy');
+                            textArea.remove();
+                        }
+                        
+                        // Visual feedback - background color change
+                        this.classList.add('copied');
+                        
+                        // Create and show "Copied!" message
+                        const feedback = document.createElement('div');
+                        feedback.className = 'copy-feedback';
+                        feedback.textContent = '✅ Copied!';
+                        
+                        // Position feedback relative to the element
+                        const rect = this.getBoundingClientRect();
+                        feedback.style.left = (rect.left + rect.width / 2) + 'px';
+                        feedback.style.top = (rect.top + window.scrollY) + 'px';
+                        feedback.style.transform = 'translateX(-50%)';
+                        
+                        document.body.appendChild(feedback);
+                        
+                        // Animate feedback
+                        setTimeout(() => {
+                            feedback.classList.add('show');
+                        }, 10);
+                        
+                        // Remove visual feedback after animation
+                        setTimeout(() => {
+                            this.classList.remove('copied');
+                            feedback.classList.remove('show');
+                            setTimeout(() => {
+                                if (feedback.parentNode) {
+                                    feedback.parentNode.removeChild(feedback);
+                                }
+                            }, 300);
+                        }, 1500);
+                        
+                    } catch (err) {
+                        console.error('Failed to copy text: ', err);
+                        
+                        // Show error feedback
+                        const errorFeedback = document.createElement('div');
+                        errorFeedback.className = 'copy-feedback';
+                        errorFeedback.style.background = '#dc3545';
+                        errorFeedback.textContent = '❌ Copy failed';
+                        
+                        const rect = this.getBoundingClientRect();
+                        errorFeedback.style.left = (rect.left + rect.width / 2) + 'px';
+                        errorFeedback.style.top = (rect.top + window.scrollY) + 'px';
+                        errorFeedback.style.transform = 'translateX(-50%)';
+                        
+                        document.body.appendChild(errorFeedback);
+                        
+                        setTimeout(() => {
+                            errorFeedback.classList.add('show');
+                        }, 10);
+                        
+                        setTimeout(() => {
+                            errorFeedback.classList.remove('show');
+                            setTimeout(() => {
+                                if (errorFeedback.parentNode) {
+                                    errorFeedback.parentNode.removeChild(errorFeedback);
+                                }
+                            }, 300);
+                        }, 2000);
+                    }
+                });
+                
+                // Make it clear that the element is clickable
+                element.style.cursor = 'pointer';
+                element.setAttribute('title', 'Click to copy fixture information');
+            });
+        });
+    </script>
 </body>
 </html> 
