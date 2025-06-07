@@ -176,6 +176,9 @@ func parseFixturesFromText(text, divisionName string) ([]FixtureRow, error) {
 	// Regular expressions for parsing
 	weekRegex := regexp.MustCompile(`^Wk\s+(\d+)$`)
 
+	// Track which weeks we've already processed to avoid duplicates
+	processedWeeks := make(map[int]bool)
+
 	i := 0
 	for i < len(lines) {
 		line := strings.TrimSpace(lines[i])
@@ -198,8 +201,12 @@ func parseFixturesFromText(text, divisionName string) ([]FixtureRow, error) {
 
 			// Only process weeks 1-9 as they start new fixture blocks
 			// Weeks 10-18 are second halves and will be handled within the blocks
-			if firstWeek <= 9 {
+			// Also check if we've already processed this week to avoid duplicates
+			if firstWeek <= 9 && !processedWeeks[firstWeek] {
 				fmt.Printf("Found first-half week %d at line %d: '%s'\n", firstWeek, i+1, line)
+
+				// Mark this week as processed
+				processedWeeks[firstWeek] = true
 
 				// Parse the complete fixture block
 				blockFixtures, nextIndex := parseFixtureBlock(lines, i, firstWeek, divisionName)
@@ -207,8 +214,12 @@ func parseFixturesFromText(text, divisionName string) ([]FixtureRow, error) {
 				fmt.Printf("Parsed %d fixtures from week %d block, next index: %d\n", len(blockFixtures), firstWeek, nextIndex)
 				i = nextIndex
 			} else {
-				// Skip weeks 10-18 as they are handled as second halves
-				fmt.Printf("Skipping second-half week %d at line %d\n", firstWeek, i+1)
+				// Skip weeks 10-18 as they are handled as second halves, or already processed weeks
+				if firstWeek <= 9 {
+					fmt.Printf("Skipping already processed week %d at line %d\n", firstWeek, i+1)
+				} else {
+					fmt.Printf("Skipping second-half week %d at line %d\n", firstWeek, i+1)
+				}
 				i++
 			}
 		} else {
