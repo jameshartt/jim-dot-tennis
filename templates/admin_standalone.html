@@ -91,6 +91,80 @@
             font-weight: 600;
         }
         
+        .table-container {
+            overflow-x: auto;
+            margin-top: 1rem;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* Mobile responsive adjustments */
+        @media (max-width: 767px) {
+            .admin-container {
+                padding: 0.5rem 0;
+            }
+            
+            .admin-stats {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 0.75rem;
+                margin: 1rem 0;
+            }
+            
+            .stat-card {
+                padding: 1rem;
+            }
+            
+            .stat-value {
+                font-size: 1.5rem;
+            }
+            
+            .admin-section {
+                padding: 1rem;
+            }
+            
+            .admin-actions {
+                gap: 0.25rem;
+            }
+            
+            .admin-actions .btn {
+                font-size: 0.875rem;
+                padding: 0.5rem 0.75rem;
+            }
+            
+            .data-table th, .data-table td {
+                padding: 0.5rem 0.25rem;
+                font-size: 0.875rem;
+            }
+            
+            .data-table th:nth-child(2), 
+            .data-table td:nth-child(2) {
+                /* IP column - make it narrower on mobile */
+                max-width: 80px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            
+            .data-table th:nth-child(3), 
+            .data-table td:nth-child(3) {
+                /* Date column - make it narrower on mobile */
+                max-width: 100px;
+                font-size: 0.75rem;
+            }
+            
+            h1 {
+                font-size: 1.75rem;
+                margin-bottom: 1rem;
+            }
+            
+            h2 {
+                font-size: 1.25rem;
+            }
+            
+            .user-info {
+                display: none; /* Hide "Logged in as" text on mobile */
+            }
+        }
+        
         .status-success {
             color: var(--success-color);
             font-weight: 500;
@@ -118,15 +192,8 @@
         <div class="container">
             <div class="header-content">
                 <a href="/" class="logo">
-                    <img src="/static/img/logo.svg" alt="Jim.Tennis Logo">
+                    <img src="/static/icon-192.svg" alt="Jim.Tennis Logo">
                 </a>
-                <nav>
-                    <ul>
-                        <li><a href="/">Home</a></li>
-                        <li><a href="/fixtures">Fixtures</a></li>
-                        <li><a href="/availability">Availability</a></li>
-                    </ul>
-                </nav>
                 <div class="user-controls">
                     <span class="user-info">Logged in as: {{.User.Username}}</span>
                     <a href="/logout" class="btn btn-sm btn-danger">Logout</a>
@@ -175,38 +242,40 @@
                     
                     <div class="admin-section">
                         <h2>Recent Login Attempts</h2>
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Username</th>
-                                    <th>IP</th>
-                                    <th>Date/Time</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {{if .LoginAttempts}}
-                                    {{range .LoginAttempts}}
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
                                     <tr>
-                                        <td>{{.Username}}</td>
-                                        <td>{{.IP}}</td>
-                                        <td>{{.CreatedAt.Format "Jan 02, 2006 15:04:05"}}</td>
-                                        <td>
-                                            {{if .Success}}
-                                            <span class="status-success">Success</span>
-                                            {{else}}
-                                            <span class="status-failure">Failed</span>
-                                            {{end}}
-                                        </td>
+                                        <th>Username</th>
+                                        <th>IP</th>
+                                        <th>Date/Time</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {{if .LoginAttempts}}
+                                        {{range .LoginAttempts}}
+                                        <tr>
+                                            <td>{{.Username}}</td>
+                                            <td>{{.IP}}</td>
+                                            <td>{{.CreatedAt.Format "Jan 02, 2006 15:04:05"}}</td>
+                                            <td>
+                                                {{if .Success}}
+                                                <span class="status-success">Success</span>
+                                                {{else}}
+                                                <span class="status-failure">Failed</span>
+                                                {{end}}
+                                            </td>
+                                        </tr>
+                                        {{end}}
+                                    {{else}}
+                                    <tr>
+                                        <td colspan="4">No recent login attempts</td>
                                     </tr>
                                     {{end}}
-                                {{else}}
-                                <tr>
-                                    <td colspan="4">No recent login attempts</td>
-                                </tr>
-                                {{end}}
-                            </tbody>
-                        </table>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
