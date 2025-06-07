@@ -52,11 +52,11 @@ VALUES ('james.hartt', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNY
 -- Insert additional admin users with password
 -- In production, change these passwords immediately!
 INSERT INTO users (username, password_hash, role, is_active, created_at, last_login_at) VALUES
-('conrad.brunner', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'captain', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('ed.newlands', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'captain', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('elspeth.jackson', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'captain', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('joss.albert', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'captain', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('neeraj.nayar', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'captain', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('steve.dorney', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'captain', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('stuart.hehir', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'captain', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+('conrad.brunner', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'admin', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('ed.newlands', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'admin', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('elspeth.jackson', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'admin', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('joss.albert', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'admin', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('neeraj.nayar', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'admin', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('steve.dorney', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'admin', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('stuart.hehir', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'admin', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
