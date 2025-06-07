@@ -102,79 +102,33 @@
             font-weight: 600;
         }
         
-        .selected-player-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        .selected-player-buttons {
+            display: flex;
+            flex-wrap: wrap;
             gap: 0.5rem;
             margin: 1rem 0;
         }
         
-        .selected-player-card {
-            background: white;
-            border: 2px solid #e9ecef;
-            border-radius: 6px;
-            padding: 0.75rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: border-color 0.2s;
-        }
-        
-        .selected-player-card:hover {
-            border-color: var(--primary-color);
-        }
-        
-        .player-info {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-        
-        .player-name {
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-        
-        .player-position {
-            font-size: 0.7rem;
-            color: #6c757d;
-        }
-        
-        .team-badge {
-            font-size: 0.6rem;
-            padding: 0.2rem 0.4rem;
-            border-radius: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-        
-        .team-badge.home {
-            background: #e3f2fd;
-            color: #1565c0;
-        }
-        
-        .team-badge.away {
-            background: #fff3e0;
-            color: #ef6c00;
-        }
-        
-        .btn-remove {
+        .btn-remove-player {
             background: #dc3545;
             color: white;
             border: none;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
+            padding: 0.5rem 0.75rem;
+            border-radius: 4px;
             cursor: pointer;
-            font-size: 0.8rem;
-            line-height: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            font-size: 0.85rem;
+            transition: background-color 0.2s;
+            white-space: nowrap;
+            position: relative;
         }
         
-        .btn-remove:hover {
+        .btn-remove-player:hover {
             background: #c82333;
+        }
+        
+        .btn-remove-player:before {
+            content: "✓ ";
+            font-weight: bold;
         }
         
         .selection-count {
@@ -302,8 +256,8 @@
                 font-size: 1rem;
             }
             
-            .selected-player-grid {
-                grid-template-columns: 1fr;
+            .selected-player-buttons {
+                flex-direction: column;
             }
             
             .player-buttons {
@@ -368,24 +322,19 @@
                         
                         {{if .FixtureDetail.SelectedPlayers}}
                         <div class="selected-players">
-                            <div class="selected-player-grid">
+                            <div class="selected-player-buttons">
                                 {{range .FixtureDetail.SelectedPlayers}}
-                                <div class="selected-player-card">
-                                    <div class="player-info">
-                                        <div class="player-name">{{.Player.FirstName}} {{.Player.LastName}}</div>
-                                        <div class="player-position">Position {{.Position}}</div>
-                                        {{if .IsHome}}<span class="team-badge home">Home</span>{{else}}<span class="team-badge away">Away</span>{{end}}
-                                    </div>
-                                    <form method="post" style="display: inline;" 
-                                          hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
-                                          hx-target=".team-selection-container"
-                                          hx-swap="outerHTML"
-                                          hx-confirm="Remove {{.Player.FirstName}} {{.Player.LastName}} from selection?">
-                                        <input type="hidden" name="action" value="remove_player">
-                                        <input type="hidden" name="player_id" value="{{.PlayerID}}">
-                                        <button type="submit" class="btn-remove">×</button>
-                                    </form>
-                                </div>
+                                <form method="post" style="display: inline;"
+                                      hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
+                                      hx-target=".team-selection-container"
+                                      hx-swap="outerHTML"
+                                      hx-confirm="Remove {{.Player.FirstName}} {{.Player.LastName}} from selection?">
+                                    <input type="hidden" name="action" value="remove_player">
+                                    <input type="hidden" name="player_id" value="{{.PlayerID}}">
+                                    <button type="submit" class="btn-remove-player">
+                                        {{.Player.FirstName}} {{.Player.LastName}} (Pos {{.Position}})
+                                    </button>
+                                </form>
                                 {{end}}
                             </div>
                             <div class="selection-actions">
