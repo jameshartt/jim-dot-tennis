@@ -1,7 +1,7 @@
 FROM golang:1.24.1-alpine AS builder
 
-# Install build dependencies
-RUN apk add --no-cache gcc musl-dev
+# Install build dependencies including newer build tools
+RUN apk add --no-cache gcc musl-dev sqlite-dev build-base
 
 # Set working directory
 WORKDIR /app
@@ -15,8 +15,8 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=1 GOOS=linux go build -a -o /app/bin/jim-dot-tennis ./cmd/jim-dot-tennis
+# Build the application with SQLite compatibility flags
+RUN CGO_ENABLED=1 GOOS=linux CGO_CFLAGS="-D_LARGEFILE64_SOURCE" go build -a -ldflags '-extldflags "-static"' -tags 'sqlite_omit_load_extension' -o /app/bin/jim-dot-tennis ./cmd/jim-dot-tennis
 
 # Use a smaller image for the final application
 FROM alpine:latest
