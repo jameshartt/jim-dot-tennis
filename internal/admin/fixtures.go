@@ -2,8 +2,10 @@ package admin
 
 import (
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"jim-dot-tennis/internal/models"
@@ -553,8 +555,11 @@ func (h *FixturesHandler) handleMatchupSelectionGet(w http.ResponseWriter, r *ht
 		return
 	}
 
-	// Load the matchup selection template
-	tmpl, err := parseTemplate(h.templateDir, "admin/fixture_matchup_selection.html")
+	// Load the matchup selection template with its partial
+	tmpl, err := template.ParseFiles(
+		filepath.Join(h.templateDir, "admin/fixture_matchup_selection.html"),
+		filepath.Join(h.templateDir, "admin/fixture_matchup_existing_container.html"),
+	)
 	if err != nil {
 		log.Printf("Error parsing matchup selection template: %v", err)
 		// Fallback to simple HTML response
@@ -610,7 +615,14 @@ func (h *FixturesHandler) handleUpdateMatchupFromSelection(w http.ResponseWriter
 		return
 	}
 
-	// Redirect back to matchup selection page
+	// Check if this is an HTMX request
+	if r.Header.Get("HX-Request") == "true" {
+		// Return updated existing matchups container
+		h.renderExistingMatchupsContainer(w, r, fixtureID)
+		return
+	}
+
+	// Redirect back to matchup selection page for non-HTMX requests
 	http.Redirect(w, r, fmt.Sprintf("/admin/fixtures/%d/matchup-selection", fixtureID), http.StatusSeeOther)
 }
 
@@ -681,6 +693,32 @@ func (h *FixturesHandler) renderTeamSelectionContainer(w http.ResponseWriter, r 
 		"TeamPlayers":         availableTeamPlayers,
 		"AllStAnnPlayers":     availableStAnnPlayers,
 		"SelectionPercentage": selectionPercentage,
+	}); err != nil {
+		logAndError(w, err.Error(), err, http.StatusInternalServerError)
+	}
+}
+
+// renderExistingMatchupsContainer renders just the existing matchups container for HTMX requests
+func (h *FixturesHandler) renderExistingMatchupsContainer(w http.ResponseWriter, r *http.Request, fixtureID uint) {
+	// Get the fixture with full details
+	fixtureDetail, err := h.service.GetFixtureDetail(fixtureID)
+	if err != nil {
+		logAndError(w, "Fixture not found", err, http.StatusNotFound)
+		return
+	}
+
+	// Load the partial existing matchups container template for HTMX
+	tmpl, err := template.ParseFiles(
+		filepath.Join(h.templateDir, "admin/fixture_matchup_existing_container.html"),
+	)
+	if err != nil {
+		logAndError(w, "Failed to parse existing matchups container template", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Execute the template with data
+	if err := renderTemplate(w, tmpl, map[string]interface{}{
+		"FixtureDetail": fixtureDetail,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}

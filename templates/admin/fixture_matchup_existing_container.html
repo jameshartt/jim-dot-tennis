@@ -1,0 +1,39 @@
+{{if .FixtureDetail.Matchups}}
+<div class="existing-matchups">
+    <h4>📋 Current Matchups</h4>
+    <div class="matchups-grid">
+        {{range .FixtureDetail.Matchups}}
+        <div class="matchup-card">
+            <div class="matchup-header">
+                <div class="matchup-type">{{.Matchup.Type}}</div>
+            </div>
+            
+            <div class="matchup-players">
+                {{if .Players}}
+                    <div class="player-list">
+                        {{range .Players}}
+                        <div class="player-name">{{.Player.FirstName}} {{.Player.LastName}}</div>
+                        {{end}}
+                    </div>
+                {{else}}
+                    <div class="no-players-assigned">
+                        <p>No players assigned yet</p>
+                    </div>
+                {{end}}
+            </div>
+            
+            {{if .Matchup.Notes}}
+            <div class="matchup-notes">
+                <strong>Notes:</strong> {{.Matchup.Notes}}
+            </div>
+            {{end}}
+        </div>
+        {{end}}
+    </div>
+</div>
+{{else}}
+<div class="existing-matchups">
+    <h4>📋 Current Matchups</h4>
+    <p class="no-matchups">No matchups configured yet.</p>
+</div>
+{{end}} 

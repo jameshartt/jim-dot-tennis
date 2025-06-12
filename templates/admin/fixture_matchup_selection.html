@@ -224,6 +224,14 @@
             font-size: 0.9rem;
         }
         
+        .no-matchups {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 1rem;
+            font-size: 0.9rem;
+        }
+        
         .matchup-notes {
             margin-top: 0.5rem;
             padding-top: 0.25rem;
@@ -344,7 +352,10 @@
                     <!-- First Mixed Doubles -->
                     <div class="matchup-form">
                         <h4>👫 1st Mixed Doubles</h4>
-                        <form method="post" action="/admin/fixtures/{{$fixtureID}}/matchup-selection">
+                        <form method="post" action="/admin/fixtures/{{$fixtureID}}/matchup-selection"
+                              hx-post="/admin/fixtures/{{$fixtureID}}/matchup-selection"
+                              hx-target=".existing-matchups"
+                              hx-swap="outerHTML">
                             <input type="hidden" name="action" value="update_matchup">
                             <input type="hidden" name="matchup_type" value="1st Mixed">
                             
@@ -372,7 +383,10 @@
                     <!-- Second Mixed Doubles -->
                     <div class="matchup-form">
                         <h4>👫 2nd Mixed Doubles</h4>
-                        <form method="post" action="/admin/fixtures/{{$fixtureID}}/matchup-selection">
+                        <form method="post" action="/admin/fixtures/{{$fixtureID}}/matchup-selection"
+                              hx-post="/admin/fixtures/{{$fixtureID}}/matchup-selection"
+                              hx-target=".existing-matchups"
+                              hx-swap="outerHTML">
                             <input type="hidden" name="action" value="update_matchup">
                             <input type="hidden" name="matchup_type" value="2nd Mixed">
                             
@@ -400,7 +414,10 @@
                     <!-- Men's Doubles -->
                     <div class="matchup-form">
                         <h4>👨‍🤝‍👨 Men's Doubles</h4>
-                        <form method="post" action="/admin/fixtures/{{$fixtureID}}/matchup-selection">
+                        <form method="post" action="/admin/fixtures/{{$fixtureID}}/matchup-selection"
+                              hx-post="/admin/fixtures/{{$fixtureID}}/matchup-selection"
+                              hx-target=".existing-matchups"
+                              hx-swap="outerHTML">
                             <input type="hidden" name="action" value="update_matchup">
                             <input type="hidden" name="matchup_type" value="Mens">
                             
@@ -428,7 +445,10 @@
                     <!-- Women's Doubles -->
                     <div class="matchup-form">
                         <h4>👩‍🤝‍👩 Women's Doubles</h4>
-                        <form method="post" action="/admin/fixtures/{{$fixtureID}}/matchup-selection">
+                        <form method="post" action="/admin/fixtures/{{$fixtureID}}/matchup-selection"
+                              hx-post="/admin/fixtures/{{$fixtureID}}/matchup-selection"
+                              hx-target=".existing-matchups"
+                              hx-swap="outerHTML">
                             <input type="hidden" name="action" value="update_matchup">
                             <input type="hidden" name="matchup_type" value="Womens">
                             
@@ -454,40 +474,7 @@
                     </div>
                 </div>
 
-                {{if .FixtureDetail.Matchups}}
-                <div class="existing-matchups">
-                    <h4>📋 Current Matchups</h4>
-                    <div class="matchups-grid">
-                        {{range .FixtureDetail.Matchups}}
-                        <div class="matchup-card">
-                            <div class="matchup-header">
-                                <div class="matchup-type">{{.Matchup.Type}}</div>
-                            </div>
-                            
-                            <div class="matchup-players">
-                                {{if .Players}}
-                                    <div class="player-list">
-                                        {{range .Players}}
-                                        <div class="player-name">{{.Player.FirstName}} {{.Player.LastName}}</div>
-                                        {{end}}
-                                    </div>
-                                {{else}}
-                                    <div class="no-players-assigned">
-                                        <p>No players assigned yet</p>
-                                    </div>
-                                {{end}}
-                            </div>
-                            
-                            {{if .Matchup.Notes}}
-                            <div class="matchup-notes">
-                                <strong>Notes:</strong> {{.Matchup.Notes}}
-                            </div>
-                            {{end}}
-                        </div>
-                        {{end}}
-                    </div>
-                </div>
-                {{end}}
+                {{template "fixture_matchup_existing_container.html" .}}
             </div>
             {{else}}
             <div class="matchup-selection">
