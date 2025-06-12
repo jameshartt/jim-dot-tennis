@@ -65,11 +65,11 @@ The application will follow a server-side rendered architecture with minimal cli
 
 - [x] Division-based access control
 - [x] Available player listings
-- [ ] Team selection interface
+- [x] Team selection interface
 - [ ] Selection confirmation and notifications
 - [ ] Selection overview across divisions
 - [ ] Player status tracking
-- [ ] Image fixture sharing for Whatsapp
+- [x] Summary of fixture sharing for Whatsapp
 
 ### Phase 3: Player Availability Management
 
