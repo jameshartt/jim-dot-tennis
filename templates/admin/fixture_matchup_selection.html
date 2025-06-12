@@ -324,16 +324,7 @@
                     </p>
                 </div>
 
-                {{if .FixtureDetail.DuplicateWarnings}}
-                <div class="duplicate-warnings">
-                    {{range .FixtureDetail.DuplicateWarnings}}
-                    <div class="warning-alert">
-                        <span class="warning-icon">⚠️</span>
-                        <strong>{{.PlayerName}}</strong> is assigned to multiple matchups: {{range $index, $matchup := .Matchups}}{{if $index}}, {{end}}{{$matchup}}{{end}}
-                    </div>
-                    {{end}}
-                </div>
-                {{end}}
+
 
                 {{if .FixtureDetail.SelectedPlayers}}
                 <div class="info-highlight">
