@@ -22,12 +22,13 @@ import (
 )
 
 type PopulateConfig struct {
-	CSVDir      string
-	DBPath      string
-	DBType      string
-	DryRun      bool
-	Verbose     bool
-	PlayersFile string // New field for the players HTML file
+	CSVDir            string
+	DBPath            string
+	DBType            string
+	DryRun            bool
+	Verbose           bool
+	PlayersFile       string // New field for the players HTML file
+	TennisPlayersFile string // New field for the tennis players JSON file
 }
 
 type TeamInfo struct {
@@ -45,6 +46,7 @@ func main() {
 	flag.BoolVar(&config.DryRun, "dry-run", false, "Print what would be done without making changes")
 	flag.BoolVar(&config.Verbose, "verbose", false, "Enable verbose logging")
 	flag.StringVar(&config.PlayersFile, "players-file", "players-import/players.html", "Path to the players HTML file")
+	flag.StringVar(&config.TennisPlayersFile, "tennis-players-file", "cmd/collect_tennis_data/tennis_players.json", "Path to the tennis players JSON file")
 	flag.Parse()
 
 	if config.Verbose {
@@ -141,6 +143,11 @@ func populateDatabase(config *PopulateConfig) error {
 	// Import players from HTML
 	if err := importPlayers(ctx, config.PlayersFile, clubRepo, playerRepo, config); err != nil {
 		return fmt.Errorf("failed to import players: %w", err)
+	}
+
+	// Import tennis players from JSON
+	if err := importTennisPlayers(ctx, config.TennisPlayersFile, config); err != nil {
+		return fmt.Errorf("failed to import tennis players: %w", err)
 	}
 
 	return nil
@@ -882,5 +889,62 @@ func importPlayers(ctx context.Context, filePath string, clubRepo repository.Clu
 	}
 
 	log.Printf("Player import completed: %d imported, %d skipped", importedCount, skippedCount)
+	return nil
+}
+
+// Import tennis players from JSON
+func importTennisPlayers(ctx context.Context, filePath string, config *PopulateConfig) error {
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		if config.Verbose {
+			log.Printf("Tennis players file %s not found, skipping tennis player import", filePath)
+		}
+		return nil
+	}
+
+	if config.Verbose {
+		log.Printf("Starting tennis player import from %s", filePath)
+	}
+
+	// Connect to database
+	dbConfig := database.Config{
+		Driver:   config.DBType,
+		FilePath: config.DBPath,
+	}
+
+	db, err := database.New(dbConfig)
+	if err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
+	}
+	defer db.Close()
+
+	// Initialize tennis player repository
+	tennisPlayerRepo := repository.NewTennisPlayerRepository(db)
+
+	if config.DryRun {
+		log.Printf("[DRY RUN] Would import tennis players from %s", filePath)
+		return nil
+	}
+
+	// Import tennis players
+	if err := tennisPlayerRepo.ImportFromJSON(ctx, filePath); err != nil {
+		return fmt.Errorf("failed to import tennis players: %w", err)
+	}
+
+	// Get counts for reporting
+	atpCount, err := tennisPlayerRepo.CountByTour(ctx, "ATP")
+	if err != nil {
+		log.Printf("Warning: Failed to count ATP players: %v", err)
+	}
+
+	wtaCount, err := tennisPlayerRepo.CountByTour(ctx, "WTA")
+	if err != nil {
+		log.Printf("Warning: Failed to count WTA players: %v", err)
+	}
+
+	if config.Verbose {
+		log.Printf("Successfully imported %d ATP players and %d WTA players", atpCount, wtaCount)
+	}
+
 	return nil
 }

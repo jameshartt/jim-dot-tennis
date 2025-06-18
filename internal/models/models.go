@@ -232,3 +232,36 @@ type FixturePlayer struct {
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
+
+// TennisPlayer represents a professional tennis player from ATP/WTA
+type TennisPlayer struct {
+	ID           int       `json:"id" db:"id"`
+	FirstName    string    `json:"first_name" db:"first_name"`
+	LastName     string    `json:"last_name" db:"last_name"`
+	CommonName   string    `json:"common_name" db:"common_name"`
+	Nationality  string    `json:"nationality" db:"nationality"`
+	Gender       string    `json:"gender" db:"gender"`
+	CurrentRank  int       `json:"current_rank" db:"current_rank"`
+	HighestRank  int       `json:"highest_rank" db:"highest_rank"`
+	YearPro      int       `json:"year_pro" db:"year_pro"`
+	WikipediaURL string    `json:"wikipedia_url" db:"wikipedia_url"`
+	Hand         string    `json:"hand" db:"hand"`
+	BirthDate    string    `json:"birth_date" db:"birth_date"`
+	BirthPlace   string    `json:"birth_place" db:"birth_place"`
+	Tour         string    `json:"tour" db:"tour"` // "ATP" or "WTA"
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// FantasyMixedDoubles represents a fantasy mixed doubles match for player authentication
+type FantasyMixedDoubles struct {
+	ID           uint      `json:"id" db:"id"`
+	TeamAWomanID int       `json:"team_a_woman_id" db:"team_a_woman_id"` // WTA player on Team A
+	TeamAManID   int       `json:"team_a_man_id" db:"team_a_man_id"`     // ATP player on Team A
+	TeamBWomanID int       `json:"team_b_woman_id" db:"team_b_woman_id"` // WTA player on Team B
+	TeamBManID   int       `json:"team_b_man_id" db:"team_b_man_id"`     // ATP player on Team B
+	AuthToken    string    `json:"auth_token" db:"auth_token"`           // Concatenated surnames with underscore
+	IsActive     bool      `json:"is_active" db:"is_active"`             // Whether this match is currently active
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+}
