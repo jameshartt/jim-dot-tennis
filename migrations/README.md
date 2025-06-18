@@ -12,11 +12,13 @@ Migrations are run in numerical order based on the version number prefix.
 
 ## Running Migrations
 
-### Using the Migration Tool
+### Using the Migration Tools
 
-We use a custom migration tool based on [golang-migrate/migrate](https://github.com/golang-migrate/migrate).
+We use custom migration tools based on [golang-migrate/migrate](https://github.com/golang-migrate/migrate).
 
-1. Build the tool:
+#### Applying Migrations
+
+1. Build the migration tool:
 ```bash
 go build -o bin/migrate cmd/migrate/main.go
 ```
@@ -32,8 +34,27 @@ go build -o bin/migrate cmd/migrate/main.go
 
 The tool will automatically apply any pending migrations.
 
+#### Rolling Back Migrations
+
+1. Build the migrate down tool:
+```bash
+go build -o bin/migrate-down cmd/migrate-down/main.go
+```
+
+2. Roll back to a specific version:
+```bash
+# Roll back to version 5 (SQLite)
+./bin/migrate-down -db-path ./tennis.db -version 5
+
+# Roll back to version 3 (PostgreSQL)
+./bin/migrate-down -db postgres -host localhost -port 5432 -user postgres -pass postgres -name tennis -version 3
+```
+
+The tool will migrate down to the specified version, running all down migrations in reverse order.
+
 ### Command Line Flags
 
+#### Migration Tool (cmd/migrate/main.go)
 - `-path`: Path to migration files (default: "./migrations")
 - `-db`: Database type (postgres or sqlite3)
 - `-host`: Database host (PostgreSQL only)
@@ -42,6 +63,11 @@ The tool will automatically apply any pending migrations.
 - `-pass`: Database password (PostgreSQL only) 
 - `-name`: Database name (PostgreSQL only)
 - `-db-path`: Database file path (SQLite only)
+
+#### Migrate Down Tool (cmd/migrate-down/main.go)
+- `-path`: Path to migration files (default: "./migrations")
+- `-db-path`: Database file path (default: "./tennis.db")
+- `-version`: Target migration version to migrate down to (default: 5)
 
 ### Environment Variables
 
@@ -73,6 +99,8 @@ To create a new migration:
 
 - **Dirty Database State**: If a migration fails partway through, the database may be marked as "dirty". The migration tool will automatically attempt to handle this by forcing the version before retrying.
 
-- **Migration Version Mismatch**: If you need to force a specific migration version, you can modify the code in `ExecuteMigrations` to call `m.Migrate(targetVersion)` instead of `m.Up()`.
+- **Migration Version Mismatch**: If you need to force a specific migration version, you can use the migrate down tool to roll back to a specific version, then run the migration tool again to apply migrations up to the desired version.
+
+- **Rolling Back Migrations**: Use the migrate down tool to roll back to a specific version. This is useful for testing migrations or fixing issues with recent schema changes.
 
 - **Database-Specific Syntax**: Be aware that PostgreSQL and SQLite have different SQL syntax for some operations. Make sure your migrations are compatible with the database you're using. 
