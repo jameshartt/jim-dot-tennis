@@ -180,6 +180,20 @@ func collectPlayersFromTennisAbstract(isATP bool, limit int) ([]TennisPlayer, er
 			}
 		}
 
+		// If no Wikipedia URL was found in the profile, try constructing one from the player name
+		if profile.WikipediaURL == "" {
+			log.Printf("No Wikipedia URL found in profile for %s, trying to construct one from name", playerName)
+			constructedURL, err := tryWikipediaURLFromName(playerName)
+			if err != nil {
+				log.Printf("Warning: Could not find valid Wikipedia page for %s: %v", playerName, err)
+				// Fall back to generated URL (may not be valid)
+				profile.WikipediaURL = generateWikipediaURL(playerName)
+			} else {
+				profile.WikipediaURL = constructedURL
+				log.Printf("Successfully found Wikipedia URL for %s: %s", playerName, constructedURL)
+			}
+		}
+
 		// Get Wikipedia data if we have a URL
 		if profile.WikipediaURL != "" {
 			wikiData, err := fetchWikipediaData(profile.WikipediaURL)
@@ -283,14 +297,66 @@ func parsePlayerName(fullName string) (firstName, lastName string) {
 }
 
 func generateWikipediaURL(playerName string) string {
-	// Clean the name for Wikipedia URL format
+	// Clean the name for Wikipedia URL format - replace spaces with underscores
 	cleanName := strings.ReplaceAll(playerName, " ", "_")
 
-	// Remove special characters that might cause issues
-	reg := regexp.MustCompile(`[^a-zA-Z0-9_\-]`)
+	return fmt.Sprintf("https://en.wikipedia.org/wiki/%s", cleanName)
+}
+
+// tryWikipediaURLFromName attempts to find a Wikipedia page for a player by constructing a URL from their name
+func tryWikipediaURLFromName(playerName string) (string, error) {
+	// Clean the name for Wikipedia URL format - replace spaces with underscores
+	cleanName := strings.ReplaceAll(playerName, " ", "_")
+
+	// Remove special characters that might cause issues, but keep underscores
+	reg := regexp.MustCompile(`[^a-zA-Z0-9_]`)
 	cleanName = reg.ReplaceAllString(cleanName, "")
 
-	return fmt.Sprintf("https://en.wikipedia.org/wiki/%s", cleanName)
+	wikiURL := fmt.Sprintf("https://en.wikipedia.org/wiki/%s", cleanName)
+
+	log.Printf("Trying constructed Wikipedia URL: %s", wikiURL)
+
+	// Try to fetch the page
+	doc, err := fetchDocument(wikiURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch Wikipedia page: %v", err)
+	}
+
+	// Check if this is a valid tennis player page by looking for tennis-related content
+	pageText := doc.Text()
+
+	// Look for tennis-related keywords that would indicate this is a tennis player page
+	tennisKeywords := []string{
+		"tennis", "ATP", "WTA", "Grand Slam", "tournament", "ranking", "singles", "doubles",
+		"Australian Open", "French Open", "Wimbledon", "US Open", "Davis Cup", "Fed Cup",
+		"tour", "championship", "final", "semifinal", "quarterfinal", "round", "match",
+		"serve", "forehand", "backhand", "volley", "ace", "break point", "set", "game",
+		"coach", "player", "professional", "amateur", "junior", "career", "retired",
+	}
+
+	tennisKeywordCount := 0
+	for _, keyword := range tennisKeywords {
+		if strings.Contains(strings.ToLower(pageText), strings.ToLower(keyword)) {
+			tennisKeywordCount++
+		}
+	}
+
+	// Also check for disambiguation pages or "does not exist" indicators
+	if strings.Contains(pageText, "may refer to:") ||
+		strings.Contains(pageText, "disambiguation") ||
+		strings.Contains(pageText, "Wikipedia does not have an article with this exact name") {
+		log.Printf("Wikipedia page appears to be disambiguation or non-existent: %s", wikiURL)
+		return "", fmt.Errorf("page is disambiguation or non-existent")
+	}
+
+	// If we found enough tennis-related keywords, consider this a valid tennis player page
+	if tennisKeywordCount >= 3 {
+		log.Printf("Found valid tennis player Wikipedia page with %d tennis keywords: %s", tennisKeywordCount, wikiURL)
+		return wikiURL, nil
+	}
+
+	log.Printf("Wikipedia page does not appear to be a tennis player (only %d tennis keywords found): %s", tennisKeywordCount, wikiURL)
+	return "", fmt.Errorf("page does not appear to be a tennis player")
 }
 
 func fetchPlayerProfile(url string) (*PlayerProfile, error) {
