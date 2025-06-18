@@ -50,14 +50,14 @@ func main() {
 	log.Println("Starting tennis player data collection...")
 
 	// Collect ATP players
-	atpPlayers, err := collectPlayersFromTennisAbstract(true, 10)
+	atpPlayers, err := collectPlayersFromTennisAbstract(true, 100)
 	if err != nil {
 		log.Fatalf("Error collecting ATP players: %v", err)
 	}
 	log.Printf("Successfully collected %d ATP players", len(atpPlayers))
 
 	// Collect WTA players
-	wtaPlayers, err := collectPlayersFromTennisAbstract(false, 10)
+	wtaPlayers, err := collectPlayersFromTennisAbstract(false, 100)
 	if err != nil {
 		log.Fatalf("Error collecting WTA players: %v", err)
 	}
@@ -212,6 +212,9 @@ func collectPlayersFromTennisAbstract(isATP bool, limit int) ([]TennisPlayer, er
 				}
 				if profile.YearPro == 0 {
 					profile.YearPro = wikiData.YearPro
+				}
+				if profile.HighestRank == 0 {
+					profile.HighestRank = wikiData.HighestRank
 				}
 			}
 		}
@@ -515,10 +518,11 @@ func fetchPlayerProfile(url string) (*PlayerProfile, error) {
 }
 
 type WikipediaData struct {
-	BirthDate  string
-	BirthPlace string
-	Hand       string
-	YearPro    int
+	BirthDate   string
+	BirthPlace  string
+	Hand        string
+	YearPro     int
+	HighestRank int
 }
 
 func fetchWikipediaData(url string) (*WikipediaData, error) {
@@ -542,29 +546,108 @@ func fetchWikipediaData(url string) (*WikipediaData, error) {
 			label := strings.TrimSpace(th.Text())
 			value := strings.TrimSpace(td.Text())
 
+			// Clean up HTML entities and normalize text
+			label = cleanText(label)
+			value = cleanText(value)
+
 			switch {
-			case strings.Contains(label, "Born"):
-				// Extract birth date and place
-				parts := strings.Split(value, "(")
-				if len(parts) > 0 {
-					birthInfo := strings.TrimSpace(parts[0])
-					datePlace := strings.Split(birthInfo, ",")
-					if len(datePlace) > 0 {
-						data.BirthDate = strings.TrimSpace(datePlace[0])
-					}
-					if len(datePlace) > 1 {
-						data.BirthPlace = strings.TrimSpace(datePlace[1])
+			case strings.Contains(strings.ToLower(label), "born"):
+				// Extract birth date and place from complex format like:
+				// "(2003-05-05) 5 May 2003 (age 22)El Palmar, Murcia, Spain"
+				// First, try to extract the date from the ISO format in parentheses
+				isoDateMatch := regexp.MustCompile(`\((\d{4}-\d{2}-\d{2})\)`).FindStringSubmatch(value)
+				if len(isoDateMatch) > 1 {
+					// Convert ISO date to readable format
+					isoDate := isoDateMatch[1]
+					parts := strings.Split(isoDate, "-")
+					if len(parts) == 3 {
+						year := parts[0]
+						month := parts[1]
+						day := parts[2]
+						// Convert month number to name
+						monthNames := map[string]string{
+							"01": "January", "02": "February", "03": "March", "04": "April",
+							"05": "May", "06": "June", "07": "July", "08": "August",
+							"09": "September", "10": "October", "11": "November", "12": "December",
+						}
+						if monthName, ok := monthNames[month]; ok {
+							data.BirthDate = fmt.Sprintf("%s %s, %s", monthName, day, year)
+						}
 					}
 				}
-			case strings.Contains(label, "Plays"):
+
+				// Extract birth place - look for the last part after the age
+				ageMatch := regexp.MustCompile(`\(age\s+\d+\)`).FindStringSubmatch(value)
+				if len(ageMatch) > 0 {
+					// Remove the age part and everything before it
+					parts := strings.Split(value, ageMatch[0])
+					if len(parts) > 1 {
+						birthPlace := strings.TrimSpace(parts[1])
+						// Clean up any remaining parentheses or extra text
+						birthPlace = regexp.MustCompile(`^[^a-zA-Z]*`).ReplaceAllString(birthPlace, "")
+						if birthPlace != "" {
+							data.BirthPlace = birthPlace
+						}
+					}
+				}
+
+				// Fallback: if we didn't get birth place from above method, try simple comma split
+				if data.BirthPlace == "" {
+					// Remove the ISO date and age parts
+					cleanValue := regexp.MustCompile(`\(\d{4}-\d{2}-\d{2}\)\s*`).ReplaceAllString(value, "")
+					cleanValue = regexp.MustCompile(`\(age\s+\d+\)\s*`).ReplaceAllString(cleanValue, "")
+
+					// Look for the last comma-separated part as birth place
+					parts := strings.Split(cleanValue, ",")
+					if len(parts) > 1 {
+						// Take the last two parts as city, country
+						if len(parts) >= 2 {
+							city := strings.TrimSpace(parts[len(parts)-2])
+							country := strings.TrimSpace(parts[len(parts)-1])
+							data.BirthPlace = fmt.Sprintf("%s, %s", city, country)
+						}
+					}
+				}
+
+			case strings.Contains(strings.ToLower(label), "plays"):
 				data.Hand = value
-			case strings.Contains(label, "Turned pro"):
+			case strings.Contains(strings.ToLower(label), "turned pro"):
 				if year, err := strconv.Atoi(value); err == nil {
 					data.YearPro = year
+				}
+			case strings.Contains(strings.ToLower(label), "highest ranking"):
+				// Extract the number from "No. 1 (12 September 2022)"
+				// Only process singles rankings, not doubles
+				if !strings.Contains(strings.ToLower(label), "doubles") {
+					rankMatch := regexp.MustCompile(`No\.\s*(\d+)`).FindStringSubmatch(value)
+					if len(rankMatch) > 1 {
+						if rank, err := strconv.Atoi(rankMatch[1]); err == nil {
+							// Only update if we haven't found a ranking yet, or if this is a better (lower) ranking
+							if data.HighestRank == 0 || rank < data.HighestRank {
+								data.HighestRank = rank
+							}
+						}
+					}
 				}
 			}
 		})
 	})
 
 	return data, nil
+}
+
+func cleanText(text string) string {
+	// Replace HTML entities
+	text = strings.ReplaceAll(text, "&#160;", " ") // non-breaking space
+	text = strings.ReplaceAll(text, "&nbsp;", " ")
+	text = strings.ReplaceAll(text, "&amp;", "&")
+	text = strings.ReplaceAll(text, "&lt;", "<")
+	text = strings.ReplaceAll(text, "&gt;", ">")
+	text = strings.ReplaceAll(text, "&quot;", "\"")
+	text = strings.ReplaceAll(text, "&#39;", "'")
+
+	// Normalize whitespace
+	text = strings.Join(strings.Fields(text), " ")
+
+	return text
 }
