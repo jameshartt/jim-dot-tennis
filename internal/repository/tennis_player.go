@@ -7,6 +7,7 @@ import (
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -611,11 +612,28 @@ func (r *fantasyMixedDoublesRepository) GenerateRandomMatches(ctx context.Contex
 
 // GenerateAuthToken creates an authentication token from four tennis players
 func (r *fantasyMixedDoublesRepository) GenerateAuthToken(teamAWoman, teamAMan, teamBWoman, teamBMan *models.TennisPlayer) string {
-	// Clean and concatenate surnames with underscore
-	surname1 := strings.ReplaceAll(strings.TrimSpace(teamAWoman.LastName), " ", "_")
-	surname2 := strings.ReplaceAll(strings.TrimSpace(teamAMan.LastName), " ", "_")
-	surname3 := strings.ReplaceAll(strings.TrimSpace(teamBWoman.LastName), " ", "_")
-	surname4 := strings.ReplaceAll(strings.TrimSpace(teamBMan.LastName), " ", "_")
+	// Regular expression to match any character that is not alphanumeric or hyphen
+	urlUnsafeChars := regexp.MustCompile(`[^a-zA-Z0-9\-]`)
+
+	// Helper function to clean surname by converting URL-unsafe characters to dashes
+	cleanSurname := func(surname string) string {
+		cleaned := strings.TrimSpace(surname)
+		// Replace all URL-unsafe characters with dashes
+		cleaned = urlUnsafeChars.ReplaceAllString(cleaned, "-")
+
+		// Remove consecutive dashes and trim leading/trailing dashes
+		consecutiveDashes := regexp.MustCompile(`-+`)
+		cleaned = consecutiveDashes.ReplaceAllString(cleaned, "-")
+		cleaned = strings.Trim(cleaned, "-")
+
+		return cleaned
+	}
+
+	// Clean and concatenate surnames with underscore separators
+	surname1 := cleanSurname(teamAWoman.LastName)
+	surname2 := cleanSurname(teamAMan.LastName)
+	surname3 := cleanSurname(teamBWoman.LastName)
+	surname4 := cleanSurname(teamBMan.LastName)
 	return fmt.Sprintf("%s_%s_%s_%s", surname1, surname2, surname3, surname4)
 }
 

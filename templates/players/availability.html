@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player Availability - Jim Dot Tennis</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        .availability-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .fantasy-match-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .match-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .match-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c5530;
+            margin-bottom: 10px;
+        }
+        
+        .match-subtitle {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        .teams-container {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .team {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .team-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c5530;
+            margin-bottom: 15px;
+        }
+        
+        .player {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .player-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .player-details {
+            font-size: 12px;
+            color: #666;
+            margin-top: 2px;
+        }
+        
+        .vs-divider {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4a7c59;
+            text-align: center;
+        }
+        
+        .availability-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c5530;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .coming-soon {
+            text-align: center;
+            padding: 40px 20px;
+            background: #e8f5e8;
+            border-radius: 8px;
+            border: 2px dashed #4a7c59;
+        }
+        
+        .coming-soon h3 {
+            color: #2c5530;
+            margin-bottom: 10px;
+        }
+        
+        .coming-soon p {
+            color: #666;
+            margin-bottom: 0;
+        }
+        
+        .auth-token {
+            background: #e8f5e8;
+            border: 1px solid #4a7c59;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .auth-token-label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .auth-token-value {
+            font-family: monospace;
+            font-size: 16px;
+            font-weight: bold;
+            color: #2c5530;
+            word-break: break-all;
+        }
+        
+        .footer-links {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+        
+        .footer-links a {
+            color: #4a7c59;
+            text-decoration: none;
+            margin: 0 15px;
+        }
+        
+        .footer-links a:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .teams-container {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .vs-divider {
+                order: 2;
+            }
+            
+            .availability-container {
+                padding: 15px;
+            }
+            
+            .fantasy-match-card {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="availability-container">
+        <div class="fantasy-match-card">
+            <div class="match-header">
+                <h1 class="match-title">Fantasy Mixed Doubles Match</h1>
+                <p class="match-subtitle">Your unique tennis professional pairing for availability management</p>
+            </div>
+            
+            <div class="teams-container">
+                <div class="team">
+                    <div class="team-name">Team A</div>
+                    <div class="player">
+                        <div class="player-name">{{.FantasyMatch.TeamAWoman.FirstName}} {{.FantasyMatch.TeamAWoman.LastName}}</div>
+                        <div class="player-details">
+                            {{.FantasyMatch.TeamAWoman.Nationality}} • WTA Rank {{.FantasyMatch.TeamAWoman.CurrentRank}}
+                        </div>
+                    </div>
+                    <div class="player">
+                        <div class="player-name">{{.FantasyMatch.TeamAMan.FirstName}} {{.FantasyMatch.TeamAMan.LastName}}</div>
+                        <div class="player-details">
+                            {{.FantasyMatch.TeamAMan.Nationality}} • ATP Rank {{.FantasyMatch.TeamAMan.CurrentRank}}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="vs-divider">VS</div>
+                
+                <div class="team">
+                    <div class="team-name">Team B</div>
+                    <div class="player">
+                        <div class="player-name">{{.FantasyMatch.TeamBWoman.FirstName}} {{.FantasyMatch.TeamBWoman.LastName}}</div>
+                        <div class="player-details">
+                            {{.FantasyMatch.TeamBWoman.Nationality}} • WTA Rank {{.FantasyMatch.TeamBWoman.CurrentRank}}
+                        </div>
+                    </div>
+                    <div class="player">
+                        <div class="player-name">{{.FantasyMatch.TeamBMan.FirstName}} {{.FantasyMatch.TeamBMan.LastName}}</div>
+                        <div class="player-details">
+                            {{.FantasyMatch.TeamBMan.Nationality}} • ATP Rank {{.FantasyMatch.TeamBMan.CurrentRank}}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="auth-token">
+                <div class="auth-token-label">Your Authentication Token:</div>
+                <div class="auth-token-value">{{.AuthToken}}</div>
+            </div>
+        </div>
+        
+        <div class="availability-section">
+            <h2 class="section-title">Availability Management</h2>
+            <div class="coming-soon">
+                <h3>🚀 Coming Soon: Phase 3 Development</h3>
+                <p>This is where you'll be able to update your availability for upcoming fixtures and matches. The availability management system is currently under development and will be available in the next phase.</p>
+            </div>
+        </div>
+        
+        <div class="footer-links">
+            <a href="/">← Back to Home</a>
+        </div>
+    </div>
+</body>
+</html> 

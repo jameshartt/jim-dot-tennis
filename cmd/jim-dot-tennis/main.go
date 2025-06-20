@@ -12,6 +12,7 @@ import (
 	"jim-dot-tennis/internal/admin"
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/database"
+	"jim-dot-tennis/internal/players"
 	"jim-dot-tennis/internal/webpush"
 )
 
@@ -70,6 +71,9 @@ func main() {
 	// Set up admin handlers
 	adminHandler := admin.New(db, templateDir)
 
+	// Set up players handlers
+	playersHandler := players.New(db, templateDir)
+
 	// Set up template functions
 	templateFuncs := template.FuncMap{
 		"currentYear": func() int {
@@ -94,6 +98,9 @@ func main() {
 
 	// Admin routes (protected)
 	adminHandler.RegisterRoutes(mux, authMiddleware)
+
+	// Players routes (protected)
+	playersHandler.RegisterRoutes(mux, authMiddleware)
 
 	// Public routes
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
