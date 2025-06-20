@@ -29,15 +29,9 @@ func New(db *database.DB, templateDir string) *Handler {
 
 // RegisterRoutes registers all player routes with the given mux
 func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middleware) {
-	// Create players mux for all player routes
-	playersMux := http.NewServeMux()
-
-	// Fantasy mixed doubles availability routes
-	playersMux.HandleFunc("/my-availability/", h.availability.HandleAvailability)
-
-	// Register player routes with authentication middleware
-	// Players can access their own availability (player role or higher)
-	mux.Handle("/my-availability/", authMiddleware.RequireAuth(
-		authMiddleware.RequireRole("player", "captain", "admin")(playersMux),
+	// Fantasy mixed doubles availability routes with token-based authentication
+	// The auth token is embedded in the URL path: /my-availability/Sabalenka_Djokovic_Gauff_Sinner
+	mux.Handle("/my-availability/", authMiddleware.RequireFantasyTokenAuth(
+		http.HandlerFunc(h.availability.HandleAvailability),
 	))
 }

@@ -13,6 +13,7 @@ import (
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/players"
+	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/webpush"
 )
 
@@ -61,8 +62,12 @@ func main() {
 	}
 	authService := auth.NewService(db, authConfig)
 
+	// Set up repositories for fantasy token auth
+	playerRepo := repository.NewPlayerRepository(db)
+	fantasyMatchRepo := repository.NewFantasyMixedDoublesRepository(db)
+
 	// Set up auth middleware
-	authMiddleware := auth.NewMiddleware(authService)
+	authMiddleware := auth.NewMiddleware(authService, playerRepo, fantasyMatchRepo)
 
 	// Set up auth handlers
 	templateDir := filepath.Join(projectRoot, "templates")

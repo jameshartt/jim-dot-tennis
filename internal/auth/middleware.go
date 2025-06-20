@@ -5,8 +5,10 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 
 	"jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/repository"
 )
 
 // ContextKey is a type for context keys
@@ -17,16 +19,24 @@ const (
 	UserContextKey ContextKey = "user"
 	// RoleContextKey is the key for role in request context
 	RoleContextKey ContextKey = "role"
+	// PlayerContextKey is the key for player in request context (for fantasy token auth)
+	PlayerContextKey ContextKey = "player"
 )
 
 // Middleware provides authentication middleware
 type Middleware struct {
-	service *Service
+	service          *Service
+	playerRepo       repository.PlayerRepository
+	fantasyMatchRepo repository.FantasyMixedDoublesRepository
 }
 
 // NewMiddleware creates a new auth middleware
-func NewMiddleware(service *Service) *Middleware {
-	return &Middleware{service: service}
+func NewMiddleware(service *Service, playerRepo repository.PlayerRepository, fantasyMatchRepo repository.FantasyMixedDoublesRepository) *Middleware {
+	return &Middleware{
+		service:          service,
+		playerRepo:       playerRepo,
+		fantasyMatchRepo: fantasyMatchRepo,
+	}
 }
 
 // RequireAuth middleware ensures the request has a valid session
@@ -130,4 +140,74 @@ func GetRoleFromContext(ctx context.Context) (models.Role, error) {
 		return "", errors.New("role not found in context")
 	}
 	return role, nil
+}
+
+// GetPlayerFromContext gets the player from the request context (for fantasy token auth)
+func GetPlayerFromContext(ctx context.Context) (models.Player, error) {
+	player, ok := ctx.Value(PlayerContextKey).(models.Player)
+	if !ok {
+		return models.Player{}, errors.New("player not found in context")
+	}
+	return player, nil
+}
+
+// RequireFantasyTokenAuth middleware validates fantasy mixed doubles auth tokens from URL
+// Expected URL format: /my-availability/Sabalenka_Djokovic_Gauff_Sinner
+func (m *Middleware) RequireFantasyTokenAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("FantasyTokenAuth middleware for path: %s", r.URL.Path)
+
+		// Extract auth token from URL path
+		authToken := extractFantasyTokenFromPath(r.URL.Path)
+		if authToken == "" {
+			log.Printf("No fantasy auth token found in URL path: %s", r.URL.Path)
+			http.Error(w, "Invalid fantasy auth token in URL", http.StatusBadRequest)
+			return
+		}
+		log.Printf("Extracted fantasy auth token: %s", authToken)
+
+		// Find the fantasy match by auth token
+		ctx := r.Context()
+		fantasyMatch, err := m.fantasyMatchRepo.FindByAuthToken(ctx, authToken)
+		if err != nil {
+			log.Printf("Fantasy match not found for token %s: %v", authToken, err)
+			http.Error(w, "Invalid fantasy match token", http.StatusNotFound)
+			return
+		}
+
+		if !fantasyMatch.IsActive {
+			log.Printf("Fantasy match is inactive for token %s", authToken)
+			http.Error(w, "Fantasy match is not active", http.StatusForbidden)
+			return
+		}
+		log.Printf("Found active fantasy match ID: %d", fantasyMatch.ID)
+
+		// Find the player assigned to this fantasy match
+		player, err := m.playerRepo.FindByFantasyMatchID(ctx, fantasyMatch.ID)
+		if err != nil {
+			log.Printf("No player assigned to fantasy match %d: %v", fantasyMatch.ID, err)
+			http.Error(w, "No player assigned to this fantasy match", http.StatusNotFound)
+			return
+		}
+		log.Printf("Found assigned player: %s %s (ID: %s)", player.FirstName, player.LastName, player.ID)
+
+		// Add player to request context
+		ctx = context.WithValue(ctx, PlayerContextKey, *player)
+		log.Printf("Added player to request context")
+
+		// Call the next handler with the enriched context
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// extractFantasyTokenFromPath extracts the fantasy auth token from URL paths
+// Expected format: /my-availability/Sabalenka_Djokovic_Gauff_Sinner
+func extractFantasyTokenFromPath(path string) string {
+	parts := strings.Split(path, "/")
+	for i, part := range parts {
+		if part == "my-availability" && i+1 < len(parts) {
+			return parts[i+1]
+		}
+	}
+	return ""
 }

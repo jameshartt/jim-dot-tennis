@@ -46,6 +46,9 @@ type PlayerRepository interface {
 	FindActivePlayersInSeason(ctx context.Context, seasonID uint) ([]models.Player, error)
 	FindInactivePlayersInSeason(ctx context.Context, seasonID uint) ([]models.Player, error)
 
+	// Fantasy match queries
+	FindByFantasyMatchID(ctx context.Context, fantasyMatchID uint) (*models.Player, error)
+
 	// Statistics
 	CountByClub(ctx context.Context, clubID uint) (int, error)
 	CountCaptains(ctx context.Context) (int, error)
@@ -406,4 +409,18 @@ func (r *playerRepository) CountAll(ctx context.Context) (int, error) {
 		SELECT COUNT(*) FROM players
 	`)
 	return count, err
+}
+
+// FindByFantasyMatchID retrieves a player by their fantasy match ID
+func (r *playerRepository) FindByFantasyMatchID(ctx context.Context, fantasyMatchID uint) (*models.Player, error) {
+	var player models.Player
+	err := r.db.GetContext(ctx, &player, `
+		SELECT id, first_name, last_name, email, phone, club_id, fantasy_match_id, created_at, updated_at
+		FROM players 
+		WHERE fantasy_match_id = ?
+	`, fantasyMatchID)
+	if err != nil {
+		return nil, err
+	}
+	return &player, nil
 }

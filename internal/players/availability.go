@@ -37,25 +37,28 @@ func (h *AvailabilityHandler) HandleAvailability(w http.ResponseWriter, r *http.
 	}
 	authToken := pathParts[0]
 
-	// Get user from context
-	user, err := getUserFromContext(r)
+	// Get player from fantasy token context (set by RequireFantasyTokenAuth middleware)
+	player, err := auth.GetPlayerFromContext(r.Context())
 	if err != nil {
-		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
+		logAndError(w, "Player not found in context", err, http.StatusUnauthorized)
 		return
 	}
 
+	log.Printf("Authenticated player: %s %s (ID: %s) for auth token: %s",
+		player.FirstName, player.LastName, player.ID, authToken)
+
 	switch r.Method {
 	case http.MethodGet:
-		h.handleAvailabilityGet(w, r, user, authToken)
+		h.handleAvailabilityGet(w, r, &player, authToken)
 	case http.MethodPost:
-		h.handleAvailabilityPost(w, r, user, authToken)
+		h.handleAvailabilityPost(w, r, &player, authToken)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
 // handleAvailabilityGet displays the availability page for a fantasy match
-func (h *AvailabilityHandler) handleAvailabilityGet(w http.ResponseWriter, r *http.Request, user *models.User, authToken string) {
+func (h *AvailabilityHandler) handleAvailabilityGet(w http.ResponseWriter, r *http.Request, player *models.Player, authToken string) {
 	// Get the fantasy match details
 	fantasyMatch, err := h.service.GetFantasyMatchByToken(authToken)
 	if err != nil {
@@ -79,7 +82,7 @@ func (h *AvailabilityHandler) handleAvailabilityGet(w http.ResponseWriter, r *ht
 
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
-		"User":         user,
+		"Player":       player,
 		"FantasyMatch": fantasyMatch,
 		"AuthToken":    authToken,
 		"TeamAName":    getTeamName(fantasyMatch.TeamAWoman, fantasyMatch.TeamAMan),
@@ -90,7 +93,7 @@ func (h *AvailabilityHandler) handleAvailabilityGet(w http.ResponseWriter, r *ht
 }
 
 // handleAvailabilityPost handles POST requests for updating availability
-func (h *AvailabilityHandler) handleAvailabilityPost(w http.ResponseWriter, r *http.Request, user *models.User, authToken string) {
+func (h *AvailabilityHandler) handleAvailabilityPost(w http.ResponseWriter, r *http.Request, player *models.Player, authToken string) {
 	// TODO: Implement availability updates
 	// This would involve updating player availability records for specific fixtures/dates
 	http.Error(w, "Availability updates not yet implemented", http.StatusNotImplemented)
