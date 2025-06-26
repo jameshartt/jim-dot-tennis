@@ -24,6 +24,8 @@ type Service struct {
 	divisionRepository     repository.DivisionRepository
 	seasonRepository       repository.SeasonRepository
 	matchupRepository      repository.MatchupRepository
+	fantasyRepository      repository.FantasyMixedDoublesRepository
+	tennisPlayerRepository repository.ProTennisPlayerRepository
 }
 
 // NewService creates a new admin service
@@ -39,6 +41,8 @@ func NewService(db *database.DB) *Service {
 		divisionRepository:     repository.NewDivisionRepository(db),
 		seasonRepository:       repository.NewSeasonRepository(db),
 		matchupRepository:      repository.NewMatchupRepository(db),
+		fantasyRepository:      repository.NewFantasyMixedDoublesRepository(db),
+		tennisPlayerRepository: repository.NewProTennisPlayerRepository(db),
 	}
 }
 
@@ -1368,4 +1372,140 @@ func (s *Service) GetAvailablePlayersForMatchup(fixtureID uint) ([]models.Player
 	// Combine team players and all St Ann's players as final fallback
 	allPlayers := append(teamPlayers, allStAnnPlayers...)
 	return allPlayers, nil
+}
+
+// GetFantasyDoubles retrieves all fantasy doubles pairings
+func (s *Service) GetFantasyDoubles() ([]models.FantasyMixedDoubles, error) {
+	return s.fantasyRepository.FindAll(context.Background())
+}
+
+// GetActiveFantasyDoubles retrieves active fantasy doubles pairings
+func (s *Service) GetActiveFantasyDoubles() ([]models.FantasyMixedDoubles, error) {
+	return s.fantasyRepository.FindActive(context.Background())
+}
+
+// CreateFantasyDoubles creates a new fantasy doubles pairing
+func (s *Service) CreateFantasyDoubles(teamAWomanID, teamAManID, teamBWomanID, teamBManID int) (*models.FantasyMixedDoubles, error) {
+	ctx := context.Background()
+
+	// Get the tennis players to generate auth token
+	teamAWoman, err := s.tennisPlayerRepository.FindByID(ctx, teamAWomanID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Team A woman: %w", err)
+	}
+
+	teamAMan, err := s.tennisPlayerRepository.FindByID(ctx, teamAManID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Team A man: %w", err)
+	}
+
+	teamBWoman, err := s.tennisPlayerRepository.FindByID(ctx, teamBWomanID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Team B woman: %w", err)
+	}
+
+	teamBMan, err := s.tennisPlayerRepository.FindByID(ctx, teamBManID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Team B man: %w", err)
+	}
+
+	// Generate auth token
+	authToken := s.fantasyRepository.GenerateAuthToken(teamAWoman, teamAMan, teamBWoman, teamBMan)
+
+	// Create the fantasy doubles match
+	fantasyMatch := &models.FantasyMixedDoubles{
+		TeamAWomanID: teamAWomanID,
+		TeamAManID:   teamAManID,
+		TeamBWomanID: teamBWomanID,
+		TeamBManID:   teamBManID,
+		AuthToken:    authToken,
+		IsActive:     true,
+	}
+
+	err = s.fantasyRepository.Create(ctx, fantasyMatch)
+	if err != nil {
+		return nil, err
+	}
+
+	return fantasyMatch, nil
+}
+
+// GetFantasyDoublesByID retrieves a fantasy doubles pairing by ID
+func (s *Service) GetFantasyDoublesByID(id uint) (*models.FantasyMixedDoubles, error) {
+	return s.fantasyRepository.FindByID(context.Background(), id)
+}
+
+// GetFantasyDoublesDetailByID retrieves detailed fantasy doubles information including player names
+func (s *Service) GetFantasyDoublesDetailByID(id uint) (*FantasyDoublesDetail, error) {
+	ctx := context.Background()
+
+	// Get the fantasy match
+	match, err := s.fantasyRepository.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the tennis players
+	teamAWoman, err := s.tennisPlayerRepository.FindByID(ctx, match.TeamAWomanID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Team A woman: %w", err)
+	}
+
+	teamAMan, err := s.tennisPlayerRepository.FindByID(ctx, match.TeamAManID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Team A man: %w", err)
+	}
+
+	teamBWoman, err := s.tennisPlayerRepository.FindByID(ctx, match.TeamBWomanID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Team B woman: %w", err)
+	}
+
+	teamBMan, err := s.tennisPlayerRepository.FindByID(ctx, match.TeamBManID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Team B man: %w", err)
+	}
+
+	return &FantasyDoublesDetail{
+		Match:      *match,
+		TeamAWoman: *teamAWoman,
+		TeamAMan:   *teamAMan,
+		TeamBWoman: *teamBWoman,
+		TeamBMan:   *teamBMan,
+	}, nil
+}
+
+// GetATPPlayers retrieves ATP players for fantasy doubles creation
+func (s *Service) GetATPPlayers() ([]models.ProTennisPlayer, error) {
+	return s.tennisPlayerRepository.FindATPPlayers(context.Background())
+}
+
+// GetWTAPlayers retrieves WTA players for fantasy doubles creation
+func (s *Service) GetWTAPlayers() ([]models.ProTennisPlayer, error) {
+	return s.tennisPlayerRepository.FindWTAPlayers(context.Background())
+}
+
+// UpdatePlayerFantasyMatch assigns a fantasy match to a player
+func (s *Service) UpdatePlayerFantasyMatch(playerID string, fantasyMatchID *uint) error {
+	ctx := context.Background()
+
+	// Get the player
+	player, err := s.playerRepository.FindByID(ctx, playerID)
+	if err != nil {
+		return err
+	}
+
+	// Update the fantasy match ID
+	player.FantasyMatchID = fantasyMatchID
+
+	return s.playerRepository.Update(ctx, player)
+}
+
+// FantasyDoublesDetail contains detailed information about a fantasy doubles pairing
+type FantasyDoublesDetail struct {
+	Match      models.FantasyMixedDoubles `json:"match"`
+	TeamAWoman models.ProTennisPlayer     `json:"team_a_woman"`
+	TeamAMan   models.ProTennisPlayer     `json:"team_a_man"`
+	TeamBWoman models.ProTennisPlayer     `json:"team_b_woman"`
+	TeamBMan   models.ProTennisPlayer     `json:"team_b_man"`
 }

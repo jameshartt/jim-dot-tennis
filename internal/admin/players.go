@@ -142,6 +142,35 @@ func (h *PlayersHandler) handlePlayerEditGet(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// Get active fantasy doubles pairings for the dropdown
+	fantasyPairings, err := h.service.GetActiveFantasyDoubles()
+	if err != nil {
+		log.Printf("Failed to load fantasy doubles pairings: %v", err)
+		fantasyPairings = []models.FantasyMixedDoubles{} // Default to empty slice
+	}
+
+	// Get ATP and WTA players for creating new pairings
+	atpPlayers, err := h.service.GetATPPlayers()
+	if err != nil {
+		log.Printf("Failed to load ATP players: %v", err)
+		atpPlayers = []models.ProTennisPlayer{} // Default to empty slice
+	}
+
+	wtaPlayers, err := h.service.GetWTAPlayers()
+	if err != nil {
+		log.Printf("Failed to load WTA players: %v", err)
+		wtaPlayers = []models.ProTennisPlayer{} // Default to empty slice
+	}
+
+	// Get current fantasy pairing details if assigned
+	var currentFantasyDetail *FantasyDoublesDetail
+	if player.FantasyMatchID != nil {
+		currentFantasyDetail, err = h.service.GetFantasyDoublesDetailByID(*player.FantasyMatchID)
+		if err != nil {
+			log.Printf("Failed to load current fantasy details: %v", err)
+		}
+	}
+
 	// Load the player edit template
 	tmpl, err := parseTemplate(h.templateDir, "admin/player_edit.html")
 	if err != nil {
@@ -154,9 +183,13 @@ func (h *PlayersHandler) handlePlayerEditGet(w http.ResponseWriter, r *http.Requ
 
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
-		"User":   user,
-		"Player": player,
-		"Clubs":  clubs,
+		"User":                 user,
+		"Player":               player,
+		"Clubs":                clubs,
+		"FantasyPairings":      fantasyPairings,
+		"ATPPlayers":           atpPlayers,
+		"WTAPlayers":           wtaPlayers,
+		"CurrentFantasyDetail": currentFantasyDetail,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -167,6 +200,12 @@ func (h *PlayersHandler) handlePlayerEditPost(w http.ResponseWriter, r *http.Req
 	// Parse form data
 	if err := r.ParseForm(); err != nil {
 		logAndError(w, "Invalid form data", err, http.StatusBadRequest)
+		return
+	}
+
+	// Check if this is a fantasy doubles creation request
+	if r.FormValue("action") == "create_fantasy" {
+		h.handleCreateFantasyDoubles(w, r, user, playerID)
 		return
 	}
 
@@ -194,6 +233,20 @@ func (h *PlayersHandler) handlePlayerEditPost(w http.ResponseWriter, r *http.Req
 		player.ClubID = uint(clubID)
 	}
 
+	// Handle fantasy match assignment
+	fantasyMatchIDStr := r.FormValue("fantasy_match_id")
+	if fantasyMatchIDStr == "" {
+		player.FantasyMatchID = nil
+	} else {
+		fantasyMatchID, err := strconv.ParseUint(fantasyMatchIDStr, 10, 32)
+		if err != nil {
+			logAndError(w, "Invalid fantasy match ID", err, http.StatusBadRequest)
+			return
+		}
+		fantasyMatchIDUint := uint(fantasyMatchID)
+		player.FantasyMatchID = &fantasyMatchIDUint
+	}
+
 	// Update the player
 	if err := h.service.UpdatePlayer(player); err != nil {
 		logAndError(w, "Failed to update player", err, http.StatusInternalServerError)
@@ -202,6 +255,63 @@ func (h *PlayersHandler) handlePlayerEditPost(w http.ResponseWriter, r *http.Req
 
 	// Redirect back to players list
 	http.Redirect(w, r, "/admin/players", http.StatusSeeOther)
+}
+
+// handleCreateFantasyDoubles handles the creation of a new fantasy doubles pairing
+func (h *PlayersHandler) handleCreateFantasyDoubles(w http.ResponseWriter, r *http.Request, user *models.User, playerID string) {
+	// Parse the tennis player IDs from the form
+	teamAWomanIDStr := r.FormValue("team_a_woman_id")
+	teamAManIDStr := r.FormValue("team_a_man_id")
+	teamBWomanIDStr := r.FormValue("team_b_woman_id")
+	teamBManIDStr := r.FormValue("team_b_man_id")
+
+	// Validate that all IDs are provided
+	if teamAWomanIDStr == "" || teamAManIDStr == "" || teamBWomanIDStr == "" || teamBManIDStr == "" {
+		logAndError(w, "All four tennis players must be selected", fmt.Errorf("missing tennis player selections"), http.StatusBadRequest)
+		return
+	}
+
+	// Convert string IDs to integers
+	teamAWomanID, err := strconv.Atoi(teamAWomanIDStr)
+	if err != nil {
+		logAndError(w, "Invalid Team A woman ID", err, http.StatusBadRequest)
+		return
+	}
+
+	teamAManID, err := strconv.Atoi(teamAManIDStr)
+	if err != nil {
+		logAndError(w, "Invalid Team A man ID", err, http.StatusBadRequest)
+		return
+	}
+
+	teamBWomanID, err := strconv.Atoi(teamBWomanIDStr)
+	if err != nil {
+		logAndError(w, "Invalid Team B woman ID", err, http.StatusBadRequest)
+		return
+	}
+
+	teamBManID, err := strconv.Atoi(teamBManIDStr)
+	if err != nil {
+		logAndError(w, "Invalid Team B man ID", err, http.StatusBadRequest)
+		return
+	}
+
+	// Create the fantasy doubles pairing
+	fantasyMatch, err := h.service.CreateFantasyDoubles(teamAWomanID, teamAManID, teamBWomanID, teamBManID)
+	if err != nil {
+		logAndError(w, "Failed to create fantasy doubles pairing", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Assign the newly created pairing to the player
+	err = h.service.UpdatePlayerFantasyMatch(playerID, &fantasyMatch.ID)
+	if err != nil {
+		logAndError(w, "Failed to assign fantasy pairing to player", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Redirect back to the player edit page to show the new assignment
+	http.Redirect(w, r, fmt.Sprintf("/admin/players/%s/edit", playerID), http.StatusSeeOther)
 }
 
 // HandlePlayersFilter handles HTMX requests for filtering players

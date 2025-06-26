@@ -72,7 +72,7 @@ func NewPlayerRepository(db *database.DB) PlayerRepository {
 func (r *playerRepository) FindAll(ctx context.Context) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, email, phone, club_id, created_at, updated_at
+		SELECT id, first_name, last_name, email, phone, club_id, fantasy_match_id, created_at, updated_at
 		FROM players 
 		ORDER BY last_name ASC, first_name ASC
 	`)
@@ -83,7 +83,7 @@ func (r *playerRepository) FindAll(ctx context.Context) ([]models.Player, error)
 func (r *playerRepository) FindByID(ctx context.Context, id string) (*models.Player, error) {
 	var player models.Player
 	err := r.db.GetContext(ctx, &player, `
-		SELECT id, first_name, last_name, email, phone, club_id, created_at, updated_at
+		SELECT id, first_name, last_name, email, phone, club_id, fantasy_match_id, created_at, updated_at
 		FROM players 
 		WHERE id = ?
 	`, id)
@@ -114,7 +114,7 @@ func (r *playerRepository) Update(ctx context.Context, player *models.Player) er
 	_, err := r.db.NamedExecContext(ctx, `
 		UPDATE players 
 		SET first_name = :first_name, last_name = :last_name, email = :email, 
-		    phone = :phone, club_id = :club_id, updated_at = :updated_at
+		    phone = :phone, club_id = :club_id, fantasy_match_id = :fantasy_match_id, updated_at = :updated_at
 		WHERE id = :id
 	`, player)
 

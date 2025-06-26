@@ -32,7 +32,7 @@
             border-radius: 8px;
             padding: 2rem;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            max-width: 600px;
+            max-width: 800px;
         }
         .form-group {
             margin-bottom: 1.5rem;
@@ -95,8 +95,167 @@
         .btn-secondary:hover {
             background: #5a6268;
         }
+        .btn-success {
+            background: var(--success-color, #28a745);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            transition: background-color 0.2s ease;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
         .form-required {
             color: #dc3545;
+        }
+        
+        /* Fantasy doubles section styling */
+        .fantasy-section {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid #e9ecef;
+        }
+        
+        .fantasy-section h3 {
+            color: #2c5530;
+            margin-bottom: 1rem;
+        }
+        
+        .current-fantasy {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .current-fantasy h4 {
+            margin: 0 0 0.5rem 0;
+            color: #495057;
+        }
+        
+        .fantasy-teams {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .fantasy-team {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 0.75rem;
+            min-width: 150px;
+            text-align: center;
+        }
+        
+        .team-name {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: #2c5530;
+        }
+        
+        .player-name {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin: 0.25rem 0;
+        }
+        
+        .vs-divider {
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: #2c5530;
+        }
+        
+        .availability-url {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background: #e3f2fd;
+            border: 1px solid #90cdf4;
+            border-radius: 4px;
+        }
+        
+        .availability-url strong {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #1565c0;
+        }
+        
+        .availability-url a {
+            color: #1565c0;
+            text-decoration: none;
+            word-break: break-all;
+        }
+        
+        .availability-url a:hover {
+            text-decoration: underline;
+        }
+        
+        .create-fantasy-form {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 1.5rem;
+            margin-top: 1rem;
+        }
+        
+        .create-fantasy-form h4 {
+            margin: 0 0 1rem 0;
+            color: #495057;
+        }
+        
+        .team-selection {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .team-group {
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 1rem;
+            background: white;
+        }
+        
+        .team-group h5 {
+            margin: 0 0 1rem 0;
+            color: #2c5530;
+            text-align: center;
+        }
+        
+        .player-selection {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+        }
+        
+        .toggle-create-form {
+            background: none;
+            border: 1px solid #2c5530;
+            color: #2c5530;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+        
+        .toggle-create-form:hover {
+            background: #2c5530;
+            color: white;
+        }
+        
+        .create-fantasy-form.hidden {
+            display: none;
         }
         
         /* Mobile responsiveness */
@@ -109,8 +268,15 @@
                 flex-direction: column;
             }
             .btn-primary,
-            .btn-secondary {
+            .btn-secondary,
+            .btn-success {
                 text-align: center;
+            }
+            .fantasy-teams {
+                flex-direction: column;
+            }
+            .team-selection {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -151,6 +317,111 @@
                 <input type="tel" id="phone" name="phone" value="{{.Player.Phone}}">
             </div>
             
+            <!-- Fantasy Doubles Section -->
+            <div class="fantasy-section">
+                <h3>🎾 Fantasy Doubles Assignment</h3>
+                
+                {{if .CurrentFantasyDetail}}
+                <div class="current-fantasy">
+                    <h4>Current Fantasy Pairing</h4>
+                    <div class="fantasy-teams">
+                        <div class="fantasy-team">
+                            <div class="team-name">Team A</div>
+                            <div class="player-name">{{.CurrentFantasyDetail.TeamAWoman.FirstName}} {{.CurrentFantasyDetail.TeamAWoman.LastName}}</div>
+                            <div class="player-name">{{.CurrentFantasyDetail.TeamAMan.FirstName}} {{.CurrentFantasyDetail.TeamAMan.LastName}}</div>
+                        </div>
+                        <div class="vs-divider">VS</div>
+                        <div class="fantasy-team">
+                            <div class="team-name">Team B</div>
+                            <div class="player-name">{{.CurrentFantasyDetail.TeamBWoman.FirstName}} {{.CurrentFantasyDetail.TeamBWoman.LastName}}</div>
+                            <div class="player-name">{{.CurrentFantasyDetail.TeamBMan.FirstName}} {{.CurrentFantasyDetail.TeamBMan.LastName}}</div>
+                        </div>
+                    </div>
+                                         <div class="availability-url">
+                         <strong>Availability URL:</strong>
+                         <a href="/my-availability/{{.CurrentFantasyDetail.Match.AuthToken}}" target="_blank" class="availability-link">
+                             /my-availability/{{.CurrentFantasyDetail.Match.AuthToken}}
+                         </a>
+                     </div>
+                </div>
+                {{end}}
+                
+                <div class="form-group">
+                    <label for="fantasy_match_id">Assign Fantasy Pairing</label>
+                    <select id="fantasy_match_id" name="fantasy_match_id">
+                        <option value="">No fantasy pairing assigned</option>
+                        {{range .FantasyPairings}}
+                        <option value="{{.ID}}" {{if and $.Player.FantasyMatchID (eq $.Player.FantasyMatchID .ID)}}selected{{end}}>
+                            {{.AuthToken}}
+                        </option>
+                        {{end}}
+                    </select>
+                </div>
+                
+                <button type="button" class="toggle-create-form" onclick="toggleCreateForm()">
+                    + Create New Fantasy Pairing
+                </button>
+                
+                <div class="create-fantasy-form hidden" id="create-fantasy-form">
+                    <h4>Create New Fantasy Doubles Pairing</h4>
+                    <div class="team-selection">
+                        <div class="team-group">
+                            <h5>Team A</h5>
+                            <div class="player-selection">
+                                <div>
+                                    <label for="team_a_woman_id">Woman Player</label>
+                                    <select id="team_a_woman_id" name="team_a_woman_id">
+                                        <option value="">Select WTA Player</option>
+                                        {{range .WTAPlayers}}
+                                        <option value="{{.ID}}">{{.FirstName}} {{.LastName}} ({{.Nationality}})</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="team_a_man_id">Man Player</label>
+                                    <select id="team_a_man_id" name="team_a_man_id">
+                                        <option value="">Select ATP Player</option>
+                                        {{range .ATPPlayers}}
+                                        <option value="{{.ID}}">{{.FirstName}} {{.LastName}} ({{.Nationality}})</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="team-group">
+                            <h5>Team B</h5>
+                            <div class="player-selection">
+                                <div>
+                                    <label for="team_b_woman_id">Woman Player</label>
+                                    <select id="team_b_woman_id" name="team_b_woman_id">
+                                        <option value="">Select WTA Player</option>
+                                        {{range .WTAPlayers}}
+                                        <option value="{{.ID}}">{{.FirstName}} {{.LastName}} ({{.Nationality}})</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="team_b_man_id">Man Player</label>
+                                    <select id="team_b_man_id" name="team_b_man_id">
+                                        <option value="">Select ATP Player</option>
+                                        {{range .ATPPlayers}}
+                                        <option value="{{.ID}}">{{.FirstName}} {{.LastName}} ({{.Nationality}})</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <button type="submit" name="action" value="create_fantasy" class="btn-success">
+                            Create & Assign Fantasy Pairing
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
             <div class="form-actions">
                 <button type="submit" class="btn-primary">Update Player</button>
                 <a href="/admin/players" class="btn-secondary">Cancel</a>
@@ -185,6 +456,32 @@
                 this.style.borderColor = '#ddd';
             });
         });
+        
+        // Toggle create fantasy form
+        function toggleCreateForm() {
+            const form = document.getElementById('create-fantasy-form');
+            const button = document.querySelector('.toggle-create-form');
+            
+            if (form.classList.contains('hidden')) {
+                form.classList.remove('hidden');
+                button.textContent = '- Cancel Create Fantasy Pairing';
+            } else {
+                form.classList.add('hidden');
+                button.textContent = '+ Create New Fantasy Pairing';
+                // Clear form fields
+                form.querySelectorAll('select').forEach(select => select.value = '');
+            }
+        }
+        
+                 // Update availability URL with current hostname
+         document.addEventListener('DOMContentLoaded', function() {
+             const availabilityLinks = document.querySelectorAll('.availability-link');
+             availabilityLinks.forEach(link => {
+                 const path = link.textContent.trim();
+                 const fullUrl = window.location.protocol + '//' + window.location.host + path;
+                 link.textContent = fullUrl;
+             });
+         });
     </script>
 </body>
 </html> 
