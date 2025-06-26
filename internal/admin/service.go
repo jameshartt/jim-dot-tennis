@@ -1385,6 +1385,54 @@ func (s *Service) GetActiveFantasyDoubles() ([]models.FantasyMixedDoubles, error
 	return s.fantasyRepository.FindActive(context.Background())
 }
 
+// GetUnassignedFantasyDoubles retrieves fantasy doubles pairings that are not assigned to any player
+// or are assigned to the specified player (to allow changing current assignment)
+func (s *Service) GetUnassignedFantasyDoubles(currentPlayerID string) ([]models.FantasyMixedDoubles, error) {
+	ctx := context.Background()
+
+	// Get all active fantasy pairings
+	allPairings, err := s.fantasyRepository.FindActive(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the current player to check their fantasy match ID
+	var currentPlayerFantasyMatchID *uint
+	if currentPlayerID != "" {
+		currentPlayer, err := s.playerRepository.FindByID(ctx, currentPlayerID)
+		if err == nil && currentPlayer.FantasyMatchID != nil {
+			currentPlayerFantasyMatchID = currentPlayer.FantasyMatchID
+		}
+	}
+
+	// Get all players with assigned fantasy matches
+	allPlayers, err := s.playerRepository.FindAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a set of assigned fantasy match IDs (excluding the current player's)
+	assignedMatchIDs := make(map[uint]bool)
+	for _, player := range allPlayers {
+		if player.FantasyMatchID != nil && player.ID != currentPlayerID {
+			assignedMatchIDs[*player.FantasyMatchID] = true
+		}
+	}
+
+	// Filter pairings to include only unassigned ones or the current player's pairing
+	var unassignedPairings []models.FantasyMixedDoubles
+	for _, pairing := range allPairings {
+		isAssignedToOther := assignedMatchIDs[pairing.ID]
+		isCurrentPlayersPairing := currentPlayerFantasyMatchID != nil && *currentPlayerFantasyMatchID == pairing.ID
+
+		if !isAssignedToOther || isCurrentPlayersPairing {
+			unassignedPairings = append(unassignedPairings, pairing)
+		}
+	}
+
+	return unassignedPairings, nil
+}
+
 // CreateFantasyDoubles creates a new fantasy doubles pairing
 func (s *Service) CreateFantasyDoubles(teamAWomanID, teamAManID, teamBWomanID, teamBManID int) (*models.FantasyMixedDoubles, error) {
 	ctx := context.Background()

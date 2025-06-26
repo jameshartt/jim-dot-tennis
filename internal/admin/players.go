@@ -142,8 +142,8 @@ func (h *PlayersHandler) handlePlayerEditGet(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Get active fantasy doubles pairings for the dropdown
-	fantasyPairings, err := h.service.GetActiveFantasyDoubles()
+	// Get unassigned fantasy doubles pairings for the dropdown (excluding already assigned ones)
+	fantasyPairings, err := h.service.GetUnassignedFantasyDoubles(playerID)
 	if err != nil {
 		log.Printf("Failed to load fantasy doubles pairings: %v", err)
 		fantasyPairings = []models.FantasyMixedDoubles{} // Default to empty slice
