@@ -181,15 +181,22 @@ func (h *PlayersHandler) handlePlayerEditGet(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// Helper for template - provide the dereferenced fantasy match ID for comparison
+	var currentFantasyMatchID uint = 0
+	if player.FantasyMatchID != nil {
+		currentFantasyMatchID = *player.FantasyMatchID
+	}
+
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
-		"User":                 user,
-		"Player":               player,
-		"Clubs":                clubs,
-		"FantasyPairings":      fantasyPairings,
-		"ATPPlayers":           atpPlayers,
-		"WTAPlayers":           wtaPlayers,
-		"CurrentFantasyDetail": currentFantasyDetail,
+		"User":                  user,
+		"Player":                player,
+		"Clubs":                 clubs,
+		"FantasyPairings":       fantasyPairings,
+		"ATPPlayers":            atpPlayers,
+		"WTAPlayers":            wtaPlayers,
+		"CurrentFantasyDetail":  currentFantasyDetail,
+		"CurrentFantasyMatchID": currentFantasyMatchID,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -206,6 +213,12 @@ func (h *PlayersHandler) handlePlayerEditPost(w http.ResponseWriter, r *http.Req
 	// Check if this is a fantasy doubles creation request
 	if r.FormValue("action") == "create_fantasy" {
 		h.handleCreateFantasyDoubles(w, r, user, playerID)
+		return
+	}
+
+	// Check if this is a random fantasy generation request
+	if r.FormValue("action") == "generate_random_fantasy" {
+		h.handleGenerateRandomFantasyDoubles(w, r, user, playerID)
 		return
 	}
 
@@ -303,12 +316,31 @@ func (h *PlayersHandler) handleCreateFantasyDoubles(w http.ResponseWriter, r *ht
 		return
 	}
 
+	log.Printf("Created fantasy doubles pairing with ID: %d, AuthToken: %s", fantasyMatch.ID, fantasyMatch.AuthToken)
+
 	// Assign the newly created pairing to the player
 	err = h.service.UpdatePlayerFantasyMatch(playerID, &fantasyMatch.ID)
 	if err != nil {
 		logAndError(w, "Failed to assign fantasy pairing to player", err, http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("Successfully assigned fantasy pairing %d to player %s", fantasyMatch.ID, playerID)
+
+	// Redirect back to the player edit page to show the new assignment
+	http.Redirect(w, r, fmt.Sprintf("/admin/players/%s/edit", playerID), http.StatusSeeOther)
+}
+
+// handleGenerateRandomFantasyDoubles handles the generation of a random fantasy doubles pairing
+func (h *PlayersHandler) handleGenerateRandomFantasyDoubles(w http.ResponseWriter, r *http.Request, user *models.User, playerID string) {
+	// Generate and assign a random fantasy doubles pairing
+	fantasyDetail, err := h.service.GenerateAndAssignRandomFantasyMatch(playerID)
+	if err != nil {
+		logAndError(w, "Failed to generate and assign random fantasy pairing", err, http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Generated and assigned random fantasy pairing %s to player %s", fantasyDetail.Match.AuthToken, playerID)
 
 	// Redirect back to the player edit page to show the new assignment
 	http.Redirect(w, r, fmt.Sprintf("/admin/players/%s/edit", playerID), http.StatusSeeOther)

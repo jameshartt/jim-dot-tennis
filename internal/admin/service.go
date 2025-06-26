@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"time"
@@ -1489,16 +1490,59 @@ func (s *Service) GetWTAPlayers() ([]models.ProTennisPlayer, error) {
 func (s *Service) UpdatePlayerFantasyMatch(playerID string, fantasyMatchID *uint) error {
 	ctx := context.Background()
 
+	log.Printf("UpdatePlayerFantasyMatch called: playerID=%s, fantasyMatchID=%v", playerID, fantasyMatchID)
+
 	// Get the player
 	player, err := s.playerRepository.FindByID(ctx, playerID)
 	if err != nil {
+		log.Printf("Failed to find player %s: %v", playerID, err)
 		return err
 	}
+
+	log.Printf("Found player: %s %s, current fantasy match ID: %v", player.FirstName, player.LastName, player.FantasyMatchID)
 
 	// Update the fantasy match ID
 	player.FantasyMatchID = fantasyMatchID
 
-	return s.playerRepository.Update(ctx, player)
+	log.Printf("Setting player fantasy match ID to: %v", fantasyMatchID)
+
+	err = s.playerRepository.Update(ctx, player)
+	if err != nil {
+		log.Printf("Failed to update player %s: %v", playerID, err)
+		return err
+	}
+
+	log.Printf("Successfully updated player %s with fantasy match ID: %v", playerID, fantasyMatchID)
+
+	return nil
+}
+
+// GenerateAndAssignRandomFantasyMatch creates a random fantasy doubles pairing and assigns it to a player
+func (s *Service) GenerateAndAssignRandomFantasyMatch(playerID string) (*FantasyDoublesDetail, error) {
+	ctx := context.Background()
+
+	// Generate one random fantasy match
+	if err := s.fantasyRepository.GenerateRandomMatches(ctx, 1); err != nil {
+		return nil, fmt.Errorf("failed to generate random fantasy match: %w", err)
+	}
+
+	// Get the most recently created active match
+	activeMatches, err := s.fantasyRepository.FindActive(ctx)
+	if err != nil || len(activeMatches) == 0 {
+		return nil, fmt.Errorf("failed to retrieve generated match")
+	}
+
+	// Get the most recent match (should be the one we just created)
+	latestMatch := activeMatches[0]
+
+	// Assign it to the player
+	err = s.UpdatePlayerFantasyMatch(playerID, &latestMatch.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to assign fantasy match to player: %w", err)
+	}
+
+	// Return the detailed fantasy match information
+	return s.GetFantasyDoublesDetailByID(latestMatch.ID)
 }
 
 // FantasyDoublesDetail contains detailed information about a fantasy doubles pairing

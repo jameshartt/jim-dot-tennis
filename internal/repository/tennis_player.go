@@ -429,7 +429,7 @@ func (r *fantasyMixedDoublesRepository) Create(ctx context.Context, match *model
 	match.CreatedAt = now
 	match.UpdatedAt = now
 
-	_, err := r.db.NamedExecContext(ctx, `
+	result, err := r.db.NamedExecContext(ctx, `
 		INSERT INTO fantasy_mixed_doubles (
 			team_a_woman_id, team_a_man_id, team_b_woman_id, team_b_man_id, 
 			auth_token, is_active, created_at, updated_at
@@ -438,7 +438,18 @@ func (r *fantasyMixedDoublesRepository) Create(ctx context.Context, match *model
 			:auth_token, :is_active, :created_at, :updated_at
 		)
 	`, match)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Get the last inserted ID and set it on the match object
+	id, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+	match.ID = uint(id)
+
+	return nil
 }
 
 // Update modifies an existing fantasy mixed doubles match

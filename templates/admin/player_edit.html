@@ -258,6 +258,21 @@
             display: none;
         }
         
+        .fantasy-actions {
+            display: flex;
+            gap: 1rem;
+            margin: 1.5rem 0;
+            align-items: center;
+        }
+        
+        .fantasy-actions .btn-success {
+            flex: 1;
+        }
+        
+        .fantasy-actions .toggle-create-form {
+            flex: 1;
+        }
+        
         /* Mobile responsiveness */
         @media (max-width: 768px) {
             .edit-form {
@@ -277,6 +292,14 @@
             }
             .team-selection {
                 grid-template-columns: 1fr;
+            }
+            .fantasy-actions {
+                flex-direction: column;
+            }
+            .fantasy-actions .btn-success,
+            .fantasy-actions .toggle-create-form {
+                flex: none;
+                width: 100%;
             }
         }
     </style>
@@ -351,16 +374,22 @@
                     <select id="fantasy_match_id" name="fantasy_match_id">
                         <option value="">No fantasy pairing assigned</option>
                         {{range .FantasyPairings}}
-                        <option value="{{.ID}}" {{if and $.Player.FantasyMatchID (eq $.Player.FantasyMatchID .ID)}}selected{{end}}>
+                        <option value="{{.ID}}" {{if eq $.CurrentFantasyMatchID .ID}}selected{{end}}>
                             {{.AuthToken}}
                         </option>
                         {{end}}
                     </select>
                 </div>
                 
-                <button type="button" class="toggle-create-form" onclick="toggleCreateForm()">
-                    + Create New Fantasy Pairing
-                </button>
+                <div class="fantasy-actions">
+                    <button type="submit" name="action" value="generate_random_fantasy" class="btn-success">
+                        🎲 Generate And Assign New Fantasy Pairing
+                    </button>
+                    
+                    <button type="button" class="toggle-create-form" onclick="toggleCreateForm()">
+                        + Create Specific Fantasy Pairing
+                    </button>
+                </div>
                 
                 <div class="create-fantasy-form hidden" id="create-fantasy-form">
                     <h4>Create New Fantasy Doubles Pairing</h4>
