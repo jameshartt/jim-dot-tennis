@@ -440,8 +440,8 @@ func (h *FixturesHandler) handleTeamSelectionGet(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Get available players for this fixture
-	teamPlayers, allStAnnPlayers, err := h.service.GetAvailablePlayersForFixture(fixtureID)
+	// Get available players for this fixture with availability status
+	teamPlayers, allStAnnPlayers, err := h.service.GetAvailablePlayersForFixtureWithAvailability(fixtureID)
 	if err != nil {
 		logAndError(w, "Failed to load available players", err, http.StatusInternalServerError)
 		return
@@ -454,16 +454,16 @@ func (h *FixturesHandler) handleTeamSelectionGet(w http.ResponseWriter, r *http.
 	}
 
 	// Filter out already selected players
-	var availableTeamPlayers []models.Player
+	var availableTeamPlayers []PlayerWithAvailability
 	for _, player := range teamPlayers {
-		if !selectedMap[player.ID] {
+		if !selectedMap[player.Player.ID] {
 			availableTeamPlayers = append(availableTeamPlayers, player)
 		}
 	}
 
-	var availableStAnnPlayers []models.Player
+	var availableStAnnPlayers []PlayerWithAvailability
 	for _, player := range allStAnnPlayers {
-		if !selectedMap[player.ID] {
+		if !selectedMap[player.Player.ID] {
 			availableStAnnPlayers = append(availableStAnnPlayers, player)
 		}
 	}
@@ -645,8 +645,8 @@ func (h *FixturesHandler) renderTeamSelectionContainer(w http.ResponseWriter, r 
 		return
 	}
 
-	// Get available players for this fixture
-	teamPlayers, allStAnnPlayers, err := h.service.GetAvailablePlayersForFixture(fixtureID)
+	// Get available players for this fixture with availability status
+	teamPlayers, allStAnnPlayers, err := h.service.GetAvailablePlayersForFixtureWithAvailability(fixtureID)
 	if err != nil {
 		logAndError(w, "Failed to load available players", err, http.StatusInternalServerError)
 		return
@@ -659,16 +659,16 @@ func (h *FixturesHandler) renderTeamSelectionContainer(w http.ResponseWriter, r 
 	}
 
 	// Filter out already selected players
-	var availableTeamPlayers []models.Player
+	var availableTeamPlayers []PlayerWithAvailability
 	for _, player := range teamPlayers {
-		if !selectedMap[player.ID] {
+		if !selectedMap[player.Player.ID] {
 			availableTeamPlayers = append(availableTeamPlayers, player)
 		}
 	}
 
-	var availableStAnnPlayers []models.Player
+	var availableStAnnPlayers []PlayerWithAvailability
 	for _, player := range allStAnnPlayers {
-		if !selectedMap[player.ID] {
+		if !selectedMap[player.Player.ID] {
 			availableStAnnPlayers = append(availableStAnnPlayers, player)
 		}
 	}

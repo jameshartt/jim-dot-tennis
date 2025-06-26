@@ -27,6 +27,7 @@ type Service struct {
 	matchupRepository      repository.MatchupRepository
 	fantasyRepository      repository.FantasyMixedDoublesRepository
 	tennisPlayerRepository repository.ProTennisPlayerRepository
+	availabilityRepository repository.AvailabilityRepository
 }
 
 // NewService creates a new admin service
@@ -44,6 +45,7 @@ func NewService(db *database.DB) *Service {
 		matchupRepository:      repository.NewMatchupRepository(db),
 		fantasyRepository:      repository.NewFantasyMixedDoublesRepository(db),
 		tennisPlayerRepository: repository.NewProTennisPlayerRepository(db),
+		availabilityRepository: repository.NewAvailabilityRepository(db),
 	}
 }
 
@@ -93,7 +95,9 @@ type FixtureDetail struct {
 // SelectedPlayerInfo represents a player selected for a fixture with additional context
 type SelectedPlayerInfo struct {
 	models.FixturePlayer
-	Player models.Player `json:"player"`
+	Player             models.Player             `json:"player"`
+	AvailabilityStatus models.AvailabilityStatus `json:"availability_status"`
+	AvailabilityNotes  string                    `json:"availability_notes"`
 }
 
 // MatchupPlayerWithInfo represents a matchup player with their details
@@ -151,6 +155,13 @@ type CaptainWithInfo struct {
 type PlayerInTeam struct {
 	models.Player
 	PlayerTeam models.PlayerTeam `json:"player_team"`
+}
+
+// PlayerWithAvailability combines player information with their availability status for a fixture
+type PlayerWithAvailability struct {
+	Player             models.Player
+	AvailabilityStatus models.AvailabilityStatus
+	AvailabilityNotes  string
 }
 
 // GetDashboardData retrieves data for the admin dashboard
@@ -478,9 +489,14 @@ func (s *Service) GetFixtureDetail(fixtureID uint) (*FixtureDetail, error) {
 		var selectedPlayerInfos []SelectedPlayerInfo
 		for _, sp := range selectedPlayers {
 			if player, err := s.playerRepository.FindByID(ctx, sp.PlayerID); err == nil {
+				// Get availability information for this player and fixture
+				availability := s.determinePlayerAvailabilityForFixture(ctx, sp.PlayerID, fixtureID, fixture.ScheduledDate)
+
 				selectedPlayerInfos = append(selectedPlayerInfos, SelectedPlayerInfo{
-					FixturePlayer: sp,
-					Player:        *player,
+					FixturePlayer:      sp,
+					Player:             *player,
+					AvailabilityStatus: availability.Status,
+					AvailabilityNotes:  availability.Notes,
 				})
 			}
 		}
@@ -1373,6 +1389,95 @@ func (s *Service) GetAvailablePlayersForMatchup(fixtureID uint) ([]models.Player
 	// Combine team players and all St Ann's players as final fallback
 	allPlayers := append(teamPlayers, allStAnnPlayers...)
 	return allPlayers, nil
+}
+
+// GetAvailablePlayersForFixtureWithAvailability returns players with their availability status for a fixture
+func (s *Service) GetAvailablePlayersForFixtureWithAvailability(fixtureID uint) ([]PlayerWithAvailability, []PlayerWithAvailability, error) {
+	ctx := context.Background()
+
+	// Get the basic player lists first
+	teamPlayers, allStAnnPlayers, err := s.GetAvailablePlayersForFixture(fixtureID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Get the fixture to get its date
+	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Convert players to PlayerWithAvailability
+	teamPlayersWithAvail := make([]PlayerWithAvailability, 0, len(teamPlayers))
+	for _, player := range teamPlayers {
+		availability := s.determinePlayerAvailabilityForFixture(ctx, player.ID, fixtureID, fixture.ScheduledDate)
+		teamPlayersWithAvail = append(teamPlayersWithAvail, PlayerWithAvailability{
+			Player:             player,
+			AvailabilityStatus: availability.Status,
+			AvailabilityNotes:  availability.Notes,
+		})
+	}
+
+	allStAnnPlayersWithAvail := make([]PlayerWithAvailability, 0, len(allStAnnPlayers))
+	for _, player := range allStAnnPlayers {
+		availability := s.determinePlayerAvailabilityForFixture(ctx, player.ID, fixtureID, fixture.ScheduledDate)
+		allStAnnPlayersWithAvail = append(allStAnnPlayersWithAvail, PlayerWithAvailability{
+			Player:             player,
+			AvailabilityStatus: availability.Status,
+			AvailabilityNotes:  availability.Notes,
+		})
+	}
+
+	return teamPlayersWithAvail, allStAnnPlayersWithAvail, nil
+}
+
+// PlayerAvailabilityInfo holds availability information for a player
+type PlayerAvailabilityInfo struct {
+	Status models.AvailabilityStatus
+	Notes  string
+}
+
+// determinePlayerAvailabilityForFixture determines a player's availability for a specific fixture
+// following the priority order: fixture-specific > date exception > general day-of-week > unknown
+func (s *Service) determinePlayerAvailabilityForFixture(ctx context.Context, playerID string, fixtureID uint, fixtureDate time.Time) PlayerAvailabilityInfo {
+	// 1. Check fixture-specific availability first (highest priority)
+	if fixtureAvail, err := s.availabilityRepository.GetPlayerFixtureAvailability(ctx, playerID, fixtureID); err == nil && fixtureAvail != nil {
+		return PlayerAvailabilityInfo{
+			Status: fixtureAvail.Status,
+			Notes:  fixtureAvail.Notes,
+		}
+	}
+
+	// 2. Check for date-specific exceptions
+	if dateAvail, err := s.availabilityRepository.GetPlayerAvailabilityByDate(ctx, playerID, fixtureDate); err == nil && dateAvail != nil {
+		return PlayerAvailabilityInfo{
+			Status: dateAvail.Status,
+			Notes:  dateAvail.Reason,
+		}
+	}
+
+	// 3. Check general day-of-week availability
+	// First get the current season - we'll need to implement this
+	// For now, we'll assume season ID 1 or get it from the fixture
+	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
+	if err != nil {
+		return PlayerAvailabilityInfo{Status: models.Unknown}
+	}
+
+	dayOfWeek := fixtureDate.Weekday().String()
+	if generalAvails, err := s.availabilityRepository.GetPlayerGeneralAvailability(ctx, playerID, fixture.SeasonID); err == nil {
+		for _, avail := range generalAvails {
+			if avail.DayOfWeek == dayOfWeek {
+				return PlayerAvailabilityInfo{
+					Status: avail.Status,
+					Notes:  avail.Notes,
+				}
+			}
+		}
+	}
+
+	// 4. Default to Unknown if nothing is specified
+	return PlayerAvailabilityInfo{Status: models.Unknown}
 }
 
 // GetFantasyDoubles retrieves all fantasy doubles pairings

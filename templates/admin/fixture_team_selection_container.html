@@ -40,7 +40,8 @@
                           hx-confirm="Remove {{.Player.FirstName}} {{.Player.LastName}} from selection?">
                         <input type="hidden" name="action" value="remove_player">
                         <input type="hidden" name="player_id" value="{{.PlayerID}}">
-                        <button type="submit" class="btn-remove-player">
+                        <button type="submit" class="btn-remove-player availability-{{.AvailabilityStatus | lower}}"
+                                title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
                             {{.Player.FirstName}} {{.Player.LastName}} (Pos {{.Position}})
                         </button>
                     </form>
@@ -48,7 +49,7 @@
                 </div>
                 <div class="selection-actions">
                     <form method="post" style="display: inline;"
-                          hx-post="/admin/fixtures/{{.FixtureDetail.ID}}/team-selection"
+                          hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
                           hx-target=".team-selection-container"
                           hx-swap="outerHTML"
                           hx-confirm="Clear all selected players?">
@@ -65,6 +66,26 @@
         <div class="available-players-section">
             <h3>🎾 Available Players</h3>
             
+            <div class="availability-legend">
+                <h5>🎨 Availability Status:</h5>
+                <div class="legend-item">
+                    <span class="legend-color legend-available"></span>
+                    Available
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color legend-ifneeded"></span>
+                    If Needed
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color legend-unavailable"></span>
+                    Unavailable
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color legend-unknown"></span>
+                    Unknown
+                </div>
+            </div>
+            
             {{if .TeamPlayers}}
             <div class="player-group">
                 <h4>Team Players ({{len .TeamPlayers}} available)</h4>
@@ -75,10 +96,11 @@
                           hx-target=".team-selection-container"
                           hx-swap="outerHTML">
                         <input type="hidden" name="action" value="add_player">
-                        <input type="hidden" name="player_id" value="{{.ID}}">
+                        <input type="hidden" name="player_id" value="{{.Player.ID}}">
                         <input type="hidden" name="is_home" value="true">
-                        <button type="submit" class="btn-add-player">
-                            {{.FirstName}} {{.LastName}}
+                        <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}"
+                                title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
+                            {{.Player.FirstName}} {{.Player.LastName}}
                         </button>
                     </form>
                     {{end}}
@@ -101,10 +123,11 @@
                           hx-target=".team-selection-container"
                           hx-swap="outerHTML">
                         <input type="hidden" name="action" value="add_player">
-                        <input type="hidden" name="player_id" value="{{.ID}}">
+                        <input type="hidden" name="player_id" value="{{.Player.ID}}">
                         <input type="hidden" name="is_home" value="true">
-                        <button type="submit" class="btn-add-player">
-                            {{.FirstName}} {{.LastName}}
+                        <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}"
+                                title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
+                            {{.Player.FirstName}} {{.Player.LastName}}
                         </button>
                     </form>
                     {{end}}

@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -21,10 +22,27 @@ func getUserFromContext(r *http.Request) (*models.User, error) {
 	return &user, nil
 }
 
-// parseTemplate loads and parses a template file
+// parseTemplate loads and parses a template file with helper functions
 func parseTemplate(templateDir, templatePath string) (*template.Template, error) {
 	fullPath := filepath.Join(templateDir, templatePath)
-	return template.ParseFiles(fullPath)
+
+	// Define template functions
+	funcMap := template.FuncMap{
+		"lower": func(v interface{}) string {
+			switch s := v.(type) {
+			case string:
+				return strings.ToLower(s)
+			case models.AvailabilityStatus:
+				return strings.ToLower(string(s))
+			default:
+				return strings.ToLower(fmt.Sprintf("%v", s))
+			}
+		},
+	}
+
+	// Parse template with function map
+	tmpl := template.New(filepath.Base(templatePath)).Funcs(funcMap)
+	return tmpl.ParseFiles(fullPath)
 }
 
 // renderTemplate executes a template with given data

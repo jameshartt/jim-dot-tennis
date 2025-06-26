@@ -130,6 +130,44 @@
             content: "✓ ";
             font-weight: bold;
         }
+
+        /* Availability status colors for remove buttons */
+        .btn-remove-player.availability-available {
+            background: #28a745; /* Green for Available */
+            border-left: 4px solid #1e7e34;
+        }
+        
+        .btn-remove-player.availability-available:hover {
+            background: #218838;
+        }
+        
+        .btn-remove-player.availability-ifneeded {
+            background: #ffc107; /* Yellow for IfNeeded */
+            color: #212529;
+            border-left: 4px solid #d39e00;
+        }
+        
+        .btn-remove-player.availability-ifneeded:hover {
+            background: #e0a800;
+        }
+        
+        .btn-remove-player.availability-unavailable {
+            background: #dc3545; /* Red for Unavailable */
+            border-left: 4px solid #bd2130;
+        }
+        
+        .btn-remove-player.availability-unavailable:hover {
+            background: #c82333;
+        }
+        
+        .btn-remove-player.availability-unknown {
+            background: #6c757d; /* Gray for Unknown */
+            border-left: 4px solid #545b62;
+        }
+        
+        .btn-remove-player.availability-unknown:hover {
+            background: #5a6268;
+        }
         
         .selection-count {
             text-align: center;
@@ -203,11 +241,84 @@
             font-size: 0.85rem;
             transition: background-color 0.2s;
             white-space: nowrap;
+            position: relative;
         }
         
         .btn-add-player:hover {
             background: #0056b3;
         }
+
+        /* Availability status colors */
+        .btn-add-player.availability-available {
+            background: #28a745; /* Green for Available */
+            border-left: 4px solid #1e7e34;
+        }
+        
+        .btn-add-player.availability-available:hover {
+            background: #218838;
+        }
+        
+        .btn-add-player.availability-ifneeded {
+            background: #ffc107; /* Yellow for IfNeeded */
+            color: #212529;
+            border-left: 4px solid #d39e00;
+        }
+        
+        .btn-add-player.availability-ifneeded:hover {
+            background: #e0a800;
+        }
+        
+        .btn-add-player.availability-unavailable {
+            background: #dc3545; /* Red for Unavailable */
+            border-left: 4px solid #bd2130;
+        }
+        
+        .btn-add-player.availability-unavailable:hover {
+            background: #c82333;
+        }
+        
+        .btn-add-player.availability-unknown {
+            background: #6c757d; /* Gray for Unknown */
+            border-left: 4px solid #545b62;
+        }
+        
+        .btn-add-player.availability-unknown:hover {
+            background: #5a6268;
+        }
+
+        .availability-legend {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+        }
+
+        .availability-legend h5 {
+            margin: 0 0 0.5rem 0;
+            color: #495057;
+        }
+
+        .legend-item {
+            display: inline-block;
+            margin-right: 1rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .legend-color {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+
+        .legend-available { background: #28a745; }
+        .legend-ifneeded { background: #ffc107; }
+        .legend-unavailable { background: #dc3545; }
+        .legend-unknown { background: #6c757d; }
         
         .no-players {
             color: #6c757d;
@@ -331,7 +442,8 @@
                                       hx-confirm="Remove {{.Player.FirstName}} {{.Player.LastName}} from selection?">
                                     <input type="hidden" name="action" value="remove_player">
                                     <input type="hidden" name="player_id" value="{{.PlayerID}}">
-                                    <button type="submit" class="btn-remove-player">
+                                    <button type="submit" class="btn-remove-player availability-{{.AvailabilityStatus | lower}}"
+                                            title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
                                         {{.Player.FirstName}} {{.Player.LastName}} (Pos {{.Position}})
                                     </button>
                                 </form>
@@ -339,7 +451,7 @@
                             </div>
                             <div class="selection-actions">
                                 <form method="post" style="display: inline;"
-                                      hx-post="/admin/fixtures/{{.FixtureDetail.ID}}/team-selection"
+                                      hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
                                       hx-target=".team-selection-container"
                                       hx-swap="outerHTML"
                                       hx-confirm="Clear all selected players?">
@@ -356,6 +468,26 @@
                     <div class="available-players-section">
                         <h3>🎾 Available Players</h3>
                         
+                        <div class="availability-legend">
+                            <h5>🎨 Availability Status:</h5>
+                            <div class="legend-item">
+                                <span class="legend-color legend-available"></span>
+                                Available
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color legend-ifneeded"></span>
+                                If Needed
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color legend-unavailable"></span>
+                                Unavailable
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color legend-unknown"></span>
+                                Unknown
+                            </div>
+                        </div>
+                        
                         {{if .TeamPlayers}}
                         <div class="player-group">
                             <h4>Team Players ({{len .TeamPlayers}} available)</h4>
@@ -366,10 +498,11 @@
                                       hx-target=".team-selection-container"
                                       hx-swap="outerHTML">
                                     <input type="hidden" name="action" value="add_player">
-                                    <input type="hidden" name="player_id" value="{{.ID}}">
+                                    <input type="hidden" name="player_id" value="{{.Player.ID}}">
                                     <input type="hidden" name="is_home" value="true">
-                                    <button type="submit" class="btn-add-player">
-                                        {{.FirstName}} {{.LastName}}
+                                    <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}"
+                                            title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
+                                        {{.Player.FirstName}} {{.Player.LastName}}
                                     </button>
                                 </form>
                                 {{end}}
@@ -392,10 +525,11 @@
                                       hx-target=".team-selection-container"
                                       hx-swap="outerHTML">
                                     <input type="hidden" name="action" value="add_player">
-                                    <input type="hidden" name="player_id" value="{{.ID}}">
+                                    <input type="hidden" name="player_id" value="{{.Player.ID}}">
                                     <input type="hidden" name="is_home" value="true">
-                                    <button type="submit" class="btn-add-player">
-                                        {{.FirstName}} {{.LastName}}
+                                    <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}"
+                                            title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
+                                        {{.Player.FirstName}} {{.Player.LastName}}
                                     </button>
                                 </form>
                                 {{end}}
