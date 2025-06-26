@@ -37,8 +37,6 @@ type Player struct {
 	ID             string    `json:"id" db:"id"` // UUID for player identification
 	FirstName      string    `json:"first_name" db:"first_name"`
 	LastName       string    `json:"last_name" db:"last_name"`
-	Email          string    `json:"email" db:"email"`
-	Phone          string    `json:"phone" db:"phone"`
 	ClubID         uint      `json:"club_id" db:"club_id"`                             // Player belongs to a club, not directly to a team
 	FantasyMatchID *uint     `json:"fantasy_match_id,omitempty" db:"fantasy_match_id"` // Links player to fantasy mixed doubles match for auth
 	CreatedAt      time.Time `json:"created_at" db:"created_at"`

@@ -232,8 +232,6 @@ func (h *PlayersHandler) handlePlayerEditPost(w http.ResponseWriter, r *http.Req
 	// Update player fields from form
 	player.FirstName = strings.TrimSpace(r.FormValue("first_name"))
 	player.LastName = strings.TrimSpace(r.FormValue("last_name"))
-	player.Email = strings.TrimSpace(r.FormValue("email"))
-	player.Phone = strings.TrimSpace(r.FormValue("phone"))
 
 	// Handle club ID (convert from string to uint)
 	clubIDStr := r.FormValue("club_id")
@@ -389,18 +387,14 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 			w.Write([]byte(fmt.Sprintf(`
 				<tr data-player-id="%s" data-player-name="%s %s" class="%s">
 					<td class="col-name">%s %s</td>
-					<td class="col-email" title="%s">%s</td>
-					<td class="col-phone" title="%s">%s</td>
 				</tr>
 			`, player.ID, player.FirstName, player.LastName, activeClass,
-				player.FirstName, player.LastName,
-				player.Email, player.Email,
-				player.Phone, player.Phone)))
+				player.FirstName, player.LastName)))
 		}
 	} else {
 		w.Write([]byte(`
 			<tr>
-				<td colspan="3" style="text-align: center; padding: 2rem;">
+				<td colspan="1" style="text-align: center; padding: 2rem;">
 					No players found matching your criteria.
 				</td>
 			</tr>

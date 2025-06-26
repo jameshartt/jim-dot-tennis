@@ -134,7 +134,7 @@ The populate-db script imports:
 
 ### Players
 - **88 Players**: All St Ann's club members imported from HTML file
-- **Complete Profiles**: Names, emails, phone numbers generated
+- **Complete Profiles**: Names generated
 
 ## Data Summary
 

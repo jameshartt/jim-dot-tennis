@@ -176,9 +176,8 @@
             white-space: nowrap;
         }
         
-        /* Email and phone columns - responsive truncation */
-        .col-email,
-        .col-phone {
+        /* Club column */
+        .col-club {
             max-width: 200px;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -237,22 +236,8 @@
                 padding: 0.75rem 0.5rem;
             }
             
-            .col-email {
-                max-width: 120px;
-            }
-            
-            .col-phone {
-                max-width: 100px;
-            }
-        }
-        
-        @media (max-width: 600px) {
-            .col-email {
-                max-width: 80px;
-            }
-            
-            .col-phone {
-                max-width: 80px;
+            .col-club {
+                max-width: 150px;
             }
         }
         
@@ -263,24 +248,8 @@
                 font-size: 0.9rem;
             }
             
-            .col-email {
-                max-width: 60px;
-            }
-            
-            .col-phone {
-                max-width: 60px;
-            }
-            
-            /* Hide email on very small screens */
-            .col-email {
-                display: none;
-            }
-        }
-        
-        @media (max-width: 360px) {
-            /* Hide phone on extra small screens */
-            .col-phone {
-                display: none;
+            .col-club {
+                max-width: 120px;
             }
         }
     </style>
@@ -340,8 +309,6 @@
                     <tr>
                         <th class="col-checkbox">Select</th>
                         <th class="col-name">Name</th>
-                        <th class="col-email">Email</th>
-                        <th class="col-phone">Phone</th>
                     </tr>
                 </thead>
                 <tbody id="players-tbody">
@@ -354,13 +321,11 @@
                                 <input type="checkbox" name="player_ids" value="{{.ID}}" class="player-checkbox">
                             </td>
                             <td class="col-name">{{.FirstName}} {{.LastName}}</td>
-                            <td class="col-email" title="{{.Email}}">{{.Email}}</td>
-                            <td class="col-phone" title="{{.Phone}}">{{.Phone}}</td>
                         </tr>
                         {{end}}
                     {{else}}
                         <tr>
-                            <td colspan="4" style="text-align: center; padding: 2rem;">
+                            <td colspan="2" style="text-align: center; padding: 2rem;">
                                 No eligible players found. All players from this club may already be on the team.
                             </td>
                         </tr>

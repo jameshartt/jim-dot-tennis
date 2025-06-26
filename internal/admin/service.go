@@ -257,14 +257,10 @@ func filterPlayersByQuery(players []models.Player, query string) []models.Player
 	var filtered []models.Player
 
 	for _, player := range players {
-		// Check if query matches name, email, or phone
+		// Check if query matches name
 		fullName := strings.ToLower(player.FirstName + " " + player.LastName)
-		email := strings.ToLower(player.Email)
-		phone := strings.ToLower(player.Phone)
 
-		if strings.Contains(fullName, queryLower) ||
-			strings.Contains(email, queryLower) ||
-			strings.Contains(phone, queryLower) {
+		if strings.Contains(fullName, queryLower) {
 			filtered = append(filtered, player)
 		}
 	}

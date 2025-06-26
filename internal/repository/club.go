@@ -25,6 +25,10 @@ type ClubRepository interface {
 	FindByPlayerID(ctx context.Context, playerID string) (*models.Club, error)
 	CountPlayers(ctx context.Context, id uint) (int, error)
 	CountTeams(ctx context.Context, id uint) (int, error)
+
+	// New queries
+	GetPlayersByClub(ctx context.Context, clubID uint) ([]models.Player, error)
+	GetAllPlayersWithClubs(ctx context.Context) ([]models.Player, error)
 }
 
 // clubRepository implements ClubRepository
@@ -143,7 +147,7 @@ func (r *clubRepository) FindWithPlayers(ctx context.Context, id uint) (*models.
 	// Then get associated players
 	var players []models.Player
 	err = r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, email, phone, club_id, created_at, updated_at
+		SELECT id, first_name, last_name, club_id, created_at, updated_at
 		FROM players
 		WHERE club_id = ?
 		ORDER BY last_name ASC, first_name ASC
@@ -193,7 +197,7 @@ func (r *clubRepository) FindWithPlayersAndTeams(ctx context.Context, id uint) (
 	// Get associated players
 	var players []models.Player
 	err = r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, email, phone, club_id, created_at, updated_at
+		SELECT id, first_name, last_name, club_id, created_at, updated_at
 		FROM players
 		WHERE club_id = ?
 		ORDER BY last_name ASC, first_name ASC
@@ -252,4 +256,27 @@ func (r *clubRepository) CountTeams(ctx context.Context, id uint) (int, error) {
 		SELECT COUNT(*) FROM teams WHERE club_id = ?
 	`, id)
 	return count, err
+}
+
+// GetPlayersByClub retrieves all players for a specific club
+func (r *clubRepository) GetPlayersByClub(ctx context.Context, clubID uint) ([]models.Player, error) {
+	var players []models.Player
+	err := r.db.SelectContext(ctx, &players, `
+		SELECT id, first_name, last_name, club_id, created_at, updated_at
+		FROM players 
+		WHERE club_id = ?
+		ORDER BY last_name ASC, first_name ASC
+	`, clubID)
+	return players, err
+}
+
+// GetAllPlayersWithClubs retrieves all players with their club information
+func (r *clubRepository) GetAllPlayersWithClubs(ctx context.Context) ([]models.Player, error) {
+	var players []models.Player
+	err := r.db.SelectContext(ctx, &players, `
+		SELECT id, first_name, last_name, club_id, created_at, updated_at
+		FROM players 
+		ORDER BY last_name ASC, first_name ASC
+	`)
+	return players, err
 }

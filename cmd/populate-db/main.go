@@ -633,43 +633,6 @@ func parseFixtureDate(dateStr string, year int) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("unable to parse date: %s", dateStr)
 }
 
-// generateRandomEmail creates a random email address based on the player's name
-func generateRandomEmail(firstName, lastName string) string {
-	// Convert to lowercase and remove spaces
-	first := strings.ToLower(strings.ReplaceAll(firstName, " ", ""))
-	last := strings.ToLower(strings.ReplaceAll(lastName, " ", ""))
-
-	// Random email domains
-	domains := []string{"gmail.com", "yahoo.co.uk", "hotmail.com", "outlook.com", "btinternet.com"}
-	domain := domains[len(first+last)%len(domains)]
-
-	// Different email patterns
-	patterns := []string{
-		fmt.Sprintf("%s.%s@%s", first, last, domain),
-		fmt.Sprintf("%s_%s@%s", first, last, domain),
-		fmt.Sprintf("%s%s@%s", first, last, domain),
-		fmt.Sprintf("%s.%s%d@%s", first, last, (len(firstName)+len(lastName))%99+1, domain),
-	}
-
-	pattern := patterns[len(firstName)%len(patterns)]
-	return pattern
-}
-
-// generateRandomPhone creates a random UK phone number
-func generateRandomPhone(firstName, lastName string) string {
-	// Use name length to create some variation but keep it deterministic for same names
-	seed := len(firstName) + len(lastName)*3
-
-	// UK mobile number patterns
-	prefixes := []string{"07700", "07701", "07702", "07703", "07704", "07705"}
-	prefix := prefixes[seed%len(prefixes)]
-
-	// Generate last 6 digits based on name
-	suffix := fmt.Sprintf("%06d", (seed*12345+67890)%1000000)
-
-	return fmt.Sprintf("%s %s", prefix, suffix)
-}
-
 // parsePlayersFromHTML extracts player names from the HTML file
 func parsePlayersFromHTML(filePath string) ([]string, error) {
 	file, err := os.Open(filePath)
@@ -840,9 +803,7 @@ func importPlayers(ctx context.Context, filePath string, clubRepo repository.Clu
 		firstName, lastName := splitPlayerName(fullName)
 
 		if config.DryRun {
-			email := generateRandomEmail(firstName, lastName)
-			phone := generateRandomPhone(firstName, lastName)
-			log.Printf("[DRY RUN] Would create player: %s %s (Club: %s, Email: %s, Phone: %s)", firstName, lastName, stAnnsClub.Name, email, phone)
+			log.Printf("[DRY RUN] Would create player: %s %s (Club: %s)", firstName, lastName, stAnnsClub.Name)
 			importedCount++
 			continue
 		}
@@ -872,8 +833,6 @@ func importPlayers(ctx context.Context, filePath string, clubRepo repository.Clu
 			ID:        uuid.New().String(),
 			FirstName: firstName,
 			LastName:  lastName,
-			Email:     generateRandomEmail(firstName, lastName),
-			Phone:     generateRandomPhone(firstName, lastName),
 			ClubID:    stAnnsClub.ID,
 		}
 

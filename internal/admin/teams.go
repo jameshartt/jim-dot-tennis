@@ -422,14 +422,10 @@ func (h *TeamsHandler) renderAddPlayersTableBody(w http.ResponseWriter, players 
 						<input type="checkbox" name="player_ids" value="%s" class="player-checkbox">
 					</td>
 					<td class="col-name">%s %s</td>
-					<td class="col-email" title="%s">%s</td>
-					<td class="col-phone" title="%s">%s</td>
 				</tr>
 			`, player.ID, player.FirstName, player.LastName, activeClass,
 				player.ID,
-				player.FirstName, player.LastName,
-				player.Email, player.Email,
-				player.Phone, player.Phone)))
+				player.FirstName, player.LastName)))
 		}
 	} else {
 		w.Write([]byte(`
