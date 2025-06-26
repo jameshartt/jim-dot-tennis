@@ -16,41 +16,89 @@
             background: white;
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            padding: 30px;
+            padding: 20px;
             margin-bottom: 30px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .fantasy-match-card:hover {
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .fantasy-match-card.collapsed {
+            padding: 10px 15px;
         }
         
         .match-header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 15px;
+            user-select: none;
+        }
+        
+        .match-header:hover {
+            opacity: 0.8;
         }
         
         .match-title {
-            font-size: 24px;
+            font-size: 20px;
             font-weight: bold;
             color: #2c5530;
-            margin-bottom: 10px;
+            margin-bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .collapse-icon {
+            font-size: 16px;
+            transition: transform 0.3s ease;
+        }
+        
+        .collapse-icon.collapsed {
+            transform: rotate(-90deg);
         }
         
         .match-subtitle {
-            font-size: 16px;
+            font-size: 14px;
             color: #666;
             margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .match-content {
+            overflow: hidden;
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+        }
+        
+        .match-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+        }
+        
+        .match-content.expanded {
+            max-height: 500px;
+            opacity: 1;
         }
         
         .teams-container {
-            display: grid;
-            grid-template-columns: 1fr auto 1fr;
-            gap: 20px;
+            display: flex;
+            justify-content: center;
             align-items: center;
-            margin-bottom: 30px;
+            gap: 30px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
         }
         
         .team {
             text-align: center;
             padding: 20px;
             background: #f8f9fa;
-            border-radius: 8px;
+            border-radius: 12px;
+            min-width: 200px;
+            flex: 1;
+            max-width: 280px;
         }
         
         .team-name {
@@ -58,32 +106,90 @@
             font-weight: bold;
             color: #2c5530;
             margin-bottom: 15px;
+            border-bottom: 2px solid #e8f5e8;
+            padding-bottom: 8px;
+        }
+        
+        .team-players {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
         
         .player {
-            margin-bottom: 10px;
-            padding: 8px 12px;
-            background: white;
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 12px 15px;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border-radius: 12px;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+            border: 2px solid #e8f5e8;
+            border-left: 4px solid #4a7c59;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .player::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(74, 124, 89, 0.05) 0%, rgba(74, 124, 89, 0.1) 100%);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        
+        .player:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            border-color: #4a7c59;
+        }
+        
+        .player:hover::before {
+            opacity: 1;
+        }
+        
+        .player:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
         
         .player-name {
-            font-weight: 600;
-            color: #333;
+            font-weight: 700;
+            color: #2c5530;
+            font-size: 15px;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
         }
         
-        .player-details {
+        .player-name::after {
+            content: ' 🔗';
             font-size: 12px;
-            color: #666;
-            margin-top: 2px;
+            opacity: 0.6;
+            transition: opacity 0.2s ease;
+        }
+        
+        .player:hover .player-name::after {
+            opacity: 1;
         }
         
         .vs-divider {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: bold;
             color: #4a7c59;
             text-align: center;
+            background: #e8f5e8;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
         }
         
         .availability-section {
@@ -119,28 +225,7 @@
             margin-bottom: 0;
         }
         
-        .auth-token {
-            background: #e8f5e8;
-            border: 1px solid #4a7c59;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 20px 0;
-            text-align: center;
-        }
-        
-        .auth-token-label {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 5px;
-        }
-        
-        .auth-token-value {
-            font-family: monospace;
-            font-size: 16px;
-            font-weight: bold;
-            color: #2c5530;
-            word-break: break-all;
-        }
+
         
         .footer-links {
             text-align: center;
@@ -348,12 +433,34 @@
         
         @media (max-width: 768px) {
             .teams-container {
-                grid-template-columns: 1fr;
-                gap: 15px;
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .match-content.expanded {
+                max-height: none;  /* Remove height restriction on mobile */
+            }
+            
+            .team-players {
+                flex-direction: row;
+                gap: 8px;
+            }
+            
+            .player {
+                flex: 1;
+                min-width: 0; /* Allow flex items to shrink */
+            }
+            
+            .team:first-child {
+                order: 1;
             }
             
             .vs-divider {
                 order: 2;
+            }
+            
+            .team:last-child {
+                order: 3;
             }
             
             .availability-container {
@@ -398,29 +505,290 @@
                 max-width: 300px;
             }
         }
+        
+        @media (max-width: 480px) {
+            .availability-container {
+                padding: 10px;
+            }
+            
+            .fantasy-match-card {
+                padding: 15px;
+                margin-bottom: 20px;
+            }
+            
+            .fantasy-match-card.collapsed {
+                padding: 8px 12px;
+            }
+            
+            .match-title {
+                font-size: 18px;
+            }
+            
+            .match-subtitle {
+                font-size: 13px;
+                margin-bottom: 15px;
+            }
+            
+            .teams-container {
+                gap: 20px;
+            }
+            
+            .team {
+                padding: 15px;
+                min-width: 160px;
+            }
+            
+            .team-players {
+                flex-direction: row;
+                gap: 6px;
+            }
+            
+            .player {
+                flex: 1;
+                min-width: 0;
+            }
+            
+            .team-name {
+                font-size: 16px;
+                margin-bottom: 12px;
+            }
+            
+            .player {
+                padding: 10px 12px;
+            }
+            
+            .player-name {
+                font-size: 14px;
+            }
+            
+            .vs-divider {
+                width: 45px;
+                height: 45px;
+                font-size: 24px;
+            }
+            
+            .availability-section {
+                padding: 20px;
+                margin-bottom: 15px;
+            }
+            
+            .section-title {
+                font-size: 18px;
+                margin-bottom: 15px;
+            }
+            
+            .availability-instructions {
+                font-size: 15px;
+                margin-bottom: 20px;
+            }
+            
+            .calendar-container {
+                padding: 20px;
+                margin-bottom: 20px;
+            }
+            
+            .calendar-grid {
+                gap: 4px;
+                margin-bottom: 20px;
+            }
+            
+            .calendar-day {
+                min-height: 45px;
+            }
+            
+            .day-number {
+                font-size: 13px;
+            }
+            
+            .legend {
+                gap: 12px;
+                padding: 12px;
+            }
+            
+            .legend-item {
+                font-size: 12px;
+            }
+            
+            .legend-color {
+                width: 16px;
+                height: 16px;
+            }
+        }
+        
+        @media (max-width: 320px) {
+            .availability-container {
+                padding: 8px;
+            }
+            
+            .fantasy-match-card {
+                padding: 12px;
+                margin-bottom: 15px;
+            }
+            
+            .fantasy-match-card.collapsed {
+                padding: 6px 10px;
+            }
+            
+            .match-header {
+                margin-bottom: 10px;
+            }
+            
+            .match-title {
+                font-size: 16px;
+                gap: 8px;
+            }
+            
+            .collapse-icon {
+                font-size: 14px;
+            }
+            
+            .match-subtitle {
+                font-size: 12px;
+                margin-bottom: 12px;
+            }
+            
+            .teams-container {
+                gap: 15px;
+                margin-bottom: 15px;
+            }
+            
+            .team {
+                padding: 12px;
+                min-width: 140px;
+                max-width: none;
+            }
+            
+            .team-name {
+                font-size: 14px;
+                margin-bottom: 10px;
+                padding-bottom: 6px;
+            }
+            
+            .team-players {
+                gap: 8px;
+            }
+            
+            .player {
+                padding: 8px 10px;
+            }
+            
+            .player-name {
+                font-size: 13px;
+            }
+            
+            .vs-divider {
+                width: 35px;
+                height: 35px;
+                font-size: 20px;
+            }
+            
+            .availability-section {
+                padding: 15px;
+                margin-bottom: 12px;
+            }
+            
+            .section-title {
+                font-size: 16px;
+                margin-bottom: 12px;
+            }
+            
+            .availability-instructions {
+                font-size: 14px;
+                margin-bottom: 15px;
+            }
+            
+            .calendar-container {
+                padding: 15px;
+                margin-bottom: 15px;
+            }
+            
+            .calendar-grid {
+                gap: 3px;
+                margin-bottom: 15px;
+            }
+            
+            .day-header {
+                padding: 8px 3px;
+                font-size: 12px;
+            }
+            
+            .calendar-day {
+                min-height: 40px;
+            }
+            
+            .day-number {
+                font-size: 12px;
+            }
+            
+            .day-type {
+                font-size: 8px;
+            }
+            
+            .calendar-day.fixture-day::after {
+                font-size: 8px;
+                top: 1px;
+                right: 1px;
+            }
+            
+            .legend {
+                gap: 8px;
+                padding: 10px;
+                flex-wrap: wrap;
+            }
+            
+            .legend-item {
+                font-size: 11px;
+                gap: 6px;
+            }
+            
+            .legend-color {
+                width: 14px;
+                height: 14px;
+            }
+            
+            .availability-actions {
+                gap: 10px;
+            }
+            
+            .btn-quick-action {
+                padding: 10px 20px;
+                font-size: 13px;
+                max-width: 280px;
+            }
+            
+            .footer-links {
+                margin-top: 20px;
+                padding-top: 15px;
+            }
+            
+            .footer-links a {
+                font-size: 14px;
+                margin: 0 10px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="availability-container">
-        <div class="fantasy-match-card">
+        <div class="fantasy-match-card" id="fantasy-match-card" onclick="toggleFantasyMatch()">
             <div class="match-header">
-                <h1 class="match-title">Fantasy Mixed Doubles Match</h1>
-                <p class="match-subtitle">Your unique tennis professional pairing for availability management</p>
+                <h1 class="match-title">
+                    Fantasy Mixed Doubles Match
+                    <span class="collapse-icon">▼</span>
+                </h1>
             </div>
             
-            <div class="teams-container">
+            <div class="match-content expanded" id="match-content">
+                <p class="match-subtitle">Your unique fantasy tennis pairing, bookmark this page to manage your availability for the season</p>
+                <div class="teams-container">
                 <div class="team">
                     <div class="team-name">Team A</div>
-                    <div class="player">
-                        <div class="player-name">{{.FantasyMatch.TeamAWoman.FirstName}} {{.FantasyMatch.TeamAWoman.LastName}}</div>
-                        <div class="player-details">
-                            {{.FantasyMatch.TeamAWoman.Nationality}} • WTA Rank {{.FantasyMatch.TeamAWoman.CurrentRank}}
+                    <div class="team-players">
+                        <div class="player" onclick="event.stopPropagation(); window.open('{{.FantasyMatch.TeamAWoman.WikipediaURL}}', '_blank')">
+                            <div class="player-name">{{.FantasyMatch.TeamAWoman.FirstName}} {{.FantasyMatch.TeamAWoman.LastName}}</div>
                         </div>
-                    </div>
-                    <div class="player">
-                        <div class="player-name">{{.FantasyMatch.TeamAMan.FirstName}} {{.FantasyMatch.TeamAMan.LastName}}</div>
-                        <div class="player-details">
-                            {{.FantasyMatch.TeamAMan.Nationality}} • ATP Rank {{.FantasyMatch.TeamAMan.CurrentRank}}
+                        <div class="player" onclick="event.stopPropagation(); window.open('{{.FantasyMatch.TeamAMan.WikipediaURL}}', '_blank')">
+                            <div class="player-name">{{.FantasyMatch.TeamAMan.FirstName}} {{.FantasyMatch.TeamAMan.LastName}}</div>
                         </div>
                     </div>
                 </div>
@@ -429,24 +797,16 @@
                 
                 <div class="team">
                     <div class="team-name">Team B</div>
-                    <div class="player">
-                        <div class="player-name">{{.FantasyMatch.TeamBWoman.FirstName}} {{.FantasyMatch.TeamBWoman.LastName}}</div>
-                        <div class="player-details">
-                            {{.FantasyMatch.TeamBWoman.Nationality}} • WTA Rank {{.FantasyMatch.TeamBWoman.CurrentRank}}
+                    <div class="team-players">
+                        <div class="player" onclick="event.stopPropagation(); window.open('{{.FantasyMatch.TeamBWoman.WikipediaURL}}', '_blank')">
+                            <div class="player-name">{{.FantasyMatch.TeamBWoman.FirstName}} {{.FantasyMatch.TeamBWoman.LastName}}</div>
                         </div>
-                    </div>
-                    <div class="player">
-                        <div class="player-name">{{.FantasyMatch.TeamBMan.FirstName}} {{.FantasyMatch.TeamBMan.LastName}}</div>
-                        <div class="player-details">
-                            {{.FantasyMatch.TeamBMan.Nationality}} • ATP Rank {{.FantasyMatch.TeamBMan.CurrentRank}}
+                        <div class="player" onclick="event.stopPropagation(); window.open('{{.FantasyMatch.TeamBMan.WikipediaURL}}', '_blank')">
+                            <div class="player-name">{{.FantasyMatch.TeamBMan.FirstName}} {{.FantasyMatch.TeamBMan.LastName}}</div>
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <div class="auth-token">
-                <div class="auth-token-label">Your Authentication Token:</div>
-                <div class="auth-token-value">{{.AuthToken}}</div>
             </div>
         </div>
         
@@ -482,17 +842,13 @@
             </div>
             
             <div class="availability-actions">
-                <button type="button" class="btn-quick-action" onclick="setWeekAvailability('available')">
-                    Set This Week Available
+                <button type="button" class="btn-quick-action" onclick="setWeekAvailability('available', 1)">
+                    Set Next Week Available
                 </button>
-                <button type="button" class="btn-quick-action" onclick="setWeekAvailability('unavailable')">
-                    Set This Week Unavailable
+                <button type="button" class="btn-quick-action" onclick="setWeekAvailability('unavailable', 1)">
+                    Set Next Week Unavailable
                 </button>
             </div>
-        </div>
-        
-        <div class="footer-links">
-            <a href="/">← Back to Home</a>
         </div>
     </div>
     
@@ -590,9 +946,9 @@
             
             isFixtureDay(date) {
                 // Check if this date falls on common fixture days
-                // Monday=1, Tuesday=2, Wednesday=3, Thursday=4
+                // Tuesday=2, Wednesday=3, Thursday=4
                 const dayOfWeek = date.getDay();
-                return dayOfWeek >= 1 && dayOfWeek <= 4;
+                return dayOfWeek >= 2 && dayOfWeek <= 4;
             }
             
             isToday(date) {
@@ -690,12 +1046,46 @@
         let calendar;
         document.addEventListener('DOMContentLoaded', function() {
             calendar = new AvailabilityCalendar();
+            
+            // Restore collapsed state from localStorage
+            const isCollapsed = localStorage.getItem('fantasy-match-collapsed') === 'true';
+            if (isCollapsed) {
+                const card = document.getElementById('fantasy-match-card');
+                const content = document.getElementById('match-content');
+                const icon = document.querySelector('.collapse-icon');
+                
+                content.classList.remove('expanded');
+                content.classList.add('collapsed');
+                card.classList.add('collapsed');
+                icon.classList.add('collapsed');
+            }
         });
         
         // Global functions for quick actions
-        function setWeekAvailability(status) {
+        function setWeekAvailability(status, weekOffset) {
             if (calendar) {
-                calendar.setWeekAvailability(status);
+                calendar.setWeekAvailability(status, weekOffset);
+            }
+        }
+        
+        // Fantasy match collapse/expand functionality
+        function toggleFantasyMatch() {
+            const card = document.getElementById('fantasy-match-card');
+            const content = document.getElementById('match-content');
+            const icon = document.querySelector('.collapse-icon');
+            
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                content.classList.add('collapsed');
+                card.classList.add('collapsed');
+                icon.classList.add('collapsed');
+                localStorage.setItem('fantasy-match-collapsed', 'true');
+            } else {
+                content.classList.remove('collapsed');
+                content.classList.add('expanded');
+                card.classList.remove('collapsed');
+                icon.classList.remove('collapsed');
+                localStorage.setItem('fantasy-match-collapsed', 'false');
             }
         }
     </script>
