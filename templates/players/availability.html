@@ -159,6 +159,193 @@
             text-decoration: underline;
         }
         
+        .availability-instructions {
+            text-align: center;
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 16px;
+        }
+        
+        .calendar-container {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 25px;
+        }
+        
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            margin-bottom: 25px;
+        }
+        
+        .calendar-header {
+            display: contents;
+        }
+        
+        .day-header {
+            text-align: center;
+            font-weight: bold;
+            color: #2c5530;
+            padding: 10px 5px;
+            font-size: 14px;
+            border-bottom: 2px solid #e8f5e8;
+        }
+        
+        .calendar-day {
+            aspect-ratio: 1;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            min-height: 60px;
+            background: white;
+        }
+        
+        .calendar-day:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .calendar-day.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            background: #f5f5f5;
+        }
+        
+        .calendar-day.disabled:hover {
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .calendar-day.today {
+            border-color: #4a7c59;
+            font-weight: bold;
+        }
+        
+        .calendar-day.fixture-day::after {
+            content: '🎾';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 10px;
+        }
+        
+        /* Availability states */
+        .calendar-day.clear {
+            background: white;
+            border-color: #e0e0e0;
+        }
+        
+        .calendar-day.available {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+        
+        .calendar-day.if-needed {
+            background: #fff3cd;
+            border-color: #ffc107;
+            color: #856404;
+        }
+        
+        .calendar-day.unavailable {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+        
+        .day-number {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .day-type {
+            font-size: 10px;
+            text-align: center;
+            margin-top: 2px;
+            line-height: 1;
+        }
+        
+        .legend {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #333;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 2px solid;
+        }
+        
+        .legend-color.clear {
+            background: white;
+            border-color: #e0e0e0;
+        }
+        
+        .legend-color.available {
+            background: #d4edda;
+            border-color: #28a745;
+        }
+        
+        .legend-color.if-needed {
+            background: #fff3cd;
+            border-color: #ffc107;
+        }
+        
+        .legend-color.unavailable {
+            background: #f8d7da;
+            border-color: #dc3545;
+        }
+        
+        .availability-actions {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .btn-quick-action {
+            background: #4a7c59;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        
+        .btn-quick-action:hover {
+            background: #2c5530;
+        }
+        
+        .btn-quick-action:active {
+            transform: translateY(1px);
+        }
+        
         @media (max-width: 768px) {
             .teams-container {
                 grid-template-columns: 1fr;
@@ -175,6 +362,40 @@
             
             .fantasy-match-card {
                 padding: 20px;
+            }
+            
+            .calendar-grid {
+                gap: 6px;
+            }
+            
+            .calendar-day {
+                min-height: 50px;
+            }
+            
+            .day-number {
+                font-size: 14px;
+            }
+            
+            .day-type {
+                font-size: 9px;
+            }
+            
+            .legend {
+                gap: 15px;
+            }
+            
+            .legend-item {
+                font-size: 13px;
+            }
+            
+            .availability-actions {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn-quick-action {
+                width: 100%;
+                max-width: 300px;
             }
         }
     </style>
@@ -230,10 +451,43 @@
         </div>
         
         <div class="availability-section">
-            <h2 class="section-title">Availability Management</h2>
-            <div class="coming-soon">
-                <h3>🚀 Coming Soon: Phase 3 Development</h3>
-                <p>This is where you'll be able to update your availability for upcoming fixtures and matches. The availability management system is currently under development and will be available in the next phase.</p>
+            <h2 class="section-title">Set Your Availability</h2>
+            <p class="availability-instructions">
+                Click on any date to toggle your availability. We recommend updating weekly, but you can set up to a month ahead.
+            </p>
+            
+            <div class="calendar-container">
+                <div class="calendar-grid" id="availability-calendar">
+                    <!-- Calendar will be populated by JavaScript -->
+                </div>
+                
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color clear"></div>
+                        <span>Not Set</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color available"></div>
+                        <span>Available</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color if-needed"></div>
+                        <span>If Needed</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color unavailable"></div>
+                        <span>Unavailable</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="availability-actions">
+                <button type="button" class="btn-quick-action" onclick="setWeekAvailability('available')">
+                    Set This Week Available
+                </button>
+                <button type="button" class="btn-quick-action" onclick="setWeekAvailability('unavailable')">
+                    Set This Week Unavailable
+                </button>
             </div>
         </div>
         
@@ -241,5 +495,209 @@
             <a href="/">← Back to Home</a>
         </div>
     </div>
+    
+    <script>
+        class AvailabilityCalendar {
+            constructor() {
+                this.authToken = '{{.AuthToken}}';
+                this.playerData = null;
+                this.availabilityData = new Map();
+                this.init();
+            }
+            
+            init() {
+                this.loadAvailabilityData();
+                this.renderCalendar();
+            }
+            
+            async loadAvailabilityData() {
+                try {
+                    const response = await fetch(`/my-availability/${this.authToken}/data`, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.playerData = data.player;
+                        // Convert availability array to map for easier lookup
+                        if (data.availability) {
+                            data.availability.forEach(avail => {
+                                this.availabilityData.set(avail.date, avail.status);
+                            });
+                        }
+                        this.renderCalendar();
+                    }
+                } catch (error) {
+                    console.error('Error loading availability data:', error);
+                }
+            }
+            
+            renderCalendar() {
+                const calendar = document.getElementById('availability-calendar');
+                if (!calendar) return;
+                
+                const now = new Date();
+                const startDate = new Date(now);
+                startDate.setDate(startDate.getDate() - startDate.getDay()); // Start of current week
+                
+                let html = '';
+                
+                // Add day headers
+                const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                html += '<div class="calendar-header">';
+                dayHeaders.forEach(day => {
+                    html += `<div class="day-header">${day}</div>`;
+                });
+                html += '</div>';
+                
+                // Generate 4 weeks of calendar
+                for (let week = 0; week < 4; week++) {
+                    for (let day = 0; day < 7; day++) {
+                        const currentDate = new Date(startDate);
+                        currentDate.setDate(startDate.getDate() + (week * 7) + day);
+                        
+                        const dateStr = this.formatDate(currentDate);
+                        const isPast = currentDate < new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                        const isToday = this.isToday(currentDate);
+                        const isFixtureDay = this.isFixtureDay(currentDate);
+                        
+                        const availability = this.availabilityData.get(dateStr) || 'clear';
+                        
+                        const classes = [
+                            'calendar-day',
+                            availability,
+                            isPast ? 'disabled' : '',
+                            isToday ? 'today' : '',
+                            isFixtureDay ? 'fixture-day' : ''
+                        ].filter(c => c).join(' ');
+                        
+                        html += `
+                            <div class="${classes}" 
+                                 data-date="${dateStr}"
+                                 ${!isPast ? `onclick="calendar.toggleAvailability('${dateStr}')"` : ''}>
+                                <div class="day-number">${currentDate.getDate()}</div>
+                                ${isFixtureDay ? '<div class="day-type">Match</div>' : ''}
+                            </div>
+                        `;
+                    }
+                }
+                
+                calendar.innerHTML = html;
+            }
+            
+            isFixtureDay(date) {
+                // Check if this date falls on common fixture days
+                // Monday=1, Tuesday=2, Wednesday=3, Thursday=4
+                const dayOfWeek = date.getDay();
+                return dayOfWeek >= 1 && dayOfWeek <= 4;
+            }
+            
+            isToday(date) {
+                const today = new Date();
+                return date.getDate() === today.getDate() &&
+                       date.getMonth() === today.getMonth() &&
+                       date.getFullYear() === today.getFullYear();
+            }
+            
+            formatDate(date) {
+                return date.toISOString().split('T')[0];
+            }
+            
+            async toggleAvailability(dateStr) {
+                const currentStatus = this.availabilityData.get(dateStr) || 'clear';
+                const statusCycle = ['clear', 'available', 'if-needed', 'unavailable'];
+                const currentIndex = statusCycle.indexOf(currentStatus);
+                const nextStatus = statusCycle[(currentIndex + 1) % statusCycle.length];
+                
+                try {
+                    const response = await fetch(`/my-availability/${this.authToken}/update`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            date: dateStr,
+                            status: nextStatus
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        this.availabilityData.set(dateStr, nextStatus);
+                        this.updateDayDisplay(dateStr, nextStatus);
+                    } else {
+                        console.error('Failed to update availability');
+                    }
+                } catch (error) {
+                    console.error('Error updating availability:', error);
+                }
+            }
+            
+            updateDayDisplay(dateStr, status) {
+                const dayElement = document.querySelector(`[data-date="${dateStr}"]`);
+                if (dayElement) {
+                    // Remove all status classes
+                    dayElement.classList.remove('clear', 'available', 'if-needed', 'unavailable');
+                    // Add the new status class
+                    dayElement.classList.add(status);
+                }
+            }
+            
+            async setWeekAvailability(status, weekOffset = 0) {
+                const now = new Date();
+                const startOfWeek = new Date(now);
+                startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + (weekOffset * 7));
+                
+                const updates = [];
+                
+                // Only update fixture days (Monday-Thursday) for the week
+                for (let day = 1; day <= 4; day++) {
+                    const date = new Date(startOfWeek);
+                    date.setDate(startOfWeek.getDate() + day);
+                    
+                    if (date >= new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+                        const dateStr = this.formatDate(date);
+                        updates.push({ date: dateStr, status: status });
+                    }
+                }
+                
+                try {
+                    const response = await fetch(`/my-availability/${this.authToken}/batch-update`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ updates: updates })
+                    });
+                    
+                    if (response.ok) {
+                        updates.forEach(update => {
+                            this.availabilityData.set(update.date, update.status);
+                            this.updateDayDisplay(update.date, update.status);
+                        });
+                    } else {
+                        console.error('Failed to batch update availability');
+                    }
+                } catch (error) {
+                    console.error('Error batch updating availability:', error);
+                }
+            }
+        }
+        
+        // Initialize calendar when page loads
+        let calendar;
+        document.addEventListener('DOMContentLoaded', function() {
+            calendar = new AvailabilityCalendar();
+        });
+        
+        // Global functions for quick actions
+        function setWeekAvailability(status) {
+            if (calendar) {
+                calendar.setWeekAvailability(status);
+            }
+        }
+    </script>
 </body>
 </html> 

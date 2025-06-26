@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -182,14 +183,15 @@ func (m *Middleware) RequireFantasyTokenAuth(next http.Handler) http.Handler {
 		}
 		log.Printf("Found active fantasy match ID: %d", fantasyMatch.ID)
 
-		// Find the player assigned to this fantasy match
-		player, err := m.playerRepo.FindByFantasyMatchID(ctx, fantasyMatch.ID)
-		if err != nil {
-			log.Printf("No player assigned to fantasy match %d: %v", fantasyMatch.ID, err)
-			http.Error(w, "No player assigned to this fantasy match", http.StatusNotFound)
-			return
+		// Create a virtual player context based on the fantasy match
+		// This allows any user to access the availability system using the fantasy token
+		player := &models.Player{
+			ID:        fmt.Sprintf("fantasy_%d", fantasyMatch.ID), // Virtual player ID
+			FirstName: "Fantasy",
+			LastName:  "Player",
+			Email:     fmt.Sprintf("fantasy_%d@example.com", fantasyMatch.ID),
 		}
-		log.Printf("Found assigned player: %s %s (ID: %s)", player.FirstName, player.LastName, player.ID)
+		log.Printf("Created virtual player context: %s %s (ID: %s)", player.FirstName, player.LastName, player.ID)
 
 		// Add player to request context
 		ctx = context.WithValue(ctx, PlayerContextKey, *player)
