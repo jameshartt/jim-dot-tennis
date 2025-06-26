@@ -14,7 +14,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-type TennisPlayer struct {
+type ProTennisPlayer struct {
 	ID           int    `json:"id"`
 	FirstName    string `json:"first_name"`
 	LastName     string `json:"last_name"`
@@ -31,9 +31,9 @@ type TennisPlayer struct {
 }
 
 type PlayerData struct {
-	LastUpdated string         `json:"last_updated"`
-	ATPPlayers  []TennisPlayer `json:"atp_players"`
-	WTAPlayers  []TennisPlayer `json:"wta_players"`
+	LastUpdated string            `json:"last_updated"`
+	ATPPlayers  []ProTennisPlayer `json:"atp_players"`
+	WTAPlayers  []ProTennisPlayer `json:"wta_players"`
 }
 
 type PlayerProfile struct {
@@ -101,7 +101,7 @@ func main() {
 	}
 }
 
-func collectPlayersFromTennisAbstract(isATP bool, limit int) ([]TennisPlayer, error) {
+func collectPlayersFromTennisAbstract(isATP bool, limit int) ([]ProTennisPlayer, error) {
 	var url string
 	if isATP {
 		url = "https://www.tennisabstract.com/reports/atp_elo_ratings.html"
@@ -115,7 +115,7 @@ func collectPlayersFromTennisAbstract(isATP bool, limit int) ([]TennisPlayer, er
 		return nil, fmt.Errorf("failed to fetch rankings: %v", err)
 	}
 
-	var players []TennisPlayer
+	var players []ProTennisPlayer
 	startID := 1
 	if !isATP {
 		startID = 1001 // Start WTA IDs at 1001
@@ -224,7 +224,7 @@ func collectPlayersFromTennisAbstract(isATP bool, limit int) ([]TennisPlayer, er
 			nationality = profile.Nationality
 		}
 
-		player := TennisPlayer{
+		player := ProTennisPlayer{
 			ID:           playerID,
 			FirstName:    firstName,
 			LastName:     lastName,

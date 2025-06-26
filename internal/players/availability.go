@@ -100,7 +100,7 @@ func (h *AvailabilityHandler) handleAvailabilityPost(w http.ResponseWriter, r *h
 }
 
 // getTeamName creates a formatted team name from two tennis players
-func getTeamName(woman, man models.TennisPlayer) string {
+func getTeamName(woman, man models.ProTennisPlayer) string {
 	return fmt.Sprintf("%s & %s", woman.LastName, man.LastName)
 }
 

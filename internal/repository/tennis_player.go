@@ -12,29 +12,29 @@ import (
 	"time"
 )
 
-// TennisPlayerRepository defines the interface for tennis player data access
-type TennisPlayerRepository interface {
+// ProTennisPlayerRepository defines the interface for tennis player data access
+type ProTennisPlayerRepository interface {
 	// Basic CRUD operations
-	FindAll(ctx context.Context) ([]models.TennisPlayer, error)
-	FindByID(ctx context.Context, id int) (*models.TennisPlayer, error)
-	Create(ctx context.Context, player *models.TennisPlayer) error
-	Update(ctx context.Context, player *models.TennisPlayer) error
+	FindAll(ctx context.Context) ([]models.ProTennisPlayer, error)
+	FindByID(ctx context.Context, id int) (*models.ProTennisPlayer, error)
+	Create(ctx context.Context, player *models.ProTennisPlayer) error
+	Update(ctx context.Context, player *models.ProTennisPlayer) error
 	Delete(ctx context.Context, id int) error
 
 	// Tour-specific queries
-	FindByTour(ctx context.Context, tour string) ([]models.TennisPlayer, error)
-	FindATPPlayers(ctx context.Context) ([]models.TennisPlayer, error)
-	FindWTAPlayers(ctx context.Context) ([]models.TennisPlayer, error)
-	FindByGender(ctx context.Context, gender string) ([]models.TennisPlayer, error)
+	FindByTour(ctx context.Context, tour string) ([]models.ProTennisPlayer, error)
+	FindATPPlayers(ctx context.Context) ([]models.ProTennisPlayer, error)
+	FindWTAPlayers(ctx context.Context) ([]models.ProTennisPlayer, error)
+	FindByGender(ctx context.Context, gender string) ([]models.ProTennisPlayer, error)
 
 	// Ranking queries
-	FindByRankRange(ctx context.Context, minRank, maxRank int) ([]models.TennisPlayer, error)
-	FindTopRanked(ctx context.Context, limit int) ([]models.TennisPlayer, error)
-	FindByNationality(ctx context.Context, nationality string) ([]models.TennisPlayer, error)
+	FindByRankRange(ctx context.Context, minRank, maxRank int) ([]models.ProTennisPlayer, error)
+	FindTopRanked(ctx context.Context, limit int) ([]models.ProTennisPlayer, error)
+	FindByNationality(ctx context.Context, nationality string) ([]models.ProTennisPlayer, error)
 
 	// Search and filtering
-	SearchByName(ctx context.Context, name string) ([]models.TennisPlayer, error)
-	FindByLastName(ctx context.Context, lastName string) ([]models.TennisPlayer, error)
+	SearchByName(ctx context.Context, name string) ([]models.ProTennisPlayer, error)
+	FindByLastName(ctx context.Context, lastName string) ([]models.ProTennisPlayer, error)
 
 	// Import operations
 	ImportFromJSON(ctx context.Context, filePath string) error
@@ -67,10 +67,10 @@ type FantasyMixedDoublesRepository interface {
 
 	// Utility methods
 	GenerateRandomMatches(ctx context.Context, count int) error
-	GenerateAuthToken(teamAWoman, teamAMan, teamBWoman, teamBMan *models.TennisPlayer) string
+	GenerateAuthToken(teamAWoman, teamAMan, teamBWoman, teamBMan *models.ProTennisPlayer) string
 }
 
-// tennisPlayerRepository implements TennisPlayerRepository
+// tennisPlayerRepository implements ProTennisPlayerRepository
 type tennisPlayerRepository struct {
 	db *database.DB
 }
@@ -80,8 +80,8 @@ type fantasyMixedDoublesRepository struct {
 	db *database.DB
 }
 
-// NewTennisPlayerRepository creates a new tennis player repository
-func NewTennisPlayerRepository(db *database.DB) TennisPlayerRepository {
+// NewProTennisPlayerRepository creates a new tennis player repository
+func NewProTennisPlayerRepository(db *database.DB) ProTennisPlayerRepository {
 	return &tennisPlayerRepository{
 		db: db,
 	}
@@ -97,8 +97,8 @@ func NewFantasyMixedDoublesRepository(db *database.DB) FantasyMixedDoublesReposi
 // Tennis Player Repository Methods
 
 // FindAll retrieves all tennis players ordered by tour, current rank
-func (r *tennisPlayerRepository) FindAll(ctx context.Context) ([]models.TennisPlayer, error) {
-	var players []models.TennisPlayer
+func (r *tennisPlayerRepository) FindAll(ctx context.Context) ([]models.ProTennisPlayer, error) {
+	var players []models.ProTennisPlayer
 	err := r.db.SelectContext(ctx, &players, `
 		SELECT id, first_name, last_name, common_name, nationality, gender, 
 		       current_rank, highest_rank, year_pro, wikipedia_url, hand, 
@@ -110,8 +110,8 @@ func (r *tennisPlayerRepository) FindAll(ctx context.Context) ([]models.TennisPl
 }
 
 // FindByID retrieves a tennis player by their ID
-func (r *tennisPlayerRepository) FindByID(ctx context.Context, id int) (*models.TennisPlayer, error) {
-	var player models.TennisPlayer
+func (r *tennisPlayerRepository) FindByID(ctx context.Context, id int) (*models.ProTennisPlayer, error) {
+	var player models.ProTennisPlayer
 	err := r.db.GetContext(ctx, &player, `
 		SELECT id, first_name, last_name, common_name, nationality, gender, 
 		       current_rank, highest_rank, year_pro, wikipedia_url, hand, 
@@ -126,7 +126,7 @@ func (r *tennisPlayerRepository) FindByID(ctx context.Context, id int) (*models.
 }
 
 // Create inserts a new tennis player record
-func (r *tennisPlayerRepository) Create(ctx context.Context, player *models.TennisPlayer) error {
+func (r *tennisPlayerRepository) Create(ctx context.Context, player *models.ProTennisPlayer) error {
 	now := time.Now()
 	player.CreatedAt = now
 	player.UpdatedAt = now
@@ -144,7 +144,7 @@ func (r *tennisPlayerRepository) Create(ctx context.Context, player *models.Tenn
 }
 
 // Update modifies an existing tennis player record
-func (r *tennisPlayerRepository) Update(ctx context.Context, player *models.TennisPlayer) error {
+func (r *tennisPlayerRepository) Update(ctx context.Context, player *models.ProTennisPlayer) error {
 	player.UpdatedAt = time.Now()
 
 	_, err := r.db.NamedExecContext(ctx, `
@@ -167,8 +167,8 @@ func (r *tennisPlayerRepository) Delete(ctx context.Context, id int) error {
 }
 
 // FindByTour retrieves all players for a specific tour (ATP or WTA)
-func (r *tennisPlayerRepository) FindByTour(ctx context.Context, tour string) ([]models.TennisPlayer, error) {
-	var players []models.TennisPlayer
+func (r *tennisPlayerRepository) FindByTour(ctx context.Context, tour string) ([]models.ProTennisPlayer, error) {
+	var players []models.ProTennisPlayer
 	err := r.db.SelectContext(ctx, &players, `
 		SELECT id, first_name, last_name, common_name, nationality, gender, 
 		       current_rank, highest_rank, year_pro, wikipedia_url, hand, 
@@ -181,18 +181,18 @@ func (r *tennisPlayerRepository) FindByTour(ctx context.Context, tour string) ([
 }
 
 // FindATPPlayers retrieves all ATP players
-func (r *tennisPlayerRepository) FindATPPlayers(ctx context.Context) ([]models.TennisPlayer, error) {
+func (r *tennisPlayerRepository) FindATPPlayers(ctx context.Context) ([]models.ProTennisPlayer, error) {
 	return r.FindByTour(ctx, "ATP")
 }
 
 // FindWTAPlayers retrieves all WTA players
-func (r *tennisPlayerRepository) FindWTAPlayers(ctx context.Context) ([]models.TennisPlayer, error) {
+func (r *tennisPlayerRepository) FindWTAPlayers(ctx context.Context) ([]models.ProTennisPlayer, error) {
 	return r.FindByTour(ctx, "WTA")
 }
 
 // FindByGender retrieves all players of a specific gender
-func (r *tennisPlayerRepository) FindByGender(ctx context.Context, gender string) ([]models.TennisPlayer, error) {
-	var players []models.TennisPlayer
+func (r *tennisPlayerRepository) FindByGender(ctx context.Context, gender string) ([]models.ProTennisPlayer, error) {
+	var players []models.ProTennisPlayer
 	err := r.db.SelectContext(ctx, &players, `
 		SELECT id, first_name, last_name, common_name, nationality, gender, 
 		       current_rank, highest_rank, year_pro, wikipedia_url, hand, 
@@ -205,8 +205,8 @@ func (r *tennisPlayerRepository) FindByGender(ctx context.Context, gender string
 }
 
 // FindByRankRange retrieves players within a rank range
-func (r *tennisPlayerRepository) FindByRankRange(ctx context.Context, minRank, maxRank int) ([]models.TennisPlayer, error) {
-	var players []models.TennisPlayer
+func (r *tennisPlayerRepository) FindByRankRange(ctx context.Context, minRank, maxRank int) ([]models.ProTennisPlayer, error) {
+	var players []models.ProTennisPlayer
 	err := r.db.SelectContext(ctx, &players, `
 		SELECT id, first_name, last_name, common_name, nationality, gender, 
 		       current_rank, highest_rank, year_pro, wikipedia_url, hand, 
@@ -219,8 +219,8 @@ func (r *tennisPlayerRepository) FindByRankRange(ctx context.Context, minRank, m
 }
 
 // FindTopRanked retrieves the top ranked players
-func (r *tennisPlayerRepository) FindTopRanked(ctx context.Context, limit int) ([]models.TennisPlayer, error) {
-	var players []models.TennisPlayer
+func (r *tennisPlayerRepository) FindTopRanked(ctx context.Context, limit int) ([]models.ProTennisPlayer, error) {
+	var players []models.ProTennisPlayer
 	err := r.db.SelectContext(ctx, &players, `
 		SELECT id, first_name, last_name, common_name, nationality, gender, 
 		       current_rank, highest_rank, year_pro, wikipedia_url, hand, 
@@ -233,8 +233,8 @@ func (r *tennisPlayerRepository) FindTopRanked(ctx context.Context, limit int) (
 }
 
 // FindByNationality retrieves players by nationality
-func (r *tennisPlayerRepository) FindByNationality(ctx context.Context, nationality string) ([]models.TennisPlayer, error) {
-	var players []models.TennisPlayer
+func (r *tennisPlayerRepository) FindByNationality(ctx context.Context, nationality string) ([]models.ProTennisPlayer, error) {
+	var players []models.ProTennisPlayer
 	err := r.db.SelectContext(ctx, &players, `
 		SELECT id, first_name, last_name, common_name, nationality, gender, 
 		       current_rank, highest_rank, year_pro, wikipedia_url, hand, 
@@ -247,8 +247,8 @@ func (r *tennisPlayerRepository) FindByNationality(ctx context.Context, national
 }
 
 // SearchByName retrieves players with names containing the search string
-func (r *tennisPlayerRepository) SearchByName(ctx context.Context, name string) ([]models.TennisPlayer, error) {
-	var players []models.TennisPlayer
+func (r *tennisPlayerRepository) SearchByName(ctx context.Context, name string) ([]models.ProTennisPlayer, error) {
+	var players []models.ProTennisPlayer
 	searchPattern := "%" + name + "%"
 	err := r.db.SelectContext(ctx, &players, `
 		SELECT id, first_name, last_name, common_name, nationality, gender, 
@@ -262,8 +262,8 @@ func (r *tennisPlayerRepository) SearchByName(ctx context.Context, name string) 
 }
 
 // FindByLastName retrieves players by last name
-func (r *tennisPlayerRepository) FindByLastName(ctx context.Context, lastName string) ([]models.TennisPlayer, error) {
-	var players []models.TennisPlayer
+func (r *tennisPlayerRepository) FindByLastName(ctx context.Context, lastName string) ([]models.ProTennisPlayer, error) {
+	var players []models.ProTennisPlayer
 	err := r.db.SelectContext(ctx, &players, `
 		SELECT id, first_name, last_name, common_name, nationality, gender, 
 		       current_rank, highest_rank, year_pro, wikipedia_url, hand, 
@@ -329,7 +329,7 @@ func (r *tennisPlayerRepository) ImportFromJSON(ctx context.Context, filePath st
 
 	// Import ATP players
 	for _, atpPlayer := range jsonData.ATPPlayers {
-		player := &models.TennisPlayer{
+		player := &models.ProTennisPlayer{
 			ID:           atpPlayer.ID,
 			FirstName:    atpPlayer.FirstName,
 			LastName:     atpPlayer.LastName,
@@ -352,7 +352,7 @@ func (r *tennisPlayerRepository) ImportFromJSON(ctx context.Context, filePath st
 
 	// Import WTA players
 	for _, wtaPlayer := range jsonData.WTAPlayers {
-		player := &models.TennisPlayer{
+		player := &models.ProTennisPlayer{
 			ID:           wtaPlayer.ID,
 			FirstName:    wtaPlayer.FirstName,
 			LastName:     wtaPlayer.LastName,
@@ -554,7 +554,7 @@ func (r *fantasyMixedDoublesRepository) FindByTeamBMan(ctx context.Context, team
 // GenerateRandomMatches creates random ATP/WTA player matches
 func (r *fantasyMixedDoublesRepository) GenerateRandomMatches(ctx context.Context, count int) error {
 	// Get ATP and WTA players
-	var atpPlayers []models.TennisPlayer
+	var atpPlayers []models.ProTennisPlayer
 	err := r.db.SelectContext(ctx, &atpPlayers, `
 		SELECT id, first_name, last_name, common_name, nationality, gender, 
 		       current_rank, highest_rank, year_pro, wikipedia_url, hand, 
@@ -568,7 +568,7 @@ func (r *fantasyMixedDoublesRepository) GenerateRandomMatches(ctx context.Contex
 		return fmt.Errorf("failed to get ATP players: %w", err)
 	}
 
-	var wtaPlayers []models.TennisPlayer
+	var wtaPlayers []models.ProTennisPlayer
 	err = r.db.SelectContext(ctx, &wtaPlayers, `
 		SELECT id, first_name, last_name, common_name, nationality, gender, 
 		       current_rank, highest_rank, year_pro, wikipedia_url, hand, 
@@ -611,7 +611,7 @@ func (r *fantasyMixedDoublesRepository) GenerateRandomMatches(ctx context.Contex
 }
 
 // GenerateAuthToken creates an authentication token from four tennis players
-func (r *fantasyMixedDoublesRepository) GenerateAuthToken(teamAWoman, teamAMan, teamBWoman, teamBMan *models.TennisPlayer) string {
+func (r *fantasyMixedDoublesRepository) GenerateAuthToken(teamAWoman, teamAMan, teamBWoman, teamBMan *models.ProTennisPlayer) string {
 	// Regular expression to match any character that is not alphanumeric or hyphen
 	urlUnsafeChars := regexp.MustCompile(`[^a-zA-Z0-9\-]`)
 

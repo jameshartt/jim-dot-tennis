@@ -234,8 +234,8 @@ type FixturePlayer struct {
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
-// TennisPlayer represents a professional tennis player from ATP/WTA
-type TennisPlayer struct {
+// ProTennisPlayer represents a professional tennis player from ATP/WTA
+type ProTennisPlayer struct {
 	ID           int       `json:"id" db:"id"`
 	FirstName    string    `json:"first_name" db:"first_name"`
 	LastName     string    `json:"last_name" db:"last_name"`

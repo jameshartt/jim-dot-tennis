@@ -26,7 +26,7 @@ func main() {
 	defer db.Close()
 
 	// Initialize repositories
-	tennisPlayerRepo := repository.NewTennisPlayerRepository(db)
+	tennisPlayerRepo := repository.NewProTennisPlayerRepository(db)
 	fantasyRepo := repository.NewFantasyMixedDoublesRepository(db)
 
 	// Get ATP players (top 20 to ensure we have enough for multiple matches)

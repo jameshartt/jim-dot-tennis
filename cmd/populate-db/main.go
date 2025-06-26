@@ -22,13 +22,13 @@ import (
 )
 
 type PopulateConfig struct {
-	CSVDir            string
-	DBPath            string
-	DBType            string
-	DryRun            bool
-	Verbose           bool
-	PlayersFile       string // New field for the players HTML file
-	TennisPlayersFile string // New field for the tennis players JSON file
+	CSVDir               string
+	DBPath               string
+	DBType               string
+	DryRun               bool
+	Verbose              bool
+	PlayersFile          string // New field for the players HTML file
+	ProTennisPlayersFile string // New field for the tennis players JSON file
 }
 
 type TeamInfo struct {
@@ -46,7 +46,7 @@ func main() {
 	flag.BoolVar(&config.DryRun, "dry-run", false, "Print what would be done without making changes")
 	flag.BoolVar(&config.Verbose, "verbose", false, "Enable verbose logging")
 	flag.StringVar(&config.PlayersFile, "players-file", "players-import/players.html", "Path to the players HTML file")
-	flag.StringVar(&config.TennisPlayersFile, "tennis-players-file", "cmd/collect_tennis_data/tennis_players.json", "Path to the tennis players JSON file")
+	flag.StringVar(&config.ProTennisPlayersFile, "tennis-players-file", "cmd/collect_tennis_data/tennis_players.json", "Path to the tennis players JSON file")
 	flag.Parse()
 
 	if config.Verbose {
@@ -146,7 +146,7 @@ func populateDatabase(config *PopulateConfig) error {
 	}
 
 	// Import tennis players from JSON
-	if err := importTennisPlayers(ctx, config.TennisPlayersFile, config); err != nil {
+	if err := importProTennisPlayers(ctx, config.ProTennisPlayersFile, config); err != nil {
 		return fmt.Errorf("failed to import tennis players: %w", err)
 	}
 
@@ -893,7 +893,7 @@ func importPlayers(ctx context.Context, filePath string, clubRepo repository.Clu
 }
 
 // Import tennis players from JSON
-func importTennisPlayers(ctx context.Context, filePath string, config *PopulateConfig) error {
+func importProTennisPlayers(ctx context.Context, filePath string, config *PopulateConfig) error {
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		if config.Verbose {
@@ -919,7 +919,7 @@ func importTennisPlayers(ctx context.Context, filePath string, config *PopulateC
 	defer db.Close()
 
 	// Initialize tennis player repository
-	tennisPlayerRepo := repository.NewTennisPlayerRepository(db)
+	tennisPlayerRepo := repository.NewProTennisPlayerRepository(db)
 
 	if config.DryRun {
 		log.Printf("[DRY RUN] Would import tennis players from %s", filePath)

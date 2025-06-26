@@ -14,7 +14,7 @@ type Service struct {
 	db                     *database.DB
 	playerRepository       repository.PlayerRepository
 	fantasyRepository      repository.FantasyMixedDoublesRepository
-	tennisPlayerRepository repository.TennisPlayerRepository
+	tennisPlayerRepository repository.ProTennisPlayerRepository
 }
 
 // NewService creates a new players service
@@ -23,7 +23,7 @@ func NewService(db *database.DB) *Service {
 		db:                     db,
 		playerRepository:       repository.NewPlayerRepository(db),
 		fantasyRepository:      repository.NewFantasyMixedDoublesRepository(db),
-		tennisPlayerRepository: repository.NewTennisPlayerRepository(db),
+		tennisPlayerRepository: repository.NewProTennisPlayerRepository(db),
 	}
 }
 
@@ -89,8 +89,8 @@ func (s *Service) GenerateFantasyMatchForPlayer() (string, error) {
 // FantasyMatchDetail contains all details about a fantasy mixed doubles match
 type FantasyMatchDetail struct {
 	Match      models.FantasyMixedDoubles `json:"match"`
-	TeamAWoman models.TennisPlayer        `json:"team_a_woman"`
-	TeamAMan   models.TennisPlayer        `json:"team_a_man"`
-	TeamBWoman models.TennisPlayer        `json:"team_b_woman"`
-	TeamBMan   models.TennisPlayer        `json:"team_b_man"`
+	TeamAWoman models.ProTennisPlayer     `json:"team_a_woman"`
+	TeamAMan   models.ProTennisPlayer     `json:"team_a_man"`
+	TeamBWoman models.ProTennisPlayer     `json:"team_b_woman"`
+	TeamBMan   models.ProTennisPlayer     `json:"team_b_man"`
 }
