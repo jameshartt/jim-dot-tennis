@@ -426,13 +426,17 @@
         .fixture-at-glance {
             color: white;
             border-radius: 12px;
-            padding: 1.5rem;
+            padding: 1.2rem 1.5rem;
             margin: 1.5rem 0;
             box-shadow: 0 8px 32px rgba(0,0,0,0.1);
             position: relative;
             overflow: hidden;
             cursor: pointer;
             transition: all 0.3s ease;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
         
         /* Division 1 - Purple to Blue (Premium) */
@@ -503,26 +507,32 @@
             opacity: 1;
         }
         
+        .fixture-at-glance h3 {
+            display: none;
+        }
+        
         .glance-content {
             text-align: center;
-            margin-bottom: 1.5rem;
+            margin-bottom: 0.75rem;
             position: relative;
             z-index: 2;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
         
         .glance-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1.5rem;
-            padding-bottom: 1rem;
-            border-bottom: 2px solid rgba(255,255,255,0.3);
+            margin-bottom: 0.5rem;
             position: relative;
             z-index: 2;
         }
         
         .glance-division {
-            font-size: 1.3rem;
+            font-size: 1rem;
             font-weight: 700;
             color: white;
             text-shadow: 0 2px 8px rgba(0,0,0,0.6);
@@ -535,8 +545,8 @@
             font-weight: 600;
             color: white;
             background: rgba(0,0,0,0.3);
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
+            padding: 0.25rem 0.7rem;
+            border-radius: 12px;
             border: 1px solid rgba(255,255,255,0.4);
             backdrop-filter: blur(10px);
             text-shadow: 0 1px 4px rgba(0,0,0,0.8);
@@ -544,13 +554,22 @@
             z-index: 2;
         }
         
+        .glance-date {
+            font-size: 1rem;
+            font-weight: 600;
+            color: white;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+            position: relative;
+            z-index: 2;
+        }
+        
         .glance-teams {
-            font-size: 1.8rem;
+            font-size: 1rem;
             font-weight: 700;
-            margin-bottom: 1.5rem;
+            margin: 0.4rem 0;
             color: white;
             text-shadow: 0 3px 12px rgba(0,0,0,0.7);
-            line-height: 1.2;
+            line-height: 1.1;
             position: relative;
             z-index: 2;
         }
@@ -565,29 +584,16 @@
             text-shadow: 0 2px 8px rgba(0,0,0,0.8);
         }
         
-        .glance-date {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: white;
-            margin-bottom: 2rem;
-            text-shadow: 0 2px 8px rgba(0,0,0,0.6);
-            position: relative;
-            z-index: 2;
-        }
-        
         .glance-matchups {
             background: rgba(255,255,255,0.98);
-            border-radius: 10px;
-            padding: 1.5rem;
+            border-radius: 8px;
+            padding: 0.75rem;
             box-shadow: 0 4px 20px rgba(0,0,0,0.2);
             color: #333;
             position: relative;
             z-index: 3;
             backdrop-filter: blur(10px);
-        }
-        
-        .fixture-at-glance h3 {
-            display: none;
+            margin-top: auto;
         }
         
         .glance-matchups-title {
@@ -611,9 +617,10 @@
         }
         
         .matchups-table td {
-            padding: 0.75rem;
-            border-bottom: 1px solid rgba(0,0,0,0.1);
+            padding: 0.2rem 0;
             vertical-align: top;
+            font-size: 1rem;
+            line-height: 1.3;
         }
         
         .matchups-table tr:last-child td {
@@ -623,14 +630,15 @@
         .matchup-type-cell {
             font-weight: 700;
             color: var(--primary-color);
-            width: 120px;
+            width: 90px;
             font-size: 1rem;
+            line-height: 1.3;
         }
         
         .matchup-player-cell {
             font-size: 1rem;
-            line-height: 1.5;
-            width: 150px;
+            line-height: 1.3;
+            width: 120px;
         }
         
         .matchup-player-cell .tbd {
@@ -864,127 +872,7 @@
                 padding: 0.1rem 0.3rem;
             }
             
-            .fixture-at-glance {
-                padding: 1rem;
-                margin: 1rem 0;
-            }
-            
-            .fixture-at-glance.div-1 {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            }
-            
-            .fixture-at-glance.div-2 {
-                background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            }
-            
-            .fixture-at-glance.div-3 {
-                background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-            }
-            
-            .fixture-at-glance.div-4 {
-                background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-            }
-            
-            .fixture-at-glance h3 {
-                display: none;
-            }
-            
-            .glance-header {
-                flex-direction: column;
-                gap: 0.75rem;
-                text-align: center;
-                padding-bottom: 0.75rem;
-                margin-bottom: 1rem;
-                border-bottom: 2px solid rgba(255,255,255,0.3);
-            }
-            
-            .glance-division {
-                font-size: 1.1rem;
-                text-shadow: 0 2px 8px rgba(0,0,0,0.6);
-            }
-            
-            .glance-week {
-                font-size: 0.9rem;
-                padding: 0.4rem 0.8rem;
-                background: rgba(0,0,0,0.3);
-                text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-            }
-            
-            .glance-teams {
-                font-size: 1.4rem;
-                margin-bottom: 1rem;
-                line-height: 1.3;
-                text-shadow: 0 3px 12px rgba(0,0,0,0.7);
-            }
-            
-            .team-home {
-                color: #ffffff;
-                text-shadow: 0 2px 8px rgba(0,0,0,0.8);
-            }
-            
-            .team-away {
-                color: #f5f5f5;
-                text-shadow: 0 2px 8px rgba(0,0,0,0.8);
-            }
-            
-            .glance-date {
-                font-size: 1rem;
-                margin-bottom: 1.5rem;
-                text-shadow: 0 2px 8px rgba(0,0,0,0.6);
-            }
-            
-            .glance-matchups {
-                padding: 1rem;
-            }
-            
-            .glance-matchups-title {
-                font-size: 1rem;
-                margin-bottom: 0.75rem;
-            }
-            
-            .glance-matchup-type {
-                min-width: 90px;
-                font-size: 0.9rem;
-            }
-            
-            .glance-matchup {
-                font-size: 0.9rem;
-                line-height: 1.4;
-                padding: 0.4rem 0;
-            }
-            
-            .glance-matchups {
-                padding: 1rem;
-            }
-            
-            .glance-matchups-title {
-                font-size: 1rem;
-                margin-bottom: 0.75rem;
-            }
-            
-            .matchups-table th {
-                display: none;
-            }
-            
-            .matchups-table td {
-                padding: 0.5rem;
-            }
-            
-            .matchup-type-cell {
-                font-size: 0.9rem;
-                width: 100px;
-            }
-            
-            .matchup-player-cell {
-                font-size: 0.9rem;
-                width: 120px;
-            }
-            
-            .glance-copyable {
-                padding: 1rem;
-                font-size: 0.85rem;
-                line-height: 1.5;
-            }
+
         }
         
         /* Copy animation styles */
@@ -1019,7 +907,7 @@
             color: white;
             padding: 0.6rem 1.2rem;
             border-radius: 20px;
-            font-size: 0.9rem;
+            font-size: 1rem;
             font-weight: 700;
             z-index: 1000;
             pointer-events: none;
@@ -1034,6 +922,7 @@
             opacity: 1;
             transform: translateY(-25px);
         }
+
     </style>
 </head>
 <body>
@@ -1088,8 +977,9 @@
                     <h3>🎾 Fixture At A Glance</h3>
                     <div class="glance-content">
                         <div class="glance-header">
-                            <div class="glance-division">{{if .FixtureDetail.Division}}{{.FixtureDetail.Division.Name}}{{else}}Division TBD{{end}}</div>
+                            <div class="glance-division">{{if .FixtureDetail.Division}}{{if eq .FixtureDetail.Division.Name "Division 1"}}Div. 1{{else if eq .FixtureDetail.Division.Name "Division 2"}}Div. 2{{else if eq .FixtureDetail.Division.Name "Division 3"}}Div. 3{{else if eq .FixtureDetail.Division.Name "Division 4"}}Div. 4{{else}}{{.FixtureDetail.Division.Name}}{{end}}{{else}}Div. TBD{{end}}</div>
                             {{if .FixtureDetail.Week}}<div class="glance-week">Week {{.FixtureDetail.Week.WeekNumber}}</div>{{end}}
+                            <div class="glance-date">{{.FixtureDetail.ScheduledDate.Format "Mon, Jan 2"}}</div>
                         </div>
                         
                         <div class="glance-teams">
@@ -1101,8 +991,6 @@
                                 <span class="team-home">{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}</span> vs <span class="team-away">{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}</span>
                             {{end}}
                         </div>
-                        
-                        <div class="glance-date">{{.FixtureDetail.ScheduledDate.Format "Mon, Jan 2, 2006"}}</div>
                     </div>
                     
                     {{if .FixtureDetail.Matchups}}
@@ -1133,11 +1021,25 @@
                             </tbody>
                         </table>
                     </div>
+                    {{else if .FixtureDetail.SelectedPlayers}}
+                    <div class="glance-matchups">
+                        <table class="matchups-table">
+                            <tbody>
+                                <tr>
+                                    <td class="matchup-type-cell">Team</td>
+                                    <td class="matchup-player-cell" colspan="2">
+                                        {{range $index, $player := .FixtureDetail.SelectedPlayers}}{{if $index}}, {{end}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                     {{end}}
                     
-                    <div class="glance-copyable" style="display: none;">{{if .FixtureDetail.Division}}{{.FixtureDetail.Division.Name}}{{else}}Division TBD{{end}}{{if .FixtureDetail.Week}} - Week {{.FixtureDetail.Week.WeekNumber}}{{end}}
-{{if .IsStAnnsHome}}🏠 (HOME) {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{else if .IsStAnnsAway}}✈️ (AWAY) {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}{{end}} @ {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}{{else}}{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{end}}
+                    <div class="glance-copyable" style="display: none;">{{if .FixtureDetail.Division}}{{if eq .FixtureDetail.Division.Name "Division 1"}}Div. 1{{else if eq .FixtureDetail.Division.Name "Division 2"}}Div. 2{{else if eq .FixtureDetail.Division.Name "Division 3"}}Div. 3{{else if eq .FixtureDetail.Division.Name "Division 4"}}Div. 4{{else}}{{.FixtureDetail.Division.Name}}{{end}}{{else}}Div. TBD{{end}}{{if .FixtureDetail.Week}} - Week {{.FixtureDetail.Week.WeekNumber}}{{end}}
 📅 {{.FixtureDetail.ScheduledDate.Format "Mon, Jan 2, 2006"}}
+
+{{if .IsStAnnsHome}}🏠 (HOME) {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{else if .IsStAnnsAway}}✈️ (AWAY) {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}{{end}} @ {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}{{else}}{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{end}}
 
 Team:{{if .FixtureDetail.Matchups}}{{range .FixtureDetail.Matchups}}
 {{.Matchup.Type}}: {{if .Players}}{{range $index, $player := .Players}}{{if $index}}, {{end}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}{{else}}TBD{{end}}{{end}}{{else}}{{if .FixtureDetail.SelectedPlayers}}
