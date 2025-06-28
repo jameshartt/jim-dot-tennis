@@ -387,7 +387,11 @@
             <div class="breadcrumb">
                 <a href="/admin">Admin Dashboard</a> &gt; 
                 <a href="/admin/fixtures">Fixtures</a> &gt; 
+                {{if .ManagingTeam}}
+                <a href="/admin/fixtures/{{.FixtureDetail.ID}}?managingTeam={{.ManagingTeam.ID}}&teamName={{.ManagingTeam.Name}}">Fixture Detail</a> &gt;
+                {{else}}
                 <a href="/admin/fixtures/{{.FixtureDetail.ID}}">Fixture Detail</a> &gt;
+                {{end}}
                 Team Selection
             </div>
         </div>
@@ -397,7 +401,11 @@
         <div class="container">
             <div class="action-bar">
                 <h2>Team Selection</h2>
+                {{if .ManagingTeam}}
+                <a href="/admin/fixtures/{{.FixtureDetail.ID}}?managingTeam={{.ManagingTeam.ID}}&teamName={{.ManagingTeam.Name}}" class="btn-back">← Back to Fixture</a>
+                {{else}}
                 <a href="/admin/fixtures/{{.FixtureDetail.ID}}" class="btn-back">← Back to Fixture</a>
+                {{end}}
             </div>
 
             <div class="team-selection-container">
@@ -415,6 +423,11 @@
                         📅 {{.FixtureDetail.ScheduledDate.Format "Monday, January 2, 2006 at 3:04 PM"}}
                         📍 {{.FixtureDetail.VenueLocation}}
                     </p>
+                    {{if .ManagingTeam}}
+                    <p class="managing-team-indicator" style="text-align: center; color: #007bff; font-weight: 600; margin-top: 0.5rem;">
+                        ⚽ Derby Match - Managing: {{.ManagingTeam.Name}}
+                    </p>
+                    {{end}}
                 </div>
 
                 <div class="progress-indicator">
@@ -442,6 +455,7 @@
                                       hx-confirm="Remove {{.Player.FirstName}} {{.Player.LastName}} from selection?">
                                     <input type="hidden" name="action" value="remove_player">
                                     <input type="hidden" name="player_id" value="{{.PlayerID}}">
+                                    {{if $.ManagingTeam}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeam.ID}}">{{end}}
                                     <button type="submit" class="btn-remove-player availability-{{.AvailabilityStatus | lower}}"
                                             title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
                                         {{.Player.FirstName}} {{.Player.LastName}} (Pos {{.Position}})
@@ -456,6 +470,7 @@
                                       hx-swap="outerHTML"
                                       hx-confirm="Clear all selected players?">
                                     <input type="hidden" name="action" value="clear_players">
+                                    {{if $.ManagingTeam}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeam.ID}}">{{end}}
                                     <button type="submit" class="btn-clear">Clear All Players</button>
                                 </form>
                             </div>
@@ -500,6 +515,7 @@
                                     <input type="hidden" name="action" value="add_player">
                                     <input type="hidden" name="player_id" value="{{.Player.ID}}">
                                     <input type="hidden" name="is_home" value="true">
+                                    {{if $.ManagingTeam}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeam.ID}}">{{end}}
                                     <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}"
                                             title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
                                         {{.Player.FirstName}} {{.Player.LastName}}
@@ -527,6 +543,7 @@
                                     <input type="hidden" name="action" value="add_player">
                                     <input type="hidden" name="player_id" value="{{.Player.ID}}">
                                     <input type="hidden" name="is_home" value="true">
+                                    {{if $.ManagingTeam}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeam.ID}}">{{end}}
                                     <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}"
                                             title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
                                         {{.Player.FirstName}} {{.Player.LastName}}
