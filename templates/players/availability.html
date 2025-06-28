@@ -431,6 +431,180 @@
             transform: translateY(1px);
         }
         
+        .btn-injury {
+            background: #dc3545 !important;
+        }
+        
+        .btn-injury:hover {
+            background: #c82333 !important;
+        }
+        
+        /* Injury Modal Styles */
+        .injury-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 450px;
+            position: relative;
+            z-index: 1001;
+            animation: modalSlideIn 0.3s ease-out;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 25px 0;
+            border-bottom: 1px solid #e9ecef;
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            color: #dc3545;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #6c757d;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        
+        .modal-close:hover {
+            background: #f8f9fa;
+            color: #dc3545;
+        }
+        
+        .modal-body {
+            padding: 0 25px 20px;
+        }
+        
+        .modal-body p {
+            margin: 0 0 15px 0;
+            color: #333;
+            line-height: 1.5;
+        }
+        
+        .injury-note {
+            font-size: 14px;
+            color: #6c757d;
+            margin-top: 15px !important;
+        }
+        
+        .date-input-group {
+            margin: 20px 0;
+        }
+        
+        .date-input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .return-date-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s ease;
+        }
+        
+        .return-date-input:focus {
+            outline: none;
+            border-color: #dc3545;
+            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            padding: 20px 25px 25px;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .btn-modal-cancel,
+        .btn-modal-confirm {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-modal-cancel {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-modal-cancel:hover {
+            background: #5a6268;
+        }
+        
+        .btn-modal-confirm {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-modal-confirm:hover {
+            background: #c82333;
+        }
+        
+        .btn-modal-confirm:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
         @media (max-width: 768px) {
             .teams-container {
                 flex-direction: column;
@@ -503,6 +677,25 @@
             .btn-quick-action {
                 width: 100%;
                 max-width: 300px;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 20px;
+            }
+            
+            .modal-header {
+                padding: 15px 20px 0;
+            }
+            
+            .modal-body {
+                padding: 0 20px 15px;
+            }
+            
+            .modal-actions {
+                padding: 15px 20px 20px;
+                flex-direction: column;
+                gap: 10px;
             }
         }
         
@@ -765,6 +958,42 @@
                 font-size: 14px;
                 margin: 0 10px;
             }
+            
+            .modal-content {
+                width: 98%;
+                margin: 10px;
+            }
+            
+            .modal-header h3 {
+                font-size: 18px;
+            }
+            
+            .modal-body {
+                padding: 0 15px 12px;
+            }
+            
+            .modal-body p {
+                font-size: 14px;
+            }
+            
+            .injury-note {
+                font-size: 13px !important;
+            }
+            
+            .return-date-input {
+                padding: 10px 12px;
+                font-size: 14px;
+            }
+            
+            .modal-actions {
+                padding: 12px 15px 15px;
+            }
+            
+            .btn-modal-cancel,
+            .btn-modal-confirm {
+                padding: 10px 16px;
+                font-size: 13px;
+            }
         }
     </style>
 </head>
@@ -779,7 +1008,39 @@
             </div>
             
             <div class="match-content expanded" id="match-content">
-                <p class="match-subtitle">Your unique fantasy tennis pairing, bookmark this page to manage your availability for the season</p>
+                <p class="match-subtitle">
+                    Your unique to you fantasy mixed doubles match. Instead of a boring random ID number, you get these fun tennis pros as your personal identifier - much more memorable and enjoyable! 
+                    <a href="#" onclick="bookmarkPage(); return false;" style="color: #007bff; text-decoration: underline; font-weight: 600;">Bookmark this page</a> 
+                    to easily manage your tennis availability throughout the entire season. Keep it safe as it's specifically tied to your player account.
+                </p>
+                
+                <script>
+                function bookmarkPage() {
+                    const pageTitle = document.title || 'My Tennis Availability';
+                    const pageURL = window.location.href;
+                    
+                    // For Internet Explorer
+                    if (window.external && window.external.AddFavorite) {
+                        window.external.AddFavorite(pageURL, pageTitle);
+                        return;
+                    }
+                    
+                    // For other browsers, show instructions
+                    let message = 'To bookmark this page:\n\n';
+                    
+                    if (navigator.userAgent.indexOf('Mac') !== -1) {
+                        message += '• Press Cmd+D (Mac)\n';
+                    } else {
+                        message += '• Press Ctrl+D (Windows/Linux)\n';
+                    }
+                    
+                    message += '• Or click the star icon in your browser\n';
+                    message += '• On mobile: use your browser\'s "Add to Home Screen" or bookmark option\n\n';
+                    message += 'Save this page to easily access your personal tennis availability manager all season long!';
+                    
+                    alert(message);
+                }
+                </script>
                 <div class="teams-container">
                 <div class="team">
                     <div class="team-name">Team A</div>
@@ -813,7 +1074,7 @@
         <div class="availability-section">
             <h2 class="section-title">Set Your Availability</h2>
             <p class="availability-instructions">
-                Click on any date to toggle your availability. We recommend updating weekly, but you can set up to a month ahead.
+                Click on any date to toggle your availability. We recommend updating weekly, but you can set up to 4 weeks ahead.
             </p>
             
             <div class="calendar-container">
@@ -848,6 +1109,32 @@
                 <button type="button" class="btn-quick-action" onclick="setWeekAvailability('unavailable', 1)">
                     Set Next Week Unavailable
                 </button>
+                <button type="button" class="btn-quick-action btn-injury" onclick="showInjuryModal()">
+                    🩹 Report Injury
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Injury Modal -->
+    <div id="injuryModal" class="injury-modal" style="display: none;">
+        <div class="modal-overlay" onclick="hideInjuryModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🩹 Report Injury</h3>
+                <button class="modal-close" onclick="hideInjuryModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Sorry to hear you're injured! When do you expect to be ready to play again?</p>
+                <div class="date-input-group">
+                    <label for="returnDate">Expected return date:</label>
+                    <input type="date" id="returnDate" class="return-date-input">
+                </div>
+                <p class="injury-note">We'll mark you as unavailable until then. You can always update this later if your recovery time changes.</p>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-modal-cancel" onclick="hideInjuryModal()">Cancel</button>
+                <button type="button" class="btn-modal-confirm" onclick="reportInjury()">Mark as Injured</button>
             </div>
         </div>
     </div>
@@ -1040,6 +1327,51 @@
                     console.error('Error batch updating availability:', error);
                 }
             }
+            
+            async setInjuryPeriod(returnDate) {
+                const today = new Date();
+                const endDate = new Date(returnDate);
+                const updates = [];
+                
+                // Mark all days from today until return date as unavailable
+                const currentDate = new Date(today);
+                while (currentDate < endDate) {
+                    const dateStr = this.formatDate(currentDate);
+                    updates.push({ date: dateStr, status: 'unavailable' });
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+                
+                try {
+                    const response = await fetch(`/my-availability/${this.authToken}/batch-update`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ 
+                            updates: updates,
+                            reason: 'injury',
+                            returnDate: returnDate 
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        updates.forEach(update => {
+                            this.availabilityData.set(update.date, update.status);
+                            this.updateDayDisplay(update.date, update.status);
+                        });
+                        
+                        // Show success message
+                        const returnDateFormatted = new Date(returnDate).toLocaleDateString();
+                        alert(`✅ Injury reported successfully!\n\nMarked as unavailable until ${returnDateFormatted}.\n\nHope you heal up quickly! You can always adjust this if your recovery time changes.`);
+                    } else {
+                        console.error('Failed to report injury');
+                        alert('❌ Failed to report injury. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Error reporting injury:', error);
+                    alert('❌ Error reporting injury. Please check your connection and try again.');
+                }
+            }
         }
         
         // Initialize calendar when page loads
@@ -1067,6 +1399,70 @@
                 calendar.setWeekAvailability(status, weekOffset);
             }
         }
+        
+        // Injury modal functions
+        function showInjuryModal() {
+            const modal = document.getElementById('injuryModal');
+            const returnDateInput = document.getElementById('returnDate');
+            
+            // Set minimum date to tomorrow
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            returnDateInput.min = tomorrow.toISOString().split('T')[0];
+            
+            // Set default to 2 weeks from now
+            const twoWeeksFromNow = new Date();
+            twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
+            returnDateInput.value = twoWeeksFromNow.toISOString().split('T')[0];
+            
+            modal.style.display = 'flex';
+            
+            // Focus on the date input after animation
+            setTimeout(() => {
+                returnDateInput.focus();
+            }, 300);
+        }
+        
+        function hideInjuryModal() {
+            const modal = document.getElementById('injuryModal');
+            modal.style.display = 'none';
+            
+            // Clear the input
+            document.getElementById('returnDate').value = '';
+        }
+        
+        async function reportInjury() {
+            const returnDateInput = document.getElementById('returnDate');
+            const returnDate = returnDateInput.value;
+            
+            if (!returnDate) {
+                alert('Please select an expected return date.');
+                return;
+            }
+            
+            const today = new Date();
+            const returnDateObj = new Date(returnDate);
+            
+            if (returnDateObj <= today) {
+                alert('Return date must be in the future.');
+                return;
+            }
+            
+            if (calendar) {
+                await calendar.setInjuryPeriod(returnDate);
+                hideInjuryModal();
+            }
+        }
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('injuryModal');
+                if (modal.style.display === 'flex') {
+                    hideInjuryModal();
+                }
+            }
+        });
         
         // Fantasy match collapse/expand functionality
         function toggleFantasyMatch() {
