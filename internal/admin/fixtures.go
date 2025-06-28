@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"jim-dot-tennis/internal/models"
@@ -132,11 +133,59 @@ func (h *FixturesHandler) handleFixtureDetail(w http.ResponseWriter, r *http.Req
 
 // handleFixtureDetailGet handles GET requests to show the fixture detail page
 func (h *FixturesHandler) handleFixtureDetailGet(w http.ResponseWriter, r *http.Request, user *models.User, fixtureID uint) {
-	// Get the fixture with full details
-	fixtureDetail, err := h.service.GetFixtureDetail(fixtureID)
+	// Capture navigation context from query parameters
+	navigationContext := map[string]string{
+		"from":         r.URL.Query().Get("from"),
+		"teamId":       r.URL.Query().Get("teamId"),
+		"teamName":     r.URL.Query().Get("teamName"),
+		"managingTeam": r.URL.Query().Get("managingTeam"),
+	}
+
+	// Check if we have a managing team parameter (for derby matches)
+	var fixtureDetail interface{}
+	var err error
+	managingTeamParam := r.URL.Query().Get("managingTeam")
+
+	if managingTeamParam != "" {
+		// Parse managing team ID
+		managingTeamIDUint64, parseErr := strconv.ParseUint(managingTeamParam, 10, 32)
+		if parseErr == nil {
+			// Use team-aware fixture detail for derby matches
+			managingTeamID := uint(managingTeamIDUint64)
+			fixtureDetail, err = h.service.GetFixtureDetailWithTeamContext(fixtureID, managingTeamID)
+		} else {
+			// Fall back to regular method if parsing fails
+			fixtureDetail, err = h.service.GetFixtureDetail(fixtureID)
+		}
+	} else {
+		// Use regular fixture detail method
+		fixtureDetail, err = h.service.GetFixtureDetail(fixtureID)
+	}
+
 	if err != nil {
 		logAndError(w, "Fixture not found", err, http.StatusNotFound)
 		return
+	}
+
+	// Determine derby status and managing team information
+	var isStAnnsHome bool
+	var isStAnnsAway bool
+	var isDerby bool
+	var managingTeam *models.Team
+
+	// Check if we have a managing team from query parameters (indicates derby match)
+	if managingTeamParam != "" {
+		isDerby = true
+
+		// Parse managing team ID and get team details
+		if managingTeamIDUint64, parseErr := strconv.ParseUint(managingTeamParam, 10, 32); parseErr == nil {
+			managingTeamID := uint(managingTeamIDUint64)
+
+			// Get the managing team details from the service
+			if teamDetail, teamErr := h.service.GetTeamDetail(managingTeamID); teamErr == nil {
+				managingTeam = &teamDetail.Team
+			}
+		}
 	}
 
 	// Get available players for matchup creation
@@ -144,13 +193,6 @@ func (h *FixturesHandler) handleFixtureDetailGet(w http.ResponseWriter, r *http.
 	if err != nil {
 		logAndError(w, "Failed to load available players for matchup", err, http.StatusInternalServerError)
 		return
-	}
-
-	// Capture navigation context from query parameters
-	navigationContext := map[string]string{
-		"from":     r.URL.Query().Get("from"),
-		"teamId":   r.URL.Query().Get("teamId"),
-		"teamName": r.URL.Query().Get("teamName"),
 	}
 
 	// Load the fixture detail template
@@ -163,16 +205,6 @@ func (h *FixturesHandler) handleFixtureDetailGet(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Determine if St. Ann's is home or away
-	isStAnnsHome := false
-	isStAnnsAway := false
-	if fixtureDetail.HomeTeam != nil && strings.Contains(fixtureDetail.HomeTeam.Name, "St Ann") {
-		isStAnnsHome = true
-	}
-	if fixtureDetail.AwayTeam != nil && strings.Contains(fixtureDetail.AwayTeam.Name, "St Ann") {
-		isStAnnsAway = true
-	}
-
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
 		"User":              user,
@@ -181,6 +213,8 @@ func (h *FixturesHandler) handleFixtureDetailGet(w http.ResponseWriter, r *http.
 		"NavigationContext": navigationContext,
 		"IsStAnnsHome":      isStAnnsHome,
 		"IsStAnnsAway":      isStAnnsAway,
+		"IsDerby":           isDerby,
+		"ManagingTeam":      managingTeam,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -208,13 +242,27 @@ func (h *FixturesHandler) handleFixtureDetailPost(w http.ResponseWriter, r *http
 func (h *FixturesHandler) handleAddPlayerToFixture(w http.ResponseWriter, r *http.Request, fixtureID uint) {
 	playerID := r.FormValue("player_id")
 	isHome := r.FormValue("is_home") == "true"
+	managingTeamParam := r.FormValue("managing_team_id")
 
 	if playerID == "" {
 		http.Error(w, "Player ID is required", http.StatusBadRequest)
 		return
 	}
 
-	err := h.service.AddPlayerToFixture(fixtureID, playerID, isHome)
+	var err error
+
+	// Check if this is for a specific managing team (derby match)
+	if managingTeamParam != "" {
+		managingTeamID, parseErr := strconv.ParseUint(managingTeamParam, 10, 32)
+		if parseErr != nil {
+			http.Error(w, "Invalid managing team ID", http.StatusBadRequest)
+			return
+		}
+		err = h.service.AddPlayerToFixtureWithTeam(fixtureID, playerID, isHome, uint(managingTeamID))
+	} else {
+		err = h.service.AddPlayerToFixture(fixtureID, playerID, isHome)
+	}
+
 	if err != nil {
 		logAndError(w, "Failed to add player to fixture", err, http.StatusInternalServerError)
 		return
@@ -235,13 +283,27 @@ func (h *FixturesHandler) handleAddPlayerToFixture(w http.ResponseWriter, r *htt
 // handleRemovePlayerFromFixture handles removing a player from the fixture selection
 func (h *FixturesHandler) handleRemovePlayerFromFixture(w http.ResponseWriter, r *http.Request, fixtureID uint) {
 	playerID := r.FormValue("player_id")
+	managingTeamParam := r.FormValue("managing_team_id")
 
 	if playerID == "" {
 		http.Error(w, "Player ID is required", http.StatusBadRequest)
 		return
 	}
 
-	err := h.service.RemovePlayerFromFixture(fixtureID, playerID)
+	var err error
+
+	// Check if this is for a specific managing team (derby match)
+	if managingTeamParam != "" {
+		managingTeamID, parseErr := strconv.ParseUint(managingTeamParam, 10, 32)
+		if parseErr != nil {
+			http.Error(w, "Invalid managing team ID", http.StatusBadRequest)
+			return
+		}
+		err = h.service.RemovePlayerFromFixtureByTeam(fixtureID, playerID, uint(managingTeamID))
+	} else {
+		err = h.service.RemovePlayerFromFixture(fixtureID, playerID)
+	}
+
 	if err != nil {
 		logAndError(w, "Failed to remove player from fixture", err, http.StatusInternalServerError)
 		return
@@ -261,7 +323,22 @@ func (h *FixturesHandler) handleRemovePlayerFromFixture(w http.ResponseWriter, r
 
 // handleClearFixturePlayers handles clearing all players from the fixture selection
 func (h *FixturesHandler) handleClearFixturePlayers(w http.ResponseWriter, r *http.Request, fixtureID uint) {
-	err := h.service.ClearFixturePlayerSelection(fixtureID)
+	managingTeamParam := r.FormValue("managing_team_id")
+
+	var err error
+
+	// Check if this is for a specific managing team (derby match)
+	if managingTeamParam != "" {
+		managingTeamID, parseErr := strconv.ParseUint(managingTeamParam, 10, 32)
+		if parseErr != nil {
+			http.Error(w, "Invalid managing team ID", http.StatusBadRequest)
+			return
+		}
+		err = h.service.ClearFixturePlayerSelectionByTeam(fixtureID, uint(managingTeamID))
+	} else {
+		err = h.service.ClearFixturePlayerSelection(fixtureID)
+	}
+
 	if err != nil {
 		logAndError(w, "Failed to clear fixture players", err, http.StatusInternalServerError)
 		return
@@ -638,8 +715,30 @@ func (h *FixturesHandler) getTeamSelectionRedirectURL(r *http.Request, fixtureID
 
 // renderTeamSelectionContainer renders just the team selection container for HTMX requests
 func (h *FixturesHandler) renderTeamSelectionContainer(w http.ResponseWriter, r *http.Request, fixtureID uint) {
-	// Get the fixture with full details
-	fixtureDetail, err := h.service.GetFixtureDetail(fixtureID)
+	// Check for managing team parameter (for derby matches)
+	managingTeamParam := r.URL.Query().Get("managingTeam")
+	if managingTeamParam == "" {
+		managingTeamParam = r.FormValue("managing_team_id")
+	}
+
+	var fixtureDetail interface{}
+	var err error
+	var managingTeamID uint
+
+	// Use team-aware or regular fixture detail based on managing team parameter
+	if managingTeamParam != "" {
+		managingTeamIDUint64, parseErr := strconv.ParseUint(managingTeamParam, 10, 32)
+		if parseErr == nil {
+			managingTeamID = uint(managingTeamIDUint64)
+			fixtureDetail, err = h.service.GetFixtureDetailWithTeamContext(fixtureID, managingTeamID)
+		} else {
+			// Fall back to regular method if parsing fails
+			fixtureDetail, err = h.service.GetFixtureDetail(fixtureID)
+		}
+	} else {
+		fixtureDetail, err = h.service.GetFixtureDetail(fixtureID)
+	}
+
 	if err != nil {
 		logAndError(w, "Fixture not found", err, http.StatusNotFound)
 		return
@@ -654,8 +753,13 @@ func (h *FixturesHandler) renderTeamSelectionContainer(w http.ResponseWriter, r 
 
 	// Create a map of already selected player IDs for quick filtering
 	selectedMap := make(map[string]bool)
-	for _, sp := range fixtureDetail.SelectedPlayers {
-		selectedMap[sp.PlayerID] = true
+
+	// Use reflection or type assertion to get selected players
+	// This is a workaround since we're dealing with interface{} types
+	if detail, ok := fixtureDetail.(*FixtureDetail); ok {
+		for _, sp := range detail.SelectedPlayers {
+			selectedMap[sp.PlayerID] = true
+		}
 	}
 
 	// Filter out already selected players
@@ -681,19 +785,30 @@ func (h *FixturesHandler) renderTeamSelectionContainer(w http.ResponseWriter, r 
 	}
 
 	// Calculate selection percentage
-	selectedCount := len(fixtureDetail.SelectedPlayers)
+	selectedCount := 0
+	if detail, ok := fixtureDetail.(*FixtureDetail); ok {
+		selectedCount = len(detail.SelectedPlayers)
+	}
 	selectionPercentage := 0
 	if selectedCount > 0 {
 		selectionPercentage = (selectedCount * 100) / 8
 	}
 
-	// Execute the template with data
-	if err := renderTemplate(w, tmpl, map[string]interface{}{
+	// Prepare template data
+	templateData := map[string]interface{}{
 		"FixtureDetail":       fixtureDetail,
 		"TeamPlayers":         availableTeamPlayers,
 		"AllStAnnPlayers":     availableStAnnPlayers,
 		"SelectionPercentage": selectionPercentage,
-	}); err != nil {
+	}
+
+	// Include managing team ID if present
+	if managingTeamParam != "" {
+		templateData["ManagingTeamID"] = managingTeamID
+	}
+
+	// Execute the template with data
+	if err := renderTemplate(w, tmpl, templateData); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
 }

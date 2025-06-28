@@ -222,6 +222,38 @@
         .date-time {
             color: #495057;
         }
+
+        /* Derby match indicators */
+        .derby-indicator {
+            color: #e83e8c;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .team-context {
+            font-size: 0.8rem;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .managing-home {
+            color: #007bff;
+        }
+
+        .managing-away {
+            color: #28a745;
+        }
+
+        /* Enhanced team names for derby matches */
+        .derby-home-team {
+            color: #007bff;
+            font-weight: 600;
+        }
+
+        .derby-away-team {
+            color: #28a745;
+            font-weight: 600;
+        }
     </style>
 </head>
 
@@ -264,6 +296,32 @@
                     </thead>
                     <tbody>
                         {{range .Fixtures}}
+                        {{if .IsDerby}}
+                        <!-- Derby match: both teams are St Ann's -->
+                        <tr class="status-{{.Status}}" onclick="window.location.href='/admin/fixtures/{{.ID}}?managingTeam={{.DefaultTeamContext.ID}}&teamName={{.DefaultTeamContext.Name}}'" style="cursor: pointer;">
+                            <td class="col-date">
+                                <div class="date-time">
+                                    {{.ScheduledDate.Format "Mon, Jan 2"}}<br>
+                                    <small>{{.ScheduledDate.Format "3:04 PM"}}</small>
+                                </div>
+                            </td>
+                            <td class="col-teams">
+                                <span class="derby-indicator">⚽ DERBY:</span>
+                                <span class="team-name derby-home-team">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                                <span class="vs-text">vs</span>
+                                <span class="team-name derby-away-team">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</span>
+                                <br>
+                                <small class="team-context managing-home">
+                                    *Managing: {{.DefaultTeamContext.Name}} (Home)
+                                </small>
+                            </td>
+                            <td class="col-venue">{{.VenueLocation}}</td>
+                            <td>
+                                {{if .Week}}Week {{.Week.WeekNumber}}{{else}}TBD{{end}}
+                            </td>
+                        </tr>
+                        {{else}}
+                        <!-- Regular match: only one St Ann's team -->
                         <tr class="status-{{.Status}}" onclick="window.location.href='/admin/fixtures/{{.ID}}'" style="cursor: pointer;">
                             <td class="col-date">
                                 <div class="date-time">
@@ -281,6 +339,7 @@
                                 {{if .Week}}Week {{.Week.WeekNumber}}{{else}}TBD{{end}}
                             </td>
                         </tr>
+                        {{end}}
                         {{end}}
                     </tbody>
                 </table>

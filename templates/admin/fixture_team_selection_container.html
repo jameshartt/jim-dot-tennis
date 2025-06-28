@@ -40,6 +40,7 @@
                           hx-confirm="Remove {{.Player.FirstName}} {{.Player.LastName}} from selection?">
                         <input type="hidden" name="action" value="remove_player">
                         <input type="hidden" name="player_id" value="{{.PlayerID}}">
+                        {{if $.ManagingTeamID}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeamID}}">{{end}}
                         <button type="submit" class="btn-remove-player availability-{{.AvailabilityStatus | lower}}"
                                 title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
                             {{.Player.FirstName}} {{.Player.LastName}} (Pos {{.Position}})
@@ -54,6 +55,7 @@
                           hx-swap="outerHTML"
                           hx-confirm="Clear all selected players?">
                         <input type="hidden" name="action" value="clear_players">
+                        {{if $.ManagingTeamID}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeamID}}">{{end}}
                         <button type="submit" class="btn-clear">Clear All Players</button>
                     </form>
                 </div>
@@ -98,6 +100,7 @@
                         <input type="hidden" name="action" value="add_player">
                         <input type="hidden" name="player_id" value="{{.Player.ID}}">
                         <input type="hidden" name="is_home" value="true">
+                        {{if $.ManagingTeamID}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeamID}}">{{end}}
                         <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}"
                                 title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
                             {{.Player.FirstName}} {{.Player.LastName}}
@@ -125,6 +128,7 @@
                         <input type="hidden" name="action" value="add_player">
                         <input type="hidden" name="player_id" value="{{.Player.ID}}">
                         <input type="hidden" name="is_home" value="true">
+                        {{if $.ManagingTeamID}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeamID}}">{{end}}
                         <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}"
                                 title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
                             {{.Player.FirstName}} {{.Player.LastName}}
