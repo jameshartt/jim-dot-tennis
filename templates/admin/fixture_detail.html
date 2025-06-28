@@ -1105,11 +1105,6 @@
                             <span class="managing-label">Currently Managing:</span>
                             {{if .ManagingTeam}}
                                 <span class="managing-team-name">{{.ManagingTeam.Name}}</span>
-                                {{if eq .ManagingTeam.ID .FixtureDetail.HomeTeam.ID}}
-                                    <span class="team-position home">(Home)</span>
-                                {{else}}
-                                    <span class="team-position away">(Away)</span>
-                                {{end}}
                             {{else}}
                                 <span class="managing-team-name">Unknown Team</span>
                             {{end}}
@@ -1121,13 +1116,13 @@
                                     <!-- Currently managing home team, show switch to away -->
                                     <a href="/admin/fixtures/{{.FixtureDetail.ID}}?managingTeam={{.FixtureDetail.AwayTeam.ID}}&teamName={{.FixtureDetail.AwayTeam.Name}}" 
                                        class="btn-switch-team">
-                                        Switch to {{.FixtureDetail.AwayTeam.Name}} (Away)
+                                        Switch to {{.FixtureDetail.AwayTeam.Name}}
                                     </a>
                                 {{else}}
                                     <!-- Currently managing away team, show switch to home -->
                                     <a href="/admin/fixtures/{{.FixtureDetail.ID}}?managingTeam={{.FixtureDetail.HomeTeam.ID}}&teamName={{.FixtureDetail.HomeTeam.Name}}" 
                                        class="btn-switch-team">
-                                        Switch to {{.FixtureDetail.HomeTeam.Name}} (Home)
+                                        Switch to {{.FixtureDetail.HomeTeam.Name}}
                                     </a>
                                 {{end}}
                             {{end}}
@@ -1156,12 +1151,16 @@
                         </div>
                         
                         <div class="glance-teams">
-                            {{if .IsStAnnsHome}}
-                                <span class="team-home">🏠 (HOME) {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}{{end}}</span> vs <span class="team-away">{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}</span>
-                            {{else if .IsStAnnsAway}}
-                                <span class="team-away">✈️ (AWAY) {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}{{end}}</span> @ <span class="team-home">{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}</span>
-                            {{else}}
+                            {{if .IsDerby}}
                                 <span class="team-home">{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}</span> vs <span class="team-away">{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}</span>
+                            {{else}}
+                                {{if .IsStAnnsHome}}
+                                    <span class="team-home">🏠 (HOME) {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}{{end}}</span> vs <span class="team-away">{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}</span>
+                                {{else if .IsStAnnsAway}}
+                                    <span class="team-away">✈️ (AWAY) {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}{{end}}</span> @ <span class="team-home">{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                                {{else}}
+                                    <span class="team-home">{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}</span> vs <span class="team-away">{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}</span>
+                                {{end}}
                             {{end}}
                         </div>
                     </div>
@@ -1212,7 +1211,7 @@
                     <div class="glance-copyable" style="display: none;">{{if .FixtureDetail.Division}}{{if eq .FixtureDetail.Division.Name "Division 1"}}Div. 1{{else if eq .FixtureDetail.Division.Name "Division 2"}}Div. 2{{else if eq .FixtureDetail.Division.Name "Division 3"}}Div. 3{{else if eq .FixtureDetail.Division.Name "Division 4"}}Div. 4{{else}}{{.FixtureDetail.Division.Name}}{{end}}{{else}}Div. TBD{{end}}{{if .FixtureDetail.Week}} - Week {{.FixtureDetail.Week.WeekNumber}}{{end}}
 📅 {{.FixtureDetail.ScheduledDate.Format "Mon, Jan 2, 2006"}}
 
-{{if .IsStAnnsHome}}🏠 (HOME) {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{else if .IsStAnnsAway}}✈️ (AWAY) {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}{{end}} @ {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}{{else}}{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{end}}
+{{if .IsDerby}}{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{else}}{{if .IsStAnnsHome}}🏠 (HOME) {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{else if .IsStAnnsAway}}✈️ (AWAY) {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}{{end}} @ {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}{{else}}{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{end}}{{end}}
 
 Team:{{if .FixtureDetail.Matchups}}{{range .FixtureDetail.Matchups}}
 {{.Matchup.Type}}: {{if .Players}}{{range $index, $player := .Players}}{{if $index}}, {{end}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}{{else}}TBD{{end}}{{end}}{{else}}{{if .FixtureDetail.SelectedPlayers}}

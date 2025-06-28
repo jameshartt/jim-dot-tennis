@@ -629,12 +629,10 @@
                                     <span class="team-name derby-home-team">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
                                     <span class="vs-text">vs</span>
                                     <span class="team-name derby-away-team">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</span>
-                                    <small class="vs-text derby-context">(Managing Home)</small>
                                 {{else}}
                                     <span class="team-name derby-away-team">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</span>
-                                    <span class="vs-text">@</span>
+                                    <span class="vs-text">vs</span>
                                     <span class="team-name derby-home-team">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
-                                    <small class="vs-text derby-context">(Managing Away)</small>
                                 {{end}}
                             </td>
                             <td>{{.VenueLocation}}</td>
