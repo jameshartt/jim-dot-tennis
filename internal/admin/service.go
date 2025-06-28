@@ -1046,19 +1046,54 @@ func (s *Service) GetUpcomingFixturesForTeam(teamID uint, limit int) ([]FixtureW
 			Fixture: fixture,
 		}
 
+		// Declare team variables for later use
+		var homeTeam, awayTeam *models.Team
+
 		// Get home team
-		if homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID); err == nil {
+		if homeTeamResult, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID); err == nil {
+			homeTeam = homeTeamResult
 			fixtureWithRelations.HomeTeam = homeTeam
 		}
 
 		// Get away team
-		if awayTeam, err := s.teamRepository.FindByID(ctx, fixture.AwayTeamID); err == nil {
+		if awayTeamResult, err := s.teamRepository.FindByID(ctx, fixture.AwayTeamID); err == nil {
+			awayTeam = awayTeamResult
 			fixtureWithRelations.AwayTeam = awayTeam
 		}
 
 		// Get week
 		if week, err := s.weekRepository.FindByID(ctx, fixture.WeekID); err == nil {
 			fixtureWithRelations.Week = week
+		}
+
+		// Get division
+		if division, err := s.getDivisionByID(ctx, fixture.DivisionID); err == nil {
+			fixtureWithRelations.Division = division
+		}
+
+		// Get season
+		if season, err := s.getSeasonByID(ctx, fixture.SeasonID); err == nil {
+			fixtureWithRelations.Season = season
+		}
+
+		// Determine if the requesting team is home or away (only if teams were loaded successfully)
+		if homeTeam != nil && homeTeam.ID == teamID {
+			fixtureWithRelations.IsStAnnsHome = true
+		}
+		if awayTeam != nil && awayTeam.ID == teamID {
+			fixtureWithRelations.IsStAnnsAway = true
+		}
+
+		// Determine if it's a derby match (both teams are from the same club)
+		if homeTeam != nil && awayTeam != nil && homeTeam.ClubID == awayTeam.ClubID {
+			fixtureWithRelations.IsDerby = true
+
+			// For derby matches, set the default team context to the requesting team
+			if homeTeam.ID == teamID {
+				fixtureWithRelations.DefaultTeamContext = homeTeam
+			} else if awayTeam.ID == teamID {
+				fixtureWithRelations.DefaultTeamContext = awayTeam
+			}
 		}
 
 		fixturesWithRelations = append(fixturesWithRelations, fixtureWithRelations)

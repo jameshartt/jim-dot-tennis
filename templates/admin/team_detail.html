@@ -373,6 +373,30 @@
             background-color: #f8f9fa !important;
         }
 
+        /* Derby match indicators */
+        .derby-indicator {
+            color: #e83e8c;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-right: 0.25rem;
+        }
+
+        .derby-context {
+            font-size: 0.8rem;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .derby-home-team {
+            color: #007bff;
+            font-weight: 600;
+        }
+
+        .derby-away-team {
+            color: #28a745;
+            font-weight: 600;
+        }
+
         /* Modal styles */
         .modal {
             display: none;
@@ -590,6 +614,36 @@
                     </thead>
                     <tbody>
                         {{range .UpcomingFixtures}}
+                        {{if .IsDerby}}
+                        <!-- Derby match: both teams are from the same club -->
+                        <tr data-fixture-id="{{.ID}}" data-is-derby="true" data-managing-team="{{.DefaultTeamContext.ID}}">
+                            <td>
+                                <div class="date-time">
+                                    {{.ScheduledDate.Format "Mon, Jan 2"}}<br>
+                                    <small>{{.ScheduledDate.Format "3:04 PM"}}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="derby-indicator">⚽ DERBY:</span>
+                                {{if eq $.TeamDetail.ID .HomeTeamID}}
+                                    <span class="team-name derby-home-team">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                                    <span class="vs-text">vs</span>
+                                    <span class="team-name derby-away-team">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</span>
+                                    <small class="vs-text derby-context">(Managing Home)</small>
+                                {{else}}
+                                    <span class="team-name derby-away-team">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</span>
+                                    <span class="vs-text">@</span>
+                                    <span class="team-name derby-home-team">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                                    <small class="vs-text derby-context">(Managing Away)</small>
+                                {{end}}
+                            </td>
+                            <td>{{.VenueLocation}}</td>
+                            <td>
+                                <span class="status-badge {{.Status}}">{{.Status}}</span>
+                            </td>
+                        </tr>
+                        {{else}}
+                        <!-- Regular match: standard opponent display -->
                         <tr data-fixture-id="{{.ID}}">
                             <td>
                                 <div class="date-time">
@@ -613,6 +667,7 @@
                                 <span class="status-badge {{.Status}}">{{.Status}}</span>
                             </td>
                         </tr>
+                        {{end}}
                         {{end}}
                     </tbody>
                 </table>
@@ -852,7 +907,17 @@
                     const fixtureId = this.dataset.fixtureId;
                     if (fixtureId) {
                         const teamName = encodeURIComponent('{{$.TeamDetail.Name}}');
-                        window.location.href = `/admin/fixtures/${fixtureId}?from=team&teamId={{$.TeamDetail.ID}}&teamName=${teamName}`;
+                        const isDerby = this.dataset.isDerby === 'true';
+                        const managingTeamId = this.dataset.managingTeam;
+                        
+                        let url = `/admin/fixtures/${fixtureId}?from=team&teamId={{$.TeamDetail.ID}}&teamName=${teamName}`;
+                        
+                        // For derby matches, add managing team context
+                        if (isDerby && managingTeamId) {
+                            url += `&managingTeam=${managingTeamId}`;
+                        }
+                        
+                        window.location.href = url;
                     }
                 });
                 
