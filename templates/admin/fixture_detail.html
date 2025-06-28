@@ -73,7 +73,7 @@
         .vs-text {
             color: #6c757d;
             font-weight: normal;
-            margin: 0 1rem;
+            margin: 0 0.5rem;
         }
         
         .status-badge {
@@ -923,6 +923,130 @@
             transform: translateY(-25px);
         }
 
+        /* Derby Management Styles */
+        .derby-management {
+            background: linear-gradient(135deg, #e83e8c, #fd7e14);
+            color: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0 2rem 0;
+            box-shadow: 0 4px 8px rgba(232, 62, 140, 0.3);
+        }
+
+        .derby-header {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .derby-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .derby-subtitle {
+            display: block;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .team-switcher {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .managing-team {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .managing-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .managing-team-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .team-position {
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .team-position.home {
+            background: rgba(0, 123, 255, 0.3);
+            border: 1px solid rgba(0, 123, 255, 0.5);
+        }
+
+        .team-position.away {
+            background: rgba(40, 167, 69, 0.3);
+            border: 1px solid rgba(40, 167, 69, 0.5);
+        }
+
+        .btn-switch-team {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: 500;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .btn-switch-team:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-1px);
+        }
+
+        .derby-notice {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            padding: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .notice-icon {
+            flex-shrink: 0;
+        }
+
+        /* Mobile responsiveness for derby management */
+        @media (max-width: 768px) {
+            .team-switcher {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+            }
+
+            .managing-team {
+                justify-content: center;
+                margin-bottom: 1rem;
+            }
+
+            .btn-switch-team {
+                display: block;
+                text-align: center;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -967,6 +1091,55 @@
                     </p>
                     <span class="status-badge {{.FixtureDetail.Status}}">{{.FixtureDetail.Status}}</span>
                 </div>
+
+                {{if .IsDerby}}
+                <!-- Derby Match Management -->
+                <div class="derby-management">
+                    <div class="derby-header">
+                        <span class="derby-badge">⚽ DERBY MATCH</span>
+                        <span class="derby-subtitle">Both teams are St. Ann's</span>
+                    </div>
+                    
+                    <div class="team-switcher">
+                        <div class="managing-team">
+                            <span class="managing-label">Currently Managing:</span>
+                            {{if .ManagingTeam}}
+                                <span class="managing-team-name">{{.ManagingTeam.Name}}</span>
+                                {{if eq .ManagingTeam.ID .FixtureDetail.HomeTeam.ID}}
+                                    <span class="team-position home">(Home)</span>
+                                {{else}}
+                                    <span class="team-position away">(Away)</span>
+                                {{end}}
+                            {{else}}
+                                <span class="managing-team-name">Unknown Team</span>
+                            {{end}}
+                        </div>
+                        
+                        <div class="switch-controls">
+                            {{if .ManagingTeam}}
+                                {{if eq .ManagingTeam.ID .FixtureDetail.HomeTeam.ID}}
+                                    <!-- Currently managing home team, show switch to away -->
+                                    <a href="/admin/fixtures/{{.FixtureDetail.ID}}?managingTeam={{.FixtureDetail.AwayTeam.ID}}&teamName={{.FixtureDetail.AwayTeam.Name}}" 
+                                       class="btn-switch-team">
+                                        Switch to {{.FixtureDetail.AwayTeam.Name}} (Away)
+                                    </a>
+                                {{else}}
+                                    <!-- Currently managing away team, show switch to home -->
+                                    <a href="/admin/fixtures/{{.FixtureDetail.ID}}?managingTeam={{.FixtureDetail.HomeTeam.ID}}&teamName={{.FixtureDetail.HomeTeam.Name}}" 
+                                       class="btn-switch-team">
+                                        Switch to {{.FixtureDetail.HomeTeam.Name}} (Home)
+                                    </a>
+                                {{end}}
+                            {{end}}
+                        </div>
+                    </div>
+                    
+                    <div class="derby-notice">
+                        <span class="notice-icon">💡</span>
+                        <span class="notice-text">Player selection and matchups will be configured for the team you're currently managing. Use the switch button to manage the other team.</span>
+                    </div>
+                </div>
+                {{end}}
 
                 <div class="info-highlight">
                     <strong>💡 Tip:</strong> The fixture summary below is designed to look great in screenshots and can be clicked to copy all the details to your clipboard for easy sharing via WhatsApp, email, or other communication channels.
@@ -1097,7 +1270,11 @@ No team selection made yet{{end}}{{end}}</div>
                         {{end}}
 
                         <div class="matchup-actions">
+                            {{if and .IsDerby .ManagingTeam}}
+                            <a href="/admin/fixtures/{{.FixtureDetail.ID}}/matchup-selection?managingTeam={{.ManagingTeam.ID}}&teamName={{.ManagingTeam.Name}}" class="btn-matchup-selection">
+                            {{else}}
                             <a href="/admin/fixtures/{{.FixtureDetail.ID}}/matchup-selection" class="btn-matchup-selection">
+                            {{end}}
                                 {{if .FixtureDetail.Matchups}}
                                     ✏️ Manage Matchups
                                 {{else}}
@@ -1125,7 +1302,11 @@ No team selection made yet{{end}}{{end}}</div>
                         {{end}}
 
                         <div class="team-selection-actions">
+                            {{if and .IsDerby .ManagingTeam}}
+                            <a href="/admin/fixtures/{{.FixtureDetail.ID}}/team-selection?managingTeam={{.ManagingTeam.ID}}&teamName={{.ManagingTeam.Name}}" class="btn-team-selection">
+                            {{else}}
                             <a href="/admin/fixtures/{{.FixtureDetail.ID}}/team-selection" class="btn-team-selection">
+                            {{end}}
                                 {{if .FixtureDetail.SelectedPlayers}}
                                     ✏️ Manage Team Selection
                                 {{else}}

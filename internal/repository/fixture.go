@@ -56,10 +56,13 @@ type FixtureRepository interface {
 
 	// Fixture Player Selection methods
 	FindSelectedPlayers(ctx context.Context, fixtureID uint) ([]models.FixturePlayer, error)
+	FindSelectedPlayersByTeam(ctx context.Context, fixtureID, managingTeamID uint) ([]models.FixturePlayer, error)
 	AddSelectedPlayer(ctx context.Context, fixturePlayer *models.FixturePlayer) error
 	RemoveSelectedPlayer(ctx context.Context, fixtureID uint, playerID string) error
+	RemoveSelectedPlayerByTeam(ctx context.Context, fixtureID, managingTeamID uint, playerID string) error
 	UpdateSelectedPlayerPosition(ctx context.Context, fixtureID uint, playerID string, position int) error
 	ClearSelectedPlayers(ctx context.Context, fixtureID uint) error
+	ClearSelectedPlayersByTeam(ctx context.Context, fixtureID, managingTeamID uint) error
 }
 
 // fixtureRepository implements FixtureRepository
@@ -276,7 +279,7 @@ func (r *fixtureRepository) FindWithMatchups(ctx context.Context, id uint) (*mod
 	// Then get associated matchups
 	var matchups []models.Matchup
 	err = r.db.SelectContext(ctx, &matchups, `
-		SELECT id, fixture_id, type, status, home_score, away_score, notes, created_at, updated_at
+		SELECT id, fixture_id, type, status, home_score, away_score, notes, managing_team_id, created_at, updated_at
 		FROM matchups
 		WHERE fixture_id = ?
 		ORDER BY type ASC
@@ -478,7 +481,7 @@ func (r *fixtureRepository) CountByWeek(ctx context.Context, weekID uint) (int, 
 func (r *fixtureRepository) FindSelectedPlayers(ctx context.Context, fixtureID uint) ([]models.FixturePlayer, error) {
 	var players []models.FixturePlayer
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT id, fixture_id, player_id, is_home, position, created_at, updated_at
+		SELECT id, fixture_id, player_id, is_home, position, managing_team_id, created_at, updated_at
 		FROM fixture_players 
 		WHERE fixture_id = ?
 		ORDER BY position ASC, created_at ASC
@@ -493,8 +496,8 @@ func (r *fixtureRepository) AddSelectedPlayer(ctx context.Context, fixturePlayer
 	fixturePlayer.UpdatedAt = now
 
 	result, err := r.db.NamedExecContext(ctx, `
-		INSERT INTO fixture_players (fixture_id, player_id, is_home, position, created_at, updated_at)
-		VALUES (:fixture_id, :player_id, :is_home, :position, :created_at, :updated_at)
+		INSERT INTO fixture_players (fixture_id, player_id, is_home, position, managing_team_id, created_at, updated_at)
+		VALUES (:fixture_id, :player_id, :is_home, :position, :managing_team_id, :created_at, :updated_at)
 	`, fixturePlayer)
 
 	if err != nil {
@@ -528,10 +531,39 @@ func (r *fixtureRepository) UpdateSelectedPlayerPosition(ctx context.Context, fi
 	return err
 }
 
+// FindSelectedPlayersByTeam retrieves all players selected for a specific fixture by managing team
+func (r *fixtureRepository) FindSelectedPlayersByTeam(ctx context.Context, fixtureID, managingTeamID uint) ([]models.FixturePlayer, error) {
+	var players []models.FixturePlayer
+	err := r.db.SelectContext(ctx, &players, `
+		SELECT id, fixture_id, player_id, is_home, position, managing_team_id, created_at, updated_at
+		FROM fixture_players 
+		WHERE fixture_id = ? AND managing_team_id = ?
+		ORDER BY position ASC, created_at ASC
+	`, fixtureID, managingTeamID)
+	return players, err
+}
+
+// RemoveSelectedPlayerByTeam removes a player from the fixture selection for a specific team
+func (r *fixtureRepository) RemoveSelectedPlayerByTeam(ctx context.Context, fixtureID, managingTeamID uint, playerID string) error {
+	_, err := r.db.ExecContext(ctx, `
+		DELETE FROM fixture_players 
+		WHERE fixture_id = ? AND managing_team_id = ? AND player_id = ?
+	`, fixtureID, managingTeamID, playerID)
+	return err
+}
+
 // ClearSelectedPlayers removes all selected players from a fixture
 func (r *fixtureRepository) ClearSelectedPlayers(ctx context.Context, fixtureID uint) error {
 	_, err := r.db.ExecContext(ctx, `
 		DELETE FROM fixture_players WHERE fixture_id = ?
 	`, fixtureID)
+	return err
+}
+
+// ClearSelectedPlayersByTeam removes all selected players from a fixture for a specific team
+func (r *fixtureRepository) ClearSelectedPlayersByTeam(ctx context.Context, fixtureID, managingTeamID uint) error {
+	_, err := r.db.ExecContext(ctx, `
+		DELETE FROM fixture_players WHERE fixture_id = ? AND managing_team_id = ?
+	`, fixtureID, managingTeamID)
 	return err
 }

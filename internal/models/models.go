@@ -200,15 +200,16 @@ const (
 
 // Matchup represents one of the four matchups in a fixture
 type Matchup struct {
-	ID        uint          `json:"id" db:"id"`
-	FixtureID uint          `json:"fixture_id" db:"fixture_id"`
-	Type      MatchupType   `json:"type" db:"type"`
-	Status    MatchupStatus `json:"status" db:"status"`
-	HomeScore int           `json:"home_score" db:"home_score"`
-	AwayScore int           `json:"away_score" db:"away_score"`
-	Notes     string        `json:"notes" db:"notes"`
-	CreatedAt time.Time     `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time     `json:"updated_at" db:"updated_at"`
+	ID             uint          `json:"id" db:"id"`
+	FixtureID      uint          `json:"fixture_id" db:"fixture_id"`
+	Type           MatchupType   `json:"type" db:"type"`
+	Status         MatchupStatus `json:"status" db:"status"`
+	HomeScore      int           `json:"home_score" db:"home_score"`
+	AwayScore      int           `json:"away_score" db:"away_score"`
+	Notes          string        `json:"notes" db:"notes"`
+	ManagingTeamID *uint         `json:"managing_team_id,omitempty" db:"managing_team_id"` // Which team is managing this matchup (for derby matches)
+	CreatedAt      time.Time     `json:"created_at" db:"created_at"`
+	UpdatedAt      time.Time     `json:"updated_at" db:"updated_at"`
 }
 
 // MatchupPlayer represents a player participating in a specific matchup
@@ -223,13 +224,14 @@ type MatchupPlayer struct {
 
 // FixturePlayer represents a player selected for a fixture (holding pattern before matchup assignment)
 type FixturePlayer struct {
-	ID        uint      `json:"id" db:"id"`
-	FixtureID uint      `json:"fixture_id" db:"fixture_id"`
-	PlayerID  string    `json:"player_id" db:"player_id"` // UUID reference to player
-	IsHome    bool      `json:"is_home" db:"is_home"`     // true for home team, false for away team
-	Position  int       `json:"position" db:"position"`   // Order of selection (1-8 typically)
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+	ID             uint      `json:"id" db:"id"`
+	FixtureID      uint      `json:"fixture_id" db:"fixture_id"`
+	PlayerID       string    `json:"player_id" db:"player_id"`                         // UUID reference to player
+	IsHome         bool      `json:"is_home" db:"is_home"`                             // true for home team, false for away team
+	Position       int       `json:"position" db:"position"`                           // Order of selection (1-8 typically)
+	ManagingTeamID *uint     `json:"managing_team_id,omitempty" db:"managing_team_id"` // Which team is managing this player selection (for derby matches)
+	CreatedAt      time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // ProTennisPlayer represents a professional tennis player from ATP/WTA

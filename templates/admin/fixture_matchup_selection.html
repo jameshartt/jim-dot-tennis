@@ -297,7 +297,11 @@
             <div class="breadcrumb">
                 <a href="/admin">Admin Dashboard</a> &gt; 
                 <a href="/admin/fixtures">Fixtures</a> &gt; 
+                {{if .ManagingTeam}}
+                <a href="/admin/fixtures/{{.FixtureDetail.ID}}?managingTeam={{.ManagingTeam.ID}}&teamName={{.ManagingTeam.Name}}">Fixture #{{.FixtureDetail.ID}}</a> &gt; 
+                {{else}}
                 <a href="/admin/fixtures/{{.FixtureDetail.ID}}">Fixture #{{.FixtureDetail.ID}}</a> &gt; 
+                {{end}}
                 Matchup Selection
             </div>
         </div>
@@ -307,7 +311,11 @@
         <div class="container">
             <div class="action-bar">
                 <h2>Matchup Selection</h2>
+                {{if .ManagingTeam}}
+                <a href="/admin/fixtures/{{.FixtureDetail.ID}}?managingTeam={{.ManagingTeam.ID}}&teamName={{.ManagingTeam.Name}}" class="btn-back">← Back to Fixture Detail</a>
+                {{else}}
                 <a href="/admin/fixtures/{{.FixtureDetail.ID}}" class="btn-back">← Back to Fixture Detail</a>
+                {{end}}
             </div>
 
             {{if .FixtureDetail}}
@@ -322,9 +330,12 @@
                         <span class="vs-text">vs</span>
                         <span class="team-name">{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}</span>
                     </p>
+                    {{if .ManagingTeam}}
+                    <p class="managing-team-indicator" style="text-align: center; color: #007bff; font-weight: 600; margin-top: 0.5rem;">
+                        ⚽ Derby Match - Managing: {{.ManagingTeam.Name}}
+                    </p>
+                    {{end}}
                 </div>
-
-
 
                 {{if .FixtureDetail.SelectedPlayers}}
                 <div class="info-highlight">
@@ -339,6 +350,7 @@
                 <div class="matchup-creation-grid">
                     {{$fixtureID := .FixtureDetail.ID}}
                     {{$availablePlayers := .AvailablePlayers}}
+                    {{$managingTeamID := .ManagingTeamID}}
                     
                     <!-- First Mixed Doubles -->
                     <div class="matchup-form">
@@ -349,6 +361,7 @@
                               hx-swap="outerHTML">
                             <input type="hidden" name="action" value="update_matchup">
                             <input type="hidden" name="matchup_type" value="1st Mixed">
+                            {{if $managingTeamID}}<input type="hidden" name="managing_team_id" value="{{$managingTeamID}}">{{end}}
                             
                             <div class="stanns-players">
                                 <div class="player-dropdowns">
@@ -380,6 +393,7 @@
                               hx-swap="outerHTML">
                             <input type="hidden" name="action" value="update_matchup">
                             <input type="hidden" name="matchup_type" value="2nd Mixed">
+                            {{if $managingTeamID}}<input type="hidden" name="managing_team_id" value="{{$managingTeamID}}">{{end}}
                             
                             <div class="stanns-players">
                                 <div class="player-dropdowns">
@@ -411,6 +425,7 @@
                               hx-swap="outerHTML">
                             <input type="hidden" name="action" value="update_matchup">
                             <input type="hidden" name="matchup_type" value="Mens">
+                            {{if $managingTeamID}}<input type="hidden" name="managing_team_id" value="{{$managingTeamID}}">{{end}}
                             
                             <div class="stanns-players">
                                 <div class="player-dropdowns">
@@ -442,6 +457,7 @@
                               hx-swap="outerHTML">
                             <input type="hidden" name="action" value="update_matchup">
                             <input type="hidden" name="matchup_type" value="Womens">
+                            {{if $managingTeamID}}<input type="hidden" name="managing_team_id" value="{{$managingTeamID}}">{{end}}
                             
                             <div class="stanns-players">
                                 <div class="player-dropdowns">

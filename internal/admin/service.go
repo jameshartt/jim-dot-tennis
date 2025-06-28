@@ -70,12 +70,18 @@ type LoginAttempt struct {
 	Success   bool      `json:"success"`
 }
 
-// FixtureWithRelations represents a fixture with its related team and week data
+// FixtureWithRelations represents a fixture with its related entities loaded
 type FixtureWithRelations struct {
 	models.Fixture
-	HomeTeam *models.Team `json:"home_team,omitempty"`
-	AwayTeam *models.Team `json:"away_team,omitempty"`
-	Week     *models.Week `json:"week,omitempty"`
+	HomeTeam           *models.Team     `json:"home_team,omitempty"`
+	AwayTeam           *models.Team     `json:"away_team,omitempty"`
+	Week               *models.Week     `json:"week,omitempty"`
+	Division           *models.Division `json:"division,omitempty"`
+	Season             *models.Season   `json:"season,omitempty"`
+	IsStAnnsHome       bool             `json:"is_stanns_home"`
+	IsStAnnsAway       bool             `json:"is_stanns_away"`
+	IsDerby            bool             `json:"is_derby"`                       // Both teams are St Ann's
+	DefaultTeamContext *models.Team     `json:"default_team_context,omitempty"` // Which team to manage by default
 }
 
 // FixtureDetail represents a fixture with comprehensive related data for detail view
@@ -323,12 +329,22 @@ func (s *Service) GetStAnnsFixtures() (*models.Club, []FixtureWithRelations, err
 
 	// Get upcoming fixtures for all St. Ann's teams
 	var allFixtures []models.Fixture
+	fixtureMap := make(map[uint]models.Fixture) // Use map to deduplicate fixtures by ID
+
 	for _, team := range teams {
 		teamFixtures, err := s.fixtureRepository.FindByTeam(ctx, team.ID)
 		if err != nil {
 			continue // Skip this team if there's an error
 		}
-		allFixtures = append(allFixtures, teamFixtures...)
+		// Add fixtures to map to automatically deduplicate
+		for _, fixture := range teamFixtures {
+			fixtureMap[fixture.ID] = fixture
+		}
+	}
+
+	// Convert map back to slice
+	for _, fixture := range fixtureMap {
+		allFixtures = append(allFixtures, fixture)
 	}
 
 	// Filter for upcoming fixtures (scheduled or in progress) and sort by date
@@ -358,13 +374,18 @@ func (s *Service) GetStAnnsFixtures() (*models.Club, []FixtureWithRelations, err
 			Fixture: fixture,
 		}
 
+		// Declare team variables for later use
+		var homeTeam, awayTeam *models.Team
+
 		// Get home team
-		if homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID); err == nil {
+		if team, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID); err == nil {
+			homeTeam = team
 			fixtureWithRelations.HomeTeam = homeTeam
 		}
 
 		// Get away team
-		if awayTeam, err := s.teamRepository.FindByID(ctx, fixture.AwayTeamID); err == nil {
+		if team, err := s.teamRepository.FindByID(ctx, fixture.AwayTeamID); err == nil {
+			awayTeam = team
 			fixtureWithRelations.AwayTeam = awayTeam
 		}
 
@@ -373,7 +394,45 @@ func (s *Service) GetStAnnsFixtures() (*models.Club, []FixtureWithRelations, err
 			fixtureWithRelations.Week = week
 		}
 
-		fixturesWithRelations = append(fixturesWithRelations, fixtureWithRelations)
+		// Get division
+		if division, err := s.getDivisionByID(ctx, fixture.DivisionID); err == nil {
+			fixtureWithRelations.Division = division
+		}
+
+		// Get season
+		if season, err := s.getSeasonByID(ctx, fixture.SeasonID); err == nil {
+			fixtureWithRelations.Season = season
+		}
+
+		// Determine if St. Ann's is home or away (only if teams were loaded successfully)
+		if homeTeam != nil && homeTeam.ClubID == stAnnsClub.ID {
+			fixtureWithRelations.IsStAnnsHome = true
+		}
+		if awayTeam != nil && awayTeam.ClubID == stAnnsClub.ID {
+			fixtureWithRelations.IsStAnnsAway = true
+		}
+
+		// Determine if it's a derby match (both teams are St Ann's)
+		if homeTeam != nil && awayTeam != nil &&
+			homeTeam.ClubID == stAnnsClub.ID && awayTeam.ClubID == stAnnsClub.ID {
+
+			// For derby matches, create TWO separate entries - one for each team's perspective
+
+			// First entry: Home team perspective
+			homeFixture := fixtureWithRelations
+			homeFixture.IsDerby = true
+			homeFixture.DefaultTeamContext = homeTeam
+			fixturesWithRelations = append(fixturesWithRelations, homeFixture)
+
+			// Second entry: Away team perspective
+			awayFixture := fixtureWithRelations
+			awayFixture.IsDerby = true
+			awayFixture.DefaultTeamContext = awayTeam
+			fixturesWithRelations = append(fixturesWithRelations, awayFixture)
+		} else {
+			// Regular match: only one entry
+			fixturesWithRelations = append(fixturesWithRelations, fixtureWithRelations)
+		}
 	}
 
 	return stAnnsClub, fixturesWithRelations, nil
@@ -1092,6 +1151,111 @@ func (s *Service) GetAvailablePlayersForFixture(fixtureID uint) ([]models.Player
 	return teamPlayers, otherStAnnPlayers, nil
 }
 
+// GetAvailablePlayersForFixtureWithTeamContext gets available players for a fixture with team context
+// For derby matches, managingTeamID specifies which team to prioritize (0 means auto-detect)
+// Returns team players first, then other St Ann players (deduplicated)
+func (s *Service) GetAvailablePlayersForFixtureWithTeamContext(fixtureID uint, managingTeamID uint) ([]models.Player, []models.Player, error) {
+	ctx := context.Background()
+
+	// Get the fixture to determine the teams
+	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Find the St Ann's club ID dynamically
+	stAnnsClubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(stAnnsClubs) == 0 {
+		return nil, nil, fmt.Errorf("St Ann's club not found")
+	}
+	stAnnsClubID := stAnnsClubs[0].ID
+
+	// Get home and away teams
+	homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	awayTeam, err := s.teamRepository.FindByID(ctx, fixture.AwayTeamID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Determine if this is a derby match
+	isHomeStAnns := homeTeam.ClubID == stAnnsClubID
+	isAwayStAnns := awayTeam.ClubID == stAnnsClubID
+	isDerby := isHomeStAnns && isAwayStAnns
+
+	var stAnnsTeam *models.Team
+
+	if isDerby {
+		// For derby matches, use the specified managing team
+		if managingTeamID > 0 {
+			if homeTeam.ID == managingTeamID {
+				stAnnsTeam = homeTeam
+			} else if awayTeam.ID == managingTeamID {
+				stAnnsTeam = awayTeam
+			} else {
+				// Default to home team if managing team not found
+				stAnnsTeam = homeTeam
+			}
+		} else {
+			// Default to home team for derby matches
+			stAnnsTeam = homeTeam
+		}
+	} else {
+		// Regular match - find which team is St Ann's
+		if isHomeStAnns {
+			stAnnsTeam = homeTeam
+		} else if isAwayStAnns {
+			stAnnsTeam = awayTeam
+		} else {
+			return nil, nil, fmt.Errorf("no St Ann's team found in this fixture")
+		}
+	}
+
+	teamPlayerTeams, err := s.teamRepository.FindPlayersInTeam(ctx, stAnnsTeam.ID, stAnnsTeam.SeasonID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var teamPlayers []models.Player
+	teamPlayerMap := make(map[string]bool) // Track team player IDs for deduplication
+	for _, pt := range teamPlayerTeams {
+		if player, err := s.playerRepository.FindByID(ctx, pt.PlayerID); err == nil {
+			teamPlayers = append(teamPlayers, *player)
+			teamPlayerMap[player.ID] = true
+		}
+	}
+
+	// Get all St Ann players
+	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil {
+		return teamPlayers, nil, err
+	}
+	if len(clubs) == 0 {
+		return teamPlayers, nil, nil
+	}
+
+	allStAnnPlayers, err := s.playerRepository.FindByClub(ctx, clubs[0].ID)
+	if err != nil {
+		return teamPlayers, nil, err
+	}
+
+	// Deduplicate: remove team players from the "other St Ann players" list
+	var otherStAnnPlayers []models.Player
+	for _, player := range allStAnnPlayers {
+		if !teamPlayerMap[player.ID] {
+			otherStAnnPlayers = append(otherStAnnPlayers, player)
+		}
+	}
+
+	return teamPlayers, otherStAnnPlayers, nil
+}
+
 // AddPlayerToFixture adds a player to the fixture selection
 func (s *Service) AddPlayerToFixture(fixtureID uint, playerID string, isHome bool) error {
 	ctx := context.Background()
@@ -1139,24 +1303,80 @@ func (s *Service) ClearFixturePlayerSelection(fixtureID uint) error {
 	return s.fixtureRepository.ClearSelectedPlayers(ctx, fixtureID)
 }
 
+// AddPlayerToFixtureWithTeam adds a player to the fixture selection for a specific managing team (for derby matches)
+func (s *Service) AddPlayerToFixtureWithTeam(fixtureID uint, playerID string, isHome bool, managingTeamID uint) error {
+	ctx := context.Background()
+
+	// Check if player is already selected for this fixture by this team
+	selectedPlayers, err := s.fixtureRepository.FindSelectedPlayersByTeam(ctx, fixtureID, managingTeamID)
+	if err != nil {
+		return err
+	}
+
+	for _, sp := range selectedPlayers {
+		if sp.PlayerID == playerID {
+			return fmt.Errorf("player is already selected for this fixture by this team")
+		}
+	}
+
+	// Calculate next position for this team
+	position := len(selectedPlayers) + 1
+
+	fixturePlayer := &models.FixturePlayer{
+		FixtureID:      fixtureID,
+		PlayerID:       playerID,
+		IsHome:         isHome,
+		Position:       position,
+		ManagingTeamID: &managingTeamID,
+	}
+
+	return s.fixtureRepository.AddSelectedPlayer(ctx, fixturePlayer)
+}
+
+// RemovePlayerFromFixtureByTeam removes a player from the fixture selection for a specific team
+func (s *Service) RemovePlayerFromFixtureByTeam(fixtureID uint, playerID string, managingTeamID uint) error {
+	ctx := context.Background()
+	return s.fixtureRepository.RemoveSelectedPlayerByTeam(ctx, fixtureID, managingTeamID, playerID)
+}
+
+// ClearFixturePlayerSelectionByTeam removes all selected players from a fixture for a specific team
+func (s *Service) ClearFixturePlayerSelectionByTeam(fixtureID uint, managingTeamID uint) error {
+	ctx := context.Background()
+	return s.fixtureRepository.ClearSelectedPlayersByTeam(ctx, fixtureID, managingTeamID)
+}
+
 // CreateMatchup creates a new matchup for a fixture
 func (s *Service) CreateMatchup(fixtureID uint, matchupType models.MatchupType) (*models.Matchup, error) {
 	ctx := context.Background()
 
-	// Check if matchup already exists for this fixture and type
-	existingMatchup, err := s.matchupRepository.FindByFixtureAndType(ctx, fixtureID, matchupType)
+	// Determine the managing team ID
+	managingTeamID, err := s.determineManagingTeamID(ctx, fixtureID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.CreateMatchupWithTeam(fixtureID, matchupType, managingTeamID)
+}
+
+// CreateMatchupWithTeam creates a new matchup with explicit managing team ID (for derby matches)
+func (s *Service) CreateMatchupWithTeam(fixtureID uint, matchupType models.MatchupType, managingTeamID uint) (*models.Matchup, error) {
+	ctx := context.Background()
+
+	// Check if matchup already exists for this fixture, type, and managing team
+	existingMatchup, err := s.matchupRepository.FindByFixtureTypeAndTeam(ctx, fixtureID, matchupType, managingTeamID)
 	if err == nil && existingMatchup != nil {
-		return existingMatchup, fmt.Errorf("matchup of type %s already exists for this fixture", matchupType)
+		return existingMatchup, fmt.Errorf("matchup of type %s already exists for this fixture and team", matchupType)
 	}
 
 	// Create new matchup
 	matchup := &models.Matchup{
-		FixtureID: fixtureID,
-		Type:      matchupType,
-		Status:    models.Pending,
-		HomeScore: 0,
-		AwayScore: 0,
-		Notes:     "",
+		FixtureID:      fixtureID,
+		Type:           matchupType,
+		Status:         models.Pending,
+		HomeScore:      0,
+		AwayScore:      0,
+		Notes:          "",
+		ManagingTeamID: &managingTeamID,
 	}
 
 	err = s.matchupRepository.Create(ctx, matchup)
@@ -1167,18 +1387,70 @@ func (s *Service) CreateMatchup(fixtureID uint, matchupType models.MatchupType) 
 	return matchup, nil
 }
 
-// GetOrCreateMatchup gets an existing matchup or creates a new one
+// determineManagingTeamID determines which team should manage a matchup for a given fixture
+func (s *Service) determineManagingTeamID(ctx context.Context, fixtureID uint) (uint, error) {
+	// Get the fixture to determine the teams
+	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
+	if err != nil {
+		return 0, err
+	}
+
+	// Find the St Ann's club ID
+	stAnnsClubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil {
+		return 0, err
+	}
+	if len(stAnnsClubs) == 0 {
+		return 0, fmt.Errorf("St Ann's club not found")
+	}
+	stAnnsClubID := stAnnsClubs[0].ID
+
+	// Get home and away teams
+	homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
+	if err != nil {
+		return 0, err
+	}
+
+	awayTeam, err := s.teamRepository.FindByID(ctx, fixture.AwayTeamID)
+	if err != nil {
+		return 0, err
+	}
+
+	// Check which team is St Ann's - prefer home team if both are St Ann's
+	if homeTeam.ClubID == stAnnsClubID {
+		return homeTeam.ID, nil
+	} else if awayTeam.ClubID == stAnnsClubID {
+		return awayTeam.ID, nil
+	} else {
+		return 0, fmt.Errorf("no St Ann's team found in this fixture")
+	}
+}
+
+// GetOrCreateMatchup gets an existing matchup or creates a new one (legacy version for regular matches)
 func (s *Service) GetOrCreateMatchup(fixtureID uint, matchupType models.MatchupType) (*models.Matchup, error) {
 	ctx := context.Background()
 
-	// Try to find existing matchup
-	matchup, err := s.matchupRepository.FindByFixtureAndType(ctx, fixtureID, matchupType)
+	// Determine the managing team ID
+	managingTeamID, err := s.determineManagingTeamID(ctx, fixtureID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.GetOrCreateMatchupWithTeam(fixtureID, matchupType, managingTeamID)
+}
+
+// GetOrCreateMatchupWithTeam gets an existing matchup or creates a new one for a specific managing team (for derby matches)
+func (s *Service) GetOrCreateMatchupWithTeam(fixtureID uint, matchupType models.MatchupType, managingTeamID uint) (*models.Matchup, error) {
+	ctx := context.Background()
+
+	// Try to find existing matchup for this team
+	matchup, err := s.matchupRepository.FindByFixtureTypeAndTeam(ctx, fixtureID, matchupType, managingTeamID)
 	if err == nil && matchup != nil {
 		return matchup, nil
 	}
 
 	// Create new matchup if it doesn't exist
-	return s.CreateMatchup(fixtureID, matchupType)
+	return s.CreateMatchupWithTeam(fixtureID, matchupType, managingTeamID)
 }
 
 // UpdateMatchupPlayers updates the players assigned to a matchup
@@ -1701,4 +1973,138 @@ type FantasyDoublesDetail struct {
 	TeamAMan   models.ProTennisPlayer     `json:"team_a_man"`
 	TeamBWoman models.ProTennisPlayer     `json:"team_b_woman"`
 	TeamBMan   models.ProTennisPlayer     `json:"team_b_man"`
+}
+
+// GetFixtureDetailWithTeamContext gets fixture details filtered for a specific managing team (for derby matches)
+func (s *Service) GetFixtureDetailWithTeamContext(fixtureID uint, managingTeamID uint) (*FixtureDetail, error) {
+	ctx := context.Background()
+
+	// Get the base fixture
+	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create the detail struct
+	detail := &FixtureDetail{
+		Fixture: *fixture,
+	}
+
+	// Get home team
+	if homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID); err == nil {
+		detail.HomeTeam = homeTeam
+	}
+
+	// Get away team
+	if awayTeam, err := s.teamRepository.FindByID(ctx, fixture.AwayTeamID); err == nil {
+		detail.AwayTeam = awayTeam
+	}
+
+	// Get week
+	if week, err := s.weekRepository.FindByID(ctx, fixture.WeekID); err == nil {
+		detail.Week = week
+	}
+
+	// Get division
+	if division, err := s.getDivisionByID(ctx, fixture.DivisionID); err == nil {
+		detail.Division = division
+	}
+
+	// Get season
+	if season, err := s.getSeasonByID(ctx, fixture.SeasonID); err == nil {
+		detail.Season = season
+	}
+
+	// Get day captain if assigned
+	if fixture.DayCaptainID != nil {
+		if dayCaptain, err := s.playerRepository.FindByID(ctx, *fixture.DayCaptainID); err == nil {
+			detail.DayCaptain = dayCaptain
+		}
+	}
+
+	// Get matchups with players for the fixture, filtered by managing team
+	if matchups, err := s.getMatchupsForTeam(ctx, fixtureID, managingTeamID); err == nil {
+		var matchupsWithPlayers []MatchupWithPlayers
+		for _, matchup := range matchups {
+			// Get players for this matchup
+			matchupPlayers, err := s.matchupRepository.FindPlayersInMatchup(ctx, matchup.ID)
+			if err != nil {
+				// If we can't get players, still include the matchup with empty players
+				matchupsWithPlayers = append(matchupsWithPlayers, MatchupWithPlayers{
+					Matchup: matchup,
+					Players: []MatchupPlayerWithInfo{},
+				})
+				continue
+			}
+
+			var playersWithInfo []MatchupPlayerWithInfo
+			for _, mp := range matchupPlayers {
+				if player, err := s.playerRepository.FindByID(ctx, mp.PlayerID); err == nil {
+					playersWithInfo = append(playersWithInfo, MatchupPlayerWithInfo{
+						MatchupPlayer: mp,
+						Player:        *player,
+					})
+				}
+			}
+
+			matchupsWithPlayers = append(matchupsWithPlayers, MatchupWithPlayers{
+				Matchup: matchup,
+				Players: playersWithInfo,
+			})
+		}
+
+		// Sort matchups in the desired order: 1st Mixed, 2nd Mixed, Mens, Womens
+		sort.Slice(matchupsWithPlayers, func(i, j int) bool {
+			return getMatchupOrder(matchupsWithPlayers[i].Matchup.Type) < getMatchupOrder(matchupsWithPlayers[j].Matchup.Type)
+		})
+
+		detail.Matchups = matchupsWithPlayers
+
+		// Check for duplicate players across matchups
+		detail.DuplicateWarnings = s.detectDuplicatePlayersInMatchups(matchupsWithPlayers)
+	}
+
+	// Get selected players for the fixture, filtered by managing team
+	if selectedPlayers, err := s.fixtureRepository.FindSelectedPlayersByTeam(ctx, fixtureID, managingTeamID); err == nil {
+		var selectedPlayerInfos []SelectedPlayerInfo
+		for _, sp := range selectedPlayers {
+			if player, err := s.playerRepository.FindByID(ctx, sp.PlayerID); err == nil {
+				// Get availability information for this player and fixture
+				availability := s.determinePlayerAvailabilityForFixture(ctx, sp.PlayerID, fixtureID, fixture.ScheduledDate)
+
+				selectedPlayerInfos = append(selectedPlayerInfos, SelectedPlayerInfo{
+					FixturePlayer:      sp,
+					Player:             *player,
+					AvailabilityStatus: availability.Status,
+					AvailabilityNotes:  availability.Notes,
+				})
+			}
+		}
+		detail.SelectedPlayers = selectedPlayerInfos
+	}
+
+	return detail, nil
+}
+
+// getMatchupsForTeam gets matchups for a specific team - used for derby matches
+func (s *Service) getMatchupsForTeam(ctx context.Context, fixtureID uint, managingTeamID uint) ([]models.Matchup, error) {
+	// Get all matchups for the fixture
+	allMatchups, err := s.matchupRepository.FindByFixture(ctx, fixtureID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter by managing team ID
+	var teamMatchups []models.Matchup
+	for _, matchup := range allMatchups {
+		// Include matchups that belong to this managing team
+		if matchup.ManagingTeamID != nil && *matchup.ManagingTeamID == managingTeamID {
+			teamMatchups = append(teamMatchups, matchup)
+		} else if matchup.ManagingTeamID == nil {
+			// Legacy matchups without managing team ID - include them for backward compatibility
+			teamMatchups = append(teamMatchups, matchup)
+		}
+	}
+
+	return teamMatchups, nil
 }

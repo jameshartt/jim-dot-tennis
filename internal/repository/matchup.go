@@ -21,6 +21,7 @@ type MatchupRepository interface {
 	FindByType(ctx context.Context, matchupType models.MatchupType) ([]models.Matchup, error)
 	FindByStatus(ctx context.Context, status models.MatchupStatus) ([]models.Matchup, error)
 	FindByFixtureAndType(ctx context.Context, fixtureID uint, matchupType models.MatchupType) (*models.Matchup, error)
+	FindByFixtureTypeAndTeam(ctx context.Context, fixtureID uint, matchupType models.MatchupType, managingTeamID uint) (*models.Matchup, error)
 
 	// Matchup with relationships
 	FindWithPlayers(ctx context.Context, id uint) (*models.Matchup, error)
@@ -56,7 +57,7 @@ func NewMatchupRepository(db *database.DB) MatchupRepository {
 func (r *matchupRepository) FindAll(ctx context.Context) ([]models.Matchup, error) {
 	var matchups []models.Matchup
 	err := r.db.SelectContext(ctx, &matchups, `
-		SELECT id, fixture_id, type, status, home_score, away_score, notes, created_at, updated_at
+		SELECT id, fixture_id, type, status, home_score, away_score, notes, managing_team_id, created_at, updated_at
 		FROM matchups 
 		ORDER BY fixture_id ASC, type ASC
 	`)
@@ -67,7 +68,7 @@ func (r *matchupRepository) FindAll(ctx context.Context) ([]models.Matchup, erro
 func (r *matchupRepository) FindByID(ctx context.Context, id uint) (*models.Matchup, error) {
 	var matchup models.Matchup
 	err := r.db.GetContext(ctx, &matchup, `
-		SELECT id, fixture_id, type, status, home_score, away_score, notes, created_at, updated_at
+		SELECT id, fixture_id, type, status, home_score, away_score, notes, managing_team_id, created_at, updated_at
 		FROM matchups 
 		WHERE id = ?
 	`, id)
@@ -84,8 +85,8 @@ func (r *matchupRepository) Create(ctx context.Context, matchup *models.Matchup)
 	matchup.UpdatedAt = now
 
 	result, err := r.db.NamedExecContext(ctx, `
-		INSERT INTO matchups (fixture_id, type, status, home_score, away_score, notes, created_at, updated_at)
-		VALUES (:fixture_id, :type, :status, :home_score, :away_score, :notes, :created_at, :updated_at)
+		INSERT INTO matchups (fixture_id, type, status, home_score, away_score, notes, managing_team_id, created_at, updated_at)
+		VALUES (:fixture_id, :type, :status, :home_score, :away_score, :notes, :managing_team_id, :created_at, :updated_at)
 	`, matchup)
 
 	if err != nil {
@@ -107,7 +108,8 @@ func (r *matchupRepository) Update(ctx context.Context, matchup *models.Matchup)
 	_, err := r.db.NamedExecContext(ctx, `
 		UPDATE matchups 
 		SET fixture_id = :fixture_id, type = :type, status = :status, 
-		    home_score = :home_score, away_score = :away_score, notes = :notes, updated_at = :updated_at
+		    home_score = :home_score, away_score = :away_score, notes = :notes, 
+		    managing_team_id = :managing_team_id, updated_at = :updated_at
 		WHERE id = :id
 	`, matchup)
 
@@ -131,7 +133,7 @@ func (r *matchupRepository) Delete(ctx context.Context, id uint) error {
 func (r *matchupRepository) FindByFixture(ctx context.Context, fixtureID uint) ([]models.Matchup, error) {
 	var matchups []models.Matchup
 	err := r.db.SelectContext(ctx, &matchups, `
-		SELECT id, fixture_id, type, status, home_score, away_score, notes, created_at, updated_at
+		SELECT id, fixture_id, type, status, home_score, away_score, notes, managing_team_id, created_at, updated_at
 		FROM matchups 
 		WHERE fixture_id = ?
 		ORDER BY type ASC
@@ -143,7 +145,7 @@ func (r *matchupRepository) FindByFixture(ctx context.Context, fixtureID uint) (
 func (r *matchupRepository) FindByType(ctx context.Context, matchupType models.MatchupType) ([]models.Matchup, error) {
 	var matchups []models.Matchup
 	err := r.db.SelectContext(ctx, &matchups, `
-		SELECT id, fixture_id, type, status, home_score, away_score, notes, created_at, updated_at
+		SELECT id, fixture_id, type, status, home_score, away_score, notes, managing_team_id, created_at, updated_at
 		FROM matchups 
 		WHERE type = ?
 		ORDER BY fixture_id ASC
@@ -155,7 +157,7 @@ func (r *matchupRepository) FindByType(ctx context.Context, matchupType models.M
 func (r *matchupRepository) FindByStatus(ctx context.Context, status models.MatchupStatus) ([]models.Matchup, error) {
 	var matchups []models.Matchup
 	err := r.db.SelectContext(ctx, &matchups, `
-		SELECT id, fixture_id, type, status, home_score, away_score, notes, created_at, updated_at
+		SELECT id, fixture_id, type, status, home_score, away_score, notes, managing_team_id, created_at, updated_at
 		FROM matchups 
 		WHERE status = ?
 		ORDER BY fixture_id ASC, type ASC
@@ -167,10 +169,24 @@ func (r *matchupRepository) FindByStatus(ctx context.Context, status models.Matc
 func (r *matchupRepository) FindByFixtureAndType(ctx context.Context, fixtureID uint, matchupType models.MatchupType) (*models.Matchup, error) {
 	var matchup models.Matchup
 	err := r.db.GetContext(ctx, &matchup, `
-		SELECT id, fixture_id, type, status, home_score, away_score, notes, created_at, updated_at
+		SELECT id, fixture_id, type, status, home_score, away_score, notes, managing_team_id, created_at, updated_at
 		FROM matchups 
 		WHERE fixture_id = ? AND type = ?
 	`, fixtureID, string(matchupType))
+	if err != nil {
+		return nil, err
+	}
+	return &matchup, nil
+}
+
+// FindByFixtureTypeAndTeam retrieves a specific matchup by fixture, type, and managing team (for derby matches)
+func (r *matchupRepository) FindByFixtureTypeAndTeam(ctx context.Context, fixtureID uint, matchupType models.MatchupType, managingTeamID uint) (*models.Matchup, error) {
+	var matchup models.Matchup
+	err := r.db.GetContext(ctx, &matchup, `
+		SELECT id, fixture_id, type, status, home_score, away_score, notes, managing_team_id, created_at, updated_at
+		FROM matchups 
+		WHERE fixture_id = ? AND type = ? AND managing_team_id = ?
+	`, fixtureID, string(matchupType), managingTeamID)
 	if err != nil {
 		return nil, err
 	}
