@@ -100,22 +100,24 @@
             font-weight: 600;
         }
         .players-table tbody tr {
-            cursor: pointer;
             transition: background-color 0.2s ease;
-        }
-        .players-table tbody tr:hover {
-            background-color: #f8f9fa;
-        }
-        
-        /* Player row hover state */
-        .players-table tbody tr.player-active:hover {
-            background-color: #e9ecef;
         }
         
         /* Name column - never truncate */
         .col-name {
             min-width: 120px;
             white-space: nowrap;
+        }
+        .row-link {
+            display: block;
+            color: inherit;
+            text-decoration: none;
+            padding: 1rem;
+            margin: -1rem;
+        }
+        .row-link:hover {
+            color: var(--primary-color);
+            text-decoration: underline;
         }
         
         /* Club column */
@@ -138,6 +140,11 @@
                 padding: 0.75rem 0.5rem;
             }
             
+            .row-link {
+                padding: 0.75rem 0.5rem;
+                margin: -0.75rem -0.5rem;
+            }
+            
             .col-club {
                 max-width: 150px;
             }
@@ -148,6 +155,11 @@
             .players-table td {
                 padding: 0.5rem 0.25rem;
                 font-size: 0.9rem;
+            }
+            
+            .row-link {
+                padding: 0.5rem 0.25rem;
+                margin: -0.5rem -0.25rem;
             }
             
             .col-club {
@@ -190,7 +202,9 @@
                 {{if .Players}}
                     {{range .Players}}
                     <tr data-player-id="{{.ID}}" data-player-name="{{.FirstName}} {{.LastName}}" class="player-active">
-                        <td class="col-name">{{.FirstName}} {{.LastName}}</td>
+                        <td class="col-name">
+                            <a href="/admin/players/{{.ID}}/edit" class="row-link">{{.FirstName}} {{.LastName}}</a>
+                        </td>
                     </tr>
                     {{end}}
                 {{else}}
@@ -206,77 +220,6 @@
 
     <script>
         console.log("Player management page loaded");
-        
-        let touchStartTime = 0;
-        
-        // Handle row navigation to edit page
-        function navigateToEdit(playerId) {
-            window.location.href = `/admin/players/${playerId}/edit`;
-        }
-        
-        // Add event listeners to table rows - needs to be reapplied after HTMX updates
-        function attachRowEventListeners() {
-            document.querySelectorAll('.players-table tbody tr[data-player-id]').forEach(row => {
-                const playerId = row.dataset.playerId;
-                
-                // Remove existing event listeners to avoid duplicates
-                row.removeEventListener('dblclick', handleDoubleClick);
-                row.removeEventListener('touchstart', handleTouchStart);
-                row.removeEventListener('touchend', handleTouchEnd);
-                row.removeEventListener('touchcancel', handleTouchCancel);
-                
-                // Desktop: double-click
-                row.addEventListener('dblclick', handleDoubleClick);
-                
-                // Mobile: touch handling for navigation
-                row.addEventListener('touchstart', handleTouchStart);
-                row.addEventListener('touchend', handleTouchEnd);
-                row.addEventListener('touchcancel', handleTouchCancel);
-            });
-        }
-        
-        function handleDoubleClick(e) {
-            const playerId = e.currentTarget.dataset.playerId;
-            navigateToEdit(playerId);
-        }
-        
-        function handleTouchStart(e) {
-            touchStartTime = Date.now();
-            // Prevent text selection only during touch interactions
-            e.currentTarget.style.userSelect = 'none';
-            e.currentTarget.style.webkitUserSelect = 'none';
-        }
-        
-        function handleTouchEnd(e) {
-            e.preventDefault();
-            const touchDuration = Date.now() - touchStartTime;
-            const row = e.currentTarget;
-            
-            // Restore text selection after touch
-            row.style.userSelect = '';
-            row.style.webkitUserSelect = '';
-            
-            // Touch up inside (short touch duration) navigates to edit
-            if (touchDuration < 200) {
-                const playerId = row.dataset.playerId;
-                navigateToEdit(playerId);
-            }
-        }
-        
-        function handleTouchCancel(e) {
-            e.currentTarget.style.userSelect = '';
-            e.currentTarget.style.webkitUserSelect = '';
-        }
-        
-        // Initial attachment of event listeners
-        attachRowEventListeners();
-        
-        // Reattach event listeners after HTMX swaps content
-        document.body.addEventListener('htmx:afterSwap', function(evt) {
-            if (evt.detail.target.id === 'players-tbody') {
-                attachRowEventListeners();
-            }
-        });
         
         // Clear search on page load if coming from browser navigation
         window.addEventListener('pageshow', function(event) {
