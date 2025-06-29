@@ -1011,7 +1011,7 @@
                 <p class="match-subtitle">
                     Your unique to you fantasy mixed doubles match. Instead of a boring random ID number, you get these fun tennis pros as your personal identifier - much more memorable and enjoyable! 
                     <a href="#" onclick="bookmarkPage(); return false;" style="color: #007bff; text-decoration: underline; font-weight: 600;">Bookmark this page</a> 
-                    to easily manage your tennis availability throughout the entire season. Keep it safe as it's specifically tied to your player account.
+                    to easily manage your tennis availability throughout the entire season. Keep it safe as it's specifically tied to you.
                 </p>
                 
                 <script>
@@ -1072,7 +1072,7 @@
         </div>
         
         <div class="availability-section">
-            <h2 class="section-title">Set Your Availability</h2>
+            <h2 class="section-title">Set Your Availability (Initials: {{printf "%.1s" .Player.FirstName}}.{{printf "%.1s" .Player.LastName}}.)</h2>
             <p class="availability-instructions">
                 Click on any date to toggle your availability. We recommend updating weekly, but you can set up to 4 weeks ahead.
             </p>
@@ -1093,12 +1093,16 @@
                     </div>
                     <div class="legend-item">
                         <div class="legend-color if-needed"></div>
-                        <span>If Needed</span>
+                        <span>If Needed*</span>
                     </div>
                     <div class="legend-item">
                         <div class="legend-color unavailable"></div>
                         <span>Unavailable</span>
                     </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 10px; font-size: 13px; color: #666;">
+                    *If Needed: Can make it work if team selection is tight, but would prefer not to due to other commitments
                 </div>
             </div>
             
@@ -1379,17 +1383,34 @@
         document.addEventListener('DOMContentLoaded', function() {
             calendar = new AvailabilityCalendar();
             
-            // Restore collapsed state from localStorage
+            // Check if user has ever visited this page before
+            const hasVisitedBefore = localStorage.getItem('fantasy-match-visited') === 'true';
             const isCollapsed = localStorage.getItem('fantasy-match-collapsed') === 'true';
-            if (isCollapsed) {
+            
+            // Mark that they've visited this page
+            localStorage.setItem('fantasy-match-visited', 'true');
+            
+            if (hasVisitedBefore) {
                 const card = document.getElementById('fantasy-match-card');
                 const content = document.getElementById('match-content');
                 const icon = document.querySelector('.collapse-icon');
+                const container = document.querySelector('.availability-container');
                 
-                content.classList.remove('expanded');
-                content.classList.add('collapsed');
-                card.classList.add('collapsed');
-                icon.classList.add('collapsed');
+                // Move the card to the bottom for returning visitors
+                container.appendChild(card);
+                
+                // Apply appropriate styling based on collapsed state
+                if (isCollapsed) {
+                    content.classList.remove('expanded');
+                    content.classList.add('collapsed');
+                    card.classList.add('collapsed');
+                    icon.classList.add('collapsed');
+                } else {
+                    content.classList.remove('collapsed');
+                    content.classList.add('expanded');
+                    card.classList.remove('collapsed');
+                    icon.classList.remove('collapsed');
+                }
             }
         });
         
@@ -1471,12 +1492,14 @@
             const icon = document.querySelector('.collapse-icon');
             
             if (content.classList.contains('expanded')) {
+                // Collapsing: apply collapsed styling
                 content.classList.remove('expanded');
                 content.classList.add('collapsed');
                 card.classList.add('collapsed');
                 icon.classList.add('collapsed');
                 localStorage.setItem('fantasy-match-collapsed', 'true');
             } else {
+                // Expanding: apply expanded styling
                 content.classList.remove('collapsed');
                 content.classList.add('expanded');
                 card.classList.remove('collapsed');
