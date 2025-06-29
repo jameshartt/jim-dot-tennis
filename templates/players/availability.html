@@ -6,10 +6,20 @@
     <title>Player Availability - Jim Dot Tennis</title>
     <link rel="stylesheet" href="/static/css/main.css">
     <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            overflow-x: auto;
+            max-width: 100vw;
+        }
+        
         .availability-container {
             max-width: 900px;
             margin: 0 auto;
             padding: 20px;
+            width: 100%;
         }
         
         .fantasy-match-card {
@@ -89,6 +99,8 @@
             gap: 30px;
             margin-bottom: 20px;
             flex-wrap: wrap;
+            width: 100%;
+            max-width: 100%;
         }
         
         .team {
@@ -257,6 +269,7 @@
             padding: 25px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             margin-bottom: 25px;
+            width: 100%;
         }
         
         .calendar-grid {
@@ -264,6 +277,8 @@
             grid-template-columns: repeat(7, 1fr);
             gap: 8px;
             margin-bottom: 25px;
+            width: 100%;
+            max-width: 100%;
         }
         
         .calendar-header {
@@ -367,6 +382,8 @@
             padding: 15px;
             background: #f8f9fa;
             border-radius: 8px;
+            width: 100%;
+            max-width: 100%;
         }
         
         .legend-item {
@@ -375,6 +392,8 @@
             gap: 8px;
             font-size: 14px;
             color: #333;
+            max-width: 100%;
+            word-wrap: break-word;
         }
         
         .legend-color {
@@ -606,6 +625,14 @@
         }
         
         @media (max-width: 768px) {
+            .availability-section {
+                padding: 5px;
+            }
+
+            .calendar-container {
+                padding: 5px;
+            }
+
             .teams-container {
                 flex-direction: column;
                 align-items: center;
@@ -700,8 +727,16 @@
         }
         
         @media (max-width: 480px) {
+            .availability-section {
+                padding: 0px;
+            }
+
             .availability-container {
-                padding: 10px;
+                padding: 3px;
+            }
+
+            .calendar-container {
+                padding: 0px;
             }
             
             .fantasy-match-card {
@@ -808,9 +843,38 @@
             }
         }
         
-        @media (max-width: 320px) {
+        @media (max-width: 420px) {
             .availability-container {
+                padding: 0px;
+                min-width: 0;
+            }
+            
+            .calendar-container {
+                padding: 0px;
+            }
+
+            .calendar-grid {
+                gap: 2px;
+            }
+            
+            .calendar-day {
+                min-height: 30px;
+                font-size: 10px;
+            }
+            
+            .day-number {
+                font-size: 11px;
+            }
+            
+            .legend {
+                gap: 8px;
                 padding: 8px;
+            }
+            
+            .legend-item {
+                font-size: 10px;
+                min-width: 0;
+                flex-shrink: 1;
             }
             
             .fantasy-match-card {
@@ -891,7 +955,7 @@
             }
             
             .calendar-container {
-                padding: 15px;
+                padding: 2px;
                 margin-bottom: 15px;
             }
             
@@ -1101,7 +1165,7 @@
                     </div>
                 </div>
                 
-                <div style="text-align: center; margin-top: 10px; font-size: 13px; color: #666;">
+                <div style="text-align: center; margin-top: 10px; font-size: 13px; color: #666; max-width: 100%; word-wrap: break-word; padding: 0 10px;">
                     *If Needed: Can make it work if team selection is tight, but would prefer not to due to other commitments
                 </div>
             </div>
@@ -1188,12 +1252,14 @@
                 
                 const now = new Date();
                 const startDate = new Date(now);
-                startDate.setDate(startDate.getDate() - startDate.getDay()); // Start of current week
+                // Start of current week (Monday) - UK format
+                const dayOfWeek = (startDate.getDay() + 6) % 7; // Convert to Monday = 0 format
+                startDate.setDate(startDate.getDate() - dayOfWeek);
                 
                 let html = '';
                 
-                // Add day headers
-                const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                // Add day headers (UK format - week starts on Monday)
+                const dayHeaders = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
                 html += '<div class="calendar-header">';
                 dayHeaders.forEach(day => {
                     html += `<div class="day-header">${day}</div>`;
@@ -1295,12 +1361,14 @@
             async setWeekAvailability(status, weekOffset = 0) {
                 const now = new Date();
                 const startOfWeek = new Date(now);
-                startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + (weekOffset * 7));
+                // Start of week (Monday) - UK format
+                const dayOfWeek = (startOfWeek.getDay() + 6) % 7; // Convert to Monday = 0 format
+                startOfWeek.setDate(startOfWeek.getDate() - dayOfWeek + (weekOffset * 7));
                 
                 const updates = [];
                 
-                // Only update fixture days (Monday-Thursday) for the week
-                for (let day = 1; day <= 4; day++) {
+                // Only update fixture days (Tuesday-Thursday) for the week
+                for (let day = 1; day <= 3; day++) {
                     const date = new Date(startOfWeek);
                     date.setDate(startOfWeek.getDate() + day);
                     
