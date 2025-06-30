@@ -160,22 +160,23 @@ const (
 
 // Fixture represents a scheduled match between two teams
 type Fixture struct {
-	ID              uint            `json:"id" db:"id"`
-	HomeTeamID      uint            `json:"home_team_id" db:"home_team_id"`
-	AwayTeamID      uint            `json:"away_team_id" db:"away_team_id"`
-	DivisionID      uint            `json:"division_id" db:"division_id"`
-	SeasonID        uint            `json:"season_id" db:"season_id"` // Reference to season
-	WeekID          uint            `json:"week_id" db:"week_id"`     // Reference to week
-	ScheduledDate   time.Time       `json:"scheduled_date" db:"scheduled_date"`
-	VenueLocation   string          `json:"venue_location" db:"venue_location"`
-	Status          FixtureStatus   `json:"status" db:"status"`
-	CompletedDate   *time.Time      `json:"completed_date,omitempty" db:"completed_date"` // When fixture was completed
-	DayCaptainID    *string         `json:"day_captain_id,omitempty" db:"day_captain_id"` // Optional day captain for this fixture (UUID)
-	Notes           string          `json:"notes" db:"notes"`
-	CreatedAt       time.Time       `json:"created_at" db:"created_at"`
-	UpdatedAt       time.Time       `json:"updated_at" db:"updated_at"`
-	Matchups        []Matchup       `json:"matchups,omitempty"`
-	SelectedPlayers []FixturePlayer `json:"selected_players,omitempty"`
+	ID                  uint            `json:"id" db:"id"`
+	HomeTeamID          uint            `json:"home_team_id" db:"home_team_id"`
+	AwayTeamID          uint            `json:"away_team_id" db:"away_team_id"`
+	DivisionID          uint            `json:"division_id" db:"division_id"`
+	SeasonID            uint            `json:"season_id" db:"season_id"` // Reference to season
+	WeekID              uint            `json:"week_id" db:"week_id"`     // Reference to week
+	ScheduledDate       time.Time       `json:"scheduled_date" db:"scheduled_date"`
+	VenueLocation       string          `json:"venue_location" db:"venue_location"`
+	Status              FixtureStatus   `json:"status" db:"status"`
+	CompletedDate       *time.Time      `json:"completed_date,omitempty" db:"completed_date"`                 // When fixture was completed
+	DayCaptainID        *string         `json:"day_captain_id,omitempty" db:"day_captain_id"`                 // Optional day captain for this fixture (UUID)
+	ExternalMatchCardID *int            `json:"external_match_card_id,omitempty" db:"external_match_card_id"` // BHPLTA match card ID
+	Notes               string          `json:"notes" db:"notes"`
+	CreatedAt           time.Time       `json:"created_at" db:"created_at"`
+	UpdatedAt           time.Time       `json:"updated_at" db:"updated_at"`
+	Matchups            []Matchup       `json:"matchups,omitempty"`
+	SelectedPlayers     []FixturePlayer `json:"selected_players,omitempty"`
 }
 
 // MatchupType represents the type of matchup (Men's, Women's, 1st Mixed, 2nd Mixed)
@@ -204,8 +205,14 @@ type Matchup struct {
 	FixtureID      uint          `json:"fixture_id" db:"fixture_id"`
 	Type           MatchupType   `json:"type" db:"type"`
 	Status         MatchupStatus `json:"status" db:"status"`
-	HomeScore      int           `json:"home_score" db:"home_score"`
-	AwayScore      int           `json:"away_score" db:"away_score"`
+	HomeScore      int           `json:"home_score" db:"home_score"`         // Number of sets won by home team
+	AwayScore      int           `json:"away_score" db:"away_score"`         // Number of sets won by away team
+	HomeSet1       *int          `json:"home_set1,omitempty" db:"home_set1"` // Home team score in set 1
+	AwaySet1       *int          `json:"away_set1,omitempty" db:"away_set1"` // Away team score in set 1
+	HomeSet2       *int          `json:"home_set2,omitempty" db:"home_set2"` // Home team score in set 2
+	AwaySet2       *int          `json:"away_set2,omitempty" db:"away_set2"` // Away team score in set 2
+	HomeSet3       *int          `json:"home_set3,omitempty" db:"home_set3"` // Home team score in set 3
+	AwaySet3       *int          `json:"away_set3,omitempty" db:"away_set3"` // Away team score in set 3
 	Notes          string        `json:"notes" db:"notes"`
 	ManagingTeamID *uint         `json:"managing_team_id,omitempty" db:"managing_team_id"` // Which team is managing this matchup (for derby matches)
 	CreatedAt      time.Time     `json:"created_at" db:"created_at"`

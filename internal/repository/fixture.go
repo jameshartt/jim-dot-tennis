@@ -82,7 +82,7 @@ func (r *fixtureRepository) FindAll(ctx context.Context) ([]models.Fixture, erro
 	var fixtures []models.Fixture
 	err := r.db.SelectContext(ctx, &fixtures, `
 		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
-		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
+		       venue_location, status, completed_date, day_captain_id, external_match_card_id, notes, created_at, updated_at
 		FROM fixtures 
 		ORDER BY scheduled_date ASC
 	`)
@@ -94,7 +94,7 @@ func (r *fixtureRepository) FindByID(ctx context.Context, id uint) (*models.Fixt
 	var fixture models.Fixture
 	err := r.db.GetContext(ctx, &fixture, `
 		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
-		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
+		       venue_location, status, completed_date, day_captain_id, external_match_card_id, notes, created_at, updated_at
 		FROM fixtures 
 		WHERE id = ?
 	`, id)
@@ -112,9 +112,9 @@ func (r *fixtureRepository) Create(ctx context.Context, fixture *models.Fixture)
 
 	result, err := r.db.NamedExecContext(ctx, `
 		INSERT INTO fixtures (home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
-		                     venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at)
+		                     venue_location, status, completed_date, day_captain_id, external_match_card_id, notes, created_at, updated_at)
 		VALUES (:home_team_id, :away_team_id, :division_id, :season_id, :week_id, :scheduled_date, 
-		        :venue_location, :status, :completed_date, :day_captain_id, :notes, :created_at, :updated_at)
+		        :venue_location, :status, :completed_date, :day_captain_id, :external_match_card_id, :notes, :created_at, :updated_at)
 	`, fixture)
 
 	if err != nil {
@@ -138,7 +138,7 @@ func (r *fixtureRepository) Update(ctx context.Context, fixture *models.Fixture)
 		SET home_team_id = :home_team_id, away_team_id = :away_team_id, division_id = :division_id, 
 		    season_id = :season_id, week_id = :week_id, scheduled_date = :scheduled_date, venue_location = :venue_location, 
 		    status = :status, completed_date = :completed_date, day_captain_id = :day_captain_id, 
-		    notes = :notes, updated_at = :updated_at
+		    external_match_card_id = :external_match_card_id, notes = :notes, updated_at = :updated_at
 		WHERE id = :id
 	`, fixture)
 
@@ -156,7 +156,7 @@ func (r *fixtureRepository) FindByDivision(ctx context.Context, divisionID uint)
 	var fixtures []models.Fixture
 	err := r.db.SelectContext(ctx, &fixtures, `
 		SELECT id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, 
-		       venue_location, status, completed_date, day_captain_id, notes, created_at, updated_at
+		       venue_location, status, completed_date, day_captain_id, external_match_card_id, notes, created_at, updated_at
 		FROM fixtures 
 		WHERE division_id = ?
 		ORDER BY scheduled_date ASC
