@@ -70,10 +70,24 @@ func (h *FixturesHandler) HandleFixtures(w http.ResponseWriter, r *http.Request)
 
 // handleFixturesGet handles GET requests for fixture management
 func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Request, user *models.User) {
-	// Get St. Ann's fixtures with related data
-	club, fixtures, err := h.service.GetStAnnsFixtures()
+	// Get St. Ann's upcoming fixtures with related data
+	club, upcomingFixtures, err := h.service.GetStAnnsFixtures()
 	if err != nil {
-		logAndError(w, "Failed to load fixtures", err, http.StatusInternalServerError)
+		logAndError(w, "Failed to load upcoming fixtures", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Get St. Ann's past fixtures with related data
+	_, pastFixtures, err := h.service.GetStAnnsPastFixtures()
+	if err != nil {
+		logAndError(w, "Failed to load past fixtures", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Get all divisions for filtering
+	divisions, err := h.service.GetAllDivisions()
+	if err != nil {
+		logAndError(w, "Failed to load divisions", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -89,9 +103,11 @@ func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Reque
 
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
-		"User":     user,
-		"Club":     club,
-		"Fixtures": fixtures,
+		"User":             user,
+		"Club":             club,
+		"UpcomingFixtures": upcomingFixtures,
+		"PastFixtures":     pastFixtures,
+		"Divisions":        divisions,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}

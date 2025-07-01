@@ -368,8 +368,89 @@ func (s *Service) GetStAnnsFixtures() (*models.Club, []FixtureWithRelations, err
 	}
 
 	// Build FixtureWithRelations by fetching related data
+	fixturesWithRelations := s.buildFixturesWithRelations(ctx, upcomingFixtures, stAnnsClub)
+
+	return stAnnsClub, fixturesWithRelations, nil
+}
+
+// GetStAnnsPastFixtures retrieves past fixtures for St. Ann's club with related data
+func (s *Service) GetStAnnsPastFixtures() (*models.Club, []FixtureWithRelations, error) {
+	ctx := context.Background()
+
+	// Find St. Ann's club
+	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(clubs) == 0 {
+		return nil, nil, nil // No club found
+	}
+	stAnnsClub := &clubs[0]
+
+	// Get all teams for St. Ann's club
+	teams, err := s.teamRepository.FindByClub(ctx, stAnnsClub.ID)
+	if err != nil {
+		return stAnnsClub, nil, err
+	}
+
+	if len(teams) == 0 {
+		return stAnnsClub, nil, nil // No teams found
+	}
+
+	// Get all fixtures for all St. Ann's teams
+	var allFixtures []models.Fixture
+	fixtureMap := make(map[uint]models.Fixture) // Use map to deduplicate fixtures by ID
+
+	for _, team := range teams {
+		teamFixtures, err := s.fixtureRepository.FindByTeam(ctx, team.ID)
+		if err != nil {
+			continue // Skip this team if there's an error
+		}
+		// Add fixtures to map to automatically deduplicate
+		for _, fixture := range teamFixtures {
+			fixtureMap[fixture.ID] = fixture
+		}
+	}
+
+	// Convert map back to slice
+	for _, fixture := range fixtureMap {
+		allFixtures = append(allFixtures, fixture)
+	}
+
+	// Filter for past fixtures (completed or cancelled) and sort by date
+	var pastFixtures []models.Fixture
+	now := time.Now()
+	for _, fixture := range allFixtures {
+		if fixture.Status == models.Completed || fixture.Status == models.Cancelled || fixture.Status == models.Postponed {
+			pastFixtures = append(pastFixtures, fixture)
+		} else if fixture.Status == models.Scheduled || fixture.Status == models.InProgress {
+			// Also include scheduled/in-progress fixtures that are in the past
+			if fixture.ScheduledDate.Before(now.Truncate(24 * time.Hour)) {
+				pastFixtures = append(pastFixtures, fixture)
+			}
+		}
+	}
+
+	// Sort fixtures by scheduled date (most recent first)
+	for i := 0; i < len(pastFixtures); i++ {
+		for j := i + 1; j < len(pastFixtures); j++ {
+			if pastFixtures[i].ScheduledDate.Before(pastFixtures[j].ScheduledDate) {
+				pastFixtures[i], pastFixtures[j] = pastFixtures[j], pastFixtures[i]
+			}
+		}
+	}
+
+	// Build FixtureWithRelations by fetching related data
+	fixturesWithRelations := s.buildFixturesWithRelations(ctx, pastFixtures, stAnnsClub)
+
+	return stAnnsClub, fixturesWithRelations, nil
+}
+
+// buildFixturesWithRelations is a helper method to build FixtureWithRelations from fixtures
+func (s *Service) buildFixturesWithRelations(ctx context.Context, fixtures []models.Fixture, stAnnsClub *models.Club) []FixtureWithRelations {
 	var fixturesWithRelations []FixtureWithRelations
-	for _, fixture := range upcomingFixtures {
+
+	for _, fixture := range fixtures {
 		fixtureWithRelations := FixtureWithRelations{
 			Fixture: fixture,
 		}
@@ -435,7 +516,13 @@ func (s *Service) GetStAnnsFixtures() (*models.Club, []FixtureWithRelations, err
 		}
 	}
 
-	return stAnnsClub, fixturesWithRelations, nil
+	return fixturesWithRelations
+}
+
+// GetAllDivisions retrieves all divisions for filtering
+func (s *Service) GetAllDivisions() ([]models.Division, error) {
+	ctx := context.Background()
+	return s.divisionRepository.FindAll(ctx)
 }
 
 // GetUsers retrieves all users for admin management
