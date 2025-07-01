@@ -205,8 +205,8 @@ type Matchup struct {
 	FixtureID      uint          `json:"fixture_id" db:"fixture_id"`
 	Type           MatchupType   `json:"type" db:"type"`
 	Status         MatchupStatus `json:"status" db:"status"`
-	HomeScore      int           `json:"home_score" db:"home_score"`         // Number of sets won by home team
-	AwayScore      int           `json:"away_score" db:"away_score"`         // Number of sets won by away team
+	HomeScore      int           `json:"home_score" db:"home_score"`         // Matchup points for home team (2=win, 1=draw, 0=loss)
+	AwayScore      int           `json:"away_score" db:"away_score"`         // Matchup points for away team (2=win, 1=draw, 0=loss)
 	HomeSet1       *int          `json:"home_set1,omitempty" db:"home_set1"` // Home team score in set 1
 	AwaySet1       *int          `json:"away_set1,omitempty" db:"away_set1"` // Away team score in set 1
 	HomeSet2       *int          `json:"home_set2,omitempty" db:"home_set2"` // Home team score in set 2

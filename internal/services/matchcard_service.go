@@ -314,8 +314,8 @@ func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConf
 		return nil, fmt.Errorf("failed to determine managing team: %w", err)
 	}
 
-	// Calculate proper sets won based on tennis rules
-	homeSetsWon, awaySetsWon := s.calculateSetsWon(matchupData.HomeScores, matchupData.AwayScores)
+	// Calculate matchup points based on overall result (win/draw/lose)
+	homePoints, awayPoints := s.calculateMatchupPoints(matchupData.HomeScores, matchupData.AwayScores)
 
 	// Check if matchup already exists
 	existingMatchup, err := s.matchupRepo.FindByFixtureTypeAndTeam(ctx, fixtureID, matchupType, managingTeamID)
@@ -325,8 +325,8 @@ func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConf
 			FixtureID:      fixtureID,
 			Type:           matchupType,
 			Status:         models.Finished, // Finished since this data comes from a completed match card
-			HomeScore:      homeSetsWon,
-			AwayScore:      awaySetsWon,
+			HomeScore:      homePoints,
+			AwayScore:      awayPoints,
 			ManagingTeamID: &managingTeamID,
 		}
 
@@ -346,8 +346,8 @@ func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConf
 		}
 	} else if existingMatchup != nil {
 		// Update existing matchup with scores
-		existingMatchup.HomeScore = homeSetsWon
-		existingMatchup.AwayScore = awaySetsWon
+		existingMatchup.HomeScore = homePoints
+		existingMatchup.AwayScore = awayPoints
 
 		// Set individual set scores
 		s.setIndividualSetScores(existingMatchup, matchupData)
@@ -363,9 +363,11 @@ func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConf
 		result.UpdatedMatchups++
 
 		if config.Verbose {
+			homeSetsWon, awaySetsWon := s.calculateSetsWon(matchupData.HomeScores, matchupData.AwayScores)
 			setDetails := s.formatSetScores(matchupData)
-			fmt.Printf("  Updated %s matchup for fixture %d (sets: %d-%d%s) - marked as Finished\n",
-				matchupType, fixtureID, homeSetsWon, awaySetsWon, setDetails)
+			resultStr := s.formatMatchupResult(homePoints, awayPoints)
+			fmt.Printf("  Updated %s matchup for fixture %d (sets: %d-%d%s) - %s\n",
+				matchupType, fixtureID, homeSetsWon, awaySetsWon, setDetails, resultStr)
 		}
 	}
 
@@ -381,6 +383,25 @@ func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConf
 	result.Errors = append(result.Errors, playerResult.Errors...)
 
 	return result, nil
+}
+
+// calculateMatchupPoints determines matchup points based on overall result (win/draw/lose)
+func (s *MatchCardService) calculateMatchupPoints(homeScores, awayScores []int) (int, int) {
+	// First calculate sets won using tennis rules
+	homeSetsWon, awaySetsWon := s.calculateSetsWon(homeScores, awayScores)
+
+	// Award points based on overall matchup result
+	// Win = 2 points, Draw = 1 point each, Lose = 0 points
+	if homeSetsWon > awaySetsWon {
+		// Home team wins
+		return 2, 0
+	} else if awaySetsWon > homeSetsWon {
+		// Away team wins
+		return 0, 2
+	} else {
+		// Draw (equal sets won)
+		return 1, 1
+	}
 }
 
 // calculateSetsWon determines sets won for each team based on tennis scoring rules
@@ -700,4 +721,15 @@ func (s *MatchCardService) fixtureMatchesCard(ctx context.Context, fixture model
 	awayMatch := normalizedAwayCard == normalizedAwayDB
 
 	return homeMatch && awayMatch
+}
+
+// formatMatchupResult creates a human-readable string of matchup result for logging
+func (s *MatchCardService) formatMatchupResult(homePoints, awayPoints int) string {
+	if homePoints > awayPoints {
+		return "Home team wins"
+	} else if homePoints < awayPoints {
+		return "Away team wins"
+	} else {
+		return "Draw"
+	}
 }
