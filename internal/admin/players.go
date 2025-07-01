@@ -386,10 +386,12 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 
 			w.Write([]byte(fmt.Sprintf(`
 				<tr data-player-id="%s" data-player-name="%s %s" class="%s">
-					<td class="col-name">%s %s</td>
+					<td class="col-name">
+						<a href="/admin/players/%s/edit" class="row-link">%s %s</a>
+					</td>
 				</tr>
 			`, player.ID, player.FirstName, player.LastName, activeClass,
-				player.FirstName, player.LastName)))
+				player.ID, player.FirstName, player.LastName)))
 		}
 	} else {
 		w.Write([]byte(`
