@@ -1167,7 +1167,65 @@
                     
                     {{if .FixtureDetail.Matchups}}
                     <div class="glance-matchups">
+                        {{if eq .FixtureDetail.Status "Completed"}}
+                        <!-- Completed fixture with scores -->
+                        <div class="glance-matchups-title">🏆 Final Scores</div>
 
+                        <table class="matchups-table">
+                            <tbody>
+                                {{range .FixtureDetail.Matchups}}
+                                <tr>
+                                    <td class="matchup-type-cell">{{.Matchup.Type}}</td>
+                                    <td class="matchup-player-cell" colspan="2">
+                                        {{if .Players}}
+                                            {{if eq (len .Players) 1}}
+                                                {{(index .Players 0).Player.FirstName}} {{printf "%.1s" (index .Players 0).Player.LastName}}.
+                                            {{else if eq (len .Players) 2}}
+                                                {{(index .Players 0).Player.FirstName}} {{printf "%.1s" (index .Players 0).Player.LastName}}., {{(index .Players 1).Player.FirstName}} {{printf "%.1s" (index .Players 1).Player.LastName}}.
+                                            {{else}}
+                                                <span class="tbd">TBD</span>
+                                            {{end}}
+                                        {{else}}
+                                            <span class="tbd">TBD</span>
+                                        {{end}}
+                                        {{/* Add scores on new line below */}}
+                                        {{if eq $.FixtureDetail.Status "Completed"}}
+                                        <br>
+                                        <span style="font-weight: 700; color: var(--primary-color); font-size: 0.9rem;">
+                                            {{/* Determine score perspective based on St Ann's position */}}
+                                            {{$showFromStAnnsView := false}}
+                                            {{if $.IsDerby}}
+                                                {{/* For derby matches, check if managing team is away */}}
+                                                {{if and $.ManagingTeam (eq $.ManagingTeam.ID $.FixtureDetail.AwayTeam.ID)}}
+                                                    {{$showFromStAnnsView = true}}
+                                                {{end}}
+                                            {{else if $.IsStAnnsAway}}
+                                                {{/* For regular away matches, flip the scores */}}
+                                                {{$showFromStAnnsView = true}}
+                                            {{end}}
+                                            
+                                            {{if or .Matchup.HomeSet1 .Matchup.AwaySet1}}
+                                                {{if $showFromStAnnsView}}
+                                                    [{{if .Matchup.AwaySet1}}{{.Matchup.AwaySet1}}{{else}}0{{end}}-{{if .Matchup.HomeSet1}}{{.Matchup.HomeSet1}}{{else}}0{{end}}{{if or .Matchup.HomeSet2 .Matchup.AwaySet2}}, {{if .Matchup.AwaySet2}}{{.Matchup.AwaySet2}}{{else}}0{{end}}-{{if .Matchup.HomeSet2}}{{.Matchup.HomeSet2}}{{else}}0{{end}}{{end}}{{if or .Matchup.HomeSet3 .Matchup.AwaySet3}}, {{if .Matchup.AwaySet3}}{{.Matchup.AwaySet3}}{{else}}0{{end}}-{{if .Matchup.HomeSet3}}{{.Matchup.HomeSet3}}{{else}}0{{end}}{{end}}]
+                                                {{else}}
+                                                    [{{if .Matchup.HomeSet1}}{{.Matchup.HomeSet1}}{{else}}0{{end}}-{{if .Matchup.AwaySet1}}{{.Matchup.AwaySet1}}{{else}}0{{end}}{{if or .Matchup.HomeSet2 .Matchup.AwaySet2}}, {{if .Matchup.HomeSet2}}{{.Matchup.HomeSet2}}{{else}}0{{end}}-{{if .Matchup.AwaySet2}}{{.Matchup.AwaySet2}}{{else}}0{{end}}{{end}}{{if or .Matchup.HomeSet3 .Matchup.AwaySet3}}, {{if .Matchup.HomeSet3}}{{.Matchup.HomeSet3}}{{else}}0{{end}}-{{if .Matchup.AwaySet3}}{{.Matchup.AwaySet3}}{{else}}0{{end}}{{end}}]
+                                                {{end}}
+                                            {{else}}
+                                                {{if $showFromStAnnsView}}
+                                                    ({{.Matchup.AwayScore}}-{{.Matchup.HomeScore}})
+                                                {{else}}
+                                                    ({{.Matchup.HomeScore}}-{{.Matchup.AwayScore}})
+                                                {{end}}
+                                            {{end}}
+                                        </span>
+                                        {{end}}
+                                    </td>
+                                </tr>
+                                {{end}}
+                            </tbody>
+                        </table>
+                        {{else}}
+                        <!-- Scheduled fixture without scores -->
                         <table class="matchups-table">
                             <tbody>
                                 {{range .FixtureDetail.Matchups}}
@@ -1192,6 +1250,7 @@
                                 {{end}}
                             </tbody>
                         </table>
+                        {{end}}
                     </div>
                     {{else if .FixtureDetail.SelectedPlayers}}
                     <div class="glance-matchups">
@@ -1213,10 +1272,17 @@
 
 {{if .IsDerby}}{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{else}}{{if .IsStAnnsHome}}🏠 (HOME) {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{else if .IsStAnnsAway}}✈️ (AWAY) {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}{{end}} @ {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}{{else}}{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{end}}{{end}}
 
+{{if eq .FixtureDetail.Status "Completed"}}🏆 FINAL SCORES:
+{{if .IsDerby}}{{.FixtureDetail.HomeTeam.Name}} vs {{.FixtureDetail.AwayTeam.Name}}{{else}}{{if .IsStAnnsHome}}🏠 {{.FixtureDetail.HomeTeam.Name}} vs {{.FixtureDetail.AwayTeam.Name}}{{else}}{{.FixtureDetail.HomeTeam.Name}} vs ✈️ {{.FixtureDetail.AwayTeam.Name}}{{end}}{{end}}
+
 Team:{{if .FixtureDetail.Matchups}}{{range .FixtureDetail.Matchups}}
+{{.Matchup.Type}}: {{if .Players}}{{range $index, $player := .Players}}{{if $index}}, {{end}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}{{else}}TBD{{end}}{{if eq $.FixtureDetail.Status "Completed"}}
+{{/* Determine score perspective for copyable text */}}{{$showFromStAnnsView := false}}{{if $.IsDerby}}{{if and $.ManagingTeam (eq $.ManagingTeam.ID $.FixtureDetail.AwayTeam.ID)}}{{$showFromStAnnsView = true}}{{end}}{{else if $.IsStAnnsAway}}{{$showFromStAnnsView = true}}{{end}}{{if or .Matchup.HomeSet1 .Matchup.AwaySet1}}{{if $showFromStAnnsView}}[{{if .Matchup.AwaySet1}}{{.Matchup.AwaySet1}}{{else}}0{{end}}-{{if .Matchup.HomeSet1}}{{.Matchup.HomeSet1}}{{else}}0{{end}}{{if or .Matchup.HomeSet2 .Matchup.AwaySet2}}, {{if .Matchup.AwaySet2}}{{.Matchup.AwaySet2}}{{else}}0{{end}}-{{if .Matchup.HomeSet2}}{{.Matchup.HomeSet2}}{{else}}0{{end}}{{end}}{{if or .Matchup.HomeSet3 .Matchup.AwaySet3}}, {{if .Matchup.AwaySet3}}{{.Matchup.AwaySet3}}{{else}}0{{end}}-{{if .Matchup.HomeSet3}}{{.Matchup.HomeSet3}}{{else}}0{{end}}{{end}}]{{else}}[{{if .Matchup.HomeSet1}}{{.Matchup.HomeSet1}}{{else}}0{{end}}-{{if .Matchup.AwaySet1}}{{.Matchup.AwaySet1}}{{else}}0{{end}}{{if or .Matchup.HomeSet2 .Matchup.AwaySet2}}, {{if .Matchup.HomeSet2}}{{.Matchup.HomeSet2}}{{else}}0{{end}}-{{if .Matchup.AwaySet2}}{{.Matchup.AwaySet2}}{{else}}0{{end}}{{end}}{{if or .Matchup.HomeSet3 .Matchup.AwaySet3}}, {{if .Matchup.HomeSet3}}{{.Matchup.HomeSet3}}{{else}}0{{end}}-{{if .Matchup.AwaySet3}}{{.Matchup.AwaySet3}}{{else}}0{{end}}{{end}}]{{end}}{{else}}{{if $showFromStAnnsView}}({{.Matchup.AwayScore}}-{{.Matchup.HomeScore}}){{else}}({{.Matchup.HomeScore}}-{{.Matchup.AwayScore}}){{end}}{{end}}{{end}}{{end}}{{else}}{{if .FixtureDetail.SelectedPlayers}}
+{{range $index, $selectedPlayer := .FixtureDetail.SelectedPlayers}}{{if $index}}, {{end}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}.{{end}}{{else}}
+No team selection made yet{{end}}{{end}}{{else}}Team:{{if .FixtureDetail.Matchups}}{{range .FixtureDetail.Matchups}}
 {{.Matchup.Type}}: {{if .Players}}{{range $index, $player := .Players}}{{if $index}}, {{end}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}{{else}}TBD{{end}}{{end}}{{else}}{{if .FixtureDetail.SelectedPlayers}}
 {{range $index, $selectedPlayer := .FixtureDetail.SelectedPlayers}}{{if $index}}, {{end}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}.{{end}}{{else}}
-No team selection made yet{{end}}{{end}}</div>
+No team selection made yet{{end}}{{end}}{{end}}</div>
                 </div>
 
                 <div class="detail-grid">
@@ -1249,7 +1315,11 @@ No team selection made yet{{end}}{{end}}</div>
                         {{if .FixtureDetail.Matchups}}
                         <div class="matchup-summary">
                             <div class="matchup-count">
+                                {{if eq .FixtureDetail.Status "Completed"}}
+                                <strong>🏆 Match Complete - {{len .FixtureDetail.Matchups}}/4 matchups played</strong>
+                                {{else}}
                                 <strong>{{len .FixtureDetail.Matchups}}/4 matchups configured</strong>
+                                {{end}}
                             </div>
                             <div class="quick-matchup-list">
                                 {{range .FixtureDetail.Matchups}}
@@ -1259,6 +1329,36 @@ No team selection made yet{{end}}{{end}}</div>
                                         {{range $index, $player := .Players}}{{if $index}}, {{end}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}
                                     {{else}}
                                         <span class="tbd">TBD</span>
+                                    {{end}}
+                                    {{if eq $.FixtureDetail.Status "Completed"}}
+                                        <br>
+                                        <span style="font-weight: 600; color: var(--primary-color); font-size: 0.85rem;">
+                                            {{/* Determine score perspective for detailed section */}}
+                                            {{$showFromStAnnsView := false}}
+                                            {{if $.IsDerby}}
+                                                {{/* For derby matches, check if managing team is away */}}
+                                                {{if and $.ManagingTeam (eq $.ManagingTeam.ID $.FixtureDetail.AwayTeam.ID)}}
+                                                    {{$showFromStAnnsView = true}}
+                                                {{end}}
+                                            {{else if $.IsStAnnsAway}}
+                                                {{/* For regular away matches, flip the scores */}}
+                                                {{$showFromStAnnsView = true}}
+                                            {{end}}
+                                            
+                                            {{if or .Matchup.HomeSet1 .Matchup.AwaySet1}}
+                                                {{if $showFromStAnnsView}}
+                                                    [{{if .Matchup.AwaySet1}}{{.Matchup.AwaySet1}}{{else}}0{{end}}-{{if .Matchup.HomeSet1}}{{.Matchup.HomeSet1}}{{else}}0{{end}}{{if or .Matchup.HomeSet2 .Matchup.AwaySet2}}, {{if .Matchup.AwaySet2}}{{.Matchup.AwaySet2}}{{else}}0{{end}}-{{if .Matchup.HomeSet2}}{{.Matchup.HomeSet2}}{{else}}0{{end}}{{end}}{{if or .Matchup.HomeSet3 .Matchup.AwaySet3}}, {{if .Matchup.AwaySet3}}{{.Matchup.AwaySet3}}{{else}}0{{end}}-{{if .Matchup.HomeSet3}}{{.Matchup.HomeSet3}}{{else}}0{{end}}{{end}}]
+                                                {{else}}
+                                                    [{{if .Matchup.HomeSet1}}{{.Matchup.HomeSet1}}{{else}}0{{end}}-{{if .Matchup.AwaySet1}}{{.Matchup.AwaySet1}}{{else}}0{{end}}{{if or .Matchup.HomeSet2 .Matchup.AwaySet2}}, {{if .Matchup.HomeSet2}}{{.Matchup.HomeSet2}}{{else}}0{{end}}-{{if .Matchup.AwaySet2}}{{.Matchup.AwaySet2}}{{else}}0{{end}}{{end}}{{if or .Matchup.HomeSet3 .Matchup.AwaySet3}}, {{if .Matchup.HomeSet3}}{{.Matchup.HomeSet3}}{{else}}0{{end}}-{{if .Matchup.AwaySet3}}{{.Matchup.AwaySet3}}{{else}}0{{end}}{{end}}]
+                                                {{end}}
+                                            {{else}}
+                                                {{if $showFromStAnnsView}}
+                                                    ({{.Matchup.AwayScore}}-{{.Matchup.HomeScore}})
+                                                {{else}}
+                                                    ({{.Matchup.HomeScore}}-{{.Matchup.AwayScore}})
+                                                {{end}}
+                                            {{end}}
+                                        </span>
                                     {{end}}
                                 </div>
                                 {{end}}

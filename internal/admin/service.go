@@ -285,11 +285,14 @@ func (s *Service) GetPlayerByID(id string) (*models.Player, error) {
 
 // GetClubs retrieves all clubs for player club selection
 func (s *Service) GetClubs() ([]models.Club, error) {
-	clubs, err := s.clubRepository.FindAll(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	return clubs, nil
+	ctx := context.Background()
+	return s.clubRepository.FindAll(ctx)
+}
+
+// GetClubsByName retrieves clubs by name (using LIKE search)
+func (s *Service) GetClubsByName(name string) ([]models.Club, error) {
+	ctx := context.Background()
+	return s.clubRepository.FindByNameLike(ctx, name)
 }
 
 // UpdatePlayer updates a player's information

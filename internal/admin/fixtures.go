@@ -189,6 +189,30 @@ func (h *FixturesHandler) handleFixtureDetailGet(w http.ResponseWriter, r *http.
 	var isDerby bool
 	var managingTeam *models.Team
 
+	// Get fixture details to determine St Ann's position
+	if detail, ok := fixtureDetail.(*FixtureDetail); ok {
+		// Find St Ann's club ID
+		stAnnsClubs, err := h.service.GetClubsByName("St Ann")
+		if err == nil && len(stAnnsClubs) > 0 {
+			stAnnsClubID := stAnnsClubs[0].ID
+
+			// Check if home team is St Ann's
+			if detail.HomeTeam != nil && detail.HomeTeam.ClubID == stAnnsClubID {
+				isStAnnsHome = true
+			}
+
+			// Check if away team is St Ann's
+			if detail.AwayTeam != nil && detail.AwayTeam.ClubID == stAnnsClubID {
+				isStAnnsAway = true
+			}
+
+			// Determine if it's a derby match (both teams are St Ann's)
+			if isStAnnsHome && isStAnnsAway {
+				isDerby = true
+			}
+		}
+	}
+
 	// Check if we have a managing team from query parameters (indicates derby match)
 	if managingTeamParam != "" {
 		isDerby = true
