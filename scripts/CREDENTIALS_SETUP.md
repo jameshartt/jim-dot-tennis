@@ -1,99 +1,85 @@
-# Credentials Setup for Match Card Import Scripts
+# Tennis Import Credentials Setup
 
-This project contains scripts that require sensitive authentication data (cookies, nonces, etc.) to access the BHPLTA website. To keep this sensitive data out of version control, we use template files.
+This guide explains how to get the required authentication credentials for importing tennis match card data.
 
-## Setup Instructions
+## Required Credentials
 
-### 1. Create your credential scripts
+You only need one piece of authentication data:
 
-Copy the template files to create your working scripts:
-
-```bash
-cd scripts/
-cp test_matchcard_api.template.sh test_matchcard_api.sh
-cp import_all_weeks.template.sh import_all_weeks.sh
-```
-
-### 2. Fill in your actual credentials
-
-Edit the newly created files and replace the placeholder values:
-
-- `YOUR_NONCE_HERE` - The WordPress nonce from your browser session
-- `YOUR_CLUB_CODE_HERE` - Your club code cookie value  
-- `YOUR_WP_LOGGED_IN_COOKIE_HERE` - Your WordPress logged-in cookie
-- `YOUR_WP_SEC_COOKIE_HERE` - Your WordPress security cookie
-
-### 3. Make scripts executable
-
-```bash
-chmod +x test_matchcard_api.sh
-chmod +x import_all_weeks.sh
-```
+- **TENNIS_NONCE** - The BHPLTA nonce for API authentication
 
 ## Getting Your Credentials
 
-### Using Browser Developer Tools
+### 1. Login to the Tennis Club Website
 
-1. Open the BHPLTA website in your browser and log in
-2. Navigate to a match card page
-3. Open Developer Tools (F12)
-4. Go to the Network tab
-5. Look for AJAX requests to `admin-ajax.php`
-6. Check the request headers and form data for the values you need
+1. Go to the tennis club website
+2. Login to your account
+3. Navigate to the match cards section
 
-### Cookie Values
+### 2. Get the Nonce
 
-Look for these cookies in your browser:
-- `clubcode` - Your club code
-- `wordpress_logged_in_*` - Your logged-in session cookie
-- `wordpress_sec_*` - Your security cookie
+**Using Browser Developer Tools:**
 
-### Nonce Value
+1. Open your browser's Developer Tools (F12)
+2. Go to the Network tab
+3. Make any request that uses the nonce (e.g., change week selection)
+4. Look for requests to `admin-ajax.php`
+5. Check the request payload for the `nonce` parameter
+6. Copy the nonce value
 
-The nonce is typically found in:
-- AJAX request form data
-- Hidden form fields on the page
-- JavaScript variables in the page source
+**Alternative - Check Page Source:**
+
+1. Right-click on the match cards page and "View Source"
+2. Search for `"nonce"` in the page source
+3. Look for a JavaScript variable or hidden input containing the nonce
+4. Copy the nonce value
+
+## Setting Up Credentials
+
+### Using the Tennis Import Script (Recommended)
+
+```bash
+./scripts/tennis-import.sh setup
+```
+
+This will prompt you to enter your nonce and save it securely.
+
+### Manual Setup
+
+Create a `.tennis-credentials` file in the scripts directory:
+
+```bash
+# Tennis Import Credentials
+export TENNIS_NONCE='your-nonce-here'
+```
+
+## Testing Your Setup
+
+Test that your credentials work:
+
+```bash
+./scripts/tennis-import.sh run-dry
+```
+
+This will run a dry-run import to verify your credentials without making database changes.
 
 ## Security Notes
 
-⚠️ **Important Security Information:**
+- Keep your credentials secure and don't share them
+- The nonce may expire periodically - if imports start failing, get a fresh nonce
+- The `.tennis-credentials` file is excluded from git to prevent accidental commits
 
-- The actual credential files (`*.sh`) are excluded from git via `.gitignore`
-- Never commit files containing real passwords or session tokens
-- These credentials may expire and need to be refreshed periodically
-- Only share template files (`.template.sh`) with others
+## Troubleshooting
 
-## Usage
+### "Permission Denied" errors
 
-Once set up, you can run:
+This usually means:
+- Your nonce has expired - get a fresh one
+- You're not logged in to the tennis club website
 
-```bash
-# From the scripts directory:
-cd scripts/
+### "No match cards found"
 
-# Test a single week
-./test_matchcard_api.sh
-
-# Import all weeks
-./import_all_weeks.sh
-
-# Import specific week range
-./import_all_weeks.sh --start-week=1 --end-week=5
-
-# Dry run (no database changes)
-./import_all_weeks.sh --dry-run
-```
-
-Or from the project root:
-
-```bash
-# Test a single week
-scripts/test_matchcard_api.sh
-
-# Import all weeks
-scripts/import_all_weeks.sh
-
-# Import specific week range
-scripts/import_all_weeks.sh --start-week=1 --end-week=5
-``` 
+This can happen if:
+- The week you're trying to import doesn't have data yet
+- Your club/season settings are incorrect
+- There's an authentication issue 

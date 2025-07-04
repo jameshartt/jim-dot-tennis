@@ -16,18 +16,6 @@ if [ -z "$TENNIS_NONCE" ]; then
   exit 1
 fi
 
-if [ -z "$TENNIS_WP_LOGGED_IN" ]; then
-  echo "❌ Error: TENNIS_WP_LOGGED_IN environment variable is required"
-  echo "   Set it with: export TENNIS_WP_LOGGED_IN='your-wp-logged-in-cookie'"
-  exit 1
-fi
-
-if [ -z "$TENNIS_WP_SEC" ]; then
-  echo "❌ Error: TENNIS_WP_SEC environment variable is required"
-  echo "   Set it with: export TENNIS_WP_SEC='your-wp-sec-cookie'"
-  exit 1
-fi
-
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -59,8 +47,6 @@ while [[ $# -gt 0 ]]; do
       echo ""
       echo "Required Environment Variables:"
       echo "  TENNIS_NONCE        The nonce for API authentication"
-      echo "  TENNIS_WP_LOGGED_IN The WordPress logged-in cookie"
-      echo "  TENNIS_WP_SEC       The WordPress security cookie"
       exit 0
       ;;
     *)
@@ -100,8 +86,6 @@ for week in $(seq $START_WEEK $END_WEEK); do
     -db="/app/data/tennis.db" \
     -nonce="$TENNIS_NONCE" \
     -club-code="resident-beard-font" \
-    -wp-logged-in="$TENNIS_WP_LOGGED_IN" \
-    -wp-sec="$TENNIS_WP_SEC" \
     -week=$week \
     -year=2025 \
     -club-id=10 \

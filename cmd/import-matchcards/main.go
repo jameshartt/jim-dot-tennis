@@ -15,19 +15,15 @@ import (
 func main() {
 	// Define command line flags
 	var (
-		dbPath       = flag.String("db", "data/jim-dot-tennis.db", "Path to SQLite database")
-		clubName     = flag.String("club-name", "St Anns", "Club name")
-		clubID       = flag.Int("club-id", 10, "Club ID")
-		year         = flag.Int("year", 2025, "Year")
-		week         = flag.Int("week", 1, "Week number to import")
-		nonce        = flag.String("nonce", "", "WordPress nonce")
-		clubCode     = flag.String("club-code", "", "Club code (from clubcode cookie)")
-		wpLoggedIn   = flag.String("wp-logged-in", "", "WordPress logged in cookie")
-		wpSec        = flag.String("wp-sec", "", "WordPress security cookie")
-		baseURL      = flag.String("url", "https://www.bhplta.co.uk/wp-admin/admin-ajax.php", "Base URL for API requests")
-		rateLimitStr = flag.String("rate-limit", "1s", "Rate limit between requests (e.g., 1s, 500ms)")
-		dryRun       = flag.Bool("dry-run", false, "Dry run mode - don't save to database")
-		verbose      = flag.Bool("verbose", true, "Verbose output")
+		dbPath   = flag.String("db", "", "Database path")
+		nonce    = flag.String("nonce", "", "BHPLTA nonce")
+		clubCode = flag.String("club-code", "", "Club code")
+		week     = flag.Int("week", 0, "Week number")
+		year     = flag.Int("year", 0, "Year")
+		clubID   = flag.Int("club-id", 0, "Club ID")
+		clubName = flag.String("club-name", "", "Club name")
+		dryRun   = flag.Bool("dry-run", false, "Dry run mode")
+		verbose  = flag.Bool("verbose", false, "Verbose output")
 	)
 	flag.Parse()
 
@@ -40,7 +36,7 @@ func main() {
 	}
 
 	// Parse rate limit
-	rateLimit, err := time.ParseDuration(*rateLimitStr)
+	rateLimit, err := time.ParseDuration("1s") // Default rate limit
 	if err != nil {
 		log.Fatalf("Invalid rate limit: %v", err)
 	}
@@ -74,17 +70,15 @@ func main() {
 
 	// Create import configuration
 	config := services.ImportConfig{
-		ClubName:                *clubName,
-		ClubID:                  *clubID,
-		Year:                    *year,
-		Nonce:                   *nonce,
-		ClubCode:                *clubCode,
-		WordPressLoggedInCookie: *wpLoggedIn,
-		WordPressSecCookie:      *wpSec,
-		BaseURL:                 *baseURL,
-		RateLimit:               rateLimit,
-		DryRun:                  *dryRun,
-		Verbose:                 *verbose,
+		ClubName:  *clubName,
+		ClubID:    *clubID,
+		Year:      *year,
+		Nonce:     *nonce,
+		ClubCode:  *clubCode,
+		BaseURL:   "https://www.bhplta.co.uk/wp-admin/admin-ajax.php", // Default base URL
+		RateLimit: rateLimit,
+		DryRun:    *dryRun,
+		Verbose:   *verbose,
 	}
 
 	// Import match cards for the specified week

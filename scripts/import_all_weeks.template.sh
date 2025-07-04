@@ -2,18 +2,13 @@
 
 # Import match cards for all weeks (1-18) in the 2025 season
 # Usage: ./import_all_weeks.sh [--dry-run] [--start-week=N] [--end-week=N]
-# 
-# SETUP INSTRUCTIONS:
-# 1. Copy this file to import_all_weeks.sh
-# 2. Replace the placeholder values below with your actual credentials
-# 3. Run the script
 
-# Replace these with your actual values:
+# === CREDENTIALS CONFIGURATION ===
+# Replace these with your actual values from browser cookies/network requests
 NONCE="YOUR_NONCE_HERE"
-CLUB_CODE="YOUR_CLUB_CODE_HERE" 
-WP_LOGGED_IN="YOUR_WP_LOGGED_IN_COOKIE_HERE"
-WP_SEC="YOUR_WP_SEC_COOKIE_HERE"
+CLUB_CODE="YOUR_CLUB_CODE_HERE"
 
+# === SCRIPT CONFIGURATION ===
 # Default values
 DRY_RUN=""
 START_WEEK=1
@@ -86,12 +81,10 @@ for week in $(seq $START_WEEK $END_WEEK); do
     -db="../tennis.db" \
     -nonce="$NONCE" \
     -club-code="$CLUB_CODE" \
-    -wp-logged-in="$WP_LOGGED_IN" \
-    -wp-sec="$WP_SEC" \
     -week=$week \
     -year=2025 \
     -club-id=10 \
-    -club-name="St Anns" \
+    -club-name="St+Anns" \
     -verbose $DRY_RUN 2>&1 | tee "week_${week}_import.log"; then
     
     echo "✅ Week $week completed successfully"

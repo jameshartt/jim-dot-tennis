@@ -28,17 +28,15 @@ type MatchCardService struct {
 
 // ImportConfig holds configuration for importing match cards
 type ImportConfig struct {
-	ClubName                string
-	ClubID                  int // Club ID from BHPLTA
-	Year                    int // Year for the season
-	Nonce                   string
-	ClubCode                string // Club code cookie value
-	WordPressLoggedInCookie string // WordPress logged in cookie
-	WordPressSecCookie      string // WordPress security cookie
-	BaseURL                 string
-	RateLimit               time.Duration // Delay between requests
-	DryRun                  bool          // If true, don't save to database
-	Verbose                 bool          // If true, output detailed logs
+	ClubName  string
+	ClubID    int // Club ID from BHPLTA
+	Year      int // Year for the season
+	Nonce     string
+	ClubCode  string // Club code cookie value
+	BaseURL   string
+	RateLimit time.Duration // Delay between requests
+	DryRun    bool          // If true, don't save to database
+	Verbose   bool          // If true, output detailed logs
 }
 
 // ImportResult holds the results of an import operation
@@ -163,21 +161,6 @@ func (s *MatchCardService) fetchMatchCards(config ImportConfig, week int) ([]byt
 	// Set cookies for authentication - use the same format as working curl
 	cookieParts := []string{
 		"clubcode=" + config.ClubCode,
-		"wordpress_test_cookie=WP%20Cookie%20check",
-	}
-
-	// Add WordPress authentication cookies if provided - URL encode them
-	if config.WordPressLoggedInCookie != "" {
-		// URL encode the cookie value
-		encodedValue := strings.ReplaceAll(config.WordPressLoggedInCookie, " ", "%20")
-		encodedValue = strings.ReplaceAll(encodedValue, "|", "%7C")
-		cookieParts = append(cookieParts, "wordpress_logged_in_d9e736f9c59ae0b57f0c59c5392dc843="+encodedValue)
-	}
-	if config.WordPressSecCookie != "" {
-		// URL encode the cookie value
-		encodedValue := strings.ReplaceAll(config.WordPressSecCookie, " ", "%20")
-		encodedValue = strings.ReplaceAll(encodedValue, "|", "%7C")
-		cookieParts = append(cookieParts, "wordpress_sec_d9e736f9c59ae0b57f0c59c5392dc843="+encodedValue)
 	}
 
 	// Set the Cookie header directly
