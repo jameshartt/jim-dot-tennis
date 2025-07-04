@@ -76,5 +76,6 @@ players-import/*
 scripts/test_matchcard_api.sh
 scripts/import_all_weeks.sh
 scripts/*_credentials.sh
+scripts/.tennis-credentials
 *.env
 
