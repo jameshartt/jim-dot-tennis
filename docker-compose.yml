@@ -24,6 +24,19 @@ services:
       retries: 3
       start_period: 5s
 
+  import:
+    build:
+      context: .
+      dockerfile: Dockerfile.import
+    image: jim-dot-tennis-import:latest
+    container_name: jim-dot-tennis-import
+    profiles: ["tools"]  # Only start when explicitly requested
+    volumes:
+      - tennis-data:/app/data
+      - ./scripts:/app/scripts
+    working_dir: /app
+    command: ["bash"]
+
   backup:
     image: alpine:latest
     container_name: jim-dot-tennis-backup

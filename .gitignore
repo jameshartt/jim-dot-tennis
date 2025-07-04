@@ -72,3 +72,10 @@ tennis.db
 pdf_output
 players-import/*
 
+# Scripts with sensitive data (passwords, tokens, etc.)
+scripts/test_matchcard_api.sh
+scripts/import_all_weeks.sh
+scripts/*_credentials.sh
+scripts/.tennis-credentials
+*.env
+

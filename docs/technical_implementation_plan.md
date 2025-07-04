@@ -74,7 +74,7 @@ The application will follow a server-side rendered architecture with minimal cli
 ### Phase 3: Player Availability Management
 
 - [ ] Player profile views
-- [ ] Availability form (calendar-based)
+- [x] Availability form (calendar-based)
 - [ ] Availability exception handling
 - [ ] General availability settings
 

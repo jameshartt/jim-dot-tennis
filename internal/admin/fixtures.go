@@ -70,10 +70,24 @@ func (h *FixturesHandler) HandleFixtures(w http.ResponseWriter, r *http.Request)
 
 // handleFixturesGet handles GET requests for fixture management
 func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Request, user *models.User) {
-	// Get St. Ann's fixtures with related data
-	club, fixtures, err := h.service.GetStAnnsFixtures()
+	// Get St. Ann's upcoming fixtures with related data
+	club, upcomingFixtures, err := h.service.GetStAnnsFixtures()
 	if err != nil {
-		logAndError(w, "Failed to load fixtures", err, http.StatusInternalServerError)
+		logAndError(w, "Failed to load upcoming fixtures", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Get St. Ann's past fixtures with related data
+	_, pastFixtures, err := h.service.GetStAnnsPastFixtures()
+	if err != nil {
+		logAndError(w, "Failed to load past fixtures", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Get all divisions for filtering
+	divisions, err := h.service.GetAllDivisions()
+	if err != nil {
+		logAndError(w, "Failed to load divisions", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -89,9 +103,11 @@ func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Reque
 
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
-		"User":     user,
-		"Club":     club,
-		"Fixtures": fixtures,
+		"User":             user,
+		"Club":             club,
+		"UpcomingFixtures": upcomingFixtures,
+		"PastFixtures":     pastFixtures,
+		"Divisions":        divisions,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -172,6 +188,30 @@ func (h *FixturesHandler) handleFixtureDetailGet(w http.ResponseWriter, r *http.
 	var isStAnnsAway bool
 	var isDerby bool
 	var managingTeam *models.Team
+
+	// Get fixture details to determine St Ann's position
+	if detail, ok := fixtureDetail.(*FixtureDetail); ok {
+		// Find St Ann's club ID
+		stAnnsClubs, err := h.service.GetClubsByName("St Ann")
+		if err == nil && len(stAnnsClubs) > 0 {
+			stAnnsClubID := stAnnsClubs[0].ID
+
+			// Check if home team is St Ann's
+			if detail.HomeTeam != nil && detail.HomeTeam.ClubID == stAnnsClubID {
+				isStAnnsHome = true
+			}
+
+			// Check if away team is St Ann's
+			if detail.AwayTeam != nil && detail.AwayTeam.ClubID == stAnnsClubID {
+				isStAnnsAway = true
+			}
+
+			// Determine if it's a derby match (both teams are St Ann's)
+			if isStAnnsHome && isStAnnsAway {
+				isDerby = true
+			}
+		}
+	}
 
 	// Check if we have a managing team from query parameters (indicates derby match)
 	if managingTeamParam != "" {
