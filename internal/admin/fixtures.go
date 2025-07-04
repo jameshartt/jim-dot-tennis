@@ -603,8 +603,15 @@ func (h *FixturesHandler) handleTeamSelectionGet(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Get available players for this fixture with availability status
-	teamPlayers, allStAnnPlayers, err := h.service.GetAvailablePlayersForFixtureWithAvailability(fixtureID)
+	// Get available players for this fixture with availability and eligibility status
+	var managingTeamIDForEligibility uint
+	if managingTeamParam != "" {
+		if managingTeamIDUint64, parseErr := strconv.ParseUint(managingTeamParam, 10, 32); parseErr == nil {
+			managingTeamIDForEligibility = uint(managingTeamIDUint64)
+		}
+	}
+
+	teamPlayers, allStAnnPlayers, err := h.service.GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID, managingTeamIDForEligibility)
 	if err != nil {
 		logAndError(w, "Failed to load available players", err, http.StatusInternalServerError)
 		return
@@ -617,14 +624,14 @@ func (h *FixturesHandler) handleTeamSelectionGet(w http.ResponseWriter, r *http.
 	}
 
 	// Filter out already selected players
-	var availableTeamPlayers []PlayerWithAvailability
+	var availableTeamPlayers []PlayerWithEligibility
 	for _, player := range teamPlayers {
 		if !selectedMap[player.Player.ID] {
 			availableTeamPlayers = append(availableTeamPlayers, player)
 		}
 	}
 
-	var availableStAnnPlayers []PlayerWithAvailability
+	var availableStAnnPlayers []PlayerWithEligibility
 	for _, player := range allStAnnPlayers {
 		if !selectedMap[player.Player.ID] {
 			availableStAnnPlayers = append(availableStAnnPlayers, player)
@@ -919,8 +926,15 @@ func (h *FixturesHandler) renderTeamSelectionContainer(w http.ResponseWriter, r 
 		return
 	}
 
-	// Get available players for this fixture with availability status
-	teamPlayers, allStAnnPlayers, err := h.service.GetAvailablePlayersForFixtureWithAvailability(fixtureID)
+	// Get available players for this fixture with availability and eligibility status
+	var managingTeamIDForEligibility uint
+	if managingTeamParam != "" {
+		if managingTeamIDUint64, parseErr := strconv.ParseUint(managingTeamParam, 10, 32); parseErr == nil {
+			managingTeamIDForEligibility = uint(managingTeamIDUint64)
+		}
+	}
+
+	teamPlayers, allStAnnPlayers, err := h.service.GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID, managingTeamIDForEligibility)
 	if err != nil {
 		logAndError(w, "Failed to load available players", err, http.StatusInternalServerError)
 		return
@@ -938,14 +952,14 @@ func (h *FixturesHandler) renderTeamSelectionContainer(w http.ResponseWriter, r 
 	}
 
 	// Filter out already selected players
-	var availableTeamPlayers []PlayerWithAvailability
+	var availableTeamPlayers []PlayerWithEligibility
 	for _, player := range teamPlayers {
 		if !selectedMap[player.Player.ID] {
 			availableTeamPlayers = append(availableTeamPlayers, player)
 		}
 	}
 
-	var availableStAnnPlayers []PlayerWithAvailability
+	var availableStAnnPlayers []PlayerWithEligibility
 	for _, player := range allStAnnPlayers {
 		if !selectedMap[player.Player.ID] {
 			availableStAnnPlayers = append(availableStAnnPlayers, player)

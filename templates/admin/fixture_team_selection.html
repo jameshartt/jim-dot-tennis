@@ -353,6 +353,81 @@
             color: #495057;
         }
 
+        .eligibility-legend {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+        }
+
+        .eligibility-legend h5 {
+            margin: 0 0 0.5rem 0;
+            color: #495057;
+        }
+
+        .legend-emoji {
+            font-size: 1rem;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+
+        .btn-blocked {
+            background: #dc3545 !important; /* Red for blocked */
+            border-left: 4px solid #bd2130 !important;
+            color: white !important;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .btn-locked {
+            background: #6c757d !important; /* Gray for locked */
+            border-left: 4px solid #545b62 !important;
+            color: white !important;
+        }
+
+        .btn-unlocked {
+            background: #28a745 !important; /* Green for unlocked */
+            border-left: 4px solid #1e7e34 !important;
+            color: white !important;
+        }
+
+        .emoji-locked {
+            background: #dc3545;
+            color: white;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 0.9em;
+            margin-right: 4px;
+        }
+
+        .emoji-unlocked {
+            background: #28a745;
+            color: white;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 0.9em;
+            margin-right: 4px;
+        }
+
+        .emoji-blocked {
+            background: #dc3545;
+            color: white;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 0.9em;
+            margin-right: 4px;
+        }
+
+        .btn-warning {
+            background: #ffc107 !important; /* Yellow for warning */
+            border-left: 4px solid #d39e00 !important;
+            color: #212529 !important;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
         @media (max-width: 768px) {
             .selection-layout {
                 grid-template-columns: 1fr;
@@ -503,6 +578,22 @@
                             </div>
                         </div>
                         
+                        <div class="eligibility-legend">
+                            <h5>⚖️ Eligibility Status:</h5>
+                            <div class="legend-item">
+                                <span class="emoji-unlocked">🔓</span>
+                                Unlocked - Can play (remaining count shown)
+                            </div>
+                            <div class="legend-item">
+                                <span class="emoji-locked">🔒</span>
+                                Locked - 4+ matches played (locked to team/higher)
+                            </div>
+                            <div class="legend-item">
+                                <span class="emoji-blocked">🛑</span>
+                                Blocked - Rule violation (already played this week)
+                            </div>
+                        </div>
+                        
                         {{if .TeamPlayers}}
                         <div class="player-group">
                             <h4>Team Players ({{len .TeamPlayers}} available)</h4>
@@ -516,9 +607,10 @@
                                     <input type="hidden" name="player_id" value="{{.Player.ID}}">
                                     <input type="hidden" name="is_home" value="true">
                                     {{if $.ManagingTeam}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeam.ID}}">{{end}}
-                                    <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}"
-                                            title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
-                                        {{.Player.FirstName}} {{.Player.LastName}}
+                                    <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} btn-blocked{{else if .Eligibility.IsLocked}} btn-locked{{end}}{{end}}"
+                                            {{if .Eligibility}}{{if not .Eligibility.CanPlay}}disabled{{end}}{{end}}
+                                            title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} 🛑 {{if .Eligibility.PlayedThisWeek}}Already played this week for {{.Eligibility.PlayedThisWeekTeam}}{{else if .Eligibility.IsLockedToHigherTeam}}Locked to {{.Eligibility.LockedToTeamName}}{{end}}{{else if .Eligibility.IsLocked}} 🔒 Locked to this team or higher{{else if .Eligibility.CanPlayLower}} 🔓 {{if ge .Eligibility.RemainingHigherTeamPlays 0}}{{.Eligibility.RemainingHigherTeamPlays}} plays left{{else}}Can play lower teams{{end}}{{end}}{{end}}">
+                                        {{if .Eligibility}}{{if not .Eligibility.CanPlay}}<span class="emoji-blocked">🛑</span>{{else if .Eligibility.IsLocked}}<span class="emoji-locked">🔒</span>{{else if .Eligibility.CanPlayLower}}<span class="emoji-unlocked">🔓</span>{{end}}{{end}} {{.Player.FirstName}} {{.Player.LastName}}{{if .Eligibility}}{{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}} ({{.Eligibility.RemainingHigherTeamPlays}} left){{end}}{{end}}
                                     </button>
                                 </form>
                                 {{end}}
@@ -544,9 +636,10 @@
                                     <input type="hidden" name="player_id" value="{{.Player.ID}}">
                                     <input type="hidden" name="is_home" value="true">
                                     {{if $.ManagingTeam}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeam.ID}}">{{end}}
-                                    <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}"
-                                            title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
-                                        {{.Player.FirstName}} {{.Player.LastName}}
+                                    <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} btn-blocked{{else if .Eligibility.IsLocked}} btn-locked{{end}}{{end}}"
+                                            {{if .Eligibility}}{{if not .Eligibility.CanPlay}}disabled{{end}}{{end}}
+                                            title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} 🛑 {{if .Eligibility.PlayedThisWeek}}Already played this week for {{.Eligibility.PlayedThisWeekTeam}}{{else if .Eligibility.IsLockedToHigherTeam}}Locked to {{.Eligibility.LockedToTeamName}}{{end}}{{else if .Eligibility.IsLocked}} 🔒 Locked to this team or higher{{else if .Eligibility.CanPlayLower}} 🔓 {{if ge .Eligibility.RemainingHigherTeamPlays 0}}{{.Eligibility.RemainingHigherTeamPlays}} plays left{{else}}Can play lower teams{{end}}{{end}}{{end}}">
+                                        {{if .Eligibility}}{{if not .Eligibility.CanPlay}}<span class="emoji-blocked">🛑</span>{{else if .Eligibility.IsLocked}}<span class="emoji-locked">🔒</span>{{else if .Eligibility.CanPlayLower}}<span class="emoji-unlocked">🔓</span>{{end}}{{end}} {{.Player.FirstName}} {{.Player.LastName}}{{if .Eligibility}}{{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}} ({{.Eligibility.RemainingHigherTeamPlays}} left){{end}}{{end}}
                                     </button>
                                 </form>
                                 {{end}}

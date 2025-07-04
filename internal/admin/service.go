@@ -28,11 +28,12 @@ type Service struct {
 	fantasyRepository      repository.FantasyMixedDoublesRepository
 	tennisPlayerRepository repository.ProTennisPlayerRepository
 	availabilityRepository repository.AvailabilityRepository
+	teamEligibilityService *TeamEligibilityService
 }
 
 // NewService creates a new admin service
 func NewService(db *database.DB) *Service {
-	return &Service{
+	service := &Service{
 		db:                     db,
 		loginAttemptRepository: repository.NewLoginAttemptRepository(db),
 		playerRepository:       repository.NewPlayerRepository(db),
@@ -47,6 +48,11 @@ func NewService(db *database.DB) *Service {
 		tennisPlayerRepository: repository.NewProTennisPlayerRepository(db),
 		availabilityRepository: repository.NewAvailabilityRepository(db),
 	}
+
+	// Initialize team eligibility service with reference to the main service
+	service.teamEligibilityService = NewTeamEligibilityService(service)
+
+	return service
 }
 
 // DashboardData represents the data needed for the admin dashboard
@@ -168,6 +174,14 @@ type PlayerWithAvailability struct {
 	Player             models.Player
 	AvailabilityStatus models.AvailabilityStatus
 	AvailabilityNotes  string
+}
+
+// PlayerWithEligibility combines player information with availability and eligibility for team selection
+type PlayerWithEligibility struct {
+	Player             models.Player
+	AvailabilityStatus models.AvailabilityStatus
+	AvailabilityNotes  string
+	Eligibility        *PlayerEligibilityInfo
 }
 
 // GetDashboardData retrieves data for the admin dashboard
@@ -1822,6 +1836,110 @@ func (s *Service) GetAvailablePlayersForFixtureWithAvailability(fixtureID uint) 
 	}
 
 	return teamPlayersWithAvail, allStAnnPlayersWithAvail, nil
+}
+
+// GetAvailablePlayersWithEligibilityForTeamSelection retrieves players with both availability and eligibility information
+func (s *Service) GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID uint, managingTeamID uint) ([]PlayerWithEligibility, []PlayerWithEligibility, error) {
+	ctx := context.Background()
+
+	// Get available players lists based on managing team (for derby matches)
+	var teamPlayers, allStAnnPlayers []models.Player
+	var err error
+
+	if managingTeamID > 0 {
+		teamPlayers, allStAnnPlayers, err = s.GetAvailablePlayersForFixtureWithTeamContext(fixtureID, managingTeamID)
+	} else {
+		teamPlayers, allStAnnPlayers, err = s.GetAvailablePlayersForFixture(fixtureID)
+	}
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Get fixture for date context
+	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Determine which team we're selecting for
+	var teamID uint
+	if managingTeamID > 0 {
+		teamID = managingTeamID
+	} else {
+		// For non-derby matches, determine the St Ann's team
+		stAnnsClubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+		if err != nil || len(stAnnsClubs) == 0 {
+			return nil, nil, fmt.Errorf("St Ann's club not found")
+		}
+		stAnnsClubID := stAnnsClubs[0].ID
+
+		// Check if home team is St Ann's
+		homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
+		if err == nil && homeTeam.ClubID == stAnnsClubID {
+			teamID = homeTeam.ID
+		} else {
+			// Check if away team is St Ann's
+			awayTeam, err := s.teamRepository.FindByID(ctx, fixture.AwayTeamID)
+			if err == nil && awayTeam.ClubID == stAnnsClubID {
+				teamID = awayTeam.ID
+			}
+		}
+	}
+
+	// Convert team players to players with availability and eligibility
+	var teamPlayersWithEligibility []PlayerWithEligibility
+	for _, player := range teamPlayers {
+		availability := s.determinePlayerAvailabilityForFixture(ctx, player.ID, fixtureID, fixture.ScheduledDate)
+
+		// Get eligibility information
+		var eligibility *PlayerEligibilityInfo
+		if teamID > 0 {
+			eligibility, err = s.teamEligibilityService.GetPlayerEligibilityForTeam(ctx, player.ID, teamID, fixtureID)
+			if err != nil {
+				// Log error but continue - default to allowing play
+				eligibility = &PlayerEligibilityInfo{
+					Player:  player,
+					CanPlay: true,
+				}
+			}
+		}
+
+		teamPlayersWithEligibility = append(teamPlayersWithEligibility, PlayerWithEligibility{
+			Player:             player,
+			AvailabilityStatus: availability.Status,
+			AvailabilityNotes:  availability.Notes,
+			Eligibility:        eligibility,
+		})
+	}
+
+	// Convert all St Ann players to players with availability and eligibility
+	var allStAnnPlayersWithEligibility []PlayerWithEligibility
+	for _, player := range allStAnnPlayers {
+		availability := s.determinePlayerAvailabilityForFixture(ctx, player.ID, fixtureID, fixture.ScheduledDate)
+
+		// Get eligibility information
+		var eligibility *PlayerEligibilityInfo
+		if teamID > 0 {
+			eligibility, err = s.teamEligibilityService.GetPlayerEligibilityForTeam(ctx, player.ID, teamID, fixtureID)
+			if err != nil {
+				// Log error but continue - default to allowing play
+				eligibility = &PlayerEligibilityInfo{
+					Player:  player,
+					CanPlay: true,
+				}
+			}
+		}
+
+		allStAnnPlayersWithEligibility = append(allStAnnPlayersWithEligibility, PlayerWithEligibility{
+			Player:             player,
+			AvailabilityStatus: availability.Status,
+			AvailabilityNotes:  availability.Notes,
+			Eligibility:        eligibility,
+		})
+	}
+
+	return teamPlayersWithEligibility, allStAnnPlayersWithEligibility, nil
 }
 
 // PlayerAvailabilityInfo holds availability information for a player
