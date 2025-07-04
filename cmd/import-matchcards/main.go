@@ -15,15 +15,16 @@ import (
 func main() {
 	// Define command line flags
 	var (
-		dbPath   = flag.String("db", "", "Database path")
-		nonce    = flag.String("nonce", "", "BHPLTA nonce")
-		clubCode = flag.String("club-code", "", "Club code")
-		week     = flag.Int("week", 0, "Week number")
-		year     = flag.Int("year", 0, "Year")
-		clubID   = flag.Int("club-id", 0, "Club ID")
-		clubName = flag.String("club-name", "", "Club name")
-		dryRun   = flag.Bool("dry-run", false, "Dry run mode")
-		verbose  = flag.Bool("verbose", false, "Verbose output")
+		dbPath        = flag.String("db", "", "Database path")
+		nonce         = flag.String("nonce", "", "BHPLTA nonce")
+		clubCode      = flag.String("club-code", "", "Club code")
+		week          = flag.Int("week", 0, "Week number")
+		year          = flag.Int("year", 0, "Year")
+		clubID        = flag.Int("club-id", 0, "Club ID")
+		clubName      = flag.String("club-name", "", "Club name")
+		dryRun        = flag.Bool("dry-run", false, "Dry run mode")
+		verbose       = flag.Bool("verbose", false, "Verbose output")
+		clearExisting = flag.Bool("clear-existing", false, "Clear existing matchups before importing")
 	)
 	flag.Parse()
 
@@ -70,15 +71,16 @@ func main() {
 
 	// Create import configuration
 	config := services.ImportConfig{
-		ClubName:  *clubName,
-		ClubID:    *clubID,
-		Year:      *year,
-		Nonce:     *nonce,
-		ClubCode:  *clubCode,
-		BaseURL:   "https://www.bhplta.co.uk/wp-admin/admin-ajax.php", // Default base URL
-		RateLimit: rateLimit,
-		DryRun:    *dryRun,
-		Verbose:   *verbose,
+		ClubName:              *clubName,
+		ClubID:                *clubID,
+		Year:                  *year,
+		Nonce:                 *nonce,
+		ClubCode:              *clubCode,
+		BaseURL:               "https://www.bhplta.co.uk/wp-admin/admin-ajax.php", // Default base URL
+		RateLimit:             rateLimit,
+		DryRun:                *dryRun,
+		Verbose:               *verbose,
+		ClearExistingMatchups: *clearExisting,
 	}
 
 	// Import match cards for the specified week
@@ -112,5 +114,9 @@ func main() {
 
 	if *dryRun {
 		fmt.Printf("\n*** DRY RUN MODE - No changes were saved to the database ***\n")
+	}
+
+	if *clearExisting {
+		fmt.Printf("\n*** CLEAR EXISTING MODE - Existing matchups were cleared before importing ***\n")
 	}
 }

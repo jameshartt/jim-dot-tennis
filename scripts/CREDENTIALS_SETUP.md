@@ -63,6 +63,57 @@ Test that your credentials work:
 
 This will run a dry-run import to verify your credentials without making database changes.
 
+## Import Options
+
+### Regular Import
+```bash
+./scripts/tennis-import.sh run
+```
+Imports all weeks (1-18) with existing matchups being updated.
+
+### Dry Run
+```bash
+./scripts/tennis-import.sh run-dry
+```
+Tests the import without making any database changes.
+
+### Clear Existing and Re-import
+```bash
+./scripts/tennis-import.sh run-clear
+```
+Clears existing matchups before importing. This is useful when:
+- Re-running imports to ensure clean data
+- Fixing issues with previous imports
+- Handling derby matches that need both team perspectives
+
+### Single Week Import
+```bash
+./scripts/tennis-import.sh run-week 5
+```
+Imports only week 5.
+
+### Range Import
+```bash
+./scripts/tennis-import.sh run-range 1-5
+```
+Imports weeks 1 through 5.
+
+## Derby Match Handling
+
+The import system now properly handles derby matches (where both teams are from St. Ann's):
+
+- **Automatic Detection**: Derby matches are automatically detected
+- **Dual Processing**: Creates separate matchups for each team's perspective
+- **Clear Existing**: Use `--clear-existing` to ensure clean derby match data
+- **Comprehensive Results**: Both teams get their own matchup records
+
+When importing derby matches, you'll see output like:
+```
+Processing derby match: St Ann's A vs St Ann's B (fixture 123)
+Created First mixed matchup for home team (fixture 123, sets: 2-1, 6-4 6-2 4-6) - Home team wins
+Created First mixed matchup for away team (fixture 123, sets: 2-1, 6-4 6-2 4-6) - Home team wins
+```
+
 ## Security Notes
 
 - Keep your credentials secure and don't share them
@@ -82,4 +133,11 @@ This usually means:
 This can happen if:
 - The week you're trying to import doesn't have data yet
 - Your club/season settings are incorrect
-- There's an authentication issue 
+- There's an authentication issue
+
+### Derby Match Issues
+
+If you're having issues with derby matches:
+- Use `--clear-existing` to ensure clean data
+- Check that both teams are properly identified as St. Ann's teams
+- Verify that the fixture has both teams from the same club 

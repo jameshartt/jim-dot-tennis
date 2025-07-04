@@ -8,6 +8,7 @@ DRY_RUN=""
 START_WEEK=1
 END_WEEK=18
 DELAY_SECONDS=2
+CLEAR_EXISTING=""
 
 # Check for required environment variables
 if [ -z "$TENNIS_NONCE" ]; then
@@ -22,6 +23,11 @@ while [[ $# -gt 0 ]]; do
     --dry-run)
       DRY_RUN="-dry-run"
       echo "🔍 DRY RUN MODE: No changes will be saved to database"
+      shift
+      ;;
+    --clear-existing)
+      CLEAR_EXISTING="-clear-existing"
+      echo "🧹 CLEAR EXISTING MODE: Existing matchups will be cleared before importing"
       shift
       ;;
     --start-week=*)
@@ -40,6 +46,7 @@ while [[ $# -gt 0 ]]; do
       echo "Usage: $0 [OPTIONS]"
       echo "Options:"
       echo "  --dry-run           Run in dry-run mode (no database changes)"
+      echo "  --clear-existing    Clear existing matchups before importing"
       echo "  --start-week=N      Start from week N (default: 1)"
       echo "  --end-week=N        End at week N (default: 18)"
       echo "  --delay=N           Delay N seconds between requests (default: 2)"
@@ -65,6 +72,9 @@ fi
 echo "🏆 Starting match card import for weeks $START_WEEK to $END_WEEK"
 echo "⏱️  Delay between requests: ${DELAY_SECONDS}s"
 echo "🔐 Using nonce: ${TENNIS_NONCE:0:10}..."
+if [ -n "$CLEAR_EXISTING" ]; then
+  echo "🧹 Clear existing matchups: enabled"
+fi
 echo ""
 
 # Initialize counters
@@ -90,7 +100,7 @@ for week in $(seq $START_WEEK $END_WEEK); do
     -year=2025 \
     -club-id=10 \
     -club-name="St+Anns" \
-    -verbose $DRY_RUN 2>&1 | tee "week_${week}_import.log"; then
+    -verbose $DRY_RUN $CLEAR_EXISTING 2>&1 | tee "week_${week}_import.log"; then
     
     echo "✅ Week $week completed successfully"
     SUCCESSFUL_WEEKS=$((SUCCESSFUL_WEEKS + 1))

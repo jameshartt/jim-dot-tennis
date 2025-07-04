@@ -22,6 +22,7 @@ show_help() {
     echo "  setup             Set up or update authentication credentials"
     echo "  run               Run the import with stored credentials"
     echo "  run-dry           Run a dry-run import"
+    echo "  run-clear         Run import with clearing existing matchups"
     echo "  run-week N        Import specific week N"
     echo "  run-range N-M     Import weeks N through M"
     echo "  status            Show current credential status"
@@ -31,6 +32,7 @@ show_help() {
     echo "  $0 setup                    # Set up credentials interactively"
     echo "  $0 run                      # Run full import (weeks 1-18)"
     echo "  $0 run-dry                  # Dry run for testing"
+    echo "  $0 run-clear                # Clear existing matchups and re-import"
     echo "  $0 run-week 5               # Import only week 5"
     echo "  $0 run-range 1-5            # Import weeks 1 through 5"
 }
@@ -85,6 +87,7 @@ show_status() {
 
 run_import() {
     local dry_run=""
+    local clear_existing=""
     local start_week=""
     local end_week=""
     local extra_args=""
@@ -94,6 +97,9 @@ run_import() {
         case $1 in
             --dry-run)
                 dry_run="--dry-run"
+                ;;
+            --clear-existing)
+                clear_existing="--clear-existing"
                 ;;
             --start-week=*)
                 start_week="$1"
@@ -122,7 +128,7 @@ run_import() {
         --workdir /app \
         --env TENNIS_NONCE="$TENNIS_NONCE" \
         jim-dot-tennis-import:latest \
-        bash ./scripts/import_all_weeks_optimized.sh $dry_run $start_week $end_week $extra_args
+        bash ./scripts/import_all_weeks_optimized.sh $dry_run $clear_existing $start_week $end_week $extra_args
 }
 
 case "${1:-}" in
@@ -136,6 +142,10 @@ case "${1:-}" in
     run-dry)
         shift
         run_import --dry-run "$@"
+        ;;
+    run-clear)
+        shift
+        run_import --clear-existing "$@"
         ;;
     run-week)
         if [ -z "$2" ]; then
