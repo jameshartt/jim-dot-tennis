@@ -398,7 +398,7 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 
 			// Format availability status
 			availStatusIcon := "❌"
-			if playerWithAvail.HasSetThisWeekAvail {
+			if playerWithAvail.HasSetNextWeekAvail {
 				availStatusIcon = "✅"
 			}
 

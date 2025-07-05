@@ -188,8 +188,8 @@ type PlayerWithEligibility struct {
 type PlayerWithAvailabilityInfo struct {
 	Player              models.Player `json:"player"`
 	HasAvailabilityURL  bool          `json:"has_availability_url"`
-	HasSetThisWeekAvail bool          `json:"has_set_this_week_avail"`
-	ThisWeekAvailCount  int           `json:"this_week_avail_count"`
+	HasSetNextWeekAvail bool          `json:"has_set_next_week_avail"`
+	NextWeekAvailCount  int           `json:"next_week_avail_count"`
 }
 
 // GetDashboardData retrieves data for the admin dashboard
@@ -292,8 +292,8 @@ func (s *Service) GetFilteredPlayersWithAvailability(query string, activeFilter 
 		return nil, err
 	}
 
-	// Get current week date range
-	weekStart, weekEnd := s.getCurrentWeekDateRange()
+	// Get next week date range
+	weekStart, weekEnd := s.getNextWeekDateRange()
 
 	// Convert to PlayerWithAvailabilityInfo
 	var playersWithAvailInfo []PlayerWithAvailabilityInfo
@@ -301,14 +301,14 @@ func (s *Service) GetFilteredPlayersWithAvailability(query string, activeFilter 
 		playerWithAvail := PlayerWithAvailabilityInfo{
 			Player:              player,
 			HasAvailabilityURL:  player.FantasyMatchID != nil,
-			HasSetThisWeekAvail: false,
-			ThisWeekAvailCount:  0,
+			HasSetNextWeekAvail: false,
+			NextWeekAvailCount:  0,
 		}
 
-		// Check if player has set availability for this week
+		// Check if player has set availability for next week
 		if availRecords, err := s.availabilityRepository.GetPlayerAvailabilityByDateRange(ctx, player.ID, weekStart, weekEnd); err == nil {
-			playerWithAvail.HasSetThisWeekAvail = len(availRecords) > 0
-			playerWithAvail.ThisWeekAvailCount = len(availRecords)
+			playerWithAvail.HasSetNextWeekAvail = len(availRecords) > 0
+			playerWithAvail.NextWeekAvailCount = len(availRecords)
 		}
 
 		playersWithAvailInfo = append(playersWithAvailInfo, playerWithAvail)
@@ -335,6 +335,30 @@ func (s *Service) getCurrentWeekDateRange() (time.Time, time.Time) {
 	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
 
 	// Get end of week (Sunday)
+	weekEnd := weekStart.AddDate(0, 0, 6)
+	weekEnd = time.Date(weekEnd.Year(), weekEnd.Month(), weekEnd.Day(), 23, 59, 59, 999999999, weekEnd.Location())
+
+	return weekStart, weekEnd
+}
+
+// getNextWeekDateRange returns the start and end dates of the next week (Monday to Sunday)
+func (s *Service) getNextWeekDateRange() (time.Time, time.Time) {
+	now := time.Now()
+
+	// Get the day of the week (0=Sunday, 1=Monday, etc.)
+	dayOfWeek := int(now.Weekday())
+
+	// Calculate days since Monday (convert Sunday=0 to Sunday=6)
+	if dayOfWeek == 0 {
+		dayOfWeek = 7
+	}
+	daysSinceMonday := dayOfWeek - 1
+
+	// Get start of next week (Monday + 7 days)
+	weekStart := now.AddDate(0, 0, -daysSinceMonday+7)
+	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+
+	// Get end of next week (Sunday + 7 days)
 	weekEnd := weekStart.AddDate(0, 0, 6)
 	weekEnd = time.Date(weekEnd.Year(), weekEnd.Month(), weekEnd.Day(), 23, 59, 59, 999999999, weekEnd.Location())
 

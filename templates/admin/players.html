@@ -135,7 +135,7 @@
         
         /* Availability columns */
         .col-availability {
-            min-width: 90px;
+            min-width: 140px;
             text-align: center;
         }
         
@@ -184,7 +184,7 @@
             }
             
             .col-availability {
-                min-width: 80px;
+                min-width: 120px;
             }
             
             .col-action {
@@ -209,7 +209,7 @@
             }
             
             .col-availability {
-                min-width: 70px;
+                min-width: 100px;
                 font-size: 0.8rem;
             }
             
@@ -253,8 +253,8 @@
             <thead>
                 <tr>
                     <th class="col-name">Name</th>
-                    <th class="col-availability">This Week</th>
-                    <th class="col-action">URL</th>
+                    <th class="col-availability">Availability Set For Next Week</th>
+                    <th class="col-action">Action</th>
                 </tr>
             </thead>
             <tbody id="players-tbody">
@@ -265,7 +265,7 @@
                             <a href="/admin/players/{{.Player.ID}}/edit" class="row-link">{{.Player.FirstName}} {{.Player.LastName}}</a>
                         </td>
                         <td class="col-availability">
-                            {{if .HasSetThisWeekAvail}}
+                            {{if .HasSetNextWeekAvail}}
                                 ✅
                             {{else}}
                                 ❌
@@ -306,6 +306,65 @@
             }
         });
         
+        // Cross-platform clipboard copy function
+        function copyToClipboard(text) {
+            return new Promise((resolve, reject) => {
+                // Try modern clipboard API first
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(resolve).catch(error => {
+                        console.log('Modern clipboard API failed, trying fallback:', error);
+                        // Fall back to older method
+                        fallbackCopyToClipboard(text).then(resolve).catch(reject);
+                    });
+                } else {
+                    // Use fallback method
+                    fallbackCopyToClipboard(text).then(resolve).catch(reject);
+                }
+            });
+        }
+        
+        // Fallback clipboard copy using textarea (works on iOS)
+        function fallbackCopyToClipboard(text) {
+            return new Promise((resolve, reject) => {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.left = '-9999px';
+                textarea.style.top = '-9999px';
+                textarea.style.opacity = '0';
+                textarea.setAttribute('readonly', '');
+                textarea.setAttribute('contenteditable', 'true');
+                
+                document.body.appendChild(textarea);
+                
+                // For iOS, we need to set the selection manually
+                if (navigator.userAgent.match(/ipad|iphone/i)) {
+                    const range = document.createRange();
+                    range.selectNodeContents(textarea);
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                    textarea.setSelectionRange(0, 999999);
+                } else {
+                    textarea.select();
+                }
+                
+                try {
+                    const successful = document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    
+                    if (successful) {
+                        resolve();
+                    } else {
+                        reject(new Error('Copy command failed'));
+                    }
+                } catch (err) {
+                    document.body.removeChild(textarea);
+                    reject(err);
+                }
+            });
+        }
+        
         // Generate availability URL for a player
         async function generateAvailabilityURL(playerID, button) {
             const originalText = button.innerHTML;
@@ -323,16 +382,28 @@
                 if (response.ok) {
                     const data = await response.json();
                     
-                    // Copy URL to clipboard
-                    await navigator.clipboard.writeText(data.url);
-                    
-                    // Update button to copy mode
-                    button.innerHTML = '📋 Copy';
-                    button.className = 'btn-copy-url';
-                    button.onclick = function() { copyAvailabilityURL(playerID, this); };
-                    
-                    // Show success message
-                    showMessage('✅ URL generated and copied to clipboard!', 'success');
+                    // Copy URL to clipboard with fallback
+                    try {
+                        await copyToClipboard(data.url);
+                        
+                        // Update button to copy mode
+                        button.innerHTML = '📋 Copy';
+                        button.className = 'btn-copy-url';
+                        button.onclick = function() { copyAvailabilityURL(playerID, this); };
+                        
+                        // Show success message
+                        showMessage('✅ URL generated and copied to clipboard!', 'success');
+                    } catch (clipboardError) {
+                        console.error('Clipboard copy failed:', clipboardError);
+                        
+                        // Update button to copy mode anyway
+                        button.innerHTML = '📋 Copy';
+                        button.className = 'btn-copy-url';
+                        button.onclick = function() { copyAvailabilityURL(playerID, this); };
+                        
+                        // Show message with clickable URL for manual copy
+                        showMessage(`✅ URL generated:<br><a href="${data.url}" target="_blank" style="color: #fff; text-decoration: underline; display: inline-block; margin-top: 8px; padding: 4px 8px; background: rgba(255,255,255,0.1); border-radius: 4px; word-break: break-all;" onclick="event.stopPropagation();">${data.url}</a>`, 'success', 15000);
+                    }
                 } else {
                     const errorData = await response.json();
                     showMessage(`❌ Error: ${errorData.error || 'Failed to generate URL'}`, 'error');
@@ -365,11 +436,15 @@
                 if (response.ok) {
                     const data = await response.json();
                     
-                    // Copy URL to clipboard
-                    await navigator.clipboard.writeText(data.url);
-                    
-                    // Show success message
-                    showMessage('✅ URL copied to clipboard!', 'success');
+                    // Copy URL to clipboard with fallback
+                    try {
+                        await copyToClipboard(data.url);
+                        showMessage('✅ URL copied to clipboard!', 'success');
+                    } catch (clipboardError) {
+                        console.error('Clipboard copy failed:', clipboardError);
+                        // Show message with clickable URL for manual copy
+                        showMessage(`✅ URL:<br><a href="${data.url}" target="_blank" style="color: #fff; text-decoration: underline; display: inline-block; margin-top: 8px; padding: 4px 8px; background: rgba(255,255,255,0.1); border-radius: 4px; word-break: break-all;" onclick="event.stopPropagation();">${data.url}</a>`, 'success', 15000);
+                    }
                 } else {
                     const errorData = await response.json();
                     showMessage(`❌ Error: ${errorData.error || 'Failed to get URL'}`, 'error');
@@ -384,7 +459,7 @@
         }
         
         // Show temporary message to user
-        function showMessage(message, type) {
+        function showMessage(message, type, timeout = 3000) {
             // Remove any existing messages
             const existingMessage = document.querySelector('.temp-message');
             if (existingMessage) {
@@ -408,7 +483,20 @@
                 transition: opacity 0.3s ease;
                 background: ${type === 'success' ? '#28a745' : '#dc3545'};
                 box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                max-width: 350px;
+                word-wrap: break-word;
+                line-height: 1.4;
+                cursor: pointer;
+                -webkit-user-select: text;
+                user-select: text;
             `;
+            
+            // Add mobile-friendly positioning
+            if (window.innerWidth <= 480) {
+                messageEl.style.left = '20px';
+                messageEl.style.right = '20px';
+                messageEl.style.maxWidth = 'none';
+            }
             
             document.body.appendChild(messageEl);
             
@@ -417,7 +505,7 @@
                 messageEl.style.opacity = '1';
             }, 10);
             
-            // Remove after 3 seconds
+            // Remove after specified timeout
             setTimeout(() => {
                 messageEl.style.opacity = '0';
                 setTimeout(() => {
@@ -425,7 +513,7 @@
                         messageEl.parentNode.removeChild(messageEl);
                     }
                 }, 300);
-            }, 3000);
+            }, timeout);
         }
     </script>
 </body>
