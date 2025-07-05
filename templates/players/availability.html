@@ -272,6 +272,16 @@
             width: 100%;
         }
         
+        .calendar-month-header {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c5530;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e8f5e8;
+        }
+        
         .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
@@ -632,6 +642,12 @@
             .calendar-container {
                 padding: 5px;
             }
+            
+            .calendar-month-header {
+                font-size: 20px;
+                margin-bottom: 15px;
+                padding-bottom: 8px;
+            }
 
             .teams-container {
                 flex-direction: column;
@@ -737,6 +753,12 @@
 
             .calendar-container {
                 padding: 0px;
+            }
+            
+            .calendar-month-header {
+                font-size: 18px;
+                margin-bottom: 12px;
+                padding-bottom: 6px;
             }
             
             .fantasy-match-card {
@@ -851,6 +873,12 @@
             
             .calendar-container {
                 padding: 0px;
+            }
+            
+            .calendar-month-header {
+                font-size: 16px;
+                margin-bottom: 10px;
+                padding-bottom: 5px;
             }
 
             .calendar-grid {
@@ -1142,6 +1170,7 @@
             </p>
             
             <div class="calendar-container">
+                <div class="calendar-month-header" id="calendar-month-header"></div>
                 <div class="calendar-grid" id="availability-calendar">
                     <!-- Calendar will be populated by JavaScript -->
                 </div>
@@ -1256,6 +1285,13 @@
                 const dayOfWeek = (startDate.getDay() + 6) % 7; // Convert to Monday = 0 format
                 startDate.setDate(startDate.getDate() - dayOfWeek);
                 
+                // Calculate end date for the 4-week period
+                const endDate = new Date(startDate);
+                endDate.setDate(startDate.getDate() + (4 * 7) - 1);
+                
+                // Update month header
+                this.updateMonthHeader(startDate, endDate);
+                
                 let html = '';
                 
                 // Add day headers (UK format - week starts on Monday)
@@ -1299,6 +1335,36 @@
                 }
                 
                 calendar.innerHTML = html;
+            }
+            
+            updateMonthHeader(startDate, endDate) {
+                const monthHeader = document.getElementById('calendar-month-header');
+                if (!monthHeader) return;
+                
+                const monthNames = [
+                    'January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'
+                ];
+                
+                const startMonth = startDate.getMonth();
+                const endMonth = endDate.getMonth();
+                const startYear = startDate.getFullYear();
+                const endYear = endDate.getFullYear();
+                
+                let headerText = '';
+                
+                if (startMonth === endMonth && startYear === endYear) {
+                    // Same month and year
+                    headerText = `${monthNames[startMonth]} ${startYear}`;
+                } else if (startYear === endYear) {
+                    // Same year, different months
+                    headerText = `${monthNames[startMonth]} / ${monthNames[endMonth]} ${startYear}`;
+                } else {
+                    // Different years
+                    headerText = `${monthNames[startMonth]} ${startYear} / ${monthNames[endMonth]} ${endYear}`;
+                }
+                
+                monthHeader.textContent = headerText;
             }
             
             isFixtureDay(date) {
