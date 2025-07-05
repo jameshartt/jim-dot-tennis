@@ -184,6 +184,14 @@ type PlayerWithEligibility struct {
 	Eligibility        *PlayerEligibilityInfo
 }
 
+// PlayerWithAvailabilityInfo combines player information with availability status for admin display
+type PlayerWithAvailabilityInfo struct {
+	Player              models.Player `json:"player"`
+	HasAvailabilityURL  bool          `json:"has_availability_url"`
+	HasSetThisWeekAvail bool          `json:"has_set_this_week_avail"`
+	ThisWeekAvailCount  int           `json:"this_week_avail_count"`
+}
+
 // GetDashboardData retrieves data for the admin dashboard
 func (s *Service) GetDashboardData(user *models.User) (*DashboardData, error) {
 	ctx := context.Background()
@@ -264,6 +272,73 @@ func (s *Service) GetFilteredPlayers(query string, activeFilter string, seasonID
 	}
 
 	return players, nil
+}
+
+// GetFilteredPlayersWithAvailability retrieves players with availability information
+func (s *Service) GetFilteredPlayersWithAvailability(query string, activeFilter string, seasonID uint) ([]PlayerWithAvailabilityInfo, error) {
+	ctx := context.Background()
+
+	var players []models.Player
+	var err error
+
+	// Just search based on query, ignore activeFilter as it's no longer relevant
+	if query != "" {
+		players, err = s.playerRepository.SearchPlayers(ctx, query)
+	} else {
+		players, err = s.playerRepository.FindAll(ctx)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Get current week date range
+	weekStart, weekEnd := s.getCurrentWeekDateRange()
+
+	// Convert to PlayerWithAvailabilityInfo
+	var playersWithAvailInfo []PlayerWithAvailabilityInfo
+	for _, player := range players {
+		playerWithAvail := PlayerWithAvailabilityInfo{
+			Player:              player,
+			HasAvailabilityURL:  player.FantasyMatchID != nil,
+			HasSetThisWeekAvail: false,
+			ThisWeekAvailCount:  0,
+		}
+
+		// Check if player has set availability for this week
+		if availRecords, err := s.availabilityRepository.GetPlayerAvailabilityByDateRange(ctx, player.ID, weekStart, weekEnd); err == nil {
+			playerWithAvail.HasSetThisWeekAvail = len(availRecords) > 0
+			playerWithAvail.ThisWeekAvailCount = len(availRecords)
+		}
+
+		playersWithAvailInfo = append(playersWithAvailInfo, playerWithAvail)
+	}
+
+	return playersWithAvailInfo, nil
+}
+
+// getCurrentWeekDateRange returns the start and end dates of the current week (Monday to Sunday)
+func (s *Service) getCurrentWeekDateRange() (time.Time, time.Time) {
+	now := time.Now()
+
+	// Get the day of the week (0=Sunday, 1=Monday, etc.)
+	dayOfWeek := int(now.Weekday())
+
+	// Calculate days since Monday (convert Sunday=0 to Sunday=6)
+	if dayOfWeek == 0 {
+		dayOfWeek = 7
+	}
+	daysSinceMonday := dayOfWeek - 1
+
+	// Get start of week (Monday)
+	weekStart := now.AddDate(0, 0, -daysSinceMonday)
+	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+
+	// Get end of week (Sunday)
+	weekEnd := weekStart.AddDate(0, 0, 6)
+	weekEnd = time.Date(weekEnd.Year(), weekEnd.Month(), weekEnd.Day(), 23, 59, 59, 999999999, weekEnd.Location())
+
+	return weekStart, weekEnd
 }
 
 // filterPlayersByQuery performs client-side filtering of players by search query

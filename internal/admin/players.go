@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -34,6 +35,17 @@ func (h *PlayersHandler) HandlePlayers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if this is an availability URL request
+	if strings.Contains(r.URL.Path, "/generate-availability-url") {
+		h.handleGenerateAvailabilityURL(w, r)
+		return
+	}
+
+	if strings.Contains(r.URL.Path, "/availability-url") {
+		h.handleGetAvailabilityURL(w, r)
+		return
+	}
+
 	// Get user from context
 	user, err := getUserFromContext(r)
 	if err != nil {
@@ -62,8 +74,8 @@ func (h *PlayersHandler) handlePlayersGet(w http.ResponseWriter, r *http.Request
 		activeFilter = "all"
 	}
 
-	// Get filtered players from the service
-	players, err := h.service.GetFilteredPlayers(query, activeFilter, 1) // Using season 1 for now
+	// Get filtered players with availability information from the service
+	playersWithAvail, err := h.service.GetFilteredPlayersWithAvailability(query, activeFilter, 1) // Using season 1 for now
 	if err != nil {
 		logAndError(w, "Failed to load players", err, http.StatusInternalServerError)
 		return
@@ -82,7 +94,7 @@ func (h *PlayersHandler) handlePlayersGet(w http.ResponseWriter, r *http.Request
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
 		"User":         user,
-		"Players":      players,
+		"Players":      playersWithAvail,
 		"SearchQuery":  query,
 		"ActiveFilter": activeFilter,
 	}); err != nil {
@@ -368,8 +380,8 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 		activeFilter = "all"
 	}
 
-	// Get filtered players from the service
-	players, err := h.service.GetFilteredPlayers(query, activeFilter, 1) // Using season 1 for now
+	// Get filtered players with availability information from the service
+	playersWithAvail, err := h.service.GetFilteredPlayersWithAvailability(query, activeFilter, 1) // Using season 1 for now
 	if err != nil {
 		logAndError(w, "Failed to load players", err, http.StatusInternalServerError)
 		return
@@ -379,27 +391,156 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "text/html")
 
 	// Generate table rows HTML
-	if len(players) > 0 {
-		for _, player := range players {
+	if len(playersWithAvail) > 0 {
+		for _, playerWithAvail := range playersWithAvail {
 			// No more active/inactive distinction - all players get the same styling
 			activeClass := "player-active"
+
+			// Format availability status
+			availStatusIcon := "❌"
+			if playerWithAvail.HasSetThisWeekAvail {
+				availStatusIcon = "✅"
+			}
+
+			// Format action button
+			actionButton := ""
+			if playerWithAvail.HasAvailabilityURL {
+				actionButton = fmt.Sprintf(`<button class="btn-copy-url" onclick="copyAvailabilityURL('%s', this)">📋 Copy</button>`, playerWithAvail.Player.ID)
+			} else {
+				actionButton = fmt.Sprintf(`<button class="btn-generate-url" onclick="generateAvailabilityURL('%s', this)">🔗 Generate</button>`, playerWithAvail.Player.ID)
+			}
 
 			w.Write([]byte(fmt.Sprintf(`
 				<tr data-player-id="%s" data-player-name="%s %s" class="%s">
 					<td class="col-name">
 						<a href="/admin/players/%s/edit" class="row-link">%s %s</a>
 					</td>
+					<td class="col-availability">
+						%s
+					</td>
+					<td class="col-action">
+						%s
+					</td>
 				</tr>
-			`, player.ID, player.FirstName, player.LastName, activeClass,
-				player.ID, player.FirstName, player.LastName)))
+			`, playerWithAvail.Player.ID, playerWithAvail.Player.FirstName, playerWithAvail.Player.LastName, activeClass,
+				playerWithAvail.Player.ID, playerWithAvail.Player.FirstName, playerWithAvail.Player.LastName,
+				availStatusIcon, actionButton)))
 		}
 	} else {
 		w.Write([]byte(`
 			<tr>
-				<td colspan="1" style="text-align: center; padding: 2rem;">
+				<td colspan="3" style="text-align: center; padding: 2rem;">
 					No players found matching your criteria.
 				</td>
 			</tr>
 		`))
 	}
+}
+
+// handleGenerateAvailabilityURL handles POST requests to generate availability URLs
+func (h *PlayersHandler) handleGenerateAvailabilityURL(w http.ResponseWriter, r *http.Request) {
+	// Get user from context for authentication
+	_, err := getUserFromContext(r)
+	if err != nil {
+		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
+		return
+	}
+
+	// Only handle POST requests
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract player ID from URL path
+	// Path format: /admin/players/{id}/generate-availability-url
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/players/"), "/")
+	if len(pathParts) < 2 || pathParts[0] == "" {
+		http.Error(w, "Invalid player URL", http.StatusBadRequest)
+		return
+	}
+	playerID := pathParts[0]
+
+	// Generate and assign a random fantasy doubles pairing
+	fantasyDetail, err := h.service.GenerateAndAssignRandomFantasyMatch(playerID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	// Construct the availability URL
+	availabilityURL := fmt.Sprintf("%s/my-availability/%s", getBaseURL(r), fantasyDetail.Match.AuthToken)
+
+	// Return the URL as JSON
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"url": availabilityURL})
+}
+
+// handleGetAvailabilityURL handles GET requests to retrieve existing availability URLs
+func (h *PlayersHandler) handleGetAvailabilityURL(w http.ResponseWriter, r *http.Request) {
+	// Get user from context for authentication
+	_, err := getUserFromContext(r)
+	if err != nil {
+		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
+		return
+	}
+
+	// Only handle GET requests
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract player ID from URL path
+	// Path format: /admin/players/{id}/availability-url
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/players/"), "/")
+	if len(pathParts) < 2 || pathParts[0] == "" {
+		http.Error(w, "Invalid player URL", http.StatusBadRequest)
+		return
+	}
+	playerID := pathParts[0]
+
+	// Get the player
+	player, err := h.service.GetPlayerByID(playerID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Player not found"})
+		return
+	}
+
+	// Check if player has a fantasy match assigned
+	if player.FantasyMatchID == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "No availability URL generated for this player"})
+		return
+	}
+
+	// Get the fantasy match details
+	fantasyDetail, err := h.service.GetFantasyDoublesDetailByID(*player.FantasyMatchID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to get fantasy match details"})
+		return
+	}
+
+	// Construct the availability URL
+	availabilityURL := fmt.Sprintf("%s/my-availability/%s", getBaseURL(r), fantasyDetail.Match.AuthToken)
+
+	// Return the URL as JSON
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"url": availabilityURL})
+}
+
+// getBaseURL extracts the base URL from the request
+func getBaseURL(r *http.Request) string {
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	return fmt.Sprintf("%s://%s", scheme, r.Host)
 }

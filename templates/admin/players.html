@@ -133,6 +133,40 @@
             min-width: 80px;
         }
         
+        /* Availability columns */
+        .col-availability {
+            min-width: 90px;
+            text-align: center;
+        }
+        
+        .col-action {
+            min-width: 100px;
+            text-align: center;
+        }
+        
+        .btn-copy-url,
+        .btn-generate-url {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .btn-copy-url:hover,
+        .btn-generate-url:hover {
+            background: #2c5530;
+        }
+        
+        .btn-copy-url:disabled,
+        .btn-generate-url:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
         /* Mobile responsiveness */
         @media (max-width: 768px) {
             .players-table th,
@@ -147,6 +181,14 @@
             
             .col-club {
                 max-width: 150px;
+            }
+            
+            .col-availability {
+                min-width: 80px;
+            }
+            
+            .col-action {
+                min-width: 90px;
             }
         }
         
@@ -164,6 +206,21 @@
             
             .col-club {
                 max-width: 120px;
+            }
+            
+            .col-availability {
+                min-width: 70px;
+                font-size: 0.8rem;
+            }
+            
+            .col-action {
+                min-width: 75px;
+            }
+            
+            .btn-copy-url,
+            .btn-generate-url {
+                padding: 3px 6px;
+                font-size: 9px;
             }
         }
     </style>
@@ -196,20 +253,40 @@
             <thead>
                 <tr>
                     <th class="col-name">Name</th>
+                    <th class="col-availability">This Week</th>
+                    <th class="col-action">URL</th>
                 </tr>
             </thead>
             <tbody id="players-tbody">
                 {{if .Players}}
                     {{range .Players}}
-                    <tr data-player-id="{{.ID}}" data-player-name="{{.FirstName}} {{.LastName}}" class="player-active">
+                    <tr data-player-id="{{.Player.ID}}" data-player-name="{{.Player.FirstName}} {{.Player.LastName}}" class="player-active">
                         <td class="col-name">
-                            <a href="/admin/players/{{.ID}}/edit" class="row-link">{{.FirstName}} {{.LastName}}</a>
+                            <a href="/admin/players/{{.Player.ID}}/edit" class="row-link">{{.Player.FirstName}} {{.Player.LastName}}</a>
+                        </td>
+                        <td class="col-availability">
+                            {{if .HasSetThisWeekAvail}}
+                                ✅
+                            {{else}}
+                                ❌
+                            {{end}}
+                        </td>
+                        <td class="col-action">
+                            {{if .HasAvailabilityURL}}
+                                <button class="btn-copy-url" onclick="copyAvailabilityURL('{{.Player.ID}}', this)">
+                                    📋 Copy
+                                </button>
+                            {{else}}
+                                <button class="btn-generate-url" onclick="generateAvailabilityURL('{{.Player.ID}}', this)">
+                                    🔗 Generate
+                                </button>
+                            {{end}}
                         </td>
                     </tr>
                     {{end}}
                 {{else}}
                     <tr>
-                        <td colspan="1" style="text-align: center; padding: 2rem;">
+                        <td colspan="3" style="text-align: center; padding: 2rem;">
                             No players found. <a href="/admin/players/new">Add the first player</a>
                         </td>
                     </tr>
@@ -228,6 +305,128 @@
                 document.getElementById('search').value = '';
             }
         });
+        
+        // Generate availability URL for a player
+        async function generateAvailabilityURL(playerID, button) {
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '⏳ Generating...';
+            
+            try {
+                const response = await fetch(`/admin/players/${playerID}/generate-availability-url`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Copy URL to clipboard
+                    await navigator.clipboard.writeText(data.url);
+                    
+                    // Update button to copy mode
+                    button.innerHTML = '📋 Copy';
+                    button.className = 'btn-copy-url';
+                    button.onclick = function() { copyAvailabilityURL(playerID, this); };
+                    
+                    // Show success message
+                    showMessage('✅ URL generated and copied to clipboard!', 'success');
+                } else {
+                    const errorData = await response.json();
+                    showMessage(`❌ Error: ${errorData.error || 'Failed to generate URL'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error generating URL:', error);
+                showMessage('❌ Network error. Please try again.', 'error');
+            } finally {
+                button.disabled = false;
+                if (button.innerHTML.includes('Generating')) {
+                    button.innerHTML = originalText;
+                }
+            }
+        }
+        
+        // Copy existing availability URL for a player
+        async function copyAvailabilityURL(playerID, button) {
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '⏳ Getting URL...';
+            
+            try {
+                const response = await fetch(`/admin/players/${playerID}/availability-url`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Copy URL to clipboard
+                    await navigator.clipboard.writeText(data.url);
+                    
+                    // Show success message
+                    showMessage('✅ URL copied to clipboard!', 'success');
+                } else {
+                    const errorData = await response.json();
+                    showMessage(`❌ Error: ${errorData.error || 'Failed to get URL'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error copying URL:', error);
+                showMessage('❌ Network error. Please try again.', 'error');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        }
+        
+        // Show temporary message to user
+        function showMessage(message, type) {
+            // Remove any existing messages
+            const existingMessage = document.querySelector('.temp-message');
+            if (existingMessage) {
+                existingMessage.remove();
+            }
+            
+            // Create message element
+            const messageEl = document.createElement('div');
+            messageEl.className = `temp-message temp-message-${type}`;
+            messageEl.innerHTML = message;
+            messageEl.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                border-radius: 6px;
+                color: white;
+                font-weight: 600;
+                z-index: 1000;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+                background: ${type === 'success' ? '#28a745' : '#dc3545'};
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            `;
+            
+            document.body.appendChild(messageEl);
+            
+            // Fade in
+            setTimeout(() => {
+                messageEl.style.opacity = '1';
+            }, 10);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                messageEl.style.opacity = '0';
+                setTimeout(() => {
+                    if (messageEl.parentNode) {
+                        messageEl.parentNode.removeChild(messageEl);
+                    }
+                }, 300);
+            }, 3000);
+        }
     </script>
 </body>
 </html> 
