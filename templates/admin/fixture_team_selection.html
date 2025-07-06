@@ -110,6 +110,9 @@
             margin-bottom: 1rem;
             min-height: 120px;
             transition: all 0.3s ease;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
         }
         
         .selected-players-zone.drag-over {
@@ -137,11 +140,19 @@
             padding: 0.5rem 0.75rem;
             cursor: move;
             user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
             transition: all 0.2s;
             position: relative;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 0.5rem;
+        }
+        
+        .player-card > span {
+            flex: 1;
+            word-wrap: break-word;
+            line-height: 1.2;
         }
         
         .player-card:hover {
@@ -151,6 +162,9 @@
         
         .player-card.dragging {
             opacity: 0.5;
+            user-select: none !important;
+            -webkit-user-select: none !important;
+            -webkit-touch-callout: none !important;
         }
         
         .player-remove-btn {
@@ -166,6 +180,8 @@
             align-items: center;
             justify-content: center;
             margin-left: auto;
+            flex-shrink: 0;
+            align-self: flex-start;
         }
         
         .player-remove-btn:hover {
@@ -191,11 +207,25 @@
         
         /* Remove drag styling from matchup zone player cards */
         .matchup-zone .player-card {
-            cursor: default !important;
+            cursor: pointer !important;
         }
         
         .matchup-zone .player-card:hover {
             transform: none !important;
+            background: #f8d7da;
+            border-color: #dc3545;
+        }
+        
+        .matchup-zone .player-card::after {
+            content: "✕";
+            color: #dc3545;
+            font-size: 12px;
+            margin-left: auto;
+            opacity: 0.7;
+        }
+        
+        .matchup-zone .player-card:hover::after {
+            opacity: 1;
         }
         
         .matchup-zones-section {
@@ -221,6 +251,9 @@
             min-height: 80px;
             transition: all 0.3s ease;
             position: relative;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
         }
         
         .matchup-zone.drag-over {
@@ -240,11 +273,6 @@
             right: 0.5rem;
             font-size: 0.8rem;
             color: #6c757d;
-        }
-        
-        .matchup-zone.full {
-            border-color: #ffc107;
-            background: #fff3cd;
         }
         
         .matchup-zone.over-limit {
@@ -487,30 +515,200 @@
             display: block;
         }
         
-        @media (max-width: 768px) {
+        @media (max-width: 1024px) {
             .combined-layout {
-                grid-template-columns: 1fr;
-                gap: 1rem;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.25rem;
             }
             
             .fixture-title {
-                font-size: 1.3rem;
+                font-size: 1.2rem;
+                margin: 0 0 0.25rem 0;
             }
             
             .teams-vs {
-                font-size: 1rem;
+                font-size: 0.95rem;
+                margin: 0 0 0.25rem 0;
+            }
+            
+            .fixture-date {
+                font-size: 0.85rem;
+                margin: 0;
+            }
+            
+            .admin-content {
+                padding: 0 0.25rem;
+            }
+            
+            .team-selection-container {
+                padding: 0.5rem;
+                margin-bottom: 0.5rem;
+            }
+            
+            .team-selection-section,
+            .matchup-zones-section,
+            .available-players-section {
+                padding: 0.5rem;
+                margin-bottom: 0.25rem;
+            }
+            
+            .selected-players-zone,
+            .matchup-zone {
+                padding: 0.3rem;
+                min-height: 50px;
+                margin-bottom: 0.25rem;
             }
             
             .player-card {
-                touch-action: none;
+                touch-action: pan-y; /* Allow vertical scrolling */
+                padding: 0.3rem 0.5rem;
+                font-size: 0.85rem;
+                margin-bottom: 0.2rem;
+            }
+            
+            .player-remove-btn {
+                width: 22px;
+                height: 22px;
+                font-size: 12px;
+                touch-action: manipulation; /* Improve touch responsiveness */
+                flex-shrink: 0;
+                align-self: flex-start;
             }
             
             .player-buttons {
                 flex-direction: column;
+                gap: 0.2rem;
             }
             
             .btn-add-player {
                 text-align: center;
+                padding: 0.5rem;
+                font-size: 0.85rem;
+                touch-action: manipulation;
+            }
+            
+            .fixture-summary {
+                padding-bottom: 0.5rem;
+                margin-bottom: 0.5rem;
+            }
+            
+            .progress-indicator {
+                padding: 0.3rem;
+                margin-bottom: 0.5rem;
+            }
+            
+            .availability-legend,
+            .eligibility-legend {
+                padding: 0.5rem;
+                margin-bottom: 0.5rem;
+                font-size: 0.9rem;
+            }
+            
+            .legend-item {
+                display: block;
+                margin-bottom: 0.4rem;
+            }
+            
+            .player-group {
+                margin-bottom: 1rem;
+            }
+            
+            .player-group h4 {
+                margin-bottom: 0.5rem;
+                font-size: 0.9rem;
+            }
+            
+            /* Smaller headers on mobile */
+            .team-selection-section h3,
+            .matchup-zones-section h3,
+            .available-players-section h3 {
+                font-size: 0.9rem;
+                margin: 0 0 0.3rem 0;
+                font-weight: 600;
+            }
+            
+            .matchup-zone h4 {
+                font-size: 0.8rem;
+                margin: 0 0 0.2rem 0;
+            }
+            
+            .selected-players-zone h4 {
+                display: none; /* Hide "Selected Players" title on mobile */
+            }
+            
+            /* Mobile-specific drag feedback */
+            .player-card.mobile-drag-ready {
+                background: #e3f2fd;
+                transform: scale(1.02);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                user-select: none !important;
+                -webkit-user-select: none !important;
+                -webkit-touch-callout: none !important;
+            }
+            
+            .drag-instruction {
+                position: fixed;
+                top: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(0,0,0,0.8);
+                color: white;
+                padding: 0.3rem 0.8rem;
+                border-radius: 4px;
+                font-size: 0.75rem;
+                z-index: 1000;
+                display: none;
+            }
+            
+            .drag-instruction.show {
+                display: block;
+            }
+            
+            .drag-instruction-text {
+                font-size: 0.75rem !important;
+                margin-top: 0.3rem !important;
+            }
+        }
+        
+        /* Even more compact for landscape mobile */
+        @media (max-width: 768px) and (orientation: landscape) {
+            .fixture-summary {
+                padding-bottom: 0.3rem;
+                margin-bottom: 0.3rem;
+            }
+            
+            .fixture-title {
+                font-size: 1.1rem;
+            }
+            
+            .teams-vs {
+                font-size: 0.9rem;
+            }
+            
+            .fixture-date {
+                font-size: 0.8rem;
+            }
+            
+            .progress-indicator {
+                padding: 0.2rem;
+                margin-bottom: 0.3rem;
+            }
+            
+            .team-selection-section,
+            .matchup-zones-section,
+            .available-players-section {
+                padding: 0.3rem;
+            }
+            
+            .selected-players-zone,
+            .matchup-zone {
+                padding: 0.2rem;
+                min-height: 40px;
+            }
+            
+            .player-card {
+                padding: 0.25rem 0.4rem;
+                font-size: 0.8rem;
             }
         }
     </style>
@@ -598,11 +796,16 @@
                                     </div>
                                     {{end}}
                                 {{else}}
-                                    <div class="no-selection">Drag players here to select them for the team</div>
-                                {{end}}
-                            </div>
-                        </div>
-                    </div>
+                                                            <div class="no-selection">Drag players here to select them for the team</div>
+                    {{end}}
+                </div>
+                {{if .FixtureDetail.SelectedPlayers}}
+                <div class="drag-instruction-text" style="text-align: center; font-size: 0.85rem; color: #6c757d; margin-top: 0.5rem; font-style: italic;">
+                    💡 Drag players to matchup assignments →
+                </div>
+                {{end}}
+            </div>
+        </div>
 
                     <div class="matchup-zones-section">
                         <h3>🎾 Matchup Assignments</h3>
@@ -618,13 +821,14 @@
                                 {{range .FixtureDetail.Matchups}}
                                     {{if eq .Matchup.Type "1st Mixed"}}
                                         {{range .Players}}
-                                                                    <div class="player-card availability-unknown" 
+                                                                                                <div class="player-card availability-unknown" 
                                  data-player-id="{{.Player.ID}}"
                                  data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
-                                 data-availability="unknown">
-                                            <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
-                                            <button class="player-remove-btn" onclick="removePlayer('{{.Player.ID}}', '1st Mixed')" title="Remove from matchup">×</button>
-                                        </div>
+                                 data-availability="unknown"
+                                 onclick="removePlayer('{{.Player.ID}}', '1st Mixed')" 
+                                 title="Tap to remove from matchup">
+                                <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                            </div>
                                         {{end}}
                                     {{end}}
                                 {{end}}
@@ -642,13 +846,14 @@
                                 {{range .FixtureDetail.Matchups}}
                                     {{if eq .Matchup.Type "2nd Mixed"}}
                                         {{range .Players}}
-                                                                    <div class="player-card availability-unknown" 
+                                                                                                <div class="player-card availability-unknown" 
                                  data-player-id="{{.Player.ID}}"
                                  data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
-                                 data-availability="unknown">
-                                            <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
-                                            <button class="player-remove-btn" onclick="removePlayer('{{.Player.ID}}', '2nd Mixed')" title="Remove from matchup">×</button>
-                                        </div>
+                                 data-availability="unknown"
+                                 onclick="removePlayer('{{.Player.ID}}', '2nd Mixed')" 
+                                 title="Tap to remove from matchup">
+                                <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                            </div>
                                         {{end}}
                                     {{end}}
                                 {{end}}
@@ -666,13 +871,14 @@
                                 {{range .FixtureDetail.Matchups}}
                                     {{if eq .Matchup.Type "Mens"}}
                                         {{range .Players}}
-                                                                    <div class="player-card availability-unknown" 
+                                                                                                <div class="player-card availability-unknown" 
                                  data-player-id="{{.Player.ID}}"
                                  data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
-                                 data-availability="unknown">
-                                            <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
-                                            <button class="player-remove-btn" onclick="removePlayer('{{.Player.ID}}', 'Mens')" title="Remove from matchup">×</button>
-                                        </div>
+                                 data-availability="unknown"
+                                 onclick="removePlayer('{{.Player.ID}}', 'Mens')" 
+                                 title="Tap to remove from matchup">
+                                <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                            </div>
                                         {{end}}
                                     {{end}}
                                 {{end}}
@@ -690,13 +896,14 @@
                                 {{range .FixtureDetail.Matchups}}
                                     {{if eq .Matchup.Type "Womens"}}
                                         {{range .Players}}
-                                                                    <div class="player-card availability-unknown" 
+                                                                                                <div class="player-card availability-unknown" 
                                  data-player-id="{{.Player.ID}}"
                                  data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
-                                 data-availability="unknown">
-                                            <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
-                                            <button class="player-remove-btn" onclick="removePlayer('{{.Player.ID}}', 'Womens')" title="Remove from matchup">×</button>
-                                        </div>
+                                 data-availability="unknown"
+                                 onclick="removePlayer('{{.Player.ID}}', 'Womens')" 
+                                 title="Tap to remove from matchup">
+                                <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                            </div>
                                         {{end}}
                                     {{end}}
                                 {{end}}
@@ -824,6 +1031,11 @@
         let touchStartPos = null;
         let touchTarget = null;
         let isDragging = false;
+        let touchStartTime = null;
+        let longPressTimer = null;
+        let isLongPress = false;
+        
+        const LONG_PRESS_DURATION = 50; // Very short delay for mobile responsiveness
         
         // Configuration
         const FIXTURE_ID = window.FIXTURE_ID;
@@ -885,25 +1097,62 @@
             document.addEventListener('touchstart', handleTouchStart, { passive: false });
             document.addEventListener('touchmove', handleTouchMove, { passive: false });
             document.addEventListener('touchend', handleTouchEnd, { passive: false });
+            document.addEventListener('touchcancel', resetTouchState, { passive: false });
+            
+            // Reset touch state if page loses focus
+            window.addEventListener('blur', resetTouchState);
+            window.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    resetTouchState();
+                }
+            });
         }
         
         function handleTouchStart(event) {
             // Don't interfere with remove button clicks
             if (event.target.closest('.player-remove-btn')) {
+                console.log('Touch on remove button - ignoring');
                 return;
             }
             
             const target = event.target.closest('.player-card');
             if (!target) return;
             
+            // Don't interfere with matchup zone player cards (they're clickable, not draggable)
+            if (target.closest('.matchup-zone')) {
+                console.log('Touch on matchup zone player card - ignoring for drag');
+                return;
+            }
+            
+            console.log('Touch started on player card:', target.dataset.playerName);
+            
             touchStartPos = {
                 x: event.touches[0].clientX,
                 y: event.touches[0].clientY
             };
             touchTarget = target;
+            touchStartTime = Date.now();
+            isLongPress = false;
+            isDragging = false;
             
-            // Prevent default to avoid scrolling
-            event.preventDefault();
+            // Clear any existing timer
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+            }
+            
+            // Very short delay to differentiate from accidental touches
+            longPressTimer = setTimeout(() => {
+                isLongPress = true;
+                touchTarget.classList.add('mobile-drag-ready');
+                console.log('Long press detected - ready to drag');
+                
+                // Haptic feedback if available
+                if (navigator.vibrate) {
+                    navigator.vibrate(30);
+                }
+            }, LONG_PRESS_DURATION);
+            
+            // Don't prevent default immediately - allow scrolling
         }
         
         function handleTouchMove(event) {
@@ -917,14 +1166,30 @@
             const touch = event.touches[0];
             const deltaX = touch.clientX - touchStartPos.x;
             const deltaY = touch.clientY - touchStartPos.y;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
             
-            // Start dragging if moved enough
-            if (!isDragging && (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10)) {
-                isDragging = true;
-                touchTarget.classList.add('dragging');
-                
-                // Create a visual feedback
-                touchTarget.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+            // Start dragging immediately on any movement after short delay or if already in long press
+            if (isLongPress || Date.now() - touchStartTime > LONG_PRESS_DURATION) {
+                if (!isDragging) {
+                    // Start dragging immediately
+                    console.log('Starting drag for player:', touchTarget.dataset.playerName, 'distance:', distance);
+                    isDragging = true;
+                    isLongPress = true; // Force long press state
+                    touchTarget.classList.add('dragging', 'mobile-drag-ready');
+                    
+                    // Prevent scrolling once drag starts
+                    event.preventDefault();
+                    
+                    // Clear any pending timer
+                    if (longPressTimer) {
+                        clearTimeout(longPressTimer);
+                    }
+                    
+                    // Haptic feedback if available
+                    if (navigator.vibrate) {
+                        navigator.vibrate(30);
+                    }
+                }
             }
             
             if (isDragging) {
@@ -946,16 +1211,22 @@
         function handleTouchEnd(event) {
             if (!touchTarget) return;
             
+            // Clear long press timer
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            
             // Don't interfere with remove button clicks
             if (event.target.closest('.player-remove-btn')) {
+                console.log('Touch ended on remove button - allowing click');
                 // Reset touch state and let the button click work normally
-                touchTarget = null;
-                touchStartPos = null;
-                isDragging = false;
+                resetTouchState();
                 return;
             }
             
             if (isDragging) {
+                console.log('Touch ended while dragging player:', touchTarget.dataset.playerName);
                 const touch = event.changedTouches[0];
                 const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
                 const dropZone = elementBelow ? elementBelow.closest('.selected-players-zone, .matchup-zone') : null;
@@ -966,21 +1237,22 @@
                     const source = getPlayerSource(touchTarget);
                     const target = getDropZoneTarget(dropZone);
                     
+                    console.log('Dropping player:', playerName, 'from:', source, 'to:', target);
+                    
                     if (source !== target) {
                         movePlayer(playerId, playerName, source, target);
+                    } else {
+                        console.log('Same source and target - no move needed');
                     }
+                } else {
+                    console.log('No valid drop zone found');
                 }
-                
-                // Reset visual state
-                touchTarget.style.transform = '';
-                touchTarget.classList.remove('dragging');
-                document.querySelectorAll('.drag-over').forEach(zone => zone.classList.remove('drag-over'));
+            } else {
+                console.log('Touch ended without drag - normal tap');
             }
             
-            // Reset touch state
-            touchTarget = null;
-            touchStartPos = null;
-            isDragging = false;
+            // Reset visual state
+            resetTouchState();
         }
         
         function getPlayerSource(element) {
@@ -999,6 +1271,44 @@
                 return zone.dataset.matchupType;
             }
             return null;
+        }
+        
+        function resetTouchState() {
+            if (touchTarget) {
+                touchTarget.style.transform = '';
+                touchTarget.classList.remove('dragging', 'mobile-drag-ready');
+            }
+            document.querySelectorAll('.drag-over').forEach(zone => zone.classList.remove('drag-over'));
+            hideDragInstruction();
+            
+            touchTarget = null;
+            touchStartPos = null;
+            isDragging = false;
+            isLongPress = false;
+            touchStartTime = null;
+            
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        }
+        
+        function showDragInstruction() {
+            let instruction = document.querySelector('.drag-instruction');
+            if (!instruction) {
+                instruction = document.createElement('div');
+                instruction.className = 'drag-instruction';
+                instruction.textContent = 'Drag to move player';
+                document.body.appendChild(instruction);
+            }
+            instruction.classList.add('show');
+        }
+        
+        function hideDragInstruction() {
+            const instruction = document.querySelector('.drag-instruction');
+            if (instruction) {
+                instruction.classList.remove('show');
+            }
         }
         
         // Player movement functions
@@ -1071,19 +1381,29 @@
         function createPlayerCard(playerId, playerName, availability, context) {
             const div = document.createElement('div');
             div.className = `player-card availability-${availability}`;
-            div.draggable = true;
             div.dataset.playerId = playerId;
             div.dataset.playerName = playerName;
             div.dataset.availability = availability;
             
-            div.ondragstart = function(e) { 
-                handleDragStart(e, playerId, playerName, context); 
-            };
-            
-            div.innerHTML = `
-                <span>${playerName}</span>
-                <button class="player-remove-btn" onclick="removePlayer('${playerId}', '${context}')" title="Remove">×</button>
-            `;
+            if (context === 'selected') {
+                // Selected players zone - enable drag and add remove button
+                div.draggable = true;
+                div.ondragstart = function(e) { 
+                    handleDragStart(e, playerId, playerName, context); 
+                };
+                div.innerHTML = `
+                    <span>${playerName}</span>
+                    <button class="player-remove-btn" onclick="removePlayer('${playerId}', '${context}')" title="Remove">×</button>
+                `;
+            } else {
+                // Matchup zones - no drag, click to remove
+                div.draggable = false;
+                div.onclick = function() { 
+                    removePlayer(playerId, context); 
+                };
+                div.title = "Tap to remove from matchup";
+                div.innerHTML = `<span>${playerName}</span>`;
+            }
             
             return div;
         }
@@ -1097,9 +1417,7 @@
             
             // Update zone styling based on player count
             zone.classList.remove('full', 'over-limit');
-            if (count === 2) {
-                zone.classList.add('full');
-            } else if (count > 2) {
+            if (count > 2) {
                 zone.classList.add('over-limit');
             }
         }
@@ -1245,7 +1563,22 @@
                 zone.addEventListener('dragleave', handleDragLeave);
             });
             
+            // Add visual feedback for mobile users
+            if (window.innerWidth <= 768) {
+                console.log('Mobile device detected - using touch-optimized drag and drop');
+            }
+            
             console.log('Team selection with drag and drop initialized');
+        });
+        
+        // Also run when HTMX updates the content
+        document.addEventListener('htmx:afterSwap', function(event) {
+            // Only run if the team-selection-container was updated
+            if (event.target.classList && event.target.classList.contains('team-selection-container')) {
+                console.log('HTMX updated team selection container - updating matchup limits');
+                // Update immediately without delay to prevent flicker
+                document.querySelectorAll('.matchup-zone').forEach(updateMatchupLimit);
+            }
         });
     </script>
 </body>

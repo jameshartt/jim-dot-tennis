@@ -12,6 +12,8 @@
     align-items: center;
     justify-content: center;
     margin-left: auto;
+    flex-shrink: 0;
+    align-self: flex-start;
 }
 
 .player-remove-btn:hover {
@@ -25,11 +27,19 @@
     padding: 0.5rem 0.75rem;
     cursor: move;
     user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
     transition: all 0.2s;
     position: relative;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.5rem;
+}
+
+.player-card > span {
+    flex: 1;
+    word-wrap: break-word;
+    line-height: 1.2;
 }
 
 .player-card:hover {
@@ -55,11 +65,25 @@
 
 /* Remove drag styling from matchup zone player cards */
 .matchup-zone .player-card {
-    cursor: default !important;
+    cursor: pointer !important;
 }
 
 .matchup-zone .player-card:hover {
     transform: none !important;
+    background: #f8d7da;
+    border-color: #dc3545;
+}
+
+.matchup-zone .player-card::after {
+    content: "✕";
+    color: #dc3545;
+    font-size: 12px;
+    margin-left: auto;
+    opacity: 0.7;
+}
+
+.matchup-zone .player-card:hover::after {
+    opacity: 1;
 }
 
 .btn-warning {
@@ -71,6 +95,26 @@
 
 .btn-warning:hover {
     background: #e8590c !important;
+}
+
+/* Mobile optimizations for instruction text and legends */
+@media (max-width: 1024px) {
+    .drag-instruction-text {
+        font-size: 0.75rem !important;
+        margin-top: 0.3rem !important;
+    }
+    
+    .availability-legend,
+    .eligibility-legend {
+        padding: 0.5rem !important;
+        margin-bottom: 0.5rem !important;
+        font-size: 0.9rem !important;
+    }
+    
+    .legend-item {
+        display: block !important;
+        margin-bottom: 0.4rem !important;
+    }
 }
 </style>
 
@@ -133,6 +177,11 @@
                         <div class="no-selection">Drag players here to select them for the team</div>
                     {{end}}
                 </div>
+                {{if .FixtureDetail.SelectedPlayers}}
+                <div class="drag-instruction-text" style="text-align: center; font-size: 0.85rem; color: #6c757d; margin-top: 0.5rem; font-style: italic;">
+                    💡 Drag players to matchup assignments →
+                </div>
+                {{end}}
             </div>
         </div>
 
@@ -153,9 +202,10 @@
                             <div class="player-card availability-unknown" 
                                  data-player-id="{{.Player.ID}}"
                                  data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
-                                 data-availability="unknown">
+                                 data-availability="unknown"
+                                 onclick="removePlayer('{{.Player.ID}}', '1st Mixed')" 
+                                 title="Tap to remove from matchup">
                                 <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
-                                <button class="player-remove-btn" onclick="removePlayer('{{.Player.ID}}', '1st Mixed')" title="Remove from matchup">×</button>
                             </div>
                             {{end}}
                         {{end}}
@@ -177,9 +227,10 @@
                             <div class="player-card availability-unknown" 
                                  data-player-id="{{.Player.ID}}"
                                  data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
-                                 data-availability="unknown">
+                                 data-availability="unknown"
+                                 onclick="removePlayer('{{.Player.ID}}', '2nd Mixed')" 
+                                 title="Tap to remove from matchup">
                                 <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
-                                <button class="player-remove-btn" onclick="removePlayer('{{.Player.ID}}', '2nd Mixed')" title="Remove from matchup">×</button>
                             </div>
                             {{end}}
                         {{end}}
@@ -201,9 +252,10 @@
                             <div class="player-card availability-unknown" 
                                  data-player-id="{{.Player.ID}}"
                                  data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
-                                 data-availability="unknown">
+                                 data-availability="unknown"
+                                 onclick="removePlayer('{{.Player.ID}}', 'Mens')" 
+                                 title="Tap to remove from matchup">
                                 <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
-                                <button class="player-remove-btn" onclick="removePlayer('{{.Player.ID}}', 'Mens')" title="Remove from matchup">×</button>
                             </div>
                             {{end}}
                         {{end}}
@@ -225,9 +277,10 @@
                             <div class="player-card availability-unknown" 
                                  data-player-id="{{.Player.ID}}"
                                  data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
-                                 data-availability="unknown">
+                                 data-availability="unknown"
+                                 onclick="removePlayer('{{.Player.ID}}', 'Womens')" 
+                                 title="Tap to remove from matchup">
                                 <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
-                                <button class="player-remove-btn" onclick="removePlayer('{{.Player.ID}}', 'Womens')" title="Remove from matchup">×</button>
                             </div>
                             {{end}}
                         {{end}}
