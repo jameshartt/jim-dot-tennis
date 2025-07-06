@@ -1298,6 +1298,7 @@ No team selection made yet{{end}}{{end}}{{end}}</div>
                     </div>
                     {{end}}
 
+                    {{if ne .FixtureDetail.Status "Completed"}}
                     <div class="detail-section matchups-section">
                         <h3>🎾 Matchups</h3>
                         
@@ -1382,6 +1383,8 @@ No team selection made yet{{end}}{{end}}{{end}}</div>
                             </a>
                         </div>
                     </div>
+                    {{end}}
+                    {{if ne .FixtureDetail.Status "Completed"}}
                     <div class="detail-section team-selection-section">
                         <h3>👥 Team Selection</h3>
                         
@@ -1414,6 +1417,7 @@ No team selection made yet{{end}}{{end}}{{end}}</div>
                             </a>
                         </div>
                     </div>
+                    {{end}}
                 </div>
             </div>
             {{else}}
