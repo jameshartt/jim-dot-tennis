@@ -131,8 +131,6 @@
                         {{if eq .Matchup.Type "1st Mixed"}}
                             {{range .Players}}
                             <div class="player-card availability-unknown" 
-                                 draggable="true" 
-                                 ondragstart="handleDragStart(event, '{{.Player.ID}}', '{{.Player.FirstName}} {{.Player.LastName}}', '1st Mixed')"
                                  data-player-id="{{.Player.ID}}"
                                  data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
                                  data-availability="unknown">
@@ -157,8 +155,6 @@
                         {{if eq .Matchup.Type "2nd Mixed"}}
                             {{range .Players}}
                             <div class="player-card availability-unknown" 
-                                 draggable="true" 
-                                 ondragstart="handleDragStart(event, '{{.Player.ID}}', '{{.Player.FirstName}} {{.Player.LastName}}', '2nd Mixed')"
                                  data-player-id="{{.Player.ID}}"
                                  data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
                                  data-availability="unknown">
@@ -183,8 +179,6 @@
                         {{if eq .Matchup.Type "Mens"}}
                             {{range .Players}}
                             <div class="player-card availability-unknown" 
-                                 draggable="true" 
-                                 ondragstart="handleDragStart(event, '{{.Player.ID}}', '{{.Player.FirstName}} {{.Player.LastName}}', 'Mens')"
                                  data-player-id="{{.Player.ID}}"
                                  data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
                                  data-availability="unknown">
@@ -209,8 +203,6 @@
                         {{if eq .Matchup.Type "Womens"}}
                             {{range .Players}}
                             <div class="player-card availability-unknown" 
-                                 draggable="true" 
-                                 ondragstart="handleDragStart(event, '{{.Player.ID}}', '{{.Player.FirstName}} {{.Player.LastName}}', 'Womens')"
                                  data-player-id="{{.Player.ID}}"
                                  data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
                                  data-availability="unknown">
