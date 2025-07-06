@@ -1013,6 +1013,14 @@
                 for (let zone of matchupZones) {
                     if (zone.dataset.matchupType === target) {
                         const playersContainer = zone.querySelector('.matchup-players');
+                        
+                        // Check if player is already in this matchup
+                        const existingPlayer = playersContainer.querySelector(`[data-player-id="${playerId}"]`);
+                        if (existingPlayer) {
+                            console.log(`Player ${playerName} is already in ${target} matchup`);
+                            return; // Don't add duplicate
+                        }
+                        
                         playersContainer.appendChild(playerCard);
                         updateMatchupLimit(zone);
                         break;
