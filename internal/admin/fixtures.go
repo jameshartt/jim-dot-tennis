@@ -816,6 +816,10 @@ func (h *FixturesHandler) handleMatchupSelectionPost(w http.ResponseWriter, r *h
 	switch action {
 	case "update_matchup":
 		h.handleUpdateMatchupFromSelection(w, r, fixtureID)
+	case "assign_player":
+		h.handleAssignPlayerToMatchup(w, r, fixtureID)
+	case "remove_player":
+		h.handleRemovePlayerFromMatchup(w, r, fixtureID)
 	default:
 		http.Error(w, "Unknown action", http.StatusBadRequest)
 	}
@@ -882,6 +886,126 @@ func (h *FixturesHandler) handleUpdateMatchupFromSelection(w http.ResponseWriter
 		}
 	}
 
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+}
+
+// handleAssignPlayerToMatchup handles assigning a single player to a matchup
+func (h *FixturesHandler) handleAssignPlayerToMatchup(w http.ResponseWriter, r *http.Request, fixtureID uint) {
+	playerID := r.FormValue("player_id")
+	matchupType := models.MatchupType(r.FormValue("matchup_type"))
+	managingTeamParam := r.FormValue("managing_team_id")
+
+	if playerID == "" {
+		http.Error(w, "Player ID is required", http.StatusBadRequest)
+		return
+	}
+
+	if matchupType == "" {
+		http.Error(w, "Matchup type is required", http.StatusBadRequest)
+		return
+	}
+
+	var matchup *models.Matchup
+	var err error
+
+	// Check if this is for a specific managing team (derby match)
+	if managingTeamParam != "" {
+		managingTeamID, parseErr := strconv.ParseUint(managingTeamParam, 10, 32)
+		if parseErr != nil {
+			http.Error(w, "Invalid managing team ID", http.StatusBadRequest)
+			return
+		}
+		// Use team-aware method for derby matches
+		matchup, err = h.service.GetOrCreateMatchupWithTeam(fixtureID, matchupType, uint(managingTeamID))
+	} else {
+		// Use regular method for non-derby matches
+		matchup, err = h.service.GetOrCreateMatchup(fixtureID, matchupType)
+	}
+
+	if err != nil {
+		logAndError(w, "Failed to get or create matchup", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Add the player to the matchup (supports 3+ players for temporary over-assignment)
+	err = h.service.AddPlayerToMatchup(matchup.ID, playerID, fixtureID)
+	if err != nil {
+		logAndError(w, "Failed to update matchup players", err, http.StatusInternalServerError)
+		return
+	}
+
+	// For HTMX requests, return a success response
+	if r.Header.Get("HX-Request") == "true" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Redirect back to team selection page for non-HTMX requests
+	redirectURL := fmt.Sprintf("/admin/fixtures/%d/team-selection", fixtureID)
+	if managingTeamParam != "" {
+		redirectURL += fmt.Sprintf("?managingTeam=%s", managingTeamParam)
+	}
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+}
+
+// handleRemovePlayerFromMatchup handles removing a player from a matchup
+func (h *FixturesHandler) handleRemovePlayerFromMatchup(w http.ResponseWriter, r *http.Request, fixtureID uint) {
+	playerID := r.FormValue("player_id")
+	matchupType := models.MatchupType(r.FormValue("matchup_type"))
+
+	if playerID == "" {
+		http.Error(w, "Player ID is required", http.StatusBadRequest)
+		return
+	}
+
+	if matchupType == "" {
+		http.Error(w, "Matchup type is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get or create the matchup
+	var matchup *models.Matchup
+	var err error
+
+	// Check if this is for a specific managing team (derby match)
+	managingTeamParam := r.FormValue("managing_team_id")
+	if managingTeamParam != "" {
+		managingTeamID, parseErr := strconv.ParseUint(managingTeamParam, 10, 32)
+		if parseErr != nil {
+			http.Error(w, "Invalid managing team ID", http.StatusBadRequest)
+			return
+		}
+		// Use team-aware method for derby matches
+		matchup, err = h.service.GetOrCreateMatchupWithTeam(fixtureID, matchupType, uint(managingTeamID))
+	} else {
+		// Use regular method for non-derby matches
+		matchup, err = h.service.GetOrCreateMatchup(fixtureID, matchupType)
+	}
+
+	if err != nil {
+		logAndError(w, "Failed to get matchup", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Remove the player from the matchup
+	err = h.service.RemovePlayerFromMatchup(matchup.ID, playerID)
+	if err != nil {
+		logAndError(w, "Failed to update matchup players", err, http.StatusInternalServerError)
+		return
+	}
+
+	// For HTMX requests, return a success response
+	if r.Header.Get("HX-Request") == "true" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Redirect back to team selection page for non-HTMX requests
+	redirectURL := fmt.Sprintf("/admin/fixtures/%d/team-selection", fixtureID)
+	managingTeamParam = r.FormValue("managing_team_id")
+	if managingTeamParam != "" {
+		redirectURL += fmt.Sprintf("?managingTeam=%s", managingTeamParam)
+	}
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
 

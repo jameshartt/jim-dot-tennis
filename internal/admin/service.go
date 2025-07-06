@@ -2450,3 +2450,71 @@ func (s *Service) getMatchupsForTeam(ctx context.Context, fixtureID uint, managi
 
 	return teamMatchups, nil
 }
+
+// AddPlayerToMatchup adds a single player to a matchup without replacing existing players
+func (s *Service) AddPlayerToMatchup(matchupID uint, playerID string, fixtureID uint) error {
+	ctx := context.Background()
+
+	// Get the fixture to determine if St Ann's is home or away
+	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
+	if err != nil {
+		return err
+	}
+
+	// Find the St Ann's club ID
+	stAnnsClubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil {
+		return err
+	}
+	if len(stAnnsClubs) == 0 {
+		return fmt.Errorf("St Ann's club not found")
+	}
+	stAnnsClubID := stAnnsClubs[0].ID
+
+	// Get home and away teams
+	homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
+	if err != nil {
+		return err
+	}
+
+	awayTeam, err := s.teamRepository.FindByID(ctx, fixture.AwayTeamID)
+	if err != nil {
+		return err
+	}
+
+	// Determine if St Ann's is home or away
+	var isStAnnsHome bool
+	if homeTeam.ClubID == stAnnsClubID {
+		isStAnnsHome = true
+	} else if awayTeam.ClubID == stAnnsClubID {
+		isStAnnsHome = false
+	} else {
+		return fmt.Errorf("no St Ann's team found in this fixture")
+	}
+
+	// Check if player is already in this matchup
+	existingPlayers, err := s.matchupRepository.FindPlayersInMatchup(ctx, matchupID)
+	if err != nil {
+		return err
+	}
+
+	for _, existingPlayer := range existingPlayers {
+		if existingPlayer.PlayerID == playerID {
+			return fmt.Errorf("player is already assigned to this matchup")
+		}
+	}
+
+	// Add the player to the matchup
+	err = s.matchupRepository.AddPlayer(ctx, matchupID, playerID, isStAnnsHome)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// RemovePlayerFromMatchup removes a single player from a matchup
+func (s *Service) RemovePlayerFromMatchup(matchupID uint, playerID string) error {
+	ctx := context.Background()
+	return s.matchupRepository.RemovePlayer(ctx, matchupID, playerID)
+}

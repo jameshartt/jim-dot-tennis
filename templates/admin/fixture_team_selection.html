@@ -81,25 +81,46 @@
             font-size: 0.9rem;
         }
         
-        .selection-layout {
+        .combined-layout {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 2rem;
             margin-top: 2rem;
         }
         
-        .selected-players-section {
+        .team-selection-section {
             background: #f8f9fa;
             border-radius: 8px;
             padding: 1.5rem;
             border-left: 4px solid var(--primary-color);
         }
         
-        .selected-players-section h3 {
+        .team-selection-section h3 {
             margin: 0 0 1rem 0;
             color: var(--primary-color);
             font-size: 1.2rem;
             font-weight: 600;
+        }
+        
+        .selected-players-zone {
+            background: #fff;
+            border: 2px dashed #007bff;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            min-height: 120px;
+            transition: all 0.3s ease;
+        }
+        
+        .selected-players-zone.drag-over {
+            background: #e3f2fd;
+            border-color: #0056b3;
+        }
+        
+        .selected-players-zone h4 {
+            margin: 0 0 0.5rem 0;
+            color: #007bff;
+            font-size: 1rem;
         }
         
         .selected-player-buttons {
@@ -109,108 +130,136 @@
             margin: 1rem 0;
         }
         
-        .btn-remove-player {
+        .player-card {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 0.5rem 0.75rem;
+            cursor: move;
+            user-select: none;
+            transition: all 0.2s;
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .player-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .player-card.dragging {
+            opacity: 0.5;
+        }
+        
+        .player-remove-btn {
             background: #dc3545;
             color: white;
             border: none;
-            padding: 0.5rem 0.75rem;
-            border-radius: 4px;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
             cursor: pointer;
-            font-size: 0.85rem;
-            transition: background-color 0.2s;
-            white-space: nowrap;
-            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: auto;
         }
         
-        .btn-remove-player:hover {
+        .player-remove-btn:hover {
             background: #c82333;
         }
         
-        .btn-remove-player:before {
-            content: "✓ ";
-            font-weight: bold;
-        }
-
-        /* Availability status colors for remove buttons */
-        .btn-remove-player.availability-available {
-            background: #28a745; /* Green for Available */
-            border-left: 4px solid #1e7e34;
+        /* Availability status colors for player cards */
+        .player-card.availability-available {
+            border-left: 4px solid #28a745;
         }
         
-        .btn-remove-player.availability-available:hover {
-            background: #218838;
+        .player-card.availability-ifneeded {
+            border-left: 4px solid #ffc107;
         }
         
-        .btn-remove-player.availability-ifneeded {
-            background: #ffc107; /* Yellow for IfNeeded */
-            color: #212529;
-            border-left: 4px solid #d39e00;
+        .player-card.availability-unavailable {
+            border-left: 4px solid #dc3545;
         }
         
-        .btn-remove-player.availability-ifneeded:hover {
-            background: #e0a800;
+        .player-card.availability-unknown {
+            border-left: 4px solid #6c757d;
         }
         
-        .btn-remove-player.availability-unavailable {
-            background: #dc3545; /* Red for Unavailable */
-            border-left: 4px solid #bd2130;
-        }
-        
-        .btn-remove-player.availability-unavailable:hover {
-            background: #c82333;
-        }
-        
-        .btn-remove-player.availability-unknown {
-            background: #6c757d; /* Gray for Unknown */
-            border-left: 4px solid #545b62;
-        }
-        
-        .btn-remove-player.availability-unknown:hover {
-            background: #5a6268;
-        }
-        
-        .selection-count {
-            text-align: center;
-            margin: 1rem 0;
-            font-weight: 600;
-            color: var(--primary-color);
-        }
-        
-        .selection-actions {
-            text-align: center;
-            margin-top: 1rem;
-        }
-        
-        .btn-clear {
-            background: #6c757d;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        
-        .btn-clear:hover {
-            background: #5a6268;
-        }
-        
-        .no-selection {
-            color: #6c757d;
-            font-style: italic;
-            text-align: center;
-            margin: 2rem 0;
-        }
-        
-        .available-players-section {
+        .matchup-zones-section {
             background: #f8f9fa;
             border-radius: 8px;
             padding: 1.5rem;
             border-left: 4px solid #28a745;
         }
         
-        .available-players-section h3 {
+        .matchup-zones-section h3 {
             margin: 0 0 1rem 0;
             color: #28a745;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .matchup-zone {
+            background: white;
+            border: 2px dashed #28a745;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            min-height: 80px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .matchup-zone.drag-over {
+            background: #e8f5e8;
+            border-color: #1e7e34;
+        }
+        
+        .matchup-zone h4 {
+            margin: 0 0 0.5rem 0;
+            color: #28a745;
+            font-size: 1rem;
+        }
+        
+        .matchup-zone .player-limit {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        
+        .matchup-zone.full {
+            border-color: #ffc107;
+            background: #fff3cd;
+        }
+        
+        .matchup-zone.over-limit {
+            border-color: #dc3545;
+            background: #f8d7da;
+        }
+        
+        .matchup-players {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .available-players-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            border-left: 4px solid #17a2b8;
+            margin-top: 1rem;
+        }
+        
+        .available-players-section h3 {
+            margin: 0 0 1rem 0;
+            color: #17a2b8;
             font-size: 1.2rem;
             font-weight: 600;
         }
@@ -239,18 +288,22 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 0.85rem;
-            transition: background-color 0.2s;
-            white-space: nowrap;
-            position: relative;
+            transition: all 0.2s;
+            user-select: none;
         }
         
         .btn-add-player:hover {
             background: #0056b3;
+            transform: translateY(-1px);
         }
-
-        /* Availability status colors */
+        
+        .btn-add-player:active {
+            transform: translateY(0);
+        }
+        
+        /* Availability status colors for add buttons */
         .btn-add-player.availability-available {
-            background: #28a745; /* Green for Available */
+            background: #28a745;
             border-left: 4px solid #1e7e34;
         }
         
@@ -259,7 +312,7 @@
         }
         
         .btn-add-player.availability-ifneeded {
-            background: #ffc107; /* Yellow for IfNeeded */
+            background: #ffc107;
             color: #212529;
             border-left: 4px solid #d39e00;
         }
@@ -269,7 +322,7 @@
         }
         
         .btn-add-player.availability-unavailable {
-            background: #dc3545; /* Red for Unavailable */
+            background: #dc3545;
             border-left: 4px solid #bd2130;
         }
         
@@ -278,14 +331,34 @@
         }
         
         .btn-add-player.availability-unknown {
-            background: #6c757d; /* Gray for Unknown */
+            background: #6c757d;
             border-left: 4px solid #545b62;
         }
         
         .btn-add-player.availability-unknown:hover {
             background: #5a6268;
         }
-
+        
+        .btn-blocked {
+            background: #dc3545 !important;
+            border-left: 4px solid #bd2130 !important;
+            color: white !important;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        .btn-locked {
+            background: #6c757d !important;
+            border-left: 4px solid #545b62 !important;
+            color: white !important;
+        }
+        
+        .btn-unlocked {
+            background: #28a745 !important;
+            border-left: 4px solid #1e7e34 !important;
+            color: white !important;
+        }
+        
         .availability-legend {
             background: #fff;
             border: 1px solid #dee2e6;
@@ -294,18 +367,18 @@
             margin-bottom: 1rem;
             font-size: 0.85rem;
         }
-
+        
         .availability-legend h5 {
             margin: 0 0 0.5rem 0;
             color: #495057;
         }
-
+        
         .legend-item {
             display: inline-block;
             margin-right: 1rem;
             margin-bottom: 0.25rem;
         }
-
+        
         .legend-color {
             display: inline-block;
             width: 12px;
@@ -314,16 +387,41 @@
             margin-right: 4px;
             vertical-align: middle;
         }
-
+        
         .legend-available { background: #28a745; }
         .legend-ifneeded { background: #ffc107; }
         .legend-unavailable { background: #dc3545; }
         .legend-unknown { background: #6c757d; }
         
+        .emoji-unlocked { font-size: 1.1em; }
+        .emoji-locked { font-size: 1.1em; }
+        .emoji-blocked { font-size: 1.1em; }
+        
+        .eligibility-legend {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+        }
+        
+        .eligibility-legend h5 {
+            margin: 0 0 0.5rem 0;
+            color: #495057;
+        }
+        
         .no-players {
             color: #6c757d;
             font-style: italic;
             margin: 1rem 0;
+        }
+        
+        .no-selection {
+            color: #6c757d;
+            font-style: italic;
+            text-align: center;
+            margin: 2rem 0;
         }
         
         .progress-indicator {
@@ -352,84 +450,25 @@
             font-size: 0.9rem;
             color: #495057;
         }
-
-        .eligibility-legend {
-            background: #fff;
-            border: 1px solid #dee2e6;
+        
+        .drag-placeholder {
+            background: #f8f9fa;
+            border: 2px dashed #6c757d;
             border-radius: 4px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            font-size: 0.85rem;
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+            color: #6c757d;
+            font-style: italic;
+            text-align: center;
+            display: none;
         }
-
-        .eligibility-legend h5 {
-            margin: 0 0 0.5rem 0;
-            color: #495057;
+        
+        .drag-placeholder.show {
+            display: block;
         }
-
-        .legend-emoji {
-            font-size: 1rem;
-            margin-right: 4px;
-            vertical-align: middle;
-        }
-
-        .btn-blocked {
-            background: #dc3545 !important; /* Red for blocked */
-            border-left: 4px solid #bd2130 !important;
-            color: white !important;
-            cursor: not-allowed;
-            opacity: 0.7;
-        }
-
-        .btn-locked {
-            background: #6c757d !important; /* Gray for locked */
-            border-left: 4px solid #545b62 !important;
-            color: white !important;
-        }
-
-        .btn-unlocked {
-            background: #28a745 !important; /* Green for unlocked */
-            border-left: 4px solid #1e7e34 !important;
-            color: white !important;
-        }
-
-        .emoji-locked {
-            background: #dc3545;
-            color: white;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-size: 0.9em;
-            margin-right: 4px;
-        }
-
-        .emoji-unlocked {
-            background: #28a745;
-            color: white;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-size: 0.9em;
-            margin-right: 4px;
-        }
-
-        .emoji-blocked {
-            background: #dc3545;
-            color: white;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-size: 0.9em;
-            margin-right: 4px;
-        }
-
-        .btn-warning {
-            background: #ffc107 !important; /* Yellow for warning */
-            border-left: 4px solid #d39e00 !important;
-            color: #212529 !important;
-            cursor: not-allowed;
-            opacity: 0.7;
-        }
-
+        
         @media (max-width: 768px) {
-            .selection-layout {
+            .combined-layout {
                 grid-template-columns: 1fr;
                 gap: 1rem;
             }
@@ -442,8 +481,8 @@
                 font-size: 1rem;
             }
             
-            .selected-player-buttons {
-                flex-direction: column;
+            .player-card {
+                touch-action: none;
             }
             
             .player-buttons {
@@ -475,7 +514,7 @@
     <main class="admin-content">
         <div class="container">
             <div class="action-bar">
-                <h2>Team Selection</h2>
+                <h2>Team Selection & Matchups</h2>
                 {{if .ManagingTeam}}
                 <a href="/admin/fixtures/{{.FixtureDetail.ID}}?managingTeam={{.ManagingTeam.ID}}&teamName={{.ManagingTeam.Name}}" class="btn-back">← Back to Fixture</a>
                 {{else}}
@@ -515,143 +554,656 @@
                     </div>
                 </div>
 
-                <div class="selection-layout">
-                    <div class="selected-players-section">
-                        <h3>👥 Selected Players</h3>
+                <div class="combined-layout">
+                    <div class="team-selection-section">
+                        <h3>👥 Team Selection</h3>
                         
-                        {{if .FixtureDetail.SelectedPlayers}}
-                        <div class="selected-players">
-                            <div class="selected-player-buttons">
-                                {{range .FixtureDetail.SelectedPlayers}}
-                                <form method="post" style="display: inline;"
-                                      hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
-                                      hx-target=".team-selection-container"
-                                      hx-swap="outerHTML"
-                                      hx-confirm="Remove {{.Player.FirstName}} {{.Player.LastName}} from selection?">
-                                    <input type="hidden" name="action" value="remove_player">
-                                    <input type="hidden" name="player_id" value="{{.PlayerID}}">
-                                    {{if $.ManagingTeam}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeam.ID}}">{{end}}
-                                    <button type="submit" class="btn-remove-player availability-{{.AvailabilityStatus | lower}}"
-                                            title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
-                                        {{.Player.FirstName}} {{.Player.LastName}} (Pos {{.Position}})
-                                    </button>
-                                </form>
+                        <div class="selected-players-zone" 
+                             id="selected-players-zone" 
+                             ondrop="handleDrop(event, 'selected')" 
+                             ondragover="handleDragOver(event)">
+                            <h4>Selected Players</h4>
+                            <div id="selected-players-container">
+                                {{if .FixtureDetail.SelectedPlayers}}
+                                    {{range .FixtureDetail.SelectedPlayers}}
+                                    <div class="player-card availability-{{.AvailabilityStatus | lower}}" 
+                                         draggable="true" 
+                                         ondragstart="handleDragStart(event, '{{.PlayerID}}', '{{.Player.FirstName}} {{.Player.LastName}}', 'selected')"
+                                         data-player-id="{{.PlayerID}}"
+                                         data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
+                                         data-availability="{{.AvailabilityStatus | lower}}"
+                                         title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
+                                        <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                                        <button class="player-remove-btn" onclick="removePlayer('{{.PlayerID}}', 'selected')" title="Remove from selection">×</button>
+                                    </div>
+                                    {{end}}
+                                {{else}}
+                                    <div class="no-selection">Drag players here to select them for the team</div>
                                 {{end}}
                             </div>
-                            <div class="selection-actions">
-                                <form method="post" style="display: inline;"
-                                      hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
-                                      hx-target=".team-selection-container"
-                                      hx-swap="outerHTML"
-                                      hx-confirm="Clear all selected players?">
-                                    <input type="hidden" name="action" value="clear_players">
-                                    {{if $.ManagingTeam}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeam.ID}}">{{end}}
-                                    <button type="submit" class="btn-clear">Clear All Players</button>
-                                </form>
-                            </div>
                         </div>
-                        {{else}}
-                        <p class="no-selection">No players selected yet. Start by adding players from the available list.</p>
-                        {{end}}
                     </div>
 
-                    <div class="available-players-section">
-                        <h3>🎾 Available Players</h3>
+                    <div class="matchup-zones-section">
+                        <h3>🎾 Matchup Assignments</h3>
                         
-                        <div class="availability-legend">
-                            <h5>🎨 Availability Status:</h5>
-                            <div class="legend-item">
-                                <span class="legend-color legend-available"></span>
-                                Available
-                            </div>
-                            <div class="legend-item">
-                                <span class="legend-color legend-ifneeded"></span>
-                                If Needed
-                            </div>
-                            <div class="legend-item">
-                                <span class="legend-color legend-unavailable"></span>
-                                Unavailable
-                            </div>
-                            <div class="legend-item">
-                                <span class="legend-color legend-unknown"></span>
-                                Unknown
-                            </div>
-                        </div>
-                        
-                        <div class="eligibility-legend">
-                            <h5>⚖️ Eligibility Status:</h5>
-                            <div class="legend-item">
-                                <span class="emoji-unlocked">🔓</span>
-                                Unlocked - Can play (remaining count shown)
-                            </div>
-                            <div class="legend-item">
-                                <span class="emoji-locked">🔒</span>
-                                Locked - 4+ matches played (locked to this team or higher)
-                            </div>
-                            <div class="legend-item">
-                                <span class="emoji-blocked">🛑</span>
-                                Blocked - Rule violation (already played/playing this week) 
-                            </div>
-                        </div>
-                        
-                        {{if .TeamPlayers}}
-                        <div class="player-group">
-                            <h4>Team Players ({{len .TeamPlayers}} available)</h4>
-                            <div class="player-buttons">
-                                {{range .TeamPlayers}}
-                                <form method="post" style="display: inline;"
-                                      hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
-                                      hx-target=".team-selection-container"
-                                      hx-swap="outerHTML">
-                                    <input type="hidden" name="action" value="add_player">
-                                    <input type="hidden" name="player_id" value="{{.Player.ID}}">
-                                    <input type="hidden" name="is_home" value="true">
-                                    {{if $.ManagingTeam}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeam.ID}}">{{end}}
-                                    <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} btn-blocked{{else if .Eligibility.IsLocked}} btn-locked{{end}}{{end}}"
-                                            {{if .Eligibility}}{{if not .Eligibility.CanPlay}}disabled{{end}}{{end}}
-                                            title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} 🛑 {{if .Eligibility.PlayedThisWeek}}Already played this week for {{.Eligibility.PlayedThisWeekTeam}}{{else if .Eligibility.IsLockedToHigherTeam}}Locked to {{.Eligibility.LockedToTeamName}}{{end}}{{else if .Eligibility.IsLocked}} 🔒 Locked to this team or higher{{else if .Eligibility.CanPlayLower}} 🔓 {{if ge .Eligibility.RemainingHigherTeamPlays 0}}{{.Eligibility.RemainingHigherTeamPlays}} plays left{{else}}Can play lower teams{{end}}{{end}}{{end}}">
-                                        {{if .Eligibility}}{{if not .Eligibility.CanPlay}}<span class="emoji-blocked">🛑</span>{{else if .Eligibility.IsLocked}}<span class="emoji-locked">🔒</span>{{else if .Eligibility.CanPlayLower}}<span class="emoji-unlocked">🔓</span>{{end}}{{end}} {{.Player.FirstName}} {{.Player.LastName}}{{if .Eligibility}}{{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}} ({{.Eligibility.RemainingHigherTeamPlays}} left){{end}}{{end}}
-                                    </button>
-                                </form>
+                        <div class="matchup-zone" 
+                             id="matchup-zone-0" 
+                             ondrop="handleDrop(event, '1st Mixed')" 
+                             ondragover="handleDragOver(event)"
+                             data-matchup-type="1st Mixed">
+                            <h4>👫 1st Mixed</h4>
+                            <div class="player-limit">0/2</div>
+                            <div class="matchup-players" id="matchup-players-0">
+                                {{range .FixtureDetail.Matchups}}
+                                    {{if eq .Matchup.Type "1st Mixed"}}
+                                        {{range .Players}}
+                                        <div class="player-card availability-unknown" 
+                                             draggable="true" 
+                                             ondragstart="handleDragStart(event, '{{.Player.ID}}', '{{.Player.FirstName}} {{.Player.LastName}}', '1st Mixed')"
+                                             data-player-id="{{.Player.ID}}"
+                                             data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
+                                             data-availability="unknown">
+                                            <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                                            <button class="player-remove-btn" onclick="removePlayer('{{.Player.ID}}', '1st Mixed')" title="Remove from matchup">×</button>
+                                        </div>
+                                        {{end}}
+                                    {{end}}
                                 {{end}}
                             </div>
                         </div>
-                        {{else}}
-                        <div class="player-group">
-                            <h4>Team Players</h4>
-                            <p class="no-players">No team players available.</p>
-                        </div>
-                        {{end}}
                         
-                        {{if .AllStAnnPlayers}}
-                        <div class="player-group">
-                            <h4>Other St Ann Players ({{len .AllStAnnPlayers}} available)</h4>
-                            <div class="player-buttons">
-                                {{range .AllStAnnPlayers}}
-                                <form method="post" style="display: inline;"
-                                      hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
-                                      hx-target=".team-selection-container"
-                                      hx-swap="outerHTML">
-                                    <input type="hidden" name="action" value="add_player">
-                                    <input type="hidden" name="player_id" value="{{.Player.ID}}">
-                                    <input type="hidden" name="is_home" value="true">
-                                    {{if $.ManagingTeam}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeam.ID}}">{{end}}
-                                    <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} btn-blocked{{else if .Eligibility.IsLocked}} btn-locked{{end}}{{end}}"
-                                            {{if .Eligibility}}{{if not .Eligibility.CanPlay}}disabled{{end}}{{end}}
-                                            title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} 🛑 {{if .Eligibility.PlayedThisWeek}}Already played this week for {{.Eligibility.PlayedThisWeekTeam}}{{else if .Eligibility.IsLockedToHigherTeam}}Locked to {{.Eligibility.LockedToTeamName}}{{end}}{{else if .Eligibility.IsLocked}} 🔒 Locked to this team or higher{{else if .Eligibility.CanPlayLower}} 🔓 {{if ge .Eligibility.RemainingHigherTeamPlays 0}}{{.Eligibility.RemainingHigherTeamPlays}} plays left{{else}}Can play lower teams{{end}}{{end}}{{end}}">
-                                        {{if .Eligibility}}{{if not .Eligibility.CanPlay}}<span class="emoji-blocked">🛑</span>{{else if .Eligibility.IsLocked}}<span class="emoji-locked">🔒</span>{{else if .Eligibility.CanPlayLower}}<span class="emoji-unlocked">🔓</span>{{end}}{{end}} {{.Player.FirstName}} {{.Player.LastName}}{{if .Eligibility}}{{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}} ({{.Eligibility.RemainingHigherTeamPlays}} left){{end}}{{end}}
-                                    </button>
-                                </form>
+                        <div class="matchup-zone" 
+                             id="matchup-zone-1" 
+                             ondrop="handleDrop(event, '2nd Mixed')" 
+                             ondragover="handleDragOver(event)"
+                             data-matchup-type="2nd Mixed">
+                            <h4>👫 2nd Mixed</h4>
+                            <div class="player-limit">0/2</div>
+                            <div class="matchup-players" id="matchup-players-1">
+                                {{range .FixtureDetail.Matchups}}
+                                    {{if eq .Matchup.Type "2nd Mixed"}}
+                                        {{range .Players}}
+                                        <div class="player-card availability-unknown" 
+                                             draggable="true" 
+                                             ondragstart="handleDragStart(event, '{{.Player.ID}}', '{{.Player.FirstName}} {{.Player.LastName}}', '2nd Mixed')"
+                                             data-player-id="{{.Player.ID}}"
+                                             data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
+                                             data-availability="unknown">
+                                            <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                                            <button class="player-remove-btn" onclick="removePlayer('{{.Player.ID}}', '2nd Mixed')" title="Remove from matchup">×</button>
+                                        </div>
+                                        {{end}}
+                                    {{end}}
                                 {{end}}
                             </div>
                         </div>
-                        {{else}}
-                        <p class="no-players">No other available players found.</p>
-                        {{end}}
+                        
+                        <div class="matchup-zone" 
+                             id="matchup-zone-2" 
+                             ondrop="handleDrop(event, 'Mens')" 
+                             ondragover="handleDragOver(event)"
+                             data-matchup-type="Mens">
+                            <h4>👨‍🤝‍👨 Mens</h4>
+                            <div class="player-limit">0/2</div>
+                            <div class="matchup-players" id="matchup-players-2">
+                                {{range .FixtureDetail.Matchups}}
+                                    {{if eq .Matchup.Type "Mens"}}
+                                        {{range .Players}}
+                                        <div class="player-card availability-unknown" 
+                                             draggable="true" 
+                                             ondragstart="handleDragStart(event, '{{.Player.ID}}', '{{.Player.FirstName}} {{.Player.LastName}}', 'Mens')"
+                                             data-player-id="{{.Player.ID}}"
+                                             data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
+                                             data-availability="unknown">
+                                            <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                                            <button class="player-remove-btn" onclick="removePlayer('{{.Player.ID}}', 'Mens')" title="Remove from matchup">×</button>
+                                        </div>
+                                        {{end}}
+                                    {{end}}
+                                {{end}}
+                            </div>
+                        </div>
+                        
+                        <div class="matchup-zone" 
+                             id="matchup-zone-3" 
+                             ondrop="handleDrop(event, 'Womens')" 
+                             ondragover="handleDragOver(event)"
+                             data-matchup-type="Womens">
+                            <h4>👩‍🤝‍👩 Womens</h4>
+                            <div class="player-limit">0/2</div>
+                            <div class="matchup-players" id="matchup-players-3">
+                                {{range .FixtureDetail.Matchups}}
+                                    {{if eq .Matchup.Type "Womens"}}
+                                        {{range .Players}}
+                                        <div class="player-card availability-unknown" 
+                                             draggable="true" 
+                                             ondragstart="handleDragStart(event, '{{.Player.ID}}', '{{.Player.FirstName}} {{.Player.LastName}}', 'Womens')"
+                                             data-player-id="{{.Player.ID}}"
+                                             data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
+                                             data-availability="unknown">
+                                            <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                                            <button class="player-remove-btn" onclick="removePlayer('{{.Player.ID}}', 'Womens')" title="Remove from matchup">×</button>
+                                        </div>
+                                        {{end}}
+                                    {{end}}
+                                {{end}}
+                            </div>
+                        </div>
                     </div>
+                </div>
+
+                <div class="available-players-section">
+                    <h3>🎯 Available Players</h3>
+                    
+                    <div class="availability-legend">
+                        <h5>🎨 Availability Status:</h5>
+                        <div class="legend-item">
+                            <span class="legend-color legend-available"></span>
+                            Available
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color legend-ifneeded"></span>
+                            If Needed
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color legend-unavailable"></span>
+                            Unavailable
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color legend-unknown"></span>
+                            Unknown
+                        </div>
+                    </div>
+                    
+                    <div class="eligibility-legend">
+                        <h5>⚖️ Eligibility Status:</h5>
+                        <div class="legend-item">
+                            <span class="emoji-unlocked">🔓</span>
+                            Unlocked - Can play (remaining count shown)
+                        </div>
+                        <div class="legend-item">
+                            <span class="emoji-locked">🔒</span>
+                            Locked - 4+ matches played (locked to this team or higher)
+                        </div>
+                        <div class="legend-item">
+                            <span class="emoji-blocked">🛑</span>
+                            Blocked - Rule violation (already played/playing this week) 
+                        </div>
+                    </div>
+                    
+                    {{if .TeamPlayers}}
+                    <div class="player-group">
+                        <h4>Team Players ({{len .TeamPlayers}} available)</h4>
+                        <div class="player-buttons">
+                            {{range .TeamPlayers}}
+                            <form method="post" style="display: inline;"
+                                  hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
+                                  hx-target=".team-selection-container"
+                                  hx-swap="outerHTML">
+                                <input type="hidden" name="action" value="add_player">
+                                <input type="hidden" name="player_id" value="{{.Player.ID}}">
+                                <input type="hidden" name="is_home" value="true">
+                                {{if $.ManagingTeam}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeam.ID}}">{{end}}
+                                <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} btn-blocked{{else if .Eligibility.IsLocked}} btn-locked{{end}}{{end}}"
+                                        {{if .Eligibility}}{{if not .Eligibility.CanPlay}}disabled{{end}}{{end}}
+                                        title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} 🛑 {{if .Eligibility.PlayedThisWeek}}Already played this week for {{.Eligibility.PlayedThisWeekTeam}}{{else if .Eligibility.IsLockedToHigherTeam}}Locked to {{.Eligibility.LockedToTeamName}}{{end}}{{else if .Eligibility.IsLocked}} 🔒 Locked to this team or higher{{else if .Eligibility.CanPlayLower}} 🔓 {{if ge .Eligibility.RemainingHigherTeamPlays 0}}{{.Eligibility.RemainingHigherTeamPlays}} plays left{{else}}Can play lower teams{{end}}{{end}}{{end}}">
+                                    {{if .Eligibility}}{{if not .Eligibility.CanPlay}}<span class="emoji-blocked">🛑</span>{{else if .Eligibility.IsLocked}}<span class="emoji-locked">🔒</span>{{else if .Eligibility.CanPlayLower}}<span class="emoji-unlocked">🔓</span>{{end}}{{end}} {{.Player.FirstName}} {{.Player.LastName}}{{if .Eligibility}}{{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}} ({{.Eligibility.RemainingHigherTeamPlays}} left){{end}}{{end}}
+                                </button>
+                            </form>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{else}}
+                    <div class="player-group">
+                        <h4>Team Players</h4>
+                        <p class="no-players">No team players available.</p>
+                    </div>
+                    {{end}}
+                    
+                    {{if .AllStAnnPlayers}}
+                    <div class="player-group">
+                        <h4>Other St Ann Players ({{len .AllStAnnPlayers}} available)</h4>
+                        <div class="player-buttons">
+                            {{range .AllStAnnPlayers}}
+                            <form method="post" style="display: inline;"
+                                  hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
+                                  hx-target=".team-selection-container"
+                                  hx-swap="outerHTML">
+                                <input type="hidden" name="action" value="add_player">
+                                <input type="hidden" name="player_id" value="{{.Player.ID}}">
+                                <input type="hidden" name="is_home" value="true">
+                                {{if $.ManagingTeam}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeam.ID}}">{{end}}
+                                <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} btn-blocked{{else if .Eligibility.IsLocked}} btn-locked{{end}}{{end}}"
+                                        {{if .Eligibility}}{{if not .Eligibility.CanPlay}}disabled{{end}}{{end}}
+                                        title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} 🛑 {{if .Eligibility.PlayedThisWeek}}Already played this week for {{.Eligibility.PlayedThisWeekTeam}}{{else if .Eligibility.IsLockedToHigherTeam}}Locked to {{.Eligibility.LockedToTeamName}}{{end}}{{else if .Eligibility.IsLocked}} 🔒 Locked to this team or higher{{else if .Eligibility.CanPlayLower}} 🔓 {{if ge .Eligibility.RemainingHigherTeamPlays 0}}{{.Eligibility.RemainingHigherTeamPlays}} plays left{{else}}Can play lower teams{{end}}{{end}}{{end}}">
+                                    {{if .Eligibility}}{{if not .Eligibility.CanPlay}}<span class="emoji-blocked">🛑</span>{{else if .Eligibility.IsLocked}}<span class="emoji-locked">🔒</span>{{else if .Eligibility.CanPlayLower}}<span class="emoji-unlocked">🔓</span>{{end}}{{end}} {{.Player.FirstName}} {{.Player.LastName}}{{if .Eligibility}}{{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}} ({{.Eligibility.RemainingHigherTeamPlays}} left){{end}}{{end}}
+                                </button>
+                            </form>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{else}}
+                    <p class="no-players">No other available players found.</p>
+                    {{end}}
                 </div>
             </div>
         </div>
     </main>
+
+    <!-- Configuration from Go template -->
+    <script>
+        window.FIXTURE_ID = {{.FixtureDetail.ID}};
+        {{if .ManagingTeam}}
+        window.MANAGING_TEAM_ID = {{.ManagingTeam.ID}};
+        {{else}}
+        window.MANAGING_TEAM_ID = null;
+        {{end}}
+    </script>
+    
+    <script>
+        // Global variables
+        let draggedPlayer = null;
+        let draggedFrom = null;
+        let touchStartPos = null;
+        let touchTarget = null;
+        let isDragging = false;
+        
+        // Configuration
+        const FIXTURE_ID = window.FIXTURE_ID;
+        const MANAGING_TEAM_ID = window.MANAGING_TEAM_ID;
+        
+        // Drag and drop handlers
+        function handleDragStart(event, playerId, playerName, source) {
+            draggedPlayer = {
+                id: playerId,
+                name: playerName,
+                element: event.target,
+                source: source
+            };
+            draggedFrom = source;
+            event.target.classList.add('dragging');
+            
+            // Set drag data
+            event.dataTransfer.setData('text/plain', playerId);
+            event.dataTransfer.effectAllowed = 'move';
+        }
+        
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            
+            const zone = event.currentTarget;
+            zone.classList.add('drag-over');
+        }
+        
+        function handleDragLeave(event) {
+            const zone = event.currentTarget;
+            zone.classList.remove('drag-over');
+        }
+        
+        function handleDrop(event, target) {
+            event.preventDefault();
+            
+            const zone = event.currentTarget;
+            zone.classList.remove('drag-over');
+            
+            if (!draggedPlayer) return;
+            
+            // Don't drop on the same source
+            if (draggedPlayer.source === target) return;
+            
+            // Move the player
+            movePlayer(draggedPlayer.id, draggedPlayer.name, draggedPlayer.source, target);
+            
+            // Reset drag state
+            if (draggedPlayer.element) {
+                draggedPlayer.element.classList.remove('dragging');
+            }
+            draggedPlayer = null;
+            draggedFrom = null;
+        }
+        
+        // Touch event handlers for mobile
+        function setupTouchEvents() {
+            document.addEventListener('touchstart', handleTouchStart, { passive: false });
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('touchend', handleTouchEnd, { passive: false });
+        }
+        
+        function handleTouchStart(event) {
+            const target = event.target.closest('.player-card');
+            if (!target) return;
+            
+            touchStartPos = {
+                x: event.touches[0].clientX,
+                y: event.touches[0].clientY
+            };
+            touchTarget = target;
+            
+            // Prevent default to avoid scrolling
+            event.preventDefault();
+        }
+        
+        function handleTouchMove(event) {
+            if (!touchTarget || !touchStartPos) return;
+            
+            const touch = event.touches[0];
+            const deltaX = touch.clientX - touchStartPos.x;
+            const deltaY = touch.clientY - touchStartPos.y;
+            
+            // Start dragging if moved enough
+            if (!isDragging && (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10)) {
+                isDragging = true;
+                touchTarget.classList.add('dragging');
+                
+                // Create a visual feedback
+                touchTarget.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+            }
+            
+            if (isDragging) {
+                event.preventDefault();
+                touchTarget.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                
+                // Find drop zone under finger
+                const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                const dropZone = elementBelow ? elementBelow.closest('.selected-players-zone, .matchup-zone') : null;
+                
+                // Update visual feedback
+                document.querySelectorAll('.drag-over').forEach(zone => zone.classList.remove('drag-over'));
+                if (dropZone) {
+                    dropZone.classList.add('drag-over');
+                }
+            }
+        }
+        
+        function handleTouchEnd(event) {
+            if (!touchTarget) return;
+            
+            if (isDragging) {
+                const touch = event.changedTouches[0];
+                const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                const dropZone = elementBelow ? elementBelow.closest('.selected-players-zone, .matchup-zone') : null;
+                
+                if (dropZone) {
+                    const playerId = touchTarget.dataset.playerId;
+                    const playerName = touchTarget.dataset.playerName;
+                    const source = getPlayerSource(touchTarget);
+                    const target = getDropZoneTarget(dropZone);
+                    
+                    if (source !== target) {
+                        movePlayer(playerId, playerName, source, target);
+                    }
+                }
+                
+                // Reset visual state
+                touchTarget.style.transform = '';
+                touchTarget.classList.remove('dragging');
+                document.querySelectorAll('.drag-over').forEach(zone => zone.classList.remove('drag-over'));
+            }
+            
+            // Reset touch state
+            touchTarget = null;
+            touchStartPos = null;
+            isDragging = false;
+        }
+        
+        function getPlayerSource(element) {
+            if (element.closest('#selected-players-container')) {
+                return 'selected';
+            } else if (element.closest('.matchup-zone')) {
+                return element.closest('.matchup-zone').dataset.matchupType;
+            }
+            return null;
+        }
+        
+        function getDropZoneTarget(zone) {
+            if (zone.id === 'selected-players-zone') {
+                return 'selected';
+            } else if (zone.classList.contains('matchup-zone')) {
+                return zone.dataset.matchupType;
+            }
+            return null;
+        }
+        
+        // Player movement functions
+        function movePlayer(playerId, playerName, source, target) {
+            console.log(`Moving player ${playerName} from ${source} to ${target}`);
+            
+            // Determine if this is a move or copy operation
+            const isCopyOperation = (source === 'selected' && target !== 'selected');
+            
+            // Update UI immediately for better UX
+            updatePlayerUI(playerId, playerName, source, target, isCopyOperation);
+            
+            // Send server request
+            if (target === 'selected') {
+                // Moving to team selection
+                addPlayerToTeamSelection(playerId);
+            } else {
+                // Assigning to matchup (keeping in selected players too)
+                assignPlayerToMatchup(playerId, target);
+            }
+        }
+        
+        function updatePlayerUI(playerId, playerName, source, target, isCopyOperation = false) {
+            const sourceElement = document.querySelector(`[data-player-id="${playerId}"]`);
+            if (!sourceElement) return;
+            
+            // For copy operations, don't remove from source
+            if (!isCopyOperation) {
+                sourceElement.remove();
+            }
+            
+            // Get availability from source element
+            const availability = sourceElement.dataset.availability || 'unknown';
+            
+            // Add to target
+            const playerCard = createPlayerCard(playerId, playerName, availability, target);
+            
+            if (target === 'selected') {
+                const container = document.getElementById('selected-players-container');
+                const noSelection = container.querySelector('.no-selection');
+                if (noSelection) noSelection.remove();
+                container.appendChild(playerCard);
+            } else {
+                // Find the matchup zone
+                const matchupZones = document.querySelectorAll('.matchup-zone');
+                for (let zone of matchupZones) {
+                    if (zone.dataset.matchupType === target) {
+                        const playersContainer = zone.querySelector('.matchup-players');
+                        playersContainer.appendChild(playerCard);
+                        updateMatchupLimit(zone);
+                        break;
+                    }
+                }
+            }
+            
+            // Update progress (only if not a copy operation)
+            if (!isCopyOperation) {
+                updateProgress();
+            }
+        }
+        
+        function createPlayerCard(playerId, playerName, availability, context) {
+            const div = document.createElement('div');
+            div.className = `player-card availability-${availability}`;
+            div.draggable = true;
+            div.dataset.playerId = playerId;
+            div.dataset.playerName = playerName;
+            div.dataset.availability = availability;
+            
+            div.ondragstart = function(e) { 
+                handleDragStart(e, playerId, playerName, context); 
+            };
+            
+            div.innerHTML = `
+                <span>${playerName}</span>
+                <button class="player-remove-btn" onclick="removePlayer('${playerId}', '${context}')" title="Remove">×</button>
+            `;
+            
+            return div;
+        }
+        
+        function updateMatchupLimit(zone) {
+            const players = zone.querySelectorAll('.player-card');
+            const limit = zone.querySelector('.player-limit');
+            const count = players.length;
+            
+            limit.textContent = `${count}/2`;
+            
+            // Update zone styling based on player count
+            zone.classList.remove('full', 'over-limit');
+            if (count === 2) {
+                zone.classList.add('full');
+            } else if (count > 2) {
+                zone.classList.add('over-limit');
+            }
+        }
+        
+        function updateProgress() {
+            const selectedCount = document.querySelectorAll('#selected-players-container .player-card').length;
+            const progressText = document.querySelector('.progress-text');
+            const progressFill = document.querySelector('.progress-fill');
+            
+            progressText.textContent = `Players Selected: ${selectedCount}/8`;
+            const percentage = (selectedCount * 100) / 8;
+            progressFill.style.width = `${percentage}%`;
+        }
+        
+        // Button click handlers (now handled by HTMX forms)
+        
+        function removePlayer(playerId, context) {
+            if (context !== 'selected') {
+                // For matchup removal, just reload the page after making the request
+                // This is simpler and avoids HTMX container replacement issues
+                let bodyParams = 'action=remove_player&player_id=' + encodeURIComponent(playerId) + '&matchup_type=' + encodeURIComponent(context);
+                if (MANAGING_TEAM_ID) {
+                    bodyParams += '&managing_team_id=' + MANAGING_TEAM_ID;
+                }
+                
+                fetch('/admin/fixtures/' + FIXTURE_ID + '/matchup-selection', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'HX-Request': 'true'
+                    },
+                    body: bodyParams
+                })
+                .then(() => {
+                    // Reload page to show updated state
+                    window.location.reload();
+                });
+            } else {
+                // For team selection removal, create a form that exactly matches the template forms
+                const form = document.createElement('form');
+                form.method = 'post';
+                form.style.display = 'none';
+                form.action = '/admin/fixtures/' + FIXTURE_ID + '/team-selection';
+                
+                // Set HTMX attributes to match the template forms
+                form.setAttribute('hx-post', form.action);
+                form.setAttribute('hx-target', '.team-selection-container');
+                form.setAttribute('hx-swap', 'outerHTML');
+                
+                // Add hidden inputs
+                const actionInput = document.createElement('input');
+                actionInput.type = 'hidden';
+                actionInput.name = 'action';
+                actionInput.value = 'remove_player';
+                form.appendChild(actionInput);
+                
+                const playerInput = document.createElement('input');
+                playerInput.type = 'hidden';
+                playerInput.name = 'player_id';
+                playerInput.value = playerId;
+                form.appendChild(playerInput);
+                
+                if (MANAGING_TEAM_ID) {
+                    const teamInput = document.createElement('input');
+                    teamInput.type = 'hidden';
+                    teamInput.name = 'managing_team_id';
+                    teamInput.value = MANAGING_TEAM_ID;
+                    form.appendChild(teamInput);
+                }
+                
+                // Create a submit button for HTMX to work with
+                const submitButton = document.createElement('button');
+                submitButton.type = 'submit';
+                submitButton.style.display = 'none';
+                form.appendChild(submitButton);
+                
+                // Add to DOM and let HTMX process it
+                document.body.appendChild(form);
+                
+                // Let HTMX process the form to set up the event handlers
+                if (window.htmx) {
+                    htmx.process(form);
+                    // Click the submit button to trigger HTMX
+                    submitButton.click();
+                } else {
+                    // Fallback if HTMX isn't available
+                    form.submit();
+                }
+                
+                // Clean up the form after a short delay
+                setTimeout(() => {
+                    if (form.parentNode) {
+                        document.body.removeChild(form);
+                    }
+                }, 500);
+            }
+        }
+        
+        // Server communication functions
+        function addPlayerToTeamSelection(playerId) {
+            let bodyParams = 'action=add_player&player_id=' + encodeURIComponent(playerId) + '&is_home=true';
+            if (MANAGING_TEAM_ID) {
+                bodyParams += '&managing_team_id=' + MANAGING_TEAM_ID;
+            }
+            
+            fetch('/admin/fixtures/' + FIXTURE_ID + '/team-selection', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'HX-Request': 'true'
+                },
+                body: bodyParams
+            });
+        }
+        
+        function assignPlayerToMatchup(playerId, matchupType) {
+            let bodyParams = 'action=assign_player&player_id=' + encodeURIComponent(playerId) + '&matchup_type=' + encodeURIComponent(matchupType);
+            if (MANAGING_TEAM_ID) {
+                bodyParams += '&managing_team_id=' + MANAGING_TEAM_ID;
+            }
+            
+            fetch('/admin/fixtures/' + FIXTURE_ID + '/matchup-selection', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'HX-Request': 'true'
+                },
+                body: bodyParams
+            });
+        }
+        
+
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            setupTouchEvents();
+            
+            // Update matchup limits on page load
+            document.querySelectorAll('.matchup-zone').forEach(updateMatchupLimit);
+            
+            // Add drag leave handlers
+            document.querySelectorAll('.selected-players-zone, .matchup-zone').forEach(zone => {
+                zone.addEventListener('dragleave', handleDragLeave);
+            });
+            
+            console.log('Team selection with drag and drop initialized');
+        });
+    </script>
 </body>
 </html> 
