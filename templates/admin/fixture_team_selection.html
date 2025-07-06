@@ -888,6 +888,11 @@
         }
         
         function handleTouchStart(event) {
+            // Don't interfere with remove button clicks
+            if (event.target.closest('.player-remove-btn')) {
+                return;
+            }
+            
             const target = event.target.closest('.player-card');
             if (!target) return;
             
@@ -903,6 +908,11 @@
         
         function handleTouchMove(event) {
             if (!touchTarget || !touchStartPos) return;
+            
+            // Don't interfere with remove button interactions
+            if (event.target.closest('.player-remove-btn')) {
+                return;
+            }
             
             const touch = event.touches[0];
             const deltaX = touch.clientX - touchStartPos.x;
@@ -935,6 +945,15 @@
         
         function handleTouchEnd(event) {
             if (!touchTarget) return;
+            
+            // Don't interfere with remove button clicks
+            if (event.target.closest('.player-remove-btn')) {
+                // Reset touch state and let the button click work normally
+                touchTarget = null;
+                touchStartPos = null;
+                isDragging = false;
+                return;
+            }
             
             if (isDragging) {
                 const touch = event.changedTouches[0];
