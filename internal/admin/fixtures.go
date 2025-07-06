@@ -2,10 +2,8 @@ package admin
 
 import (
 	"fmt"
-	"html/template"
 	"log"
 	"net/http"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -37,9 +35,9 @@ func (h *FixturesHandler) HandleFixtures(w http.ResponseWriter, r *http.Request)
 			h.handleTeamSelection(w, r)
 			return
 		}
-		// Check if this is a matchup selection request
+		// Check if this is a matchup selection request (for POST actions from team selection page)
 		if strings.HasSuffix(r.URL.Path, "/matchup-selection") {
-			h.handleMatchupSelection(w, r)
+			h.handleMatchupSelectionPost(w, r)
 			return
 		}
 		// Check if this is a player selection request (legacy)
@@ -690,8 +688,8 @@ func (h *FixturesHandler) handleTeamSelectionPost(w http.ResponseWriter, r *http
 	}
 }
 
-// handleMatchupSelection handles requests for the dedicated matchup selection page
-func (h *FixturesHandler) handleMatchupSelection(w http.ResponseWriter, r *http.Request) {
+// handleMatchupSelectionPost handles POST requests for matchup operations (called from team selection page)
+func (h *FixturesHandler) handleMatchupSelectionPost(w http.ResponseWriter, r *http.Request) {
 	// Get user from context
 	_, err := getUserFromContext(r)
 	if err != nil {
@@ -707,115 +705,15 @@ func (h *FixturesHandler) handleMatchupSelection(w http.ResponseWriter, r *http.
 		return
 	}
 
-	switch r.Method {
-	case http.MethodGet:
-		h.handleMatchupSelectionGet(w, r, fixtureID)
-	case http.MethodPost:
-		h.handleMatchupSelectionPost(w, r, fixtureID)
-	default:
+	// Only handle POST requests
+	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-// handleMatchupSelectionGet handles GET requests to show the matchup selection page
-func (h *FixturesHandler) handleMatchupSelectionGet(w http.ResponseWriter, r *http.Request, fixtureID uint) {
-	// Check for managing team parameter (for derby matches)
-	managingTeamParam := r.URL.Query().Get("managingTeam")
-	var managingTeamID uint
-	var managingTeam *models.Team
-
-	var fixtureDetail *FixtureDetail
-	var err error
-
-	if managingTeamParam != "" {
-		// Parse managing team ID and get team details
-		if managingTeamIDUint64, parseErr := strconv.ParseUint(managingTeamParam, 10, 32); parseErr == nil {
-			managingTeamID = uint(managingTeamIDUint64)
-
-			// Get the managing team details from the service
-			if teamDetail, teamErr := h.service.GetTeamDetail(managingTeamID); teamErr == nil {
-				managingTeam = &teamDetail.Team
-			}
-
-			// Use team-aware fixture detail for derby matches
-			fixtureDetail, err = h.service.GetFixtureDetailWithTeamContext(fixtureID, managingTeamID)
-		} else {
-			// Fall back to regular method if parsing fails
-			fixtureDetail, err = h.service.GetFixtureDetail(fixtureID)
-		}
-	} else {
-		// Use regular fixture detail method
-		fixtureDetail, err = h.service.GetFixtureDetail(fixtureID)
-	}
-
-	if err != nil {
-		logAndError(w, "Fixture not found", err, http.StatusNotFound)
 		return
 	}
 
-	// Get available players for matchup creation
-	var availablePlayers []models.Player
-	if managingTeam != nil {
-		// Check if we have selected players for this team
-		if len(fixtureDetail.SelectedPlayers) > 0 {
-			// For derby matches with selected players, use the team-specific selected players
-			for _, sp := range fixtureDetail.SelectedPlayers {
-				availablePlayers = append(availablePlayers, sp.Player)
-			}
-		} else {
-			// For derby matches without selected players, use standard method
-			availablePlayers, err = h.service.GetAvailablePlayersForMatchup(fixtureID)
-			if err != nil {
-				logAndError(w, "Failed to load available players for matchup", err, http.StatusInternalServerError)
-				return
-			}
-		}
-	} else {
-		// For regular matches, use standard method
-		availablePlayers, err = h.service.GetAvailablePlayersForMatchup(fixtureID)
-		if err != nil {
-			logAndError(w, "Failed to load available players for matchup", err, http.StatusInternalServerError)
-			return
-		}
-	}
-
-	// Load the matchup selection template with its partial
-	tmpl, err := template.ParseFiles(
-		filepath.Join(h.templateDir, "admin/fixture_matchup_selection.html"),
-		filepath.Join(h.templateDir, "admin/fixture_matchup_existing_container.html"),
-	)
-	if err != nil {
-		log.Printf("Error parsing matchup selection template: %v", err)
-		// Fallback to simple HTML response
-		renderFallbackHTML(w, "Matchup Selection", "Matchup Selection",
-			"Matchup selection page - coming soon", "/admin/fixtures/"+fmt.Sprintf("%d", fixtureID))
-		return
-	}
-
-	// Execute the template with data
-	templateData := map[string]interface{}{
-		"FixtureDetail":    fixtureDetail,
-		"AvailablePlayers": availablePlayers,
-	}
-
-	// Include managing team information if present
-	if managingTeam != nil {
-		templateData["ManagingTeam"] = managingTeam
-		templateData["ManagingTeamID"] = managingTeamID
-	}
-
-	if err := renderTemplate(w, tmpl, templateData); err != nil {
-		logAndError(w, err.Error(), err, http.StatusInternalServerError)
-	}
-}
-
-// handleMatchupSelectionPost handles POST requests to update matchup selection
-func (h *FixturesHandler) handleMatchupSelectionPost(w http.ResponseWriter, r *http.Request, fixtureID uint) {
 	action := r.FormValue("action")
 
 	switch action {
-	case "update_matchup":
-		h.handleUpdateMatchupFromSelection(w, r, fixtureID)
 	case "assign_player":
 		h.handleAssignPlayerToMatchup(w, r, fixtureID)
 	case "remove_player":
@@ -823,70 +721,6 @@ func (h *FixturesHandler) handleMatchupSelectionPost(w http.ResponseWriter, r *h
 	default:
 		http.Error(w, "Unknown action", http.StatusBadRequest)
 	}
-}
-
-// handleUpdateMatchupFromSelection handles updating matchup player assignments from the matchup selection page
-func (h *FixturesHandler) handleUpdateMatchupFromSelection(w http.ResponseWriter, r *http.Request, fixtureID uint) {
-	matchupType := models.MatchupType(r.FormValue("matchup_type"))
-	stAnnsPlayer1ID := r.FormValue("stanns_player_1")
-	stAnnsPlayer2ID := r.FormValue("stanns_player_2")
-	managingTeamParam := r.FormValue("managing_team_id")
-
-	// Validate matchup type
-	if matchupType == "" {
-		http.Error(w, "Matchup type is required", http.StatusBadRequest)
-		return
-	}
-
-	var matchup *models.Matchup
-	var err error
-
-	// Check if this is for a specific managing team (derby match)
-	if managingTeamParam != "" {
-		managingTeamID, parseErr := strconv.ParseUint(managingTeamParam, 10, 32)
-		if parseErr != nil {
-			http.Error(w, "Invalid managing team ID", http.StatusBadRequest)
-			return
-		}
-		// Use team-aware method for derby matches
-		matchup, err = h.service.GetOrCreateMatchupWithTeam(fixtureID, matchupType, uint(managingTeamID))
-	} else {
-		// Use regular method for non-derby matches
-		matchup, err = h.service.GetOrCreateMatchup(fixtureID, matchupType)
-	}
-
-	if err != nil {
-		logAndError(w, "Failed to get or create matchup", err, http.StatusInternalServerError)
-		return
-	}
-
-	// Update the St Ann's players for this matchup
-	err = h.service.UpdateStAnnsMatchupPlayers(matchup.ID, fixtureID, stAnnsPlayer1ID, stAnnsPlayer2ID)
-	if err != nil {
-		logAndError(w, "Failed to update matchup players", err, http.StatusInternalServerError)
-		return
-	}
-
-	// Check if this is an HTMX request
-	if r.Header.Get("HX-Request") == "true" {
-		// Return updated existing matchups container
-		h.renderExistingMatchupsContainer(w, r, fixtureID)
-		return
-	}
-
-	// Redirect back to matchup selection page for non-HTMX requests
-	redirectURL := fmt.Sprintf("/admin/fixtures/%d/matchup-selection", fixtureID)
-
-	// Preserve managing team parameter in redirect for derby matches
-	if managingTeamParam != "" {
-		teamName := r.URL.Query().Get("teamName")
-		redirectURL += fmt.Sprintf("?managingTeam=%s", managingTeamParam)
-		if teamName != "" {
-			redirectURL += fmt.Sprintf("&teamName=%s", teamName)
-		}
-	}
-
-	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
 
 // handleAssignPlayerToMatchup handles assigning a single player to a matchup
@@ -1122,54 +956,6 @@ func (h *FixturesHandler) renderTeamSelectionContainer(w http.ResponseWriter, r 
 
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, templateData); err != nil {
-		logAndError(w, err.Error(), err, http.StatusInternalServerError)
-	}
-}
-
-// renderExistingMatchupsContainer renders just the existing matchups container for HTMX requests
-func (h *FixturesHandler) renderExistingMatchupsContainer(w http.ResponseWriter, r *http.Request, fixtureID uint) {
-	// Check for managing team parameter (for derby matches)
-	managingTeamParam := r.URL.Query().Get("managingTeam")
-	if managingTeamParam == "" {
-		managingTeamParam = r.FormValue("managing_team_id")
-	}
-
-	var fixtureDetail *FixtureDetail
-	var err error
-
-	// Use team-aware or regular fixture detail based on managing team parameter
-	if managingTeamParam != "" {
-		managingTeamIDUint64, parseErr := strconv.ParseUint(managingTeamParam, 10, 32)
-		if parseErr == nil {
-			managingTeamID := uint(managingTeamIDUint64)
-			fixtureDetail, err = h.service.GetFixtureDetailWithTeamContext(fixtureID, managingTeamID)
-		} else {
-			// Fall back to regular method if parsing fails
-			fixtureDetail, err = h.service.GetFixtureDetail(fixtureID)
-		}
-	} else {
-		// Use regular fixture detail method
-		fixtureDetail, err = h.service.GetFixtureDetail(fixtureID)
-	}
-
-	if err != nil {
-		logAndError(w, "Fixture not found", err, http.StatusNotFound)
-		return
-	}
-
-	// Load the partial existing matchups container template for HTMX
-	tmpl, err := template.ParseFiles(
-		filepath.Join(h.templateDir, "admin/fixture_matchup_existing_container.html"),
-	)
-	if err != nil {
-		logAndError(w, "Failed to parse existing matchups container template", err, http.StatusInternalServerError)
-		return
-	}
-
-	// Execute the template with data
-	if err := renderTemplate(w, tmpl, map[string]interface{}{
-		"FixtureDetail": fixtureDetail,
-	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
 }

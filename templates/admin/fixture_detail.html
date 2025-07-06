@@ -484,28 +484,7 @@
             z-index: 1;
         }
         
-        /* Copy indicator with better positioning */
-        .fixture-at-glance::after {
-            content: '📋 Click to copy';
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            font-size: 0.75rem;
-            padding: 0.3rem 0.8rem;
-            border-radius: 15px;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            z-index: 20;
-            font-weight: 600;
-            backdrop-filter: blur(10px);
-            pointer-events: none;
-        }
-        
-        .fixture-at-glance:hover::after {
-            opacity: 1;
-        }
+
         
         .fixture-at-glance h3 {
             display: none;
@@ -912,7 +891,6 @@
             z-index: 1000;
             pointer-events: none;
             opacity: 0;
-            transform: translateY(-10px);
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
             backdrop-filter: blur(10px);
@@ -920,7 +898,7 @@
         
         .copy-feedback.show {
             opacity: 1;
-            transform: translateY(-25px);
+            transform: translateX(-50%) translateY(-15px);
         }
 
         /* Derby Management Styles */
@@ -1137,7 +1115,7 @@
                 {{end}}
 
                 <div class="info-highlight">
-                    <strong>💡 Tip:</strong> The fixture summary below is designed to look great in screenshots and can be clicked to copy all the details to your clipboard for easy sharing via WhatsApp, email, or other communication channels.
+                    <strong>💡 Tip:</strong> The fixture summary below is designed to look great in screenshots and can be <u>clicked to copy</u> all the details to your clipboard for easy sharing via WhatsApp, email, or other communication channels.
                 </div>
 
                 <!-- Fixture At A Glance -->
@@ -1371,46 +1349,12 @@ No team selection made yet{{end}}{{end}}{{end}}</div>
 
                         <div class="matchup-actions">
                             {{if and .IsDerby .ManagingTeam}}
-                            <a href="/admin/fixtures/{{.FixtureDetail.ID}}/matchup-selection?managingTeam={{.ManagingTeam.ID}}&teamName={{.ManagingTeam.Name}}" class="btn-matchup-selection">
+                            <a href="/admin/fixtures/{{.FixtureDetail.ID}}/team-selection?managingTeam={{.ManagingTeam.ID}}&teamName={{.ManagingTeam.Name}}" class="btn-matchup-selection">
                             {{else}}
-                            <a href="/admin/fixtures/{{.FixtureDetail.ID}}/matchup-selection" class="btn-matchup-selection">
+                            <a href="/admin/fixtures/{{.FixtureDetail.ID}}/team-selection" class="btn-matchup-selection">
                             {{end}}
                                 {{if .FixtureDetail.Matchups}}
-                                    ✏️ Manage Matchups
-                                {{else}}
-                                    🎾 Set Up Matchups
-                                {{end}}
-                            </a>
-                        </div>
-                    </div>
-                    {{end}}
-                    {{if ne .FixtureDetail.Status "Completed"}}
-                    <div class="detail-section team-selection-section">
-                        <h3>👥 Team Selection</h3>
-                        
-                        {{if .FixtureDetail.SelectedPlayers}}
-                        <div class="selection-summary">
-                            <div class="selection-count">
-                                <strong>{{len .FixtureDetail.SelectedPlayers}}/8 players selected</strong>
-                            </div>
-                            <div class="quick-player-list">
-                                {{range .FixtureDetail.SelectedPlayers}}
-                                <span class="quick-player">{{.Player.FirstName}} {{.Player.LastName}}</span>
-                                {{end}}
-                            </div>
-                        </div>
-                        {{else}}
-                        <p class="no-selection">No players selected yet.</p>
-                        {{end}}
-
-                        <div class="team-selection-actions">
-                            {{if and .IsDerby .ManagingTeam}}
-                            <a href="/admin/fixtures/{{.FixtureDetail.ID}}/team-selection?managingTeam={{.ManagingTeam.ID}}&teamName={{.ManagingTeam.Name}}" class="btn-team-selection">
-                            {{else}}
-                            <a href="/admin/fixtures/{{.FixtureDetail.ID}}/team-selection" class="btn-team-selection">
-                            {{end}}
-                                {{if .FixtureDetail.SelectedPlayers}}
-                                    ✏️ Manage Team Selection
+                                    ✏️ Select Team Players
                                 {{else}}
                                     🏆 Select Team Players
                                 {{end}}
@@ -1490,7 +1434,7 @@ No team selection made yet{{end}}{{end}}{{end}}</div>
                                 if (feedback.parentNode) {
                                     feedback.parentNode.removeChild(feedback);
                                 }
-                            }, 300);
+                            }, 500);
                         }, 1500);
                         
                     } catch (err) {
@@ -1519,7 +1463,7 @@ No team selection made yet{{end}}{{end}}{{end}}</div>
                                 if (errorFeedback.parentNode) {
                                     errorFeedback.parentNode.removeChild(errorFeedback);
                                 }
-                            }, 300);
+                            }, 500);
                         }, 2000);
                     }
                 });
