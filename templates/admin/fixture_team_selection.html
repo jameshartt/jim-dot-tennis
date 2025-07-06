@@ -356,6 +356,17 @@
             opacity: 0.7;
         }
         
+        .btn-warning {
+            background: #fd7e14 !important;
+            border-left: 4px solid #e8590c !important;
+            color: white !important;
+            position: relative;
+        }
+        
+        .btn-warning:hover {
+            background: #e8590c !important;
+        }
+        
         .btn-locked {
             background: #6c757d !important;
             border-left: 4px solid #545b62 !important;
@@ -720,16 +731,20 @@
                     <div class="eligibility-legend">
                         <h5>⚖️ Eligibility Status:</h5>
                         <div class="legend-item">
-                            <span class="emoji-unlocked">🔓</span>
-                            Unlocked - Can play (remaining count shown)
+                            <span>✅</span>
+                            Free to play - Can play in lower divisions (remaining count shown)
                         </div>
                         <div class="legend-item">
-                            <span class="emoji-locked">🔒</span>
+                            <span>🔒</span>
                             Locked - 4+ matches played (locked to this team or higher)
                         </div>
                         <div class="legend-item">
-                            <span class="emoji-blocked">🛑</span>
-                            Blocked - Rule violation (already played/playing this week) 
+                            <span>⚠️</span>
+                            Warning - Already played this week (rule suggestion, can still select)
+                        </div>
+                        <div class="legend-item">
+                            <span>🚫</span>
+                            Blocked - Locked to higher division team
                         </div>
                     </div>
                     
@@ -746,10 +761,10 @@
                                 <input type="hidden" name="player_id" value="{{.Player.ID}}">
                                 <input type="hidden" name="is_home" value="true">
                                 {{if $.ManagingTeam}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeam.ID}}">{{end}}
-                                <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} btn-blocked{{else if .Eligibility.IsLocked}} btn-locked{{end}}{{end}}"
-                                        {{if .Eligibility}}{{if not .Eligibility.CanPlay}}disabled{{end}}{{end}}
-                                        title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} 🛑 {{if .Eligibility.PlayedThisWeek}}Already played this week for {{.Eligibility.PlayedThisWeekTeam}}{{else if .Eligibility.IsLockedToHigherTeam}}Locked to {{.Eligibility.LockedToTeamName}}{{end}}{{else if .Eligibility.IsLocked}} 🔒 Locked to this team or higher{{else if .Eligibility.CanPlayLower}} 🔓 {{if ge .Eligibility.RemainingHigherTeamPlays 0}}{{.Eligibility.RemainingHigherTeamPlays}} plays left{{else}}Can play lower teams{{end}}{{end}}{{end}}">
-                                    {{if .Eligibility}}{{if not .Eligibility.CanPlay}}<span class="emoji-blocked">🛑</span>{{else if .Eligibility.IsLocked}}<span class="emoji-locked">🔒</span>{{else if .Eligibility.CanPlayLower}}<span class="emoji-unlocked">🔓</span>{{end}}{{end}} {{.Player.FirstName}} {{.Player.LastName}}{{if .Eligibility}}{{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}} ({{.Eligibility.RemainingHigherTeamPlays}} left){{end}}{{end}}
+                                <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}{{if .Eligibility}}{{if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}} btn-blocked{{else if .Eligibility.IsLocked}} btn-locked{{end}}{{end}}"
+                                        {{if .Eligibility}}{{if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}}disabled{{end}}{{end}}
+                                        title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} {{if .Eligibility.PlayedThisWeek}}⚠️ Already played this week for {{.Eligibility.PlayedThisWeekTeam}} (rule suggestion){{else if .Eligibility.IsLockedToHigherTeam}}🚫 Locked to {{.Eligibility.LockedToTeamName}}{{end}}{{else if .Eligibility.IsLocked}} 🔒 Locked to this team or higher{{else if .Eligibility.CanPlayLower}} ✅ {{if ge .Eligibility.RemainingHigherTeamPlays 0}}{{.Eligibility.RemainingHigherTeamPlays}} plays left{{else}}Can play lower teams{{end}}{{end}}{{end}}">
+                                    {{if .Eligibility}}{{if and (not .Eligibility.CanPlay) .Eligibility.PlayedThisWeek}}⚠️{{else if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}}🚫{{else if .Eligibility.IsLocked}}🔒{{else if .Eligibility.CanPlayLower}}✅{{end}}{{end}} {{.Player.FirstName}} {{.Player.LastName}}{{if .Eligibility}}{{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}} ({{.Eligibility.RemainingHigherTeamPlays}} left){{end}}{{end}}
                                 </button>
                             </form>
                             {{end}}
@@ -775,10 +790,10 @@
                                 <input type="hidden" name="player_id" value="{{.Player.ID}}">
                                 <input type="hidden" name="is_home" value="true">
                                 {{if $.ManagingTeam}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeam.ID}}">{{end}}
-                                <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} btn-blocked{{else if .Eligibility.IsLocked}} btn-locked{{end}}{{end}}"
-                                        {{if .Eligibility}}{{if not .Eligibility.CanPlay}}disabled{{end}}{{end}}
-                                        title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} 🛑 {{if .Eligibility.PlayedThisWeek}}Already played this week for {{.Eligibility.PlayedThisWeekTeam}}{{else if .Eligibility.IsLockedToHigherTeam}}Locked to {{.Eligibility.LockedToTeamName}}{{end}}{{else if .Eligibility.IsLocked}} 🔒 Locked to this team or higher{{else if .Eligibility.CanPlayLower}} 🔓 {{if ge .Eligibility.RemainingHigherTeamPlays 0}}{{.Eligibility.RemainingHigherTeamPlays}} plays left{{else}}Can play lower teams{{end}}{{end}}{{end}}">
-                                    {{if .Eligibility}}{{if not .Eligibility.CanPlay}}<span class="emoji-blocked">🛑</span>{{else if .Eligibility.IsLocked}}<span class="emoji-locked">🔒</span>{{else if .Eligibility.CanPlayLower}}<span class="emoji-unlocked">🔓</span>{{end}}{{end}} {{.Player.FirstName}} {{.Player.LastName}}{{if .Eligibility}}{{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}} ({{.Eligibility.RemainingHigherTeamPlays}} left){{end}}{{end}}
+                                <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}{{if .Eligibility}}{{if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}} btn-blocked{{else if .Eligibility.IsLocked}} btn-locked{{end}}{{end}}"
+                                        {{if .Eligibility}}{{if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}}disabled{{end}}{{end}}
+                                        title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} {{if .Eligibility.PlayedThisWeek}}⚠️ Already played this week for {{.Eligibility.PlayedThisWeekTeam}} (rule suggestion){{else if .Eligibility.IsLockedToHigherTeam}}🚫 Locked to {{.Eligibility.LockedToTeamName}}{{end}}{{else if .Eligibility.IsLocked}} 🔒 Locked to this team or higher{{else if .Eligibility.CanPlayLower}} ✅ {{if ge .Eligibility.RemainingHigherTeamPlays 0}}{{.Eligibility.RemainingHigherTeamPlays}} plays left{{else}}Can play lower teams{{end}}{{end}}{{end}}">
+                                    {{if .Eligibility}}{{if and (not .Eligibility.CanPlay) .Eligibility.PlayedThisWeek}}⚠️{{else if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}}🚫{{else if .Eligibility.IsLocked}}🔒{{else if .Eligibility.CanPlayLower}}✅{{end}}{{end}} {{.Player.FirstName}} {{.Player.LastName}}{{if .Eligibility}}{{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}} ({{.Eligibility.RemainingHigherTeamPlays}} left){{end}}{{end}}
                                 </button>
                             </form>
                             {{end}}
