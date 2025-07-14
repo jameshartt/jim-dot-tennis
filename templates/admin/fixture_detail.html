@@ -572,7 +572,8 @@
             position: relative;
             z-index: 3;
             backdrop-filter: blur(10px);
-            margin-bottom: 0.75rem;
+            margin-bottom: 0.25rem;
+            margin-top: 0.75rem;
         }
         
         .glance-notes-title {
@@ -1277,14 +1278,7 @@
                             {{end}}
                         </div>
                     </div>
-                    
-                    {{if .FixtureDetail.Notes}}
-                    <div class="glance-notes">
-                        <div class="glance-notes-title">📝 Notes</div>
-                        <div class="glance-notes-content">{{.FixtureDetail.Notes}}</div>
-                    </div>
-                    {{end}}
-                    
+
                     {{if .FixtureDetail.Matchups}}
                     <div class="glance-matchups">
                         {{if eq .FixtureDetail.Status "Completed"}}
@@ -1387,12 +1381,18 @@
                     </div>
                     {{end}}
                     
+                    {{if .FixtureDetail.Notes}}
+                    <div class="glance-notes">
+                        <div class="glance-notes-title">📝 Notes</div>
+                        <div class="glance-notes-content">{{.FixtureDetail.Notes}}</div>
+                    </div>
+                    {{end}}
+                                        
                     <div class="glance-copyable" style="display: none;">{{if .FixtureDetail.Division}}{{if eq .FixtureDetail.Division.Name "Division 1"}}Div. 1{{else if eq .FixtureDetail.Division.Name "Division 2"}}Div. 2{{else if eq .FixtureDetail.Division.Name "Division 3"}}Div. 3{{else if eq .FixtureDetail.Division.Name "Division 4"}}Div. 4{{else}}{{.FixtureDetail.Division.Name}}{{end}}{{else}}Div. TBD{{end}}{{if .FixtureDetail.Week}} - Week {{.FixtureDetail.Week.WeekNumber}}{{end}}
 📅 {{.FixtureDetail.ScheduledDate.Format "Mon, Jan 2, 2006"}}
 
 {{if .IsDerby}}{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{else}}{{if .IsStAnnsHome}}🏠 (HOME) {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{else if .IsStAnnsAway}}✈️ (AWAY) {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}{{end}} @ {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}{{else}}{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{end}}{{end}}
 
-{{if .FixtureDetail.Notes}}📝 Notes: {{.FixtureDetail.Notes}}
 
 {{end}}{{if eq .FixtureDetail.Status "Completed"}}🏆 FINAL SCORES:
 {{if .IsDerby}}{{.FixtureDetail.HomeTeam.Name}} vs {{.FixtureDetail.AwayTeam.Name}}{{else}}{{if .IsStAnnsHome}}🏠 {{.FixtureDetail.HomeTeam.Name}} vs {{.FixtureDetail.AwayTeam.Name}}{{else}}{{.FixtureDetail.HomeTeam.Name}} vs ✈️ {{.FixtureDetail.AwayTeam.Name}}{{end}}{{end}}
@@ -1404,7 +1404,11 @@ Team:{{if .FixtureDetail.Matchups}}{{range .FixtureDetail.Matchups}}
 No team selection made yet{{end}}{{end}}{{else}}Team:{{if .FixtureDetail.Matchups}}{{range .FixtureDetail.Matchups}}
 {{.Matchup.Type}}: {{if .Players}}{{range $index, $player := .Players}}{{if $index}}, {{end}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}{{else}}TBD{{end}}{{end}}{{else}}{{if .FixtureDetail.SelectedPlayers}}
 {{range $index, $selectedPlayer := .FixtureDetail.SelectedPlayers}}{{if $index}}, {{end}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}.{{end}}{{else}}
-No team selection made yet{{end}}{{end}}{{end}}</div>
+No team selection made yet{{end}}{{end}}{{end}}
+
+{{if .FixtureDetail.Notes}}📝 Notes: {{.FixtureDetail.Notes}}
+
+</div>
                 </div>
 
                 <div class="detail-grid">
