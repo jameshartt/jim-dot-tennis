@@ -97,6 +97,63 @@
     background: #e8590c !important;
 }
 
+.captain-indicator {
+    font-weight: 700;
+    color: #ffc107;
+    margin-left: 0.25rem;
+}
+
+/* Day Captain Selection */
+.matchup-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.btn-captain-selector {
+    background: #17a2b8;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.btn-captain-selector:hover {
+    background: #138496;
+}
+
+.btn-captain-selector.active {
+    background: #dc3545;
+}
+
+.btn-captain-selector.active:hover {
+    background: #c82333;
+}
+
+.player-card.captain-selectable {
+    cursor: pointer;
+    border: 2px solid #17a2b8;
+    background: #e3f2fd;
+    transform: scale(1.02);
+}
+
+.player-card.captain-selectable:hover {
+    border-color: #138496;
+    background: #bbdefb;
+}
+
+.player-card.is-captain {
+    border-left: 4px solid #ffc107;
+}
+
+.player-card.is-captain .player-name {
+    font-weight: 700;
+}
+
 /* Mobile optimizations for instruction text and legends */
 @media (max-width: 1024px) {
     .drag-instruction-text {
@@ -114,6 +171,17 @@
     .legend-item {
         display: block !important;
         margin-bottom: 0.4rem !important;
+    }
+    
+    .matchup-header-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+    
+    .btn-captain-selector {
+        padding: 0.75rem;
+        font-size: 0.9rem;
     }
 }
 </style>
@@ -162,14 +230,14 @@
                 <div id="selected-players-container">
                     {{if .FixtureDetail.SelectedPlayers}}
                         {{range .FixtureDetail.SelectedPlayers}}
-                        <div class="player-card availability-{{.AvailabilityStatus | lower}}" 
+                        <div class="player-card availability-{{.AvailabilityStatus | lower}}{{if and $.FixtureDetail.DayCaptain (eq .PlayerID $.FixtureDetail.DayCaptain.ID)}} is-captain{{end}}" 
                              draggable="true" 
                              ondragstart="handleDragStart(event, '{{.PlayerID}}', '{{.Player.FirstName}} {{.Player.LastName}}', 'selected')"
                              data-player-id="{{.PlayerID}}"
                              data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
                              data-availability="{{.AvailabilityStatus | lower}}"
                              title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
-                            <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                            <span class="player-name">{{.Player.FirstName}} {{.Player.LastName}}{{if and $.FixtureDetail.DayCaptain (eq .PlayerID $.FixtureDetail.DayCaptain.ID)}}<span class="captain-indicator">(C)</span>{{end}}</span>
                             <button class="player-remove-btn" onclick="removePlayer('{{.PlayerID}}', 'selected')" title="Remove from selection">×</button>
                         </div>
                         {{end}}
@@ -186,7 +254,12 @@
         </div>
 
         <div class="matchup-zones-section">
-            <h3>🎾 Matchup Assignments</h3>
+            <div class="matchup-header-row">
+                <h3>🎾 Matchup Assignments</h3>
+                <button id="captain-selector-btn" class="btn-captain-selector" onclick="toggleCaptainSelection()">
+                    👨‍✈️ Select Day Captain
+                </button>
+            </div>
             
             <div class="matchup-zone" 
                  id="matchup-zone-0" 
@@ -199,13 +272,13 @@
                     {{range .FixtureDetail.Matchups}}
                         {{if eq .Matchup.Type "1st Mixed"}}
                             {{range .Players}}
-                            <div class="player-card availability-unknown" 
+                            <div class="player-card availability-unknown{{if and $.FixtureDetail.DayCaptain (eq .Player.ID $.FixtureDetail.DayCaptain.ID)}} is-captain{{end}}" 
                                  data-player-id="{{.Player.ID}}"
                                  data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
                                  data-availability="unknown"
                                  onclick="removePlayer('{{.Player.ID}}', '1st Mixed')" 
                                  title="Tap to remove from matchup">
-                                <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                                <span class="player-name">{{.Player.FirstName}} {{.Player.LastName}}{{if and $.FixtureDetail.DayCaptain (eq .Player.ID $.FixtureDetail.DayCaptain.ID)}}<span class="captain-indicator">(C)</span>{{end}}</span>
                             </div>
                             {{end}}
                         {{end}}
@@ -224,13 +297,13 @@
                     {{range .FixtureDetail.Matchups}}
                         {{if eq .Matchup.Type "2nd Mixed"}}
                             {{range .Players}}
-                            <div class="player-card availability-unknown" 
+                            <div class="player-card availability-unknown{{if and $.FixtureDetail.DayCaptain (eq .Player.ID $.FixtureDetail.DayCaptain.ID)}} is-captain{{end}}" 
                                  data-player-id="{{.Player.ID}}"
                                  data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
                                  data-availability="unknown"
                                  onclick="removePlayer('{{.Player.ID}}', '2nd Mixed')" 
                                  title="Tap to remove from matchup">
-                                <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                                <span class="player-name">{{.Player.FirstName}} {{.Player.LastName}}{{if and $.FixtureDetail.DayCaptain (eq .Player.ID $.FixtureDetail.DayCaptain.ID)}}<span class="captain-indicator">(C)</span>{{end}}</span>
                             </div>
                             {{end}}
                         {{end}}
@@ -249,13 +322,13 @@
                     {{range .FixtureDetail.Matchups}}
                         {{if eq .Matchup.Type "Mens"}}
                             {{range .Players}}
-                            <div class="player-card availability-unknown" 
+                            <div class="player-card availability-unknown{{if and $.FixtureDetail.DayCaptain (eq .Player.ID $.FixtureDetail.DayCaptain.ID)}} is-captain{{end}}" 
                                  data-player-id="{{.Player.ID}}"
                                  data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
                                  data-availability="unknown"
                                  onclick="removePlayer('{{.Player.ID}}', 'Mens')" 
                                  title="Tap to remove from matchup">
-                                <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                                <span class="player-name">{{.Player.FirstName}} {{.Player.LastName}}{{if and $.FixtureDetail.DayCaptain (eq .Player.ID $.FixtureDetail.DayCaptain.ID)}}<span class="captain-indicator">(C)</span>{{end}}</span>
                             </div>
                             {{end}}
                         {{end}}
@@ -274,13 +347,13 @@
                     {{range .FixtureDetail.Matchups}}
                         {{if eq .Matchup.Type "Womens"}}
                             {{range .Players}}
-                            <div class="player-card availability-unknown" 
+                            <div class="player-card availability-unknown{{if and $.FixtureDetail.DayCaptain (eq .Player.ID $.FixtureDetail.DayCaptain.ID)}} is-captain{{end}}" 
                                  data-player-id="{{.Player.ID}}"
                                  data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
                                  data-availability="unknown"
                                  onclick="removePlayer('{{.Player.ID}}', 'Womens')" 
                                  title="Tap to remove from matchup">
-                                <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                                <span class="player-name">{{.Player.FirstName}} {{.Player.LastName}}{{if and $.FixtureDetail.DayCaptain (eq .Player.ID $.FixtureDetail.DayCaptain.ID)}}<span class="captain-indicator">(C)</span>{{end}}</span>
                             </div>
                             {{end}}
                         {{end}}

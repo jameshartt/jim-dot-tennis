@@ -1293,9 +1293,22 @@
                                     <td class="matchup-player-cell" colspan="2">
                                         {{if .Players}}
                                             {{if eq (len .Players) 1}}
-                                                {{(index .Players 0).Player.FirstName}} {{printf "%.1s" (index .Players 0).Player.LastName}}.
+                                                {{$player := (index .Players 0)}}
+                                                {{if and $.FixtureDetail.DayCaptain (eq $player.Player.ID $.FixtureDetail.DayCaptain.ID)}}
+                                                    <b>{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}. (C)</b>
+                                                {{else}}
+                                                    {{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.
+                                                {{end}}
                                             {{else if eq (len .Players) 2}}
-                                                {{(index .Players 0).Player.FirstName}} {{printf "%.1s" (index .Players 0).Player.LastName}}., {{(index .Players 1).Player.FirstName}} {{printf "%.1s" (index .Players 1).Player.LastName}}.
+                                                {{$player1 := (index .Players 0)}}
+                                                {{$player2 := (index .Players 1)}}
+                                                {{if and $.FixtureDetail.DayCaptain (eq $player1.Player.ID $.FixtureDetail.DayCaptain.ID)}}
+                                                    <b>{{$player1.Player.FirstName}} {{printf "%.1s" $player1.Player.LastName}}. (C)</b>, {{$player2.Player.FirstName}} {{printf "%.1s" $player2.Player.LastName}}.
+                                                {{else if and $.FixtureDetail.DayCaptain (eq $player2.Player.ID $.FixtureDetail.DayCaptain.ID)}}
+                                                    {{$player1.Player.FirstName}} {{printf "%.1s" $player1.Player.LastName}}., <b>{{$player2.Player.FirstName}} {{printf "%.1s" $player2.Player.LastName}}. (C)</b>
+                                                {{else}}
+                                                    {{$player1.Player.FirstName}} {{printf "%.1s" $player1.Player.LastName}}., {{$player2.Player.FirstName}} {{printf "%.1s" $player2.Player.LastName}}.
+                                                {{end}}
                                             {{else}}
                                                 <span class="tbd">TBD</span>
                                             {{end}}
@@ -1347,11 +1360,32 @@
                                     <td class="matchup-type-cell">{{.Matchup.Type}}</td>
                                     {{if .Players}}
                                         {{if eq (len .Players) 1}}
-                                            <td class="matchup-player-cell">{{(index .Players 0).Player.FirstName}} {{printf "%.1s" (index .Players 0).Player.LastName}}.</td>
+                                            {{$player := (index .Players 0)}}
+                                            <td class="matchup-player-cell">
+                                                {{if and $.FixtureDetail.DayCaptain (eq $player.Player.ID $.FixtureDetail.DayCaptain.ID)}}
+                                                    <b>{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}. (C)</b>
+                                                {{else}}
+                                                    {{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.
+                                                {{end}}
+                                            </td>
                                             <td class="matchup-player-cell"></td>
                                         {{else if eq (len .Players) 2}}
-                                            <td class="matchup-player-cell">{{(index .Players 0).Player.FirstName}} {{printf "%.1s" (index .Players 0).Player.LastName}}.</td>
-                                            <td class="matchup-player-cell">{{(index .Players 1).Player.FirstName}} {{printf "%.1s" (index .Players 1).Player.LastName}}.</td>
+                                            {{$player1 := (index .Players 0)}}
+                                            {{$player2 := (index .Players 1)}}
+                                            <td class="matchup-player-cell">
+                                                {{if and $.FixtureDetail.DayCaptain (eq $player1.Player.ID $.FixtureDetail.DayCaptain.ID)}}
+                                                    <b>{{$player1.Player.FirstName}} {{printf "%.1s" $player1.Player.LastName}}. (C)</b>
+                                                {{else}}
+                                                    {{$player1.Player.FirstName}} {{printf "%.1s" $player1.Player.LastName}}.
+                                                {{end}}
+                                            </td>
+                                            <td class="matchup-player-cell">
+                                                {{if and $.FixtureDetail.DayCaptain (eq $player2.Player.ID $.FixtureDetail.DayCaptain.ID)}}
+                                                    <b>{{$player2.Player.FirstName}} {{printf "%.1s" $player2.Player.LastName}}. (C)</b>
+                                                {{else}}
+                                                    {{$player2.Player.FirstName}} {{printf "%.1s" $player2.Player.LastName}}.
+                                                {{end}}
+                                            </td>
                                         {{else}}
                                             <td class="matchup-player-cell"><span class="tbd">TBD</span></td>
                                             <td class="matchup-player-cell"></td>
@@ -1373,7 +1407,7 @@
                                 <tr>
                                     <td class="matchup-type-cell">Team</td>
                                     <td class="matchup-player-cell" colspan="2">
-                                        {{range $index, $player := .FixtureDetail.SelectedPlayers}}{{if $index}}, {{end}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}
+                                        {{range $index, $player := .FixtureDetail.SelectedPlayers}}{{if $index}}, {{end}}{{if and $.FixtureDetail.DayCaptain (eq $player.PlayerID $.FixtureDetail.DayCaptain.ID)}}<b>{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}. (C)</b>{{else}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}{{end}}
                                     </td>
                                 </tr>
                             </tbody>
@@ -1398,12 +1432,12 @@
 {{if .IsDerby}}{{.FixtureDetail.HomeTeam.Name}} vs {{.FixtureDetail.AwayTeam.Name}}{{else}}{{if .IsStAnnsHome}}🏠 {{.FixtureDetail.HomeTeam.Name}} vs {{.FixtureDetail.AwayTeam.Name}}{{else}}{{.FixtureDetail.HomeTeam.Name}} vs ✈️ {{.FixtureDetail.AwayTeam.Name}}{{end}}{{end}}
 
 Team:{{if .FixtureDetail.Matchups}}{{range .FixtureDetail.Matchups}}
-{{.Matchup.Type}}: {{if .Players}}{{range $index, $player := .Players}}{{if $index}}, {{end}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}{{else}}TBD{{end}}{{if eq $.FixtureDetail.Status "Completed"}}
+{{.Matchup.Type}}: {{if .Players}}{{range $index, $player := .Players}}{{if $index}}, {{end}}{{if and $.FixtureDetail.DayCaptain (eq $player.Player.ID $.FixtureDetail.DayCaptain.ID)}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}. (C){{else}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}{{end}}{{else}}TBD{{end}}{{if eq $.FixtureDetail.Status "Completed"}}
 {{/* Determine score perspective for copyable text */}}{{$showFromStAnnsView := false}}{{if $.IsDerby}}{{if and $.ManagingTeam (eq $.ManagingTeam.ID $.FixtureDetail.AwayTeam.ID)}}{{$showFromStAnnsView = true}}{{end}}{{else if $.IsStAnnsAway}}{{$showFromStAnnsView = true}}{{end}}{{if or .Matchup.HomeSet1 .Matchup.AwaySet1}}{{if $showFromStAnnsView}}[{{if .Matchup.AwaySet1}}{{.Matchup.AwaySet1}}{{else}}0{{end}}-{{if .Matchup.HomeSet1}}{{.Matchup.HomeSet1}}{{else}}0{{end}}{{if or .Matchup.HomeSet2 .Matchup.AwaySet2}}, {{if .Matchup.AwaySet2}}{{.Matchup.AwaySet2}}{{else}}0{{end}}-{{if .Matchup.HomeSet2}}{{.Matchup.HomeSet2}}{{else}}0{{end}}{{end}}{{if or .Matchup.HomeSet3 .Matchup.AwaySet3}}, {{if .Matchup.AwaySet3}}{{.Matchup.AwaySet3}}{{else}}0{{end}}-{{if .Matchup.HomeSet3}}{{.Matchup.HomeSet3}}{{else}}0{{end}}{{end}}]{{else}}[{{if .Matchup.HomeSet1}}{{.Matchup.HomeSet1}}{{else}}0{{end}}-{{if .Matchup.AwaySet1}}{{.Matchup.AwaySet1}}{{else}}0{{end}}{{if or .Matchup.HomeSet2 .Matchup.AwaySet2}}, {{if .Matchup.HomeSet2}}{{.Matchup.HomeSet2}}{{else}}0{{end}}-{{if .Matchup.AwaySet2}}{{.Matchup.AwaySet2}}{{else}}0{{end}}{{end}}{{if or .Matchup.HomeSet3 .Matchup.AwaySet3}}, {{if .Matchup.HomeSet3}}{{.Matchup.HomeSet3}}{{else}}0{{end}}-{{if .Matchup.AwaySet3}}{{.Matchup.AwaySet3}}{{else}}0{{end}}{{end}}]{{end}}{{else}}{{if $showFromStAnnsView}}({{.Matchup.AwayScore}}-{{.Matchup.HomeScore}}){{else}}({{.Matchup.HomeScore}}-{{.Matchup.AwayScore}}){{end}}{{end}}{{end}}{{end}}{{else}}{{if .FixtureDetail.SelectedPlayers}}
-{{range $index, $selectedPlayer := .FixtureDetail.SelectedPlayers}}{{if $index}}, {{end}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}.{{end}}{{else}}
+{{range $index, $selectedPlayer := .FixtureDetail.SelectedPlayers}}{{if $index}}, {{end}}{{if and $.FixtureDetail.DayCaptain (eq $selectedPlayer.PlayerID $.FixtureDetail.DayCaptain.ID)}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}. (C){{else}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}.{{end}}{{end}}{{else}}
 No team selection made yet{{end}}{{end}}{{else}}Team:{{if .FixtureDetail.Matchups}}{{range .FixtureDetail.Matchups}}
-{{.Matchup.Type}}: {{if .Players}}{{range $index, $player := .Players}}{{if $index}}, {{end}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}{{else}}TBD{{end}}{{end}}{{else}}{{if .FixtureDetail.SelectedPlayers}}
-{{range $index, $selectedPlayer := .FixtureDetail.SelectedPlayers}}{{if $index}}, {{end}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}.{{end}}{{else}}
+{{.Matchup.Type}}: {{if .Players}}{{range $index, $player := .Players}}{{if $index}}, {{end}}{{if and $.FixtureDetail.DayCaptain (eq $player.Player.ID $.FixtureDetail.DayCaptain.ID)}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}. (C){{else}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}{{end}}{{else}}TBD{{end}}{{end}}{{else}}{{if .FixtureDetail.SelectedPlayers}}
+{{range $index, $selectedPlayer := .FixtureDetail.SelectedPlayers}}{{if $index}}, {{end}}{{if and $.FixtureDetail.DayCaptain (eq $selectedPlayer.PlayerID $.FixtureDetail.DayCaptain.ID)}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}. (C){{else}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}.{{end}}{{end}}{{else}}
 No team selection made yet{{end}}{{end}}{{end}}
 
 {{if .FixtureDetail.Notes}}📝 Notes: {{.FixtureDetail.Notes}}
@@ -1412,17 +1446,6 @@ No team selection made yet{{end}}{{end}}{{end}}
                 </div>
 
                 <div class="detail-grid">
-
-                    {{if .FixtureDetail.DayCaptain}}
-                    <div class="detail-section">
-                        <h3>👨‍✈️ Day Captain</h3>
-                        <div class="detail-item">
-                            <span class="detail-label">Name:</span>
-                            <span class="detail-value">{{.FixtureDetail.DayCaptain.FirstName}} {{.FixtureDetail.DayCaptain.LastName}}</span>
-                        </div>
-                        <!-- Contact info removed -->
-                    </div>
-                    {{end}}
 
                     <!-- Notes Section -->
                     <div class="detail-section notes-section">
@@ -1489,7 +1512,7 @@ No team selection made yet{{end}}{{end}}{{end}}
                                 <div class="quick-matchup">
                                     <span class="matchup-type-name">{{.Matchup.Type}}:</span>
                                     {{if .Players}}
-                                        {{range $index, $player := .Players}}{{if $index}}, {{end}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}
+                                        {{range $index, $player := .Players}}{{if $index}}, {{end}}{{if and $.FixtureDetail.DayCaptain (eq $player.Player.ID $.FixtureDetail.DayCaptain.ID)}}<strong>{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}. (C)</strong>{{else}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}{{end}}
                                     {{else}}
                                         <span class="tbd">TBD</span>
                                     {{end}}
@@ -1561,6 +1584,7 @@ No team selection made yet{{end}}{{end}}{{end}}
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            
             // Notes functionality
             const notesTextarea = document.getElementById('fixture-notes');
             const notesCountSpan = document.getElementById('notes-count');

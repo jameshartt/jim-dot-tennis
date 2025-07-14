@@ -297,7 +297,10 @@ func (h *FixturesHandler) handleFixtureDetailPost(w http.ResponseWriter, r *http
 		h.handleUpdateMatchup(w, r, fixtureID)
 	case "update_notes":
 		h.handleUpdateFixtureNotes(w, r)
+	case "set_day_captain":
+		h.handleSetDayCaptain(w, r, fixtureID)
 	default:
+		log.Printf("Unknown action: %s", action)
 		http.Error(w, "Unknown action", http.StatusBadRequest)
 	}
 }
@@ -690,6 +693,8 @@ func (h *FixturesHandler) handleTeamSelectionPost(w http.ResponseWriter, r *http
 		h.handleRemovePlayerFromFixture(w, r, fixtureID)
 	case "clear_players":
 		h.handleClearFixturePlayers(w, r, fixtureID)
+	case "set_day_captain":
+		h.handleSetDayCaptain(w, r, fixtureID)
 	default:
 		http.Error(w, "Unknown action", http.StatusBadRequest)
 	}
@@ -725,6 +730,8 @@ func (h *FixturesHandler) handleMatchupSelectionPost(w http.ResponseWriter, r *h
 		h.handleAssignPlayerToMatchup(w, r, fixtureID)
 	case "remove_player":
 		h.handleRemovePlayerFromMatchup(w, r, fixtureID)
+	case "set_day_captain":
+		h.handleSetDayCaptain(w, r, fixtureID)
 	default:
 		http.Error(w, "Unknown action", http.StatusBadRequest)
 	}
@@ -1015,4 +1022,49 @@ func (h *FixturesHandler) handleUpdateFixtureNotes(w http.ResponseWriter, r *htt
 
 	// For regular requests, redirect back to fixture detail
 	http.Redirect(w, r, fmt.Sprintf("/admin/fixtures/%d", fixtureID), http.StatusSeeOther)
+}
+
+// handleSetDayCaptain handles setting the day captain for a fixture
+func (h *FixturesHandler) handleSetDayCaptain(w http.ResponseWriter, r *http.Request, fixtureID uint) {
+	// Get user from context
+	_, err := getUserFromContext(r)
+	if err != nil {
+		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
+		return
+	}
+
+	// Only handle POST requests
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get the player ID from form data
+	playerID := r.FormValue("player_id")
+	if playerID == "" {
+		http.Error(w, "Player ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Update the fixture day captain
+	err = h.service.SetFixtureDayCaptain(fixtureID, playerID)
+	if err != nil {
+		logAndError(w, "Failed to set day captain", err, http.StatusInternalServerError)
+		return
+	}
+
+	// For HTMX requests, return a success response
+	if r.Header.Get("HX-Request") == "true" {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Day captain updated successfully"))
+		return
+	}
+
+	// For regular requests, redirect back to team selection
+	managingTeamParam := r.FormValue("managing_team_id")
+	redirectURL := fmt.Sprintf("/admin/fixtures/%d/team-selection", fixtureID)
+	if managingTeamParam != "" {
+		redirectURL += fmt.Sprintf("?managingTeam=%s", managingTeamParam)
+	}
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }

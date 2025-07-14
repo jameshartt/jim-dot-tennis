@@ -441,6 +441,63 @@
         .legend-unavailable { background: #dc3545; }
         .legend-unknown { background: #6c757d; }
         
+        /* Day Captain Selection */
+        .matchup-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .btn-captain-selector {
+            background: #17a2b8;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+        
+        .btn-captain-selector:hover {
+            background: #138496;
+        }
+        
+        .btn-captain-selector.active {
+            background: #dc3545;
+        }
+        
+        .btn-captain-selector.active:hover {
+            background: #c82333;
+        }
+        
+        .player-card.captain-selectable {
+            cursor: pointer;
+            border: 2px solid #17a2b8;
+            background: #e3f2fd;
+            transform: scale(1.02);
+        }
+        
+        .player-card.captain-selectable:hover {
+            border-color: #138496;
+            background: #bbdefb;
+        }
+        
+        .player-card.is-captain {
+            border-left: 4px solid #ffc107;
+        }
+        
+        .player-card.is-captain .player-name {
+            font-weight: 700;
+        }
+        
+        .captain-indicator {
+            font-weight: 700;
+            color: #ffc107;
+            margin-left: 0.25rem;
+        }
+        
         .emoji-unlocked { font-size: 1.1em; }
         .emoji-locked { font-size: 1.1em; }
         .emoji-blocked { font-size: 1.1em; }
@@ -668,6 +725,17 @@
                 font-size: 0.75rem !important;
                 margin-top: 0.3rem !important;
             }
+            
+            .matchup-header-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.5rem;
+            }
+            
+            .btn-captain-selector {
+                padding: 0.75rem;
+                font-size: 0.9rem;
+            }
         }
         
         /* Even more compact for landscape mobile */
@@ -784,31 +852,36 @@
                             <div id="selected-players-container">
                                 {{if .FixtureDetail.SelectedPlayers}}
                                     {{range .FixtureDetail.SelectedPlayers}}
-                                    <div class="player-card availability-{{.AvailabilityStatus | lower}}" 
+                                    <div class="player-card availability-{{.AvailabilityStatus | lower}}{{if and $.FixtureDetail.DayCaptain (eq .PlayerID $.FixtureDetail.DayCaptain.ID)}} is-captain{{end}}" 
                                          draggable="true" 
                                          ondragstart="handleDragStart(event, '{{.PlayerID}}', '{{.Player.FirstName}} {{.Player.LastName}}', 'selected')"
                                          data-player-id="{{.PlayerID}}"
                                          data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
                                          data-availability="{{.AvailabilityStatus | lower}}"
                                          title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
-                                        <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                                        <span class="player-name">{{.Player.FirstName}} {{.Player.LastName}}{{if and $.FixtureDetail.DayCaptain (eq .PlayerID $.FixtureDetail.DayCaptain.ID)}}<span class="captain-indicator">(C)</span>{{end}}</span>
                                         <button class="player-remove-btn" onclick="removePlayer('{{.PlayerID}}', 'selected')" title="Remove from selection">×</button>
                                     </div>
                                     {{end}}
                                 {{else}}
-                                                            <div class="no-selection">Select players below to add to your team</div>
-                    {{end}}
-                </div>
-                {{if .FixtureDetail.SelectedPlayers}}
-                <div class="drag-instruction-text" style="text-align: center; font-size: 0.85rem; color: #6c757d; margin-top: 0.5rem; font-style: italic;">
-                    💡 Drag players to matchup assignments →
-                </div>
-                {{end}}
-            </div>
-        </div>
+                                    <div class="no-selection">Select players below to add to your team</div>
+                                {{end}}
+                            </div>
+                            {{if .FixtureDetail.SelectedPlayers}}
+                            <div class="drag-instruction-text" style="text-align: center; font-size: 0.85rem; color: #6c757d; margin-top: 0.5rem; font-style: italic;">
+                                💡 Drag players to matchup assignments →
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
 
                     <div class="matchup-zones-section">
-                        <h3>🎾 Matchup Assignments</h3>
+                        <div class="matchup-header-row">
+                            <h3>🎾 Matchup Assignments</h3>
+                            <button id="captain-selector-btn" class="btn-captain-selector" onclick="toggleCaptainSelection()">
+                                👨‍✈️ Select Day Captain
+                            </button>
+                        </div>
                         
                         <div class="matchup-zone" 
                              id="matchup-zone-0" 
@@ -821,14 +894,14 @@
                                 {{range .FixtureDetail.Matchups}}
                                     {{if eq .Matchup.Type "1st Mixed"}}
                                         {{range .Players}}
-                                                                                                <div class="player-card availability-unknown" 
-                                 data-player-id="{{.Player.ID}}"
-                                 data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
-                                 data-availability="unknown"
-                                 onclick="removePlayer('{{.Player.ID}}', '1st Mixed')" 
-                                 title="Tap to remove from matchup">
-                                <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
-                            </div>
+                                        <div class="player-card availability-unknown{{if and $.FixtureDetail.DayCaptain (eq .Player.ID $.FixtureDetail.DayCaptain.ID)}} is-captain{{end}}" 
+                                             data-player-id="{{.Player.ID}}"
+                                             data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
+                                             data-availability="unknown"
+                                             onclick="removePlayer('{{.Player.ID}}', '1st Mixed')" 
+                                             title="Tap to remove from matchup">
+                                            <span class="player-name">{{.Player.FirstName}} {{.Player.LastName}}{{if and $.FixtureDetail.DayCaptain (eq .Player.ID $.FixtureDetail.DayCaptain.ID)}}<span class="captain-indicator">(C)</span>{{end}}</span>
+                                        </div>
                                         {{end}}
                                     {{end}}
                                 {{end}}
@@ -846,14 +919,14 @@
                                 {{range .FixtureDetail.Matchups}}
                                     {{if eq .Matchup.Type "2nd Mixed"}}
                                         {{range .Players}}
-                                                                                                <div class="player-card availability-unknown" 
-                                 data-player-id="{{.Player.ID}}"
-                                 data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
-                                 data-availability="unknown"
-                                 onclick="removePlayer('{{.Player.ID}}', '2nd Mixed')" 
-                                 title="Tap to remove from matchup">
-                                <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
-                            </div>
+                                        <div class="player-card availability-unknown{{if and $.FixtureDetail.DayCaptain (eq .Player.ID $.FixtureDetail.DayCaptain.ID)}} is-captain{{end}}" 
+                                             data-player-id="{{.Player.ID}}"
+                                             data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
+                                             data-availability="unknown"
+                                             onclick="removePlayer('{{.Player.ID}}', '2nd Mixed')" 
+                                             title="Tap to remove from matchup">
+                                            <span class="player-name">{{.Player.FirstName}} {{.Player.LastName}}{{if and $.FixtureDetail.DayCaptain (eq .Player.ID $.FixtureDetail.DayCaptain.ID)}}<span class="captain-indicator">(C)</span>{{end}}</span>
+                                        </div>
                                         {{end}}
                                     {{end}}
                                 {{end}}
@@ -871,14 +944,14 @@
                                 {{range .FixtureDetail.Matchups}}
                                     {{if eq .Matchup.Type "Mens"}}
                                         {{range .Players}}
-                                                                                                <div class="player-card availability-unknown" 
-                                 data-player-id="{{.Player.ID}}"
-                                 data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
-                                 data-availability="unknown"
-                                 onclick="removePlayer('{{.Player.ID}}', 'Mens')" 
-                                 title="Tap to remove from matchup">
-                                <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
-                            </div>
+                                        <div class="player-card availability-unknown{{if and $.FixtureDetail.DayCaptain (eq .Player.ID $.FixtureDetail.DayCaptain.ID)}} is-captain{{end}}" 
+                                             data-player-id="{{.Player.ID}}"
+                                             data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
+                                             data-availability="unknown"
+                                             onclick="removePlayer('{{.Player.ID}}', 'Mens')" 
+                                             title="Tap to remove from matchup">
+                                            <span class="player-name">{{.Player.FirstName}} {{.Player.LastName}}{{if and $.FixtureDetail.DayCaptain (eq .Player.ID $.FixtureDetail.DayCaptain.ID)}}<span class="captain-indicator">(C)</span>{{end}}</span>
+                                        </div>
                                         {{end}}
                                     {{end}}
                                 {{end}}
@@ -896,14 +969,14 @@
                                 {{range .FixtureDetail.Matchups}}
                                     {{if eq .Matchup.Type "Womens"}}
                                         {{range .Players}}
-                                                                                                <div class="player-card availability-unknown" 
-                                 data-player-id="{{.Player.ID}}"
-                                 data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
-                                 data-availability="unknown"
-                                 onclick="removePlayer('{{.Player.ID}}', 'Womens')" 
-                                 title="Tap to remove from matchup">
-                                <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
-                            </div>
+                                        <div class="player-card availability-unknown{{if and $.FixtureDetail.DayCaptain (eq .Player.ID $.FixtureDetail.DayCaptain.ID)}} is-captain{{end}}" 
+                                             data-player-id="{{.Player.ID}}"
+                                             data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
+                                             data-availability="unknown"
+                                             onclick="removePlayer('{{.Player.ID}}', 'Womens')" 
+                                             title="Tap to remove from matchup">
+                                            <span class="player-name">{{.Player.FirstName}} {{.Player.LastName}}{{if and $.FixtureDetail.DayCaptain (eq .Player.ID $.FixtureDetail.DayCaptain.ID)}}<span class="captain-indicator">(C)</span>{{end}}</span>
+                                        </div>
                                         {{end}}
                                     {{end}}
                                 {{end}}
@@ -1034,6 +1107,7 @@
         let touchStartTime = null;
         let longPressTimer = null;
         let isLongPress = false;
+        let captainSelectionMode = false;
         
         const LONG_PRESS_DURATION = 50; // Very short delay for mobile responsiveness
         
@@ -1041,8 +1115,105 @@
         const FIXTURE_ID = window.FIXTURE_ID;
         const MANAGING_TEAM_ID = window.MANAGING_TEAM_ID;
         
+        // Day Captain Selection Functions
+        function toggleCaptainSelection() {
+            captainSelectionMode = !captainSelectionMode;
+            const btn = document.getElementById('captain-selector-btn');
+            
+            if (captainSelectionMode) {
+                btn.textContent = '✕ Cancel Captain Selection';
+                btn.classList.add('active');
+                // Make all player cards selectable
+                document.querySelectorAll('.player-card').forEach(card => {
+                    card.classList.add('captain-selectable');
+                    card.onclick = function() {
+                        selectDayCaptain(card.dataset.playerId);
+                    };
+                });
+            } else {
+                btn.textContent = '👨‍✈️ Select Day Captain';
+                btn.classList.remove('active');
+                // Remove selectable styling from all player cards
+                document.querySelectorAll('.player-card').forEach(card => {
+                    card.classList.remove('captain-selectable');
+                    // Restore original click handlers for matchup zone cards
+                    if (card.closest('.matchup-zone')) {
+                        const matchupType = card.closest('.matchup-zone').dataset.matchupType;
+                        card.onclick = function() {
+                            removePlayer(card.dataset.playerId, matchupType);
+                        };
+                    } else {
+                        card.onclick = null;
+                    }
+                });
+            }
+        }
+        
+        function selectDayCaptain(playerId) {
+            // Send server request to set day captain
+            let bodyParams = 'action=set_day_captain&player_id=' + encodeURIComponent(playerId);
+            if (MANAGING_TEAM_ID) {
+                bodyParams += '&managing_team_id=' + MANAGING_TEAM_ID;
+            }
+            
+            fetch('/admin/fixtures/' + FIXTURE_ID + '/matchup-selection', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'HX-Request': 'true'
+                },
+                body: bodyParams
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Update UI immediately
+                    updateDayCaptainDisplay(playerId);
+                    // Exit captain selection mode
+                    toggleCaptainSelection();
+                } else {
+                    console.error('Failed to set day captain');
+                }
+            })
+            .catch(error => {
+                console.error('Error setting day captain:', error);
+            });
+        }
+        
+        function updateDayCaptainDisplay(newCaptainId) {
+            // Remove captain styling from all players
+            document.querySelectorAll('.player-card').forEach(card => {
+                card.classList.remove('is-captain');
+                const nameSpan = card.querySelector('.player-name');
+                if (nameSpan) {
+                    // Remove existing captain indicator
+                    const existingIndicator = nameSpan.querySelector('.captain-indicator');
+                    if (existingIndicator) {
+                        existingIndicator.remove();
+                    }
+                }
+            });
+            
+            // Add captain styling to the new captain
+            document.querySelectorAll(`[data-player-id="${newCaptainId}"]`).forEach(card => {
+                card.classList.add('is-captain');
+                const nameSpan = card.querySelector('.player-name');
+                if (nameSpan) {
+                    const captainIndicator = document.createElement('span');
+                    captainIndicator.className = 'captain-indicator';
+                    captainIndicator.textContent = '(C)';
+                    nameSpan.appendChild(captainIndicator);
+                }
+            });
+        }
+        
         // Drag and drop handlers
         function handleDragStart(event, playerId, playerName, source) {
+            // Don't allow drag during captain selection mode
+            if (captainSelectionMode) {
+                event.preventDefault();
+                return;
+            }
+            
             draggedPlayer = {
                 id: playerId,
                 name: playerName,
@@ -1117,6 +1288,12 @@
             
             const target = event.target.closest('.player-card');
             if (!target) return;
+            
+            // Handle captain selection mode
+            if (captainSelectionMode) {
+                selectDayCaptain(target.dataset.playerId);
+                return;
+            }
             
             // Don't interfere with matchup zone player cards (they're clickable, not draggable)
             if (target.closest('.matchup-zone')) {
@@ -1392,7 +1569,7 @@
                     handleDragStart(e, playerId, playerName, context); 
                 };
                 div.innerHTML = `
-                    <span>${playerName}</span>
+                    <span class="player-name">${playerName}</span>
                     <button class="player-remove-btn" onclick="removePlayer('${playerId}', '${context}')" title="Remove">×</button>
                 `;
             } else {
@@ -1402,7 +1579,7 @@
                     removePlayer(playerId, context); 
                 };
                 div.title = "Tap to remove from matchup";
-                div.innerHTML = `<span>${playerName}</span>`;
+                div.innerHTML = `<span class="player-name">${playerName}</span>`;
             }
             
             return div;
@@ -1549,8 +1726,6 @@
             });
         }
         
-
-        
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             setupTouchEvents();
@@ -1568,7 +1743,7 @@
                 console.log('Mobile device detected - using touch-optimized drag and drop');
             }
             
-            console.log('Team selection with drag and drop initialized');
+            console.log('Team selection with drag and drop and day captain selection initialized');
         });
         
         // Also run when HTMX updates the content

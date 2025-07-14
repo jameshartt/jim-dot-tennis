@@ -2570,3 +2570,20 @@ func (s *Service) UpdateFixtureNotes(fixtureID uint, notes string) error {
 	// Save the updated fixture
 	return s.fixtureRepository.Update(ctx, fixture)
 }
+
+// SetFixtureDayCaptain sets the day captain for a fixture
+func (s *Service) SetFixtureDayCaptain(fixtureID uint, playerID string) error {
+	ctx := context.Background()
+
+	// Get the current fixture
+	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
+	if err != nil {
+		return err
+	}
+
+	// Update the day captain
+	fixture.DayCaptainID = &playerID
+
+	// Save the updated fixture
+	return s.fixtureRepository.Update(ctx, fixture)
+}
