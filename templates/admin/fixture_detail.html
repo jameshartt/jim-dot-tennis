@@ -1645,7 +1645,7 @@ No team selection made yet{{end}}{{end}}{{end}}
                             // Insert before the glance-matchups section
                             const glanceMatchups = document.querySelector('.glance-matchups');
                             if (glanceMatchups) {
-                                glanceMatchups.parentNode.insertBefore(newGlanceNotes, glanceMatchups);
+                                glanceMatchups.parentNode.insertAfter(newGlanceNotes, glanceMatchups);
                             } else if (glanceContent) {
                                 glanceContent.appendChild(newGlanceNotes);
                             }
