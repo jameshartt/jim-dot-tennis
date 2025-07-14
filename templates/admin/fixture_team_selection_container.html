@@ -1,3 +1,123 @@
+<style>
+.player-remove-btn {
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    flex-shrink: 0;
+    align-self: flex-start;
+}
+
+.player-remove-btn:hover {
+    background: #c82333;
+}
+
+.player-card {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    cursor: move;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    transition: all 0.2s;
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.player-card > span {
+    flex: 1;
+    word-wrap: break-word;
+    line-height: 1.2;
+}
+
+.player-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.player-card.availability-available {
+    border-left: 4px solid #28a745;
+}
+
+.player-card.availability-ifneeded {
+    border-left: 4px solid #ffc107;
+}
+
+.player-card.availability-unavailable {
+    border-left: 4px solid #dc3545;
+}
+
+.player-card.availability-unknown {
+    border-left: 4px solid #6c757d;
+}
+
+/* Remove drag styling from matchup zone player cards */
+.matchup-zone .player-card {
+    cursor: pointer !important;
+}
+
+.matchup-zone .player-card:hover {
+    transform: none !important;
+    background: #f8d7da;
+    border-color: #dc3545;
+}
+
+.matchup-zone .player-card::after {
+    content: "✕";
+    color: #dc3545;
+    font-size: 12px;
+    margin-left: auto;
+    opacity: 0.7;
+}
+
+.matchup-zone .player-card:hover::after {
+    opacity: 1;
+}
+
+.btn-warning {
+    background: #fd7e14 !important;
+    border-left: 4px solid #e8590c !important;
+    color: white !important;
+    position: relative;
+}
+
+.btn-warning:hover {
+    background: #e8590c !important;
+}
+
+/* Mobile optimizations for instruction text and legends */
+@media (max-width: 1024px) {
+    .drag-instruction-text {
+        font-size: 0.75rem !important;
+        margin-top: 0.3rem !important;
+    }
+    
+    .availability-legend,
+    .eligibility-legend {
+        padding: 0.5rem !important;
+        margin-bottom: 0.5rem !important;
+        font-size: 0.9rem !important;
+    }
+    
+    .legend-item {
+        display: block !important;
+        margin-bottom: 0.4rem !important;
+    }
+}
+</style>
+
 <div class="team-selection-container">
     <div class="fixture-summary">
         <h1 class="fixture-title">
@@ -13,6 +133,11 @@
             📅 {{.FixtureDetail.ScheduledDate.Format "Monday, January 2, 2006 at 3:04 PM"}}
             📍 {{.FixtureDetail.VenueLocation}}
         </p>
+        {{if .ManagingTeam}}
+        <p class="managing-team-indicator" style="text-align: center; color: #007bff; font-weight: 600; margin-top: 0.5rem;">
+            ⚽ Derby Match - Managing: {{.ManagingTeam.Name}}
+        </p>
+        {{end}}
     </div>
 
     <div class="progress-indicator">
@@ -25,139 +150,242 @@
         </div>
     </div>
 
-    <div class="selection-layout">
-        <div class="selected-players-section">
-            <h3>👥 Selected Players</h3>
+    <div class="combined-layout">
+        <div class="team-selection-section">
+            <h3>👥 Team Selection</h3>
             
-            {{if .FixtureDetail.SelectedPlayers}}
-            <div class="selected-players">
-                <div class="selected-player-buttons">
-                    {{range .FixtureDetail.SelectedPlayers}}
-                    <form method="post" style="display: inline;"
-                          hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
-                          hx-target=".team-selection-container"
-                          hx-swap="outerHTML"
-                          hx-confirm="Remove {{.Player.FirstName}} {{.Player.LastName}} from selection?">
-                        <input type="hidden" name="action" value="remove_player">
-                        <input type="hidden" name="player_id" value="{{.PlayerID}}">
-                        {{if $.ManagingTeamID}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeamID}}">{{end}}
-                        <button type="submit" class="btn-remove-player availability-{{.AvailabilityStatus | lower}}"
-                                title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
-                            {{.Player.FirstName}} {{.Player.LastName}} (Pos {{.Position}})
-                        </button>
-                    </form>
+            <div class="selected-players-zone" 
+                 id="selected-players-zone" 
+                 ondrop="handleDrop(event, 'selected')" 
+                 ondragover="handleDragOver(event)">
+                <h4>Selected Players</h4>
+                <div id="selected-players-container">
+                    {{if .FixtureDetail.SelectedPlayers}}
+                        {{range .FixtureDetail.SelectedPlayers}}
+                        <div class="player-card availability-{{.AvailabilityStatus | lower}}" 
+                             draggable="true" 
+                             ondragstart="handleDragStart(event, '{{.PlayerID}}', '{{.Player.FirstName}} {{.Player.LastName}}', 'selected')"
+                             data-player-id="{{.PlayerID}}"
+                             data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
+                             data-availability="{{.AvailabilityStatus | lower}}"
+                             title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}">
+                            <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                            <button class="player-remove-btn" onclick="removePlayer('{{.PlayerID}}', 'selected')" title="Remove from selection">×</button>
+                        </div>
+                        {{end}}
+                    {{else}}
+                        <div class="no-selection">Select players below to add to your team</div>
                     {{end}}
                 </div>
-                <div class="selection-actions">
-                    <form method="post" style="display: inline;"
-                          hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
-                          hx-target=".team-selection-container"
-                          hx-swap="outerHTML"
-                          hx-confirm="Clear all selected players?">
-                        <input type="hidden" name="action" value="clear_players">
-                        {{if $.ManagingTeamID}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeamID}}">{{end}}
-                        <button type="submit" class="btn-clear">Clear All Players</button>
-                    </form>
+                {{if .FixtureDetail.SelectedPlayers}}
+                <div class="drag-instruction-text" style="text-align: center; font-size: 0.85rem; color: #6c757d; margin-top: 0.5rem; font-style: italic;">
+                    💡 Drag players to matchup assignments →
                 </div>
+                {{end}}
             </div>
-            {{else}}
-            <p class="no-selection">No players selected yet. Start by adding players from the available list.</p>
-            {{end}}
         </div>
 
-        <div class="available-players-section">
-            <h3>🎾 Available Players</h3>
+        <div class="matchup-zones-section">
+            <h3>🎾 Matchup Assignments</h3>
             
-            <div class="availability-legend">
-                <h5>🎨 Availability Status:</h5>
-                <div class="legend-item">
-                    <span class="legend-color legend-available"></span>
-                    Available
-                </div>
-                <div class="legend-item">
-                    <span class="legend-color legend-ifneeded"></span>
-                    If Needed
-                </div>
-                <div class="legend-item">
-                    <span class="legend-color legend-unavailable"></span>
-                    Unavailable
-                </div>
-                <div class="legend-item">
-                    <span class="legend-color legend-unknown"></span>
-                    Unknown
-                </div>
-            </div>
-            
-            <div class="eligibility-legend">
-                <h5>⚖️ Eligibility Status:</h5>
-                <div class="legend-item">
-                    <span class="emoji-unlocked">🔓</span>
-                    Unlocked - Can play (remaining count shown)
-                </div>
-                <div class="legend-item">
-                    <span class="emoji-locked">🔒</span>
-                    Locked - 4+ matches played (locked to this team or higher)
-                </div>
-                <div class="legend-item">
-                    <span class="emoji-blocked">🛑</span>
-                    Blocked - Rule violation (already played/playing this week) 
-                </div>
-            </div>
-            
-            {{if .TeamPlayers}}
-            <div class="player-group">
-                <h4>Team Players ({{len .TeamPlayers}} available)</h4>
-                <div class="player-buttons">
-                    {{range .TeamPlayers}}
-                    <form method="post" style="display: inline;"
-                          hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
-                          hx-target=".team-selection-container"
-                          hx-swap="outerHTML">
-                        <input type="hidden" name="action" value="add_player">
-                        <input type="hidden" name="player_id" value="{{.Player.ID}}">
-                        <input type="hidden" name="is_home" value="true">
-                        {{if $.ManagingTeamID}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeamID}}">{{end}}
-                        <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} btn-blocked{{else if .Eligibility.IsLocked}} btn-locked{{end}}{{end}}"
-                                {{if .Eligibility}}{{if not .Eligibility.CanPlay}}disabled{{end}}{{end}}
-                                title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} 🛑 {{if .Eligibility.PlayedThisWeek}}Already played this week for {{.Eligibility.PlayedThisWeekTeam}}{{else if .Eligibility.IsLockedToHigherTeam}}Locked to {{.Eligibility.LockedToTeamName}}{{end}}{{else if .Eligibility.IsLocked}} 🔒 Locked to this team or higher{{else if .Eligibility.CanPlayLower}} 🔓 {{if ge .Eligibility.RemainingHigherTeamPlays 0}}{{.Eligibility.RemainingHigherTeamPlays}} plays left{{else}}Can play lower teams{{end}}{{end}}{{end}}">
-                            {{if .Eligibility}}{{if not .Eligibility.CanPlay}}<span class="emoji-blocked">🛑</span>{{else if .Eligibility.IsLocked}}<span class="emoji-locked">🔒</span>{{else if .Eligibility.CanPlayLower}}<span class="emoji-unlocked">🔓</span>{{end}}{{end}} {{.Player.FirstName}} {{.Player.LastName}}{{if .Eligibility}}{{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}} ({{.Eligibility.RemainingHigherTeamPlays}} left){{end}}{{end}}
-                        </button>
-                    </form>
+            <div class="matchup-zone" 
+                 id="matchup-zone-0" 
+                 ondrop="handleDrop(event, '1st Mixed')" 
+                 ondragover="handleDragOver(event)"
+                 data-matchup-type="1st Mixed">
+                <h4>👫 1st Mixed</h4>
+                <div class="player-limit">0/2</div>
+                <div class="matchup-players" id="matchup-players-0">
+                    {{range .FixtureDetail.Matchups}}
+                        {{if eq .Matchup.Type "1st Mixed"}}
+                            {{range .Players}}
+                            <div class="player-card availability-unknown" 
+                                 data-player-id="{{.Player.ID}}"
+                                 data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
+                                 data-availability="unknown"
+                                 onclick="removePlayer('{{.Player.ID}}', '1st Mixed')" 
+                                 title="Tap to remove from matchup">
+                                <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                            </div>
+                            {{end}}
+                        {{end}}
                     {{end}}
                 </div>
             </div>
-            {{else}}
-            <div class="player-group">
-                <h4>Team Players</h4>
-                <p class="no-players">No team players available.</p>
-            </div>
-            {{end}}
             
-            {{if .AllStAnnPlayers}}
-            <div class="player-group">
-                <h4>Other St Ann Players ({{len .AllStAnnPlayers}} available)</h4>
-                <div class="player-buttons">
-                    {{range .AllStAnnPlayers}}
-                    <form method="post" style="display: inline;"
-                          hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
-                          hx-target=".team-selection-container"
-                          hx-swap="outerHTML">
-                        <input type="hidden" name="action" value="add_player">
-                        <input type="hidden" name="player_id" value="{{.Player.ID}}">
-                        <input type="hidden" name="is_home" value="true">
-                        {{if $.ManagingTeamID}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeamID}}">{{end}}
-                        <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} btn-blocked{{else if .Eligibility.IsLocked}} btn-locked{{end}}{{end}}"
-                                {{if .Eligibility}}{{if not .Eligibility.CanPlay}}disabled{{end}}{{end}}
-                                title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} 🛑 {{if .Eligibility.PlayedThisWeek}}Already played this week for {{.Eligibility.PlayedThisWeekTeam}}{{else if .Eligibility.IsLockedToHigherTeam}}Locked to {{.Eligibility.LockedToTeamName}}{{end}}{{else if .Eligibility.IsLocked}} 🔒 Locked to this team or higher{{else if .Eligibility.CanPlayLower}} 🔓 {{if ge .Eligibility.RemainingHigherTeamPlays 0}}{{.Eligibility.RemainingHigherTeamPlays}} plays left{{else}}Can play lower teams{{end}}{{end}}{{end}}">
-                            {{if .Eligibility}}{{if not .Eligibility.CanPlay}}<span class="emoji-blocked">🛑</span>{{else if .Eligibility.IsLocked}}<span class="emoji-locked">🔒</span>{{else if .Eligibility.CanPlayLower}}<span class="emoji-unlocked">🔓</span>{{end}}{{end}} {{.Player.FirstName}} {{.Player.LastName}}{{if .Eligibility}}{{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}} ({{.Eligibility.RemainingHigherTeamPlays}} left){{end}}{{end}}
-                        </button>
-                    </form>
+            <div class="matchup-zone" 
+                 id="matchup-zone-1" 
+                 ondrop="handleDrop(event, '2nd Mixed')" 
+                 ondragover="handleDragOver(event)"
+                 data-matchup-type="2nd Mixed">
+                <h4>👫 2nd Mixed</h4>
+                <div class="player-limit">0/2</div>
+                <div class="matchup-players" id="matchup-players-1">
+                    {{range .FixtureDetail.Matchups}}
+                        {{if eq .Matchup.Type "2nd Mixed"}}
+                            {{range .Players}}
+                            <div class="player-card availability-unknown" 
+                                 data-player-id="{{.Player.ID}}"
+                                 data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
+                                 data-availability="unknown"
+                                 onclick="removePlayer('{{.Player.ID}}', '2nd Mixed')" 
+                                 title="Tap to remove from matchup">
+                                <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                            </div>
+                            {{end}}
+                        {{end}}
                     {{end}}
                 </div>
             </div>
-            {{else}}
-            <p class="no-players">No other available players found.</p>
-            {{end}}
+            
+            <div class="matchup-zone" 
+                 id="matchup-zone-2" 
+                 ondrop="handleDrop(event, 'Mens')" 
+                 ondragover="handleDragOver(event)"
+                 data-matchup-type="Mens">
+                <h4>👨‍🤝‍👨 Mens</h4>
+                <div class="player-limit">0/2</div>
+                <div class="matchup-players" id="matchup-players-2">
+                    {{range .FixtureDetail.Matchups}}
+                        {{if eq .Matchup.Type "Mens"}}
+                            {{range .Players}}
+                            <div class="player-card availability-unknown" 
+                                 data-player-id="{{.Player.ID}}"
+                                 data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
+                                 data-availability="unknown"
+                                 onclick="removePlayer('{{.Player.ID}}', 'Mens')" 
+                                 title="Tap to remove from matchup">
+                                <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                            </div>
+                            {{end}}
+                        {{end}}
+                    {{end}}
+                </div>
+            </div>
+            
+            <div class="matchup-zone" 
+                 id="matchup-zone-3" 
+                 ondrop="handleDrop(event, 'Womens')" 
+                 ondragover="handleDragOver(event)"
+                 data-matchup-type="Womens">
+                <h4>👩‍🤝‍👩 Womens</h4>
+                <div class="player-limit">0/2</div>
+                <div class="matchup-players" id="matchup-players-3">
+                    {{range .FixtureDetail.Matchups}}
+                        {{if eq .Matchup.Type "Womens"}}
+                            {{range .Players}}
+                            <div class="player-card availability-unknown" 
+                                 data-player-id="{{.Player.ID}}"
+                                 data-player-name="{{.Player.FirstName}} {{.Player.LastName}}"
+                                 data-availability="unknown"
+                                 onclick="removePlayer('{{.Player.ID}}', 'Womens')" 
+                                 title="Tap to remove from matchup">
+                                <span>{{.Player.FirstName}} {{.Player.LastName}}</span>
+                            </div>
+                            {{end}}
+                        {{end}}
+                    {{end}}
+                </div>
+            </div>
         </div>
+    </div>
+
+    <div class="available-players-section">
+        <h3>🎯 Available Players</h3>
+        
+        <div class="availability-legend">
+            <h5>🎨 Availability Status:</h5>
+            <div class="legend-item">
+                <span class="legend-color legend-available"></span>
+                Available
+            </div>
+            <div class="legend-item">
+                <span class="legend-color legend-ifneeded"></span>
+                If Needed
+            </div>
+            <div class="legend-item">
+                <span class="legend-color legend-unavailable"></span>
+                Unavailable
+            </div>
+            <div class="legend-item">
+                <span class="legend-color legend-unknown"></span>
+                Unknown
+            </div>
+        </div>
+        
+        <div class="eligibility-legend">
+            <h5>⚖️ Eligibility Status:</h5>
+            <div class="legend-item">
+                <span>✅</span>
+                Free to play - Can play in lower divisions (remaining count shown)
+            </div>
+            <div class="legend-item">
+                <span>🔒</span>
+                Locked - 4+ matches played (locked to this team or higher)
+            </div>
+            <div class="legend-item">
+                <span>⚠️</span>
+                Warning - Already played this week (rule suggestion, can still select)
+            </div>
+            <div class="legend-item">
+                <span>🚫</span>
+                Blocked - Locked to higher division team
+            </div>
+        </div>
+        
+        {{if .TeamPlayers}}
+        <div class="player-group">
+            <h4>Team Players ({{len .TeamPlayers}} available)</h4>
+            <div class="player-buttons">
+                {{range .TeamPlayers}}
+                <form method="post" style="display: inline;"
+                      hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
+                      hx-target=".team-selection-container"
+                      hx-swap="outerHTML">
+                    <input type="hidden" name="action" value="add_player">
+                    <input type="hidden" name="player_id" value="{{.Player.ID}}">
+                    <input type="hidden" name="is_home" value="true">
+                    {{if $.ManagingTeamID}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeamID}}">{{end}}
+                    <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}{{if .Eligibility}}{{if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}} btn-blocked{{else if .Eligibility.IsLocked}} btn-locked{{end}}{{end}}"
+                            {{if .Eligibility}}{{if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}}disabled{{end}}{{end}}
+                            title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} {{if .Eligibility.PlayedThisWeek}}⚠️ Already played this week for {{.Eligibility.PlayedThisWeekTeam}} (rule suggestion){{else if .Eligibility.IsLockedToHigherTeam}}🚫 Locked to {{.Eligibility.LockedToTeamName}}{{end}}{{else if .Eligibility.IsLocked}} 🔒 Locked to this team or higher{{else if .Eligibility.CanPlayLower}} ✅ {{if ge .Eligibility.RemainingHigherTeamPlays 0}}{{.Eligibility.RemainingHigherTeamPlays}} plays left{{else}}Can play lower teams{{end}}{{end}}{{end}}">
+                        {{if .Eligibility}}{{if and (not .Eligibility.CanPlay) .Eligibility.PlayedThisWeek}}⚠️{{else if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}}🚫{{else if .Eligibility.IsLocked}}🔒{{else if .Eligibility.CanPlayLower}}✅{{end}}{{end}} {{.Player.FirstName}} {{.Player.LastName}}{{if .Eligibility}}{{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}} ({{.Eligibility.RemainingHigherTeamPlays}} left){{end}}{{end}}
+                    </button>
+                </form>
+                {{end}}
+            </div>
+        </div>
+        {{else}}
+        <div class="player-group">
+            <h4>Team Players</h4>
+            <p class="no-players">No team players available.</p>
+        </div>
+        {{end}}
+        
+        {{if .AllStAnnPlayers}}
+        <div class="player-group">
+            <h4>Other St Ann Players ({{len .AllStAnnPlayers}} available)</h4>
+            <div class="player-buttons">
+                {{range .AllStAnnPlayers}}
+                <form method="post" style="display: inline;"
+                      hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
+                      hx-target=".team-selection-container"
+                      hx-swap="outerHTML">
+                    <input type="hidden" name="action" value="add_player">
+                    <input type="hidden" name="player_id" value="{{.Player.ID}}">
+                    <input type="hidden" name="is_home" value="true">
+                    {{if $.ManagingTeamID}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeamID}}">{{end}}
+                    <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}{{if .Eligibility}}{{if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}} btn-blocked{{else if .Eligibility.IsLocked}} btn-locked{{end}}{{end}}"
+                            {{if .Eligibility}}{{if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}}disabled{{end}}{{end}}
+                            title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} {{if .Eligibility.PlayedThisWeek}}⚠️ Already played this week for {{.Eligibility.PlayedThisWeekTeam}} (rule suggestion){{else if .Eligibility.IsLockedToHigherTeam}}🚫 Locked to {{.Eligibility.LockedToTeamName}}{{end}}{{else if .Eligibility.IsLocked}} 🔒 Locked to this team or higher{{else if .Eligibility.CanPlayLower}} ✅ {{if ge .Eligibility.RemainingHigherTeamPlays 0}}{{.Eligibility.RemainingHigherTeamPlays}} plays left{{else}}Can play lower teams{{end}}{{end}}{{end}}">
+                        {{if .Eligibility}}{{if and (not .Eligibility.CanPlay) .Eligibility.PlayedThisWeek}}⚠️{{else if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}}🚫{{else if .Eligibility.IsLocked}}🔒{{else if .Eligibility.CanPlayLower}}✅{{end}}{{end}} {{.Player.FirstName}} {{.Player.LastName}}{{if .Eligibility}}{{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}} ({{.Eligibility.RemainingHigherTeamPlays}} left){{end}}{{end}}
+                    </button>
+                </form>
+                {{end}}
+            </div>
+        </div>
+        {{else}}
+        <p class="no-players">No other available players found.</p>
+        {{end}}
     </div>
 </div> 

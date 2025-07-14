@@ -142,8 +142,8 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 			return nil, err
 		}
 
-		// Check if player is locked to a higher team (more than 4 matches in higher team)
-		if higherTeamMatches > 4 {
+		// Check if player is locked to a higher team (4 or more matches in higher team)
+		if higherTeamMatches >= 4 {
 			eligibility.CanPlay = false
 			eligibility.IsLockedToHigherTeam = true
 			eligibility.LockedToTeamName = lockedTeam
@@ -181,8 +181,10 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 					eligibility.NeedsWarning = true
 				}
 
-				// Set lock status based on total matches (current + higher teams)
-				if totalMatches >= 4 {
+				// Set lock status based on total matches, but only if not locked to higher team
+				// IsLocked should only be true if they're locked to THIS team or lower
+				// If they have 4+ matches in higher teams, they're blocked, not locked to this team
+				if totalMatches >= 4 && higherTeamMatches < 4 {
 					eligibility.IsLocked = true
 				}
 

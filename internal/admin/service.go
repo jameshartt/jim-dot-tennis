@@ -474,17 +474,32 @@ func (s *Service) GetStAnnsFixtures() (*models.Club, []FixtureWithRelations, err
 		}
 	}
 
-	// Sort fixtures by scheduled date (nearest first)
-	for i := 0; i < len(upcomingFixtures); i++ {
-		for j := i + 1; j < len(upcomingFixtures); j++ {
-			if upcomingFixtures[i].ScheduledDate.After(upcomingFixtures[j].ScheduledDate) {
-				upcomingFixtures[i], upcomingFixtures[j] = upcomingFixtures[j], upcomingFixtures[i]
-			}
-		}
-	}
-
 	// Build FixtureWithRelations by fetching related data
 	fixturesWithRelations := s.buildFixturesWithRelations(ctx, upcomingFixtures, stAnnsClub)
+
+	// Sort fixtures by scheduled date (nearest first), then by division (descending)
+	sort.Slice(fixturesWithRelations, func(i, j int) bool {
+		// First sort by date (ascending)
+		if fixturesWithRelations[i].ScheduledDate.Before(fixturesWithRelations[j].ScheduledDate) {
+			return true
+		}
+		if fixturesWithRelations[i].ScheduledDate.After(fixturesWithRelations[j].ScheduledDate) {
+			return false
+		}
+
+		// If dates are equal, sort by division (descending - Division 4 before Division 3)
+		divisionI := ""
+		divisionJ := ""
+		if fixturesWithRelations[i].Division != nil {
+			divisionI = fixturesWithRelations[i].Division.Name
+		}
+		if fixturesWithRelations[j].Division != nil {
+			divisionJ = fixturesWithRelations[j].Division.Name
+		}
+
+		// For descending order, return i > j
+		return divisionI > divisionJ
+	})
 
 	return stAnnsClub, fixturesWithRelations, nil
 }
@@ -547,17 +562,32 @@ func (s *Service) GetStAnnsPastFixtures() (*models.Club, []FixtureWithRelations,
 		}
 	}
 
-	// Sort fixtures by scheduled date (most recent first)
-	for i := 0; i < len(pastFixtures); i++ {
-		for j := i + 1; j < len(pastFixtures); j++ {
-			if pastFixtures[i].ScheduledDate.Before(pastFixtures[j].ScheduledDate) {
-				pastFixtures[i], pastFixtures[j] = pastFixtures[j], pastFixtures[i]
-			}
-		}
-	}
-
 	// Build FixtureWithRelations by fetching related data
 	fixturesWithRelations := s.buildFixturesWithRelations(ctx, pastFixtures, stAnnsClub)
+
+	// Sort fixtures by scheduled date (most recent first), then by division (ascending)
+	sort.Slice(fixturesWithRelations, func(i, j int) bool {
+		// First sort by date (descending - most recent first)
+		if fixturesWithRelations[i].ScheduledDate.After(fixturesWithRelations[j].ScheduledDate) {
+			return true
+		}
+		if fixturesWithRelations[i].ScheduledDate.Before(fixturesWithRelations[j].ScheduledDate) {
+			return false
+		}
+
+		// If dates are equal, sort by division (ascending - Division 3 before Division 4)
+		divisionI := ""
+		divisionJ := ""
+		if fixturesWithRelations[i].Division != nil {
+			divisionI = fixturesWithRelations[i].Division.Name
+		}
+		if fixturesWithRelations[j].Division != nil {
+			divisionJ = fixturesWithRelations[j].Division.Name
+		}
+
+		// For ascending order, return i < j
+		return divisionI < divisionJ
+	})
 
 	return stAnnsClub, fixturesWithRelations, nil
 }
@@ -2449,4 +2479,72 @@ func (s *Service) getMatchupsForTeam(ctx context.Context, fixtureID uint, managi
 	}
 
 	return teamMatchups, nil
+}
+
+// AddPlayerToMatchup adds a single player to a matchup without replacing existing players
+func (s *Service) AddPlayerToMatchup(matchupID uint, playerID string, fixtureID uint) error {
+	ctx := context.Background()
+
+	// Get the fixture to determine if St Ann's is home or away
+	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
+	if err != nil {
+		return err
+	}
+
+	// Find the St Ann's club ID
+	stAnnsClubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil {
+		return err
+	}
+	if len(stAnnsClubs) == 0 {
+		return fmt.Errorf("St Ann's club not found")
+	}
+	stAnnsClubID := stAnnsClubs[0].ID
+
+	// Get home and away teams
+	homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
+	if err != nil {
+		return err
+	}
+
+	awayTeam, err := s.teamRepository.FindByID(ctx, fixture.AwayTeamID)
+	if err != nil {
+		return err
+	}
+
+	// Determine if St Ann's is home or away
+	var isStAnnsHome bool
+	if homeTeam.ClubID == stAnnsClubID {
+		isStAnnsHome = true
+	} else if awayTeam.ClubID == stAnnsClubID {
+		isStAnnsHome = false
+	} else {
+		return fmt.Errorf("no St Ann's team found in this fixture")
+	}
+
+	// Check if player is already in this matchup
+	existingPlayers, err := s.matchupRepository.FindPlayersInMatchup(ctx, matchupID)
+	if err != nil {
+		return err
+	}
+
+	for _, existingPlayer := range existingPlayers {
+		if existingPlayer.PlayerID == playerID {
+			return fmt.Errorf("player is already assigned to this matchup")
+		}
+	}
+
+	// Add the player to the matchup
+	err = s.matchupRepository.AddPlayer(ctx, matchupID, playerID, isStAnnsHome)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// RemovePlayerFromMatchup removes a single player from a matchup
+func (s *Service) RemovePlayerFromMatchup(matchupID uint, playerID string) error {
+	ctx := context.Background()
+	return s.matchupRepository.RemovePlayer(ctx, matchupID, playerID)
 }

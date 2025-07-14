@@ -89,7 +89,7 @@ The application will follow a server-side rendered architecture with minimal cli
 ### Phase 5: Fixture Result Management
 
 - [ ] Fixture listing and details
-- [ ] Match result entry/importation from match cards
+- [x] Match result entry/importation from match cards
 - [ ] Venue management with maps
 - [ ] Fixture reminder system
 
