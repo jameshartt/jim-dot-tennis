@@ -1191,7 +1191,6 @@
                 {{end}}
             </div>
 
-            {{if .FixtureDetail}}
             <div class="fixture-detail">
                 <div class="fixture-header">
                     <h1 class="fixture-title">
@@ -1428,7 +1427,7 @@
 {{if .IsDerby}}{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{else}}{{if .IsStAnnsHome}}🏠 (HOME) {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{else if .IsStAnnsAway}}✈️ (AWAY) {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}{{end}} @ {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}{{else}}{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{end}}{{end}}
 
 
-{{end}}{{if eq .FixtureDetail.Status "Completed"}}🏆 FINAL SCORES:
+{{if eq .FixtureDetail.Status "Completed"}}🏆 FINAL SCORES:
 {{if .IsDerby}}{{.FixtureDetail.HomeTeam.Name}} vs {{.FixtureDetail.AwayTeam.Name}}{{else}}{{if .IsStAnnsHome}}🏠 {{.FixtureDetail.HomeTeam.Name}} vs {{.FixtureDetail.AwayTeam.Name}}{{else}}{{.FixtureDetail.HomeTeam.Name}} vs ✈️ {{.FixtureDetail.AwayTeam.Name}}{{end}}{{end}}
 
 Team:{{if .FixtureDetail.Matchups}}{{range .FixtureDetail.Matchups}}
@@ -1440,7 +1439,7 @@ No team selection made yet{{end}}{{end}}{{else}}Team:{{if .FixtureDetail.Matchup
 {{range $index, $selectedPlayer := .FixtureDetail.SelectedPlayers}}{{if $index}}, {{end}}{{if and $.FixtureDetail.DayCaptain (eq $selectedPlayer.PlayerID $.FixtureDetail.DayCaptain.ID)}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}. (C){{else}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}.{{end}}{{end}}{{else}}
 No team selection made yet{{end}}{{end}}{{end}}
 
-{{if .FixtureDetail.Notes}}📝 Notes: {{.FixtureDetail.Notes}}
+{{if .FixtureDetail.Notes}}📝 Notes: {{.FixtureDetail.Notes}}{{end}}
 
 </div>
                 </div>
@@ -1469,10 +1468,10 @@ No team selection made yet{{end}}{{end}}{{end}}
                                     hx-indicator="#notes-indicator"
                                     hx-target="#notes-status"
                                     hx-swap="innerHTML"
-                                >{{.FixtureDetail.Notes}}</textarea>
+                                >{{if .FixtureDetail.Notes}}{{.FixtureDetail.Notes}}{{end}}</textarea>
                                 <div class="notes-footer">
                                     <span class="notes-counter">
-                                        <span id="notes-count">{{len .FixtureDetail.Notes}}</span>/1000 characters
+                                        <span id="notes-count">{{if .FixtureDetail.Notes}}{{len .FixtureDetail.Notes}}{{else}}0{{end}}</span>/1000 characters
                                     </span>
                                     <div class="notes-status-container">
                                         <span id="notes-indicator" class="htmx-indicator">⏳ Saving...</span>
@@ -1571,14 +1570,6 @@ No team selection made yet{{end}}{{end}}{{end}}
                     {{end}}
                 </div>
             </div>
-            {{else}}
-            <div class="fixture-detail">
-                <div class="fixture-header">
-                    <h1 class="fixture-title">Fixture Not Found</h1>
-                    <p class="teams-vs">The requested fixture could not be loaded.</p>
-                </div>
-            </div>
-            {{end}}
         </div>
     </main>
 
