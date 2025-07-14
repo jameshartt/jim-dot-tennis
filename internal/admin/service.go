@@ -2548,3 +2548,8 @@ func (s *Service) RemovePlayerFromMatchup(matchupID uint, playerID string) error
 	ctx := context.Background()
 	return s.matchupRepository.RemovePlayer(ctx, matchupID, playerID)
 }
+
+// CreatePlayer creates a new player
+func (s *Service) CreatePlayer(player *models.Player) error {
+	return s.playerRepository.Create(context.Background(), player)
+}

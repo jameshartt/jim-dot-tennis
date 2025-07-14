@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add New Player - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+        .form-container {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+        }
+        .form-group input[type="text"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        .form-group input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(76, 124, 78, 0.2);
+        }
+        .required {
+            color: #dc3545;
+        }
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e9ecef;
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #2c5530;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        .form-help {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+        
+        @media (max-width: 768px) {
+            .form-container {
+                margin: 1rem;
+                padding: 1.5rem;
+            }
+            .form-actions {
+                flex-direction: column;
+            }
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin/dashboard">Admin Dashboard</a> &gt; 
+                <a href="/admin/players">Player Management</a> &gt; 
+                Add New Player
+            </div>
+        </div>
+    </div>
+
+    <div class="container admin-content">
+        <div class="form-container">
+            <h2>Add New Player</h2>
+            <p class="form-help">Enter the basic information for the new player. You can add additional details like club assignment after creating the player.</p>
+            
+            <form method="POST">
+                <div class="form-group">
+                    <label for="first_name">First Name <span class="required">*</span></label>
+                    <input type="text" id="first_name" name="first_name" required maxlength="100" 
+                           placeholder="Enter player's first name">
+                </div>
+
+                <div class="form-group">
+                    <label for="last_name">Last Name <span class="required">*</span></label>
+                    <input type="text" id="last_name" name="last_name" required maxlength="100" 
+                           placeholder="Enter player's last name">
+                </div>
+
+                <div class="form-actions">
+                    <a href="/admin/players" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Create Player</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Focus on first name field when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('first_name').focus();
+        });
+        
+        // Simple form validation
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const firstName = document.getElementById('first_name').value.trim();
+            const lastName = document.getElementById('last_name').value.trim();
+            
+            if (!firstName || !lastName) {
+                e.preventDefault();
+                alert('Please enter both first name and last name.');
+                return false;
+            }
+        });
+    </script>
+</body>
+</html> 

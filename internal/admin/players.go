@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"jim-dot-tennis/internal/models"
+
+	"github.com/google/uuid"
 )
 
 // PlayersHandler handles player-related requests
@@ -28,6 +30,12 @@ func NewPlayersHandler(service *Service, templateDir string) *PlayersHandler {
 // HandlePlayers handles player management routes
 func (h *PlayersHandler) HandlePlayers(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Admin players handler called with path: %s, method: %s", r.URL.Path, r.Method)
+
+	// Check if this is a new player request
+	if strings.Contains(r.URL.Path, "/new") {
+		h.handlePlayerNew(w, r)
+		return
+	}
 
 	// Check if this is an edit request
 	if strings.Contains(r.URL.Path, "/edit") {
@@ -106,6 +114,85 @@ func (h *PlayersHandler) handlePlayersGet(w http.ResponseWriter, r *http.Request
 func (h *PlayersHandler) handlePlayersPost(w http.ResponseWriter, r *http.Request, user *models.User) {
 	// TODO: Implement player creation/update/delete
 	http.Error(w, "Player operations not yet implemented", http.StatusNotImplemented)
+}
+
+// handlePlayerNew handles GET/POST requests for creating a new player
+func (h *PlayersHandler) handlePlayerNew(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Admin player new handler called with path: %s, method: %s", r.URL.Path, r.Method)
+
+	// Get user from context
+	user, err := getUserFromContext(r)
+	if err != nil {
+		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		h.handlePlayerNewGet(w, r, user)
+	case http.MethodPost:
+		h.handlePlayerNewPost(w, r, user)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handlePlayerNewGet handles GET requests to show the new player form
+func (h *PlayersHandler) handlePlayerNewGet(w http.ResponseWriter, r *http.Request, user *models.User) {
+	// Load the player new template
+	tmpl, err := parseTemplate(h.templateDir, "admin/player_new.html")
+	if err != nil {
+		log.Printf("Error parsing player new template: %v", err)
+		// Fallback to simple HTML response
+		renderFallbackHTML(w, "Add New Player", "Add New Player",
+			"Add new player form - coming soon", "/admin/players")
+		return
+	}
+
+	// Execute the template with data
+	if err := renderTemplate(w, tmpl, map[string]interface{}{
+		"User": user,
+	}); err != nil {
+		logAndError(w, err.Error(), err, http.StatusInternalServerError)
+	}
+}
+
+// handlePlayerNewPost handles POST requests to create a new player
+func (h *PlayersHandler) handlePlayerNewPost(w http.ResponseWriter, r *http.Request, user *models.User) {
+	// Parse form data
+	if err := r.ParseForm(); err != nil {
+		logAndError(w, "Invalid form data", err, http.StatusBadRequest)
+		return
+	}
+
+	// Get player fields from form
+	firstName := strings.TrimSpace(r.FormValue("first_name"))
+	lastName := strings.TrimSpace(r.FormValue("last_name"))
+
+	// Validate required fields
+	if firstName == "" || lastName == "" {
+		logAndError(w, "First name and last name are required", fmt.Errorf("missing required fields"), http.StatusBadRequest)
+		return
+	}
+
+	// Create new player with generated UUID
+	player := &models.Player{
+		ID:        uuid.New().String(),
+		FirstName: firstName,
+		LastName:  lastName,
+		ClubID:    0, // Will be set when editing the player
+	}
+
+	// Create the player
+	if err := h.service.CreatePlayer(player); err != nil {
+		logAndError(w, "Failed to create player", err, http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Successfully created new player: %s %s (ID: %s)", firstName, lastName, player.ID)
+
+	// Redirect to the player edit page to allow setting additional details
+	http.Redirect(w, r, fmt.Sprintf("/admin/players/%s/edit", player.ID), http.StatusSeeOther)
 }
 
 // handlePlayerEdit handles GET/POST requests for editing a player
