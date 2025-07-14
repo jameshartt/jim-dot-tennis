@@ -498,6 +498,15 @@
             margin-left: 0.25rem;
         }
         
+        /* Hide matchup zone crosses during captain selection */
+        .captain-selection-mode .matchup-zone .player-card::after {
+            display: none !important;
+        }
+        
+        .captain-selection-mode .matchup-zone .player-card:hover::after {
+            display: none !important;
+        }
+        
         .emoji-unlocked { font-size: 1.1em; }
         .emoji-locked { font-size: 1.1em; }
         .emoji-blocked { font-size: 1.1em; }
@@ -1123,6 +1132,15 @@
             if (captainSelectionMode) {
                 btn.textContent = '✕ Cancel Captain Selection';
                 btn.classList.add('active');
+                
+                // Add captain selection mode class to hide crosses
+                document.body.classList.add('captain-selection-mode');
+                
+                // Hide all remove buttons
+                document.querySelectorAll('.player-remove-btn').forEach(btn => {
+                    btn.style.display = 'none';
+                });
+                
                 // Make all player cards selectable
                 document.querySelectorAll('.player-card').forEach(card => {
                     card.classList.add('captain-selectable');
@@ -1133,6 +1151,15 @@
             } else {
                 btn.textContent = '👨‍✈️ Select Day Captain';
                 btn.classList.remove('active');
+                
+                // Remove captain selection mode class to show crosses
+                document.body.classList.remove('captain-selection-mode');
+                
+                // Show all remove buttons
+                document.querySelectorAll('.player-remove-btn').forEach(btn => {
+                    btn.style.display = 'flex';
+                });
+                
                 // Remove selectable styling from all player cards
                 document.querySelectorAll('.player-card').forEach(card => {
                     card.classList.remove('captain-selectable');
@@ -1612,6 +1639,12 @@
         // Button click handlers (now handled by HTMX forms)
         
         function removePlayer(playerId, context) {
+            // Don't allow removal during captain selection mode
+            if (captainSelectionMode) {
+                console.log('Cannot remove player during captain selection mode');
+                return;
+            }
+            
             if (context !== 'selected') {
                 // For matchup removal, just reload the page after making the request
                 // This is simpler and avoids HTMX container replacement issues

@@ -103,6 +103,15 @@
     margin-left: 0.25rem;
 }
 
+/* Hide matchup zone crosses during captain selection */
+.captain-selection-mode .matchup-zone .player-card::after {
+    display: none !important;
+}
+
+.captain-selection-mode .matchup-zone .player-card:hover::after {
+    display: none !important;
+}
+
 /* Day Captain Selection */
 .matchup-header-row {
     display: flex;
