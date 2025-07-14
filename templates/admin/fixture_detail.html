@@ -563,6 +563,36 @@
             text-shadow: 0 2px 8px rgba(0,0,0,0.8);
         }
         
+        .glance-notes {
+            background: rgba(255,255,255,0.95);
+            border-radius: 8px;
+            padding: 0.75rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            color: #333;
+            position: relative;
+            z-index: 3;
+            backdrop-filter: blur(10px);
+            margin-bottom: 0.75rem;
+        }
+        
+        .glance-notes-title {
+            font-weight: 700;
+            color: #6c757d;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .glance-notes-content {
+            font-size: 0.95rem;
+            line-height: 1.4;
+            color: #333;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            text-align: left;
+        }
+
         .glance-matchups {
             background: rgba(255,255,255,0.98);
             border-radius: 8px;
@@ -1006,6 +1036,111 @@
             flex-shrink: 0;
         }
 
+        /* Notes Section Styles */
+        .notes-section {
+            margin-bottom: 2rem;
+        }
+
+        .notes-container {
+            position: relative;
+        }
+
+        .notes-textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 1rem;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            resize: vertical;
+            background: white;
+            transition: border-color 0.2s ease;
+        }
+
+        .notes-textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .notes-textarea::placeholder {
+            color: #6c757d;
+            opacity: 0.7;
+        }
+
+        .notes-display {
+            padding: 1rem;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            min-height: 60px;
+        }
+
+        .notes-display.no-notes {
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .notes-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .notes-counter {
+            color: #6c757d;
+            font-family: 'Courier New', monospace;
+        }
+
+        .notes-counter.warning {
+            color: #ffc107;
+        }
+
+        .notes-counter.error {
+            color: #dc3545;
+        }
+
+        .notes-status-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .notes-status {
+            font-size: 0.85rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .notes-status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .notes-status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .htmx-indicator {
+            display: none;
+            color: var(--primary-color);
+            font-size: 0.85rem;
+        }
+
+        .htmx-request .htmx-indicator {
+            display: inline;
+        }
+
         /* Mobile responsiveness for derby management */
         @media (max-width: 768px) {
             .team-switcher {
@@ -1143,6 +1278,13 @@
                         </div>
                     </div>
                     
+                    {{if .FixtureDetail.Notes}}
+                    <div class="glance-notes">
+                        <div class="glance-notes-title">📝 Notes</div>
+                        <div class="glance-notes-content">{{.FixtureDetail.Notes}}</div>
+                    </div>
+                    {{end}}
+                    
                     {{if .FixtureDetail.Matchups}}
                     <div class="glance-matchups">
                         {{if eq .FixtureDetail.Status "Completed"}}
@@ -1250,7 +1392,9 @@
 
 {{if .IsDerby}}{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{else}}{{if .IsStAnnsHome}}🏠 (HOME) {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{else if .IsStAnnsAway}}✈️ (AWAY) {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}{{end}} @ {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}{{else}}{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}} vs {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}{{end}}{{end}}
 
-{{if eq .FixtureDetail.Status "Completed"}}🏆 FINAL SCORES:
+{{if .FixtureDetail.Notes}}📝 Notes: {{.FixtureDetail.Notes}}
+
+{{end}}{{if eq .FixtureDetail.Status "Completed"}}🏆 FINAL SCORES:
 {{if .IsDerby}}{{.FixtureDetail.HomeTeam.Name}} vs {{.FixtureDetail.AwayTeam.Name}}{{else}}{{if .IsStAnnsHome}}🏠 {{.FixtureDetail.HomeTeam.Name}} vs {{.FixtureDetail.AwayTeam.Name}}{{else}}{{.FixtureDetail.HomeTeam.Name}} vs ✈️ {{.FixtureDetail.AwayTeam.Name}}{{end}}{{end}}
 
 Team:{{if .FixtureDetail.Matchups}}{{range .FixtureDetail.Matchups}}
@@ -1276,6 +1420,42 @@ No team selection made yet{{end}}{{end}}{{end}}</div>
                     </div>
                     {{end}}
 
+                    <!-- Notes Section -->
+                    <div class="detail-section notes-section">
+                        <h3>📝 Captain Notes</h3>
+                        <div class="notes-container">
+                            {{if eq .FixtureDetail.Status "Completed"}}
+                                {{if .FixtureDetail.Notes}}
+                                    <div class="notes-display">{{.FixtureDetail.Notes}}</div>
+                                {{else}}
+                                    <div class="notes-display no-notes">No notes were added for this fixture.</div>
+                                {{end}}
+                            {{else}}
+                                <textarea 
+                                    id="fixture-notes"
+                                    name="notes"
+                                    class="notes-textarea"
+                                    placeholder="Add notes about the fixture (max 1000 characters)..."
+                                    maxlength="1000"
+                                    hx-post="/admin/fixtures/{{.FixtureDetail.ID}}/notes"
+                                    hx-trigger="keyup changed delay:2s"
+                                    hx-indicator="#notes-indicator"
+                                    hx-target="#notes-status"
+                                    hx-swap="innerHTML"
+                                >{{.FixtureDetail.Notes}}</textarea>
+                                <div class="notes-footer">
+                                    <span class="notes-counter">
+                                        <span id="notes-count">{{len .FixtureDetail.Notes}}</span>/1000 characters
+                                    </span>
+                                    <div class="notes-status-container">
+                                        <span id="notes-indicator" class="htmx-indicator">⏳ Saving...</span>
+                                        <span id="notes-status" class="notes-status"></span>
+                                    </div>
+                                </div>
+                            {{end}}
+                        </div>
+                    </div>
+                    
                     {{if ne .FixtureDetail.Status "Completed"}}
                     <div class="detail-section matchups-section">
                         <h3>🎾 Matchups</h3>
@@ -1377,6 +1557,129 @@ No team selection made yet{{end}}{{end}}{{end}}</div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Notes functionality
+            const notesTextarea = document.getElementById('fixture-notes');
+            const notesCountSpan = document.getElementById('notes-count');
+            const notesStatusSpan = document.getElementById('notes-status');
+            
+            if (notesTextarea) {
+                // Update character count
+                function updateCharacterCount() {
+                    const currentLength = notesTextarea.value.length;
+                    const maxLength = 1000;
+                    notesCountSpan.textContent = currentLength;
+                    
+                    const counter = notesCountSpan.parentElement;
+                    counter.classList.remove('warning', 'error');
+                    
+                    if (currentLength > maxLength * 0.9) {
+                        counter.classList.add('warning');
+                    }
+                    if (currentLength >= maxLength) {
+                        counter.classList.add('error');
+                    }
+                }
+                
+                // Listen for input events
+                notesTextarea.addEventListener('input', updateCharacterCount);
+                
+                // Listen for HTMX events
+                notesTextarea.addEventListener('htmx:afterRequest', function(evt) {
+                    if (evt.detail.successful) {
+                        notesStatusSpan.textContent = '✅ Saved';
+                        notesStatusSpan.className = 'notes-status success';
+                        setTimeout(() => {
+                            notesStatusSpan.textContent = '';
+                            notesStatusSpan.className = 'notes-status';
+                        }, 2000);
+                        
+                        // Update the glance-notes section
+                        updateGlanceNotes(notesTextarea.value);
+                        
+                        // Update the copyable text by regenerating it
+                        updateCopyableText();
+                    } else {
+                        notesStatusSpan.textContent = '❌ Error saving';
+                        notesStatusSpan.className = 'notes-status error';
+                        setTimeout(() => {
+                            notesStatusSpan.textContent = '';
+                            notesStatusSpan.className = 'notes-status';
+                        }, 3000);
+                    }
+                });
+                
+                // Function to update the glance-notes section
+                function updateGlanceNotes(notesText) {
+                    const glanceNotesDiv = document.querySelector('.glance-notes');
+                    const glanceContent = document.querySelector('.glance-content');
+                    
+                    if (notesText && notesText.trim()) {
+                        // Notes exist - show or update the glance-notes section
+                        if (!glanceNotesDiv) {
+                            // Create the glance-notes section if it doesn't exist
+                            const newGlanceNotes = document.createElement('div');
+                            newGlanceNotes.className = 'glance-notes';
+                            newGlanceNotes.innerHTML = `
+                                <div class="glance-notes-title">📝 Notes</div>
+                                <div class="glance-notes-content">${escapeHtml(notesText)}</div>
+                            `;
+                            // Insert before the glance-matchups section
+                            const glanceMatchups = document.querySelector('.glance-matchups');
+                            if (glanceMatchups) {
+                                glanceMatchups.parentNode.insertBefore(newGlanceNotes, glanceMatchups);
+                            } else if (glanceContent) {
+                                glanceContent.appendChild(newGlanceNotes);
+                            }
+                        } else {
+                            // Update existing glance-notes content
+                            const notesContent = glanceNotesDiv.querySelector('.glance-notes-content');
+                            if (notesContent) {
+                                notesContent.textContent = notesText;
+                            }
+                        }
+                    } else {
+                        // No notes - remove the glance-notes section if it exists
+                        if (glanceNotesDiv) {
+                            glanceNotesDiv.remove();
+                        }
+                    }
+                }
+                
+                // Function to update the copyable text with current notes
+                function updateCopyableText() {
+                    const copyableDiv = document.querySelector('.glance-copyable');
+                    if (!copyableDiv) return;
+                    
+                    const notesText = notesTextarea.value;
+                    let copyableText = copyableDiv.textContent;
+                    
+                    // Remove existing notes from copyable text
+                    copyableText = copyableText.replace(/📝 Notes: [^\n]*\n\n/g, '');
+                    
+                    if (notesText && notesText.trim()) {
+                        // Add notes after the date line
+                        const lines = copyableText.split('\n');
+                        if (lines.length >= 3) {
+                            // Insert notes after the teams line (usually line 2)
+                            lines.splice(3, 0, '', `📝 Notes: ${notesText}`);
+                            copyableText = lines.join('\n');
+                        }
+                    }
+                    
+                    copyableDiv.textContent = copyableText;
+                }
+                
+                // Helper function to escape HTML
+                function escapeHtml(text) {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                }
+                
+                // Initialize character count
+                updateCharacterCount();
+            }
+            
             // Add click-to-copy functionality to fixture-at-glance elements
             const copyableElements = document.querySelectorAll('.fixture-at-glance');
             

@@ -30,6 +30,11 @@ func (h *FixturesHandler) HandleFixtures(w http.ResponseWriter, r *http.Request)
 
 	// Check if this is a specific fixture detail request
 	if strings.Contains(r.URL.Path, "/fixtures/") && r.URL.Path != "/admin/fixtures/" {
+		// Check if this is a notes update request
+		if strings.HasSuffix(r.URL.Path, "/notes") {
+			h.handleUpdateFixtureNotes(w, r)
+			return
+		}
 		// Check if this is a team selection request
 		if strings.HasSuffix(r.URL.Path, "/team-selection") {
 			h.handleTeamSelection(w, r)
@@ -290,6 +295,8 @@ func (h *FixturesHandler) handleFixtureDetailPost(w http.ResponseWriter, r *http
 		h.handleClearFixturePlayers(w, r, fixtureID)
 	case "update_matchup":
 		h.handleUpdateMatchup(w, r, fixtureID)
+	case "update_notes":
+		h.handleUpdateFixtureNotes(w, r)
 	default:
 		http.Error(w, "Unknown action", http.StatusBadRequest)
 	}
@@ -958,4 +965,54 @@ func (h *FixturesHandler) renderTeamSelectionContainer(w http.ResponseWriter, r 
 	if err := renderTemplate(w, tmpl, templateData); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
+}
+
+// handleUpdateFixtureNotes handles updating fixture notes
+func (h *FixturesHandler) handleUpdateFixtureNotes(w http.ResponseWriter, r *http.Request) {
+	// Get user from context
+	_, err := getUserFromContext(r)
+	if err != nil {
+		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
+		return
+	}
+
+	// Extract fixture ID from URL path, removing the "/notes" suffix
+	path := strings.TrimSuffix(r.URL.Path, "/notes")
+	fixtureID, err := parseIDFromPath(path, "/admin/fixtures/")
+	if err != nil {
+		logAndError(w, "Invalid fixture ID", err, http.StatusBadRequest)
+		return
+	}
+
+	// Only handle POST requests
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get the notes from form data
+	notes := r.FormValue("notes")
+
+	// Validate notes length (max 1000 characters)
+	if len(notes) > 1000 {
+		http.Error(w, "Notes cannot exceed 1000 characters", http.StatusBadRequest)
+		return
+	}
+
+	// Update the fixture notes
+	err = h.service.UpdateFixtureNotes(fixtureID, notes)
+	if err != nil {
+		logAndError(w, "Failed to update fixture notes", err, http.StatusInternalServerError)
+		return
+	}
+
+	// For HTMX requests, return a success response
+	if r.Header.Get("HX-Request") == "true" {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Notes updated successfully"))
+		return
+	}
+
+	// For regular requests, redirect back to fixture detail
+	http.Redirect(w, r, fmt.Sprintf("/admin/fixtures/%d", fixtureID), http.StatusSeeOther)
 }

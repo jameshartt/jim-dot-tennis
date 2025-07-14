@@ -2553,3 +2553,20 @@ func (s *Service) RemovePlayerFromMatchup(matchupID uint, playerID string) error
 func (s *Service) CreatePlayer(player *models.Player) error {
 	return s.playerRepository.Create(context.Background(), player)
 }
+
+// UpdateFixtureNotes updates the notes field of a fixture
+func (s *Service) UpdateFixtureNotes(fixtureID uint, notes string) error {
+	ctx := context.Background()
+
+	// Get the current fixture
+	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
+	if err != nil {
+		return err
+	}
+
+	// Update the notes
+	fixture.Notes = notes
+
+	// Save the updated fixture
+	return s.fixtureRepository.Update(ctx, fixture)
+}
