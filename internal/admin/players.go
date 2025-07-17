@@ -175,12 +175,24 @@ func (h *PlayersHandler) handlePlayerNewPost(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Create new player with generated UUID
+	// Get St. Ann's club ID automatically
+	stAnnsClubs, err := h.service.GetClubsByName("St Ann")
+	if err != nil {
+		logAndError(w, "Failed to find St. Ann's club", err, http.StatusInternalServerError)
+		return
+	}
+	if len(stAnnsClubs) == 0 {
+		logAndError(w, "St. Ann's club not found", fmt.Errorf("club not found"), http.StatusInternalServerError)
+		return
+	}
+	stAnnsClubID := stAnnsClubs[0].ID
+
+	// Create new player with generated UUID and auto-assigned to St. Ann's
 	player := &models.Player{
 		ID:        uuid.New().String(),
 		FirstName: firstName,
 		LastName:  lastName,
-		ClubID:    0, // Will be set when editing the player
+		ClubID:    stAnnsClubID, // Auto-assign to St. Ann's instead of 0
 	}
 
 	// Create the player
@@ -189,7 +201,7 @@ func (h *PlayersHandler) handlePlayerNewPost(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	log.Printf("Successfully created new player: %s %s (ID: %s)", firstName, lastName, player.ID)
+	log.Printf("Successfully created new player: %s %s (ID: %s, Club: St. Ann's)", firstName, lastName, player.ID)
 
 	// Redirect to the player edit page to allow setting additional details
 	http.Redirect(w, r, fmt.Sprintf("/admin/players/%s/edit", player.ID), http.StatusSeeOther)
