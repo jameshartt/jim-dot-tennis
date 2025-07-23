@@ -8,13 +8,31 @@ This guide shows how to run the tennis match card import locally without Docker.
 2. **Local database** at `./tennis.db` (or specify custom path)
 3. **TENNIS_NONCE** environment variable set
 
+## Getting the Production Database
+
+If you want to work with the production database locally, you can download it from the server:
+
+```bash
+# Download the production database and replace your local database
+./scripts/download-database.sh
+```
+
+This script will:
+- Connect to your DigitalOcean server
+- Backup your existing local database (if it exists)
+- Download the production database
+- Verify the database integrity
+- Provide clear status messages throughout the process
+
+**Note:** The script uses the same server configuration as your deployment scripts.
+
 ## Quick Setup
 
 ```bash
 # Set your nonce (get this from the tennis website)
 export TENNIS_NONCE="your-nonce-here"
 
-# Verify your database exists
+# Verify your database exists (or download from production)
 ls -la ./tennis.db
 ```
 
