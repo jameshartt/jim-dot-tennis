@@ -246,6 +246,7 @@ func (s *TeamEligibilityService) countHigherTeamMatches(ctx context.Context, pla
 	}
 
 	// Build the query to count matches in higher teams from Week 10 onwards
+	// Get the name of the St. Ann's team the player was actually playing FOR
 	query := `
 		SELECT COUNT(DISTINCT m.id),
 		       COALESCE(GROUP_CONCAT(DISTINCT t.name), '') as team_names
@@ -254,32 +255,20 @@ func (s *TeamEligibilityService) countHigherTeamMatches(ctx context.Context, pla
 		INNER JOIN fixtures f ON m.fixture_id = f.id
 		INNER JOIN weeks w ON f.week_id = w.id
 		INNER JOIN teams t ON (
-			(f.home_team_id IN (` + s.createPlaceholders(len(higherTeamIDs)) + `) AND mp.is_home = 1) OR
-			(f.away_team_id IN (` + s.createPlaceholders(len(higherTeamIDs)) + `) AND mp.is_home = 0)
+			(mp.is_home = 1 AND f.home_team_id = t.id) OR
+			(mp.is_home = 0 AND f.away_team_id = t.id)
 		)
 		WHERE mp.player_id = ?
 		  AND w.week_number >= 10
 		  AND w.season_id = ?
-		  AND (f.home_team_id IN (` + s.createPlaceholders(len(higherTeamIDs)) + `) OR f.away_team_id IN (` + s.createPlaceholders(len(higherTeamIDs)) + `))
+		  AND t.id IN (` + s.createPlaceholders(len(higherTeamIDs)) + `)
 	`
 
 	// Build args slice
 	args := make([]interface{}, 0)
-	// First set of team IDs for the team filter in SELECT
-	for _, teamID := range higherTeamIDs {
-		args = append(args, teamID)
-	}
-	// Second set for the team filter in SELECT
-	for _, teamID := range higherTeamIDs {
-		args = append(args, teamID)
-	}
 	// Player ID and season ID
 	args = append(args, playerID, seasonID)
-	// Third set for WHERE clause home team
-	for _, teamID := range higherTeamIDs {
-		args = append(args, teamID)
-	}
-	// Fourth set for WHERE clause away team
+	// Team IDs for WHERE clause to filter higher teams
 	for _, teamID := range higherTeamIDs {
 		args = append(args, teamID)
 	}

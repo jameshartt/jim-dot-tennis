@@ -86,15 +86,21 @@
     opacity: 1;
 }
 
-.btn-warning {
-    background: #fd7e14 !important;
-    border-left: 4px solid #e8590c !important;
-    color: white !important;
-    position: relative;
+.btn-blocked {
+    cursor: not-allowed;
+    opacity: 0.7;
 }
 
-.btn-warning:hover {
-    background: #e8590c !important;
+.btn-warning {
+    /* Warning styling - availability colors preserved */
+}
+
+.btn-locked {
+    /* Locked styling - availability colors preserved */
+}
+
+.btn-unlocked {
+    /* Unlocked styling - availability colors preserved */
 }
 
 .captain-indicator {
@@ -428,10 +434,65 @@
                     <input type="hidden" name="player_id" value="{{.Player.ID}}">
                     <input type="hidden" name="is_home" value="true">
                     {{if $.ManagingTeamID}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeamID}}">{{end}}
-                    <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}{{if .Eligibility}}{{if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}} btn-blocked{{else if .Eligibility.IsLocked}} btn-locked{{end}}{{end}}"
-                            {{if .Eligibility}}{{if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}}disabled{{end}}{{end}}
-                            title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} {{if .Eligibility.PlayedThisWeek}}⚠️ Already played this week for {{.Eligibility.PlayedThisWeekTeam}} (rule suggestion){{else if .Eligibility.IsLockedToHigherTeam}}🚫 Locked to {{.Eligibility.LockedToTeamName}}{{end}}{{else if .Eligibility.IsLocked}} 🔒 Locked to this team or higher{{else if .Eligibility.CanPlayLower}} ✅ {{if ge .Eligibility.RemainingHigherTeamPlays 0}}{{.Eligibility.RemainingHigherTeamPlays}} plays left{{else}}Can play lower teams{{end}}{{end}}{{end}}">
-                        {{if .Eligibility}}{{if and (not .Eligibility.CanPlay) .Eligibility.PlayedThisWeek}}⚠️{{else if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}}🚫{{else if .Eligibility.IsLocked}}🔒{{else if .Eligibility.CanPlayLower}}✅{{end}}{{end}} {{.Player.FirstName}} {{.Player.LastName}}{{if .Eligibility}}{{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}} ({{.Eligibility.RemainingHigherTeamPlays}} left){{end}}{{end}}
+                    {{/* Build CSS classes */}}
+                    {{$btnClass := printf "btn-add-player availability-%s" (.AvailabilityStatus | lower)}}
+                    {{if .Eligibility}}
+                      {{if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}}
+                        {{$btnClass = printf "%s btn-blocked" $btnClass}}
+                      {{else if .Eligibility.IsLocked}}
+                        {{$btnClass = printf "%s btn-locked" $btnClass}}
+                      {{end}}
+                    {{end}}
+                    
+                    {{/* Build title with availability and eligibility info */}}
+                    {{$title := printf "%s %s - %s" .Player.FirstName .Player.LastName .AvailabilityStatus}}
+                    {{if .AvailabilityNotes}}
+                      {{$title = printf "%s (%s)" $title .AvailabilityNotes}}
+                    {{end}}
+                    {{if .Eligibility}}
+                      {{if not .Eligibility.CanPlay}}
+                        {{if .Eligibility.PlayedThisWeek}}
+                          {{$title = printf "%s | ⚠️ Already played this week for %s (rule suggestion)" $title .Eligibility.PlayedThisWeekTeam}}
+                        {{else if .Eligibility.IsLockedToHigherTeam}}
+                          {{$title = printf "%s | 🚫 Locked to %s" $title .Eligibility.LockedToTeamName}}
+                        {{end}}
+                      {{else if .Eligibility.IsLocked}}
+                        {{$title = printf "%s | 🔒 Locked to this team or higher" $title}}
+                      {{else if .Eligibility.CanPlayLower}}
+                        {{if ge .Eligibility.RemainingHigherTeamPlays 0}}
+                          {{$title = printf "%s | ✅ %d plays left" $title .Eligibility.RemainingHigherTeamPlays}}
+                        {{else}}
+                          {{$title = printf "%s | ✅ Can play lower teams" $title}}
+                        {{end}}
+                      {{end}}
+                    {{end}}
+                    
+                    {{/* Build button text with icon and remaining plays */}}
+                    {{$icon := ""}}
+                    {{if .Eligibility}}
+                      {{if and (not .Eligibility.CanPlay) .Eligibility.PlayedThisWeek}}
+                        {{$icon = "⚠️"}}
+                      {{else if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}}
+                        {{$icon = "🚫"}}
+                      {{else if .Eligibility.IsLocked}}
+                        {{$icon = "🔒"}}
+                      {{else if .Eligibility.CanPlayLower}}
+                        {{$icon = "✅"}}
+                      {{end}}
+                    {{end}}
+                    
+                    {{$remainingText := ""}}
+                    {{if .Eligibility}}
+                      {{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}}
+                        {{$remainingText = printf " (%d left)" .Eligibility.RemainingHigherTeamPlays}}
+                      {{end}}
+                    {{end}}
+                    
+                    <button type="submit" 
+                            class="{{$btnClass}}"
+                            {{if and .Eligibility (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}}disabled{{end}}
+                            title="{{$title}}">
+                        {{$icon}} {{.Player.FirstName}} {{.Player.LastName}}{{$remainingText}}
                     </button>
                 </form>
                 {{end}}
@@ -457,10 +518,65 @@
                     <input type="hidden" name="player_id" value="{{.Player.ID}}">
                     <input type="hidden" name="is_home" value="true">
                     {{if $.ManagingTeamID}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeamID}}">{{end}}
-                    <button type="submit" class="btn-add-player availability-{{.AvailabilityStatus | lower}}{{if .Eligibility}}{{if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}} btn-blocked{{else if .Eligibility.IsLocked}} btn-locked{{end}}{{end}}"
-                            {{if .Eligibility}}{{if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}}disabled{{end}}{{end}}
-                            title="{{.Player.FirstName}} {{.Player.LastName}} - Status: {{.AvailabilityStatus}}{{if .AvailabilityNotes}} ({{.AvailabilityNotes}}){{end}}{{if .Eligibility}}{{if not .Eligibility.CanPlay}} {{if .Eligibility.PlayedThisWeek}}⚠️ Already played this week for {{.Eligibility.PlayedThisWeekTeam}} (rule suggestion){{else if .Eligibility.IsLockedToHigherTeam}}🚫 Locked to {{.Eligibility.LockedToTeamName}}{{end}}{{else if .Eligibility.IsLocked}} 🔒 Locked to this team or higher{{else if .Eligibility.CanPlayLower}} ✅ {{if ge .Eligibility.RemainingHigherTeamPlays 0}}{{.Eligibility.RemainingHigherTeamPlays}} plays left{{else}}Can play lower teams{{end}}{{end}}{{end}}">
-                        {{if .Eligibility}}{{if and (not .Eligibility.CanPlay) .Eligibility.PlayedThisWeek}}⚠️{{else if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}}🚫{{else if .Eligibility.IsLocked}}🔒{{else if .Eligibility.CanPlayLower}}✅{{end}}{{end}} {{.Player.FirstName}} {{.Player.LastName}}{{if .Eligibility}}{{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}} ({{.Eligibility.RemainingHigherTeamPlays}} left){{end}}{{end}}
+                    {{/* Build CSS classes */}}
+                    {{$btnClass := printf "btn-add-player availability-%s" (.AvailabilityStatus | lower)}}
+                    {{if .Eligibility}}
+                      {{if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}}
+                        {{$btnClass = printf "%s btn-blocked" $btnClass}}
+                      {{else if .Eligibility.IsLocked}}
+                        {{$btnClass = printf "%s btn-locked" $btnClass}}
+                      {{end}}
+                    {{end}}
+                    
+                    {{/* Build title with availability and eligibility info */}}
+                    {{$title := printf "%s %s - %s" .Player.FirstName .Player.LastName .AvailabilityStatus}}
+                    {{if .AvailabilityNotes}}
+                      {{$title = printf "%s (%s)" $title .AvailabilityNotes}}
+                    {{end}}
+                    {{if .Eligibility}}
+                      {{if not .Eligibility.CanPlay}}
+                        {{if .Eligibility.PlayedThisWeek}}
+                          {{$title = printf "%s | ⚠️ Already played this week for %s (rule suggestion)" $title .Eligibility.PlayedThisWeekTeam}}
+                        {{else if .Eligibility.IsLockedToHigherTeam}}
+                          {{$title = printf "%s | 🚫 Locked to %s" $title .Eligibility.LockedToTeamName}}
+                        {{end}}
+                      {{else if .Eligibility.IsLocked}}
+                        {{$title = printf "%s | 🔒 Locked to this team or higher" $title}}
+                      {{else if .Eligibility.CanPlayLower}}
+                        {{if ge .Eligibility.RemainingHigherTeamPlays 0}}
+                          {{$title = printf "%s | ✅ %d plays left" $title .Eligibility.RemainingHigherTeamPlays}}
+                        {{else}}
+                          {{$title = printf "%s | ✅ Can play lower teams" $title}}
+                        {{end}}
+                      {{end}}
+                    {{end}}
+                    
+                    {{/* Build button text with icon and remaining plays */}}
+                    {{$icon := ""}}
+                    {{if .Eligibility}}
+                      {{if and (not .Eligibility.CanPlay) .Eligibility.PlayedThisWeek}}
+                        {{$icon = "⚠️"}}
+                      {{else if and (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}}
+                        {{$icon = "🚫"}}
+                      {{else if .Eligibility.IsLocked}}
+                        {{$icon = "🔒"}}
+                      {{else if .Eligibility.CanPlayLower}}
+                        {{$icon = "✅"}}
+                      {{end}}
+                    {{end}}
+                    
+                    {{$remainingText := ""}}
+                    {{if .Eligibility}}
+                      {{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}}
+                        {{$remainingText = printf " (%d left)" .Eligibility.RemainingHigherTeamPlays}}
+                      {{end}}
+                    {{end}}
+                    
+                    <button type="submit" 
+                            class="{{$btnClass}}"
+                            {{if and .Eligibility (not .Eligibility.CanPlay) .Eligibility.IsLockedToHigherTeam}}disabled{{end}}
+                            title="{{$title}}">
+                        {{$icon}} {{.Player.FirstName}} {{.Player.LastName}}{{$remainingText}}
                     </button>
                 </form>
                 {{end}}
