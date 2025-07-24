@@ -506,15 +506,18 @@ func (h *FixturesHandler) handlePlayerSelection(w http.ResponseWriter, r *http.R
 		}
 	}
 
+	// Determine if St Ann's is home or away
+	isStAnnsHome := h.service.IsStAnnsHomeInFixture(fixtureID)
+
 	// Render inline player selection template
 	w.Header().Set("Content-Type", "text/html")
 	w.Write([]byte(`
 		<div class="player-selection-form">
 			<h4>Add Players to Selection</h4>
 			
-			` + renderPlayerGroup("Team Players", availableTeamPlayers, fixtureID, true) + `
+			` + renderPlayerGroup("Team Players", availableTeamPlayers, fixtureID, isStAnnsHome) + `
 			
-			` + renderPlayerGroup("All St Ann Players", availableStAnnPlayers, fixtureID, true) + `
+			` + renderPlayerGroup("All St Ann Players", availableStAnnPlayers, fixtureID, isStAnnsHome) + `
 		</div>
 	`))
 }

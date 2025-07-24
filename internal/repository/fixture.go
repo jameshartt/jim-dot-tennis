@@ -63,6 +63,9 @@ type FixtureRepository interface {
 	UpdateSelectedPlayerPosition(ctx context.Context, fixtureID uint, playerID string, position int) error
 	ClearSelectedPlayers(ctx context.Context, fixtureID uint) error
 	ClearSelectedPlayersByTeam(ctx context.Context, fixtureID, managingTeamID uint) error
+
+	// Player-specific fixture queries
+	FindUpcomingFixturesForPlayer(ctx context.Context, playerID string) ([]models.Fixture, error)
 }
 
 // fixtureRepository implements FixtureRepository
@@ -566,4 +569,25 @@ func (r *fixtureRepository) ClearSelectedPlayersByTeam(ctx context.Context, fixt
 		DELETE FROM fixture_players WHERE fixture_id = ? AND managing_team_id = ?
 	`, fixtureID, managingTeamID)
 	return err
+}
+
+// FindUpcomingFixturesForPlayer retrieves upcoming fixtures where a specific player has been selected
+func (r *fixtureRepository) FindUpcomingFixturesForPlayer(ctx context.Context, playerID string) ([]models.Fixture, error) {
+	var fixtures []models.Fixture
+
+	// Execute the main query
+
+	err := r.db.SelectContext(ctx, &fixtures, `
+		SELECT DISTINCT f.id, f.home_team_id, f.away_team_id, f.division_id, f.season_id, f.week_id, 
+		       f.scheduled_date, f.venue_location, f.status, f.completed_date, f.day_captain_id, 
+		       f.external_match_card_id, f.notes, f.created_at, f.updated_at
+		FROM fixtures f
+		INNER JOIN fixture_players fp ON f.id = fp.fixture_id
+		WHERE fp.player_id = ? 
+		  AND date(f.scheduled_date) >= date('now')
+		  AND f.status IN ('Scheduled', 'InProgress')
+				ORDER BY f.scheduled_date ASC
+	`, playerID)
+
+	return fixtures, err
 }

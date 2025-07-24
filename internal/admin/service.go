@@ -1663,6 +1663,39 @@ func (s *Service) CreateMatchupWithTeam(fixtureID uint, matchupType models.Match
 	return matchup, nil
 }
 
+// IsStAnnsHomeInFixture determines whether St Ann's is the home team in a fixture
+// Uses the exact same logic as buildFixturesWithRelations to ensure consistency
+func (s *Service) IsStAnnsHomeInFixture(fixtureID uint) bool {
+	ctx := context.Background()
+
+	// Get the fixture
+	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
+	if err != nil {
+		return false // Default to away if we can't determine
+	}
+
+	// Find St. Ann's club (using same logic as buildFixturesWithRelations)
+	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil || len(clubs) == 0 {
+		return false // Default to away if we can't find St Ann's
+	}
+	stAnnsClub := &clubs[0]
+
+	// Get home team (using same logic as buildFixturesWithRelations)
+	homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
+	if err != nil {
+		return false // Default to away if we can't get home team
+	}
+
+	// Use exact same logic as buildFixturesWithRelations:
+	// "Determine if St. Ann's is home or away (only if teams were loaded successfully)"
+	if homeTeam != nil && homeTeam.ClubID == stAnnsClub.ID {
+		return true // IsStAnnsHome = true
+	}
+
+	return false // IsStAnnsHome = false (either away or not St Ann's fixture)
+}
+
 // determineManagingTeamID determines which team should manage a matchup for a given fixture
 func (s *Service) determineManagingTeamID(ctx context.Context, fixtureID uint) (uint, error) {
 	// Get the fixture to determine the teams

@@ -18,6 +18,11 @@ type Service struct {
 	tennisPlayerRepository repository.ProTennisPlayerRepository
 	availabilityRepository repository.AvailabilityRepository
 	seasonRepository       repository.SeasonRepository
+	fixtureRepository      repository.FixtureRepository
+	teamRepository         repository.TeamRepository
+	divisionRepository     repository.DivisionRepository
+	weekRepository         repository.WeekRepository
+	clubRepository         repository.ClubRepository
 }
 
 // NewService creates a new players service
@@ -29,6 +34,11 @@ func NewService(db *database.DB) *Service {
 		tennisPlayerRepository: repository.NewProTennisPlayerRepository(db),
 		availabilityRepository: repository.NewAvailabilityRepository(db),
 		seasonRepository:       repository.NewSeasonRepository(db),
+		fixtureRepository:      repository.NewFixtureRepository(db),
+		teamRepository:         repository.NewTeamRepository(db),
+		divisionRepository:     repository.NewDivisionRepository(db),
+		weekRepository:         repository.NewWeekRepository(db),
+		clubRepository:         repository.NewClubRepository(db),
 	}
 }
 
@@ -102,8 +112,9 @@ type FantasyMatchDetail struct {
 
 // AvailabilityData represents a player's availability response
 type AvailabilityData struct {
-	Player       PlayerInfo        `json:"player"`
-	Availability []AvailabilityDay `json:"availability"`
+	Player           PlayerInfo              `json:"player"`
+	Availability     []AvailabilityDay       `json:"availability"`
+	UpcomingFixtures []PlayerUpcomingFixture `json:"upcoming_fixtures"`
 }
 
 // PlayerInfo represents basic player information
@@ -160,6 +171,14 @@ func (s *Service) GetPlayerAvailabilityData(playerID string) (*AvailabilityData,
 		})
 	}
 
+	// Get upcoming fixtures for this player
+	upcomingFixtures, err := s.GetPlayerUpcomingFixtures(playerID)
+	if err != nil {
+		// Log the error but don't fail the whole request
+		fmt.Printf("Error loading upcoming fixtures for player %s: %v\n", playerID, err)
+		upcomingFixtures = []PlayerUpcomingFixture{}
+	}
+
 	// For now, return mock player info since we don't have direct access to player repository
 	// In a real implementation, you'd fetch this data
 	return &AvailabilityData{
@@ -168,7 +187,8 @@ func (s *Service) GetPlayerAvailabilityData(playerID string) (*AvailabilityData,
 			FirstName: "Player", // This should be fetched from database
 			LastName:  "Name",   // This should be fetched from database
 		},
-		Availability: availabilityDays,
+		Availability:     availabilityDays,
+		UpcomingFixtures: upcomingFixtures,
 	}, nil
 }
 
@@ -274,4 +294,167 @@ func (s *Service) RequestPreferredName(playerID string, preferredName string) er
 	}
 
 	return nil
+}
+
+// PlayerUpcomingFixture represents upcoming fixture information for a player (privacy-focused)
+type PlayerUpcomingFixture struct {
+	FixtureID     uint      `json:"fixture_id"`
+	ScheduledDate time.Time `json:"scheduled_date"`
+	Division      string    `json:"division"`      // e.g. "Div. 1", "Div. 2"
+	WeekNumber    int       `json:"week_number"`   // e.g. 1, 2, 3
+	IsHome        bool      `json:"is_home"`       // Whether player's team is at home
+	IsAway        bool      `json:"is_away"`       // Whether player's team is away
+	IsDerby       bool      `json:"is_derby"`      // Whether both teams are from same club
+	MyTeam        string    `json:"my_team"`       // The team the player is playing FOR
+	OpponentTeam  string    `json:"opponent_team"` // The opposing team name (no player names)
+	VenueHint     string    `json:"venue_hint"`    // General location hint if available
+}
+
+// GetPlayerUpcomingFixtures retrieves upcoming fixtures where the player has been selected
+func (s *Service) GetPlayerUpcomingFixtures(playerID string) ([]PlayerUpcomingFixture, error) {
+	ctx := context.Background()
+
+	// Get upcoming fixtures where this player has been selected
+	fixtures, err := s.fixtureRepository.FindUpcomingFixturesForPlayer(ctx, playerID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find upcoming fixtures for player: %w", err)
+	}
+
+	var playerFixtures []PlayerUpcomingFixture
+	for _, fixture := range fixtures {
+		playerFixture := PlayerUpcomingFixture{
+			FixtureID:     fixture.ID,
+			ScheduledDate: fixture.ScheduledDate,
+			VenueHint:     fixture.VenueLocation,
+		}
+
+		// Get division information
+		if division, err := s.divisionRepository.FindByID(ctx, fixture.DivisionID); err == nil {
+			playerFixture.Division = s.formatDivisionName(division.Name)
+		}
+
+		// Get week information
+		if week, err := s.weekRepository.FindByID(ctx, fixture.WeekID); err == nil {
+			playerFixture.WeekNumber = week.WeekNumber
+		}
+
+		// Get team information
+		homeTeam, homeErr := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
+		awayTeam, awayErr := s.teamRepository.FindByID(ctx, fixture.AwayTeamID)
+
+		if homeErr == nil && awayErr == nil {
+			// Determine which team the player belongs to and set appropriate information
+			playerTeamID, isPlayerInHomeTeam, isPlayerInAwayTeam := s.determinePlayerTeamContext(ctx, playerID, fixture.ID, homeTeam.ID, awayTeam.ID)
+
+			if playerTeamID > 0 {
+				if isPlayerInHomeTeam {
+					playerFixture.IsHome = true
+					playerFixture.MyTeam = homeTeam.Name
+					playerFixture.OpponentTeam = awayTeam.Name
+				} else if isPlayerInAwayTeam {
+					playerFixture.IsAway = true
+					playerFixture.MyTeam = awayTeam.Name
+					playerFixture.OpponentTeam = homeTeam.Name
+				}
+
+				// Check if it's a derby match (both teams from same club)
+				if homeTeam.ClubID == awayTeam.ClubID {
+					playerFixture.IsDerby = true
+				}
+			}
+		}
+
+		playerFixtures = append(playerFixtures, playerFixture)
+	}
+
+	return playerFixtures, nil
+}
+
+// formatDivisionName formats division names for display (e.g. "Division 1" -> "Div. 1")
+func (s *Service) formatDivisionName(divisionName string) string {
+	switch divisionName {
+	case "Division 1":
+		return "Div. 1"
+	case "Division 2":
+		return "Div. 2"
+	case "Division 3":
+		return "Div. 3"
+	case "Division 4":
+		return "Div. 4"
+	default:
+		return divisionName
+	}
+}
+
+// determinePlayerTeamContext determines which team the player belongs to for a given fixture
+// For derby matches (St Ann's vs St Ann's), uses ManagingTeamID to determine which team
+// For regular matches, always assigns player to the St Ann's team regardless of stored flags
+func (s *Service) determinePlayerTeamContext(ctx context.Context, playerID string, fixtureID uint, homeTeamID, awayTeamID uint) (playerTeamID uint, isHome, isAway bool) {
+	// First, always check all selected players for this fixture - this is the most reliable method
+	allFixturePlayers, err := s.fixtureRepository.FindSelectedPlayers(ctx, fixtureID)
+	if err == nil {
+		for _, fp := range allFixturePlayers {
+			if fp.PlayerID == playerID {
+				// Determine which teams are St Ann's first - this is the source of truth
+				stAnnsClubs, clubErr := s.clubRepository.FindByNameLike(ctx, "St Ann")
+				if clubErr == nil && len(stAnnsClubs) > 0 {
+					stAnnsClubID := stAnnsClubs[0].ID
+
+					homeTeam, homeErr := s.teamRepository.FindByID(ctx, homeTeamID)
+					awayTeam, awayErr := s.teamRepository.FindByID(ctx, awayTeamID)
+
+					if homeErr == nil && awayErr == nil {
+						isHomeStAnns := homeTeam.ClubID == stAnnsClubID
+						isAwayStAnns := awayTeam.ClubID == stAnnsClubID
+						isDerby := isHomeStAnns && isAwayStAnns
+
+						if isDerby {
+							// For derby matches, use ManagingTeamID to determine which St Ann's team
+							if fp.ManagingTeamID != nil {
+								if *fp.ManagingTeamID == homeTeamID {
+									return homeTeamID, true, false
+								} else if *fp.ManagingTeamID == awayTeamID {
+									return awayTeamID, false, true
+								}
+							}
+						} else {
+							// For regular matches, always assign player to St Ann's team (ignore ManagingTeamID)
+							if isHomeStAnns {
+								return homeTeamID, true, false
+							} else if isAwayStAnns {
+								return awayTeamID, false, true
+							}
+						}
+					}
+				}
+
+				// Final fallback to stored IsHome flag if we can't determine club membership
+				if fp.IsHome {
+					return homeTeamID, true, false
+				} else {
+					return awayTeamID, false, true
+				}
+			}
+		}
+	}
+
+	// Fallback: try team-specific queries (for derby matches)
+	homeFixturePlayers, err := s.fixtureRepository.FindSelectedPlayersByTeam(ctx, fixtureID, homeTeamID)
+	if err == nil {
+		for _, fp := range homeFixturePlayers {
+			if fp.PlayerID == playerID {
+				return homeTeamID, true, false
+			}
+		}
+	}
+
+	awayFixturePlayers, err := s.fixtureRepository.FindSelectedPlayersByTeam(ctx, fixtureID, awayTeamID)
+	if err == nil {
+		for _, fp := range awayFixturePlayers {
+			if fp.PlayerID == playerID {
+				return awayTeamID, false, true
+			}
+		}
+	}
+	return 0, false, false
 }
