@@ -60,6 +60,13 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/teams", h.teams.HandleTeams)
 	adminMux.HandleFunc("/admin/teams/", h.teams.HandleTeams)
 
+	// Preferred name approval routes
+	adminMux.HandleFunc("/admin/preferred-names", h.service.HandlePreferredNameApprovals)
+	adminMux.HandleFunc("/admin/preferred-names/", h.service.HandlePreferredNameApprovals)
+	adminMux.HandleFunc("/admin/preferred-names/history", h.service.HandlePreferredNameHistory)
+	adminMux.HandleFunc("/admin/preferred-names/approve/", h.service.HandleApprovePreferredName)
+	adminMux.HandleFunc("/admin/preferred-names/reject/", h.service.HandleRejectPreferredName)
+
 	// Register admin routes with authentication middleware
 	mux.Handle("/admin", authMiddleware.RequireAuth(
 		authMiddleware.RequireRole("admin")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

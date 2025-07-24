@@ -60,6 +60,8 @@ func (h *AvailabilityHandler) HandleAvailability(w http.ResponseWriter, r *http.
 		h.handleAvailabilityUpdate(w, r, &player, authToken)
 	case action == "batch-update" && r.Method == http.MethodPost:
 		h.handleAvailabilityBatchUpdate(w, r, &player, authToken)
+	case action == "request-preferred-name" && r.Method == http.MethodPost:
+		h.handlePreferredNameRequest(w, r, &player, authToken)
 	case action == "" && r.Method == http.MethodGet:
 		h.handleAvailabilityGet(w, r, &player, authToken)
 	case action == "" && r.Method == http.MethodPost:
@@ -174,6 +176,85 @@ func (h *AvailabilityHandler) handleAvailabilityBatchUpdate(w http.ResponseWrite
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+// handlePreferredNameRequest handles preferred name requests from players
+func (h *AvailabilityHandler) handlePreferredNameRequest(w http.ResponseWriter, r *http.Request, player *models.Player, authToken string) {
+	var req struct {
+		PreferredName string `json:"preferredName"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Validate the preferred name
+	preferredName := strings.TrimSpace(req.PreferredName)
+	if preferredName == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Preferred name cannot be empty",
+		})
+		return
+	}
+
+	if len(preferredName) < 2 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Preferred name must be at least 2 characters long",
+		})
+		return
+	}
+
+	if len(preferredName) > 50 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Preferred name must be 50 characters or less",
+		})
+		return
+	}
+
+	log.Printf("Processing preferred name request from player %s (%s): '%s'",
+		player.ID, player.FirstName+" "+player.LastName, preferredName)
+
+	// Submit the preferred name request
+	if err := h.service.RequestPreferredName(player.ID, preferredName); err != nil {
+		log.Printf("Failed to submit preferred name request for player %s: %v", player.ID, err)
+
+		// Check if it's a uniqueness error
+		if strings.Contains(err.Error(), "already exists") || strings.Contains(err.Error(), "pending approval") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"success": false,
+				"error":   "This preferred name is already taken or pending approval",
+			})
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Failed to submit preferred name request",
+		})
+		return
+	}
+
+	log.Printf("Successfully submitted preferred name request for player %s: '%s'", player.ID, preferredName)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("Your preferred name request for '%s' has been submitted for admin approval", preferredName),
+	})
 }
 
 // getTeamName creates a formatted team name from two tennis players

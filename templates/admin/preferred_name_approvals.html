@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preferred Name Approvals - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+        
+        .admin-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .stat-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 0.5rem 0 0;
+            color: var(--secondary-color);
+        }
+
+        .admin-section {
+            background-color: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .admin-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .data-table th, .data-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+
+        .data-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin-top: 1rem;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .action-buttons form {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .action-buttons input[type="text"] {
+            min-width: 120px;
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        @media (max-width: 767px) {
+            .admin-stats {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 0.75rem;
+                margin: 1rem 0;
+            }
+            
+            .stat-card {
+                padding: 1rem;
+            }
+            
+            .stat-value {
+                font-size: 1.5rem;
+            }
+            
+            .admin-section {
+                padding: 1rem;
+            }
+            
+            .data-table th, .data-table td {
+                padding: 0.5rem 0.25rem;
+                font-size: 0.875rem;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            .action-buttons form {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+            
+            .action-buttons input[type="text"] {
+                width: 100%;
+                min-width: unset;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin">Admin</a> / Preferred Name Approvals
+            </div>
+            <h1>Preferred Name Approvals</h1>
+        </div>
+    </div>
+
+    <div class="admin-content">
+        <div class="container">
+            <!-- Stats Cards -->
+            <div class="admin-stats">
+                <div class="stat-card">
+                    <h3>Pending</h3>
+                    <p class="stat-value">{{.Stats.PendingCount}}</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Approved</h3>
+                    <p class="stat-value">{{.Stats.ApprovedCount}}</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Rejected</h3>
+                    <p class="stat-value">{{.Stats.RejectedCount}}</p>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="admin-section">
+                <h2>Actions</h2>
+                <div class="admin-actions">
+                    <a href="/admin/preferred-names/history" class="btn btn-secondary">View History</a>
+                    <a href="/admin/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+                </div>
+            </div>
+
+            <!-- Pending Requests -->
+            <div class="admin-section">
+                <h2>Pending Requests ({{.Stats.PendingCount}})</h2>
+                
+                {{if .PendingRequests}}
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Player</th>
+                                <th>Current Name</th>
+                                <th>Requested Name</th>
+                                <th>Requested Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .PendingRequests}}
+                            <tr>
+                                <td>
+                                    <strong>{{.Player.FirstName}} {{.Player.LastName}}</strong><br>
+                                    <small>ID: {{.Player.ID}}</small>
+                                </td>
+                                <td>
+                                    {{if .Player.PreferredName}}
+                                        {{.Player.PreferredName}}
+                                    {{else}}
+                                        <em>No preferred name set</em>
+                                    {{end}}
+                                </td>
+                                <td>
+                                    <strong style="color: #007bff;">{{.RequestedName}}</strong>
+                                </td>
+                                <td>{{.CreatedAt.Format "Jan 02, 2006 15:04"}}</td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <!-- Approve Form -->
+                                        <form method="POST" action="/admin/preferred-names/approve/{{.ID}}" 
+                                              style="display: inline-block; margin-right: 10px;">
+                                            <input type="text" name="admin_notes" placeholder="Optional notes..." 
+                                                   style="width: 150px; padding: 4px; margin-right: 5px;">
+                                            <button type="submit" class="btn btn-sm btn-success" 
+                                                    onclick="return confirm('Approve preferred name \'{{.RequestedName}}\' for {{.Player.FirstName}} {{.Player.LastName}}?')">
+                                                ✓ Approve
+                                            </button>
+                                        </form>
+                                        
+                                        <!-- Reject Form -->
+                                        <form method="POST" action="/admin/preferred-names/reject/{{.ID}}" 
+                                              style="display: inline-block;">
+                                            <input type="text" name="admin_notes" placeholder="Reason for rejection..." 
+                                                   style="width: 150px; padding: 4px; margin-right: 5px;">
+                                            <button type="submit" class="btn btn-sm btn-danger" 
+                                                    onclick="return confirm('Reject preferred name request for {{.Player.FirstName}} {{.Player.LastName}}?')">
+                                                ✗ Reject
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+                {{else}}
+                <p>No pending preferred name requests.</p>
+                {{end}}
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; {{currentYear}} Jim.Tennis</p>
+        </div>
+    </footer>
+</body>
+</html> 

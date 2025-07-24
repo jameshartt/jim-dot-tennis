@@ -247,3 +247,31 @@ type AvailabilityUpdateRequest struct {
 	Date   string `json:"date"`
 	Status string `json:"status"`
 }
+
+// RequestPreferredName submits a preferred name request for a player
+func (s *Service) RequestPreferredName(playerID string, preferredName string) error {
+	ctx := context.Background()
+
+	// Check if the preferred name is available
+	isAvailable, err := s.playerRepository.IsPreferredNameAvailable(ctx, preferredName)
+	if err != nil {
+		return fmt.Errorf("failed to check preferred name availability: %w", err)
+	}
+
+	if !isAvailable {
+		return fmt.Errorf("preferred name already exists or is pending approval")
+	}
+
+	// Create the preferred name request
+	request := &models.PreferredNameRequest{
+		PlayerID:      playerID,
+		RequestedName: preferredName,
+		Status:        models.PreferredNamePending,
+	}
+
+	if err := s.playerRepository.CreatePreferredNameRequest(ctx, request); err != nil {
+		return fmt.Errorf("failed to create preferred name request: %w", err)
+	}
+
+	return nil
+}

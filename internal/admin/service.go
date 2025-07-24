@@ -63,9 +63,10 @@ type DashboardData struct {
 
 // Stats represents admin dashboard statistics
 type Stats struct {
-	PlayerCount  int `json:"player_count"`
-	FixtureCount int `json:"fixture_count"`
-	TeamCount    int `json:"team_count"`
+	PlayerCount                  int `json:"player_count"`
+	FixtureCount                 int `json:"fixture_count"`
+	TeamCount                    int `json:"team_count"`
+	PendingPreferredNameRequests int `json:"pending_preferred_name_requests"`
 }
 
 // LoginAttempt represents a login attempt record
@@ -214,10 +215,17 @@ func (s *Service) GetDashboardData(user *models.User) (*DashboardData, error) {
 		fixtureCount = 0 // Default to 0 if error
 	}
 
+	// Get pending preferred name requests count
+	pendingPreferredNameRequests, err := s.playerRepository.CountPendingPreferredNameRequests(ctx)
+	if err != nil {
+		pendingPreferredNameRequests = 0 // Default to 0 if error
+	}
+
 	stats := Stats{
-		PlayerCount:  playerCount,
-		FixtureCount: fixtureCount,
-		TeamCount:    teamCount,
+		PlayerCount:                  playerCount,
+		FixtureCount:                 fixtureCount,
+		TeamCount:                    teamCount,
+		PendingPreferredNameRequests: pendingPreferredNameRequests,
 	}
 
 	// Query login attempts for the current user using repository

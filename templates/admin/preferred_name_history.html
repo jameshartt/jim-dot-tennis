@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preferred Name History - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+        
+        .admin-section {
+            background-color: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .admin-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .data-table th, .data-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+
+        .data-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin-top: 1rem;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .status-approved {
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        .status-rejected {
+            color: #dc3545;
+            font-weight: 600;
+        }
+
+        .status-pending {
+            color: #ffc107;
+            font-weight: 600;
+        }
+
+        @media (max-width: 767px) {
+            .admin-section {
+                padding: 1rem;
+            }
+            
+            .data-table th, .data-table td {
+                padding: 0.5rem 0.25rem;
+                font-size: 0.875rem;
+            }
+            
+            /* Stack some columns on mobile */
+            .data-table th:nth-child(6), 
+            .data-table td:nth-child(6),
+            .data-table th:nth-child(7), 
+            .data-table td:nth-child(7) {
+                display: none;
+            }
+        }
+
+        @media (max-width: 480px) {
+            /* Hide even more columns on very small screens */
+            .data-table th:nth-child(5), 
+            .data-table td:nth-child(5) {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin">Admin</a> / <a href="/admin/preferred-names">Preferred Names</a> / History
+            </div>
+            <h1>Preferred Name History</h1>
+        </div>
+    </div>
+
+    <div class="admin-content">
+        <div class="container">
+            <!-- Quick Actions -->
+            <div class="admin-section">
+                <h2>Actions</h2>
+                <div class="admin-actions">
+                    <a href="/admin/preferred-names" class="btn btn-primary">Back to Approvals</a>
+                    <a href="/admin/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+                </div>
+            </div>
+
+            <!-- Processed Requests -->
+            <div class="admin-section">
+                <h2>Processed Requests ({{len .ProcessedRequests}})</h2>
+                
+                {{if .ProcessedRequests}}
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Player</th>
+                                <th>Requested Name</th>
+                                <th>Status</th>
+                                <th>Admin</th>
+                                <th>Admin Notes</th>
+                                <th>Requested Date</th>
+                                <th>Processed Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .ProcessedRequests}}
+                            <tr>
+                                <td>
+                                    <strong>{{.Player.FirstName}} {{.Player.LastName}}</strong><br>
+                                    <small>ID: {{.Player.ID}}</small>
+                                </td>
+                                <td>
+                                    <strong>{{.RequestedName}}</strong>
+                                </td>
+                                <td>
+                                    {{if eq .Status "Approved"}}
+                                        <span class="status-approved">✓ Approved</span>
+                                    {{else if eq .Status "Rejected"}}
+                                        <span class="status-rejected">✗ Rejected</span>
+                                    {{else}}
+                                        <span class="status-pending">⏳ {{.Status}}</span>
+                                    {{end}}
+                                </td>
+                                <td>
+                                    {{if .ApprovedBy}}
+                                        {{.ApprovedBy}}
+                                    {{else}}
+                                        <em>Unknown</em>
+                                    {{end}}
+                                </td>
+                                <td>
+                                    {{if .AdminNotes}}
+                                        {{.AdminNotes}}
+                                    {{else}}
+                                        <em>No notes</em>
+                                    {{end}}
+                                </td>
+                                <td>{{.CreatedAt.Format "Jan 02, 2006 15:04"}}</td>
+                                <td>
+                                    {{if .ProcessedAt}}
+                                        {{.ProcessedAt.Format "Jan 02, 2006 15:04"}}
+                                    {{else}}
+                                        <em>Not processed</em>
+                                    {{end}}
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+                {{else}}
+                <p>No processed preferred name requests found.</p>
+                {{end}}
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; {{currentYear}} Jim.Tennis</p>
+        </div>
+    </footer>
+</body>
+</html> 

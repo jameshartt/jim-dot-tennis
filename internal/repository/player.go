@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 	"time"
@@ -47,11 +48,23 @@ type PlayerRepository interface {
 	// Fantasy match queries
 	FindByFantasyMatchID(ctx context.Context, fantasyMatchID uint) (*models.Player, error)
 
+	// Preferred name operations
+	CreatePreferredNameRequest(ctx context.Context, request *models.PreferredNameRequest) error
+	FindPreferredNameRequestsByStatus(ctx context.Context, status models.PreferredNameRequestStatus) ([]models.PreferredNameRequest, error)
+	FindPreferredNameRequestByID(ctx context.Context, id uint) (*models.PreferredNameRequest, error)
+	FindPreferredNameRequestsByPlayer(ctx context.Context, playerID string) ([]models.PreferredNameRequest, error)
+	UpdatePreferredNameRequest(ctx context.Context, request *models.PreferredNameRequest) error
+	ApprovePreferredNameRequest(ctx context.Context, requestID uint, adminUsername string, adminNotes *string) error
+	RejectPreferredNameRequest(ctx context.Context, requestID uint, adminUsername string, adminNotes *string) error
+	IsPreferredNameAvailable(ctx context.Context, name string) (bool, error)
+	UpdatePlayerPreferredName(ctx context.Context, playerID string, preferredName *string) error
+
 	// Statistics
 	CountByClub(ctx context.Context, clubID uint) (int, error)
 	CountCaptains(ctx context.Context) (int, error)
 	CountActiveInSeason(ctx context.Context, seasonID uint) (int, error)
 	CountAll(ctx context.Context) (int, error)
+	CountPendingPreferredNameRequests(ctx context.Context) (int, error)
 }
 
 // playerRepository implements PlayerRepository
@@ -70,7 +83,7 @@ func NewPlayerRepository(db *database.DB) PlayerRepository {
 func (r *playerRepository) FindAll(ctx context.Context) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, club_id, fantasy_match_id, created_at, updated_at
+		SELECT id, first_name, last_name, preferred_name, club_id, fantasy_match_id, created_at, updated_at
 		FROM players 
 		ORDER BY last_name ASC, first_name ASC
 	`)
@@ -81,7 +94,7 @@ func (r *playerRepository) FindAll(ctx context.Context) ([]models.Player, error)
 func (r *playerRepository) FindByID(ctx context.Context, id string) (*models.Player, error) {
 	var player models.Player
 	err := r.db.GetContext(ctx, &player, `
-		SELECT id, first_name, last_name, club_id, fantasy_match_id, created_at, updated_at
+		SELECT id, first_name, last_name, preferred_name, club_id, fantasy_match_id, created_at, updated_at
 		FROM players 
 		WHERE id = ?
 	`, id)
@@ -98,8 +111,8 @@ func (r *playerRepository) Create(ctx context.Context, player *models.Player) er
 	player.UpdatedAt = now
 
 	_, err := r.db.NamedExecContext(ctx, `
-		INSERT INTO players (id, first_name, last_name, club_id, created_at, updated_at)
-		VALUES (:id, :first_name, :last_name, :club_id, :created_at, :updated_at)
+		INSERT INTO players (id, first_name, last_name, preferred_name, club_id, fantasy_match_id, created_at, updated_at)
+		VALUES (:id, :first_name, :last_name, :preferred_name, :club_id, :fantasy_match_id, :created_at, :updated_at)
 	`, player)
 
 	return err
@@ -111,7 +124,7 @@ func (r *playerRepository) Update(ctx context.Context, player *models.Player) er
 
 	_, err := r.db.NamedExecContext(ctx, `
 		UPDATE players 
-		SET first_name = :first_name, last_name = :last_name, 
+		SET first_name = :first_name, last_name = :last_name, preferred_name = :preferred_name,
 		    club_id = :club_id, fantasy_match_id = :fantasy_match_id, updated_at = :updated_at
 		WHERE id = :id
 	`, player)
@@ -384,7 +397,7 @@ func (r *playerRepository) CountAll(ctx context.Context) (int, error) {
 func (r *playerRepository) FindByFantasyMatchID(ctx context.Context, fantasyMatchID uint) (*models.Player, error) {
 	var player models.Player
 	err := r.db.GetContext(ctx, &player, `
-		SELECT id, first_name, last_name, club_id, fantasy_match_id, created_at, updated_at
+		SELECT id, first_name, last_name, preferred_name, club_id, fantasy_match_id, created_at, updated_at
 		FROM players 
 		WHERE fantasy_match_id = ?
 	`, fantasyMatchID)
@@ -392,4 +405,175 @@ func (r *playerRepository) FindByFantasyMatchID(ctx context.Context, fantasyMatc
 		return nil, err
 	}
 	return &player, nil
+}
+
+// CreatePreferredNameRequest creates a new preferred name request
+func (r *playerRepository) CreatePreferredNameRequest(ctx context.Context, request *models.PreferredNameRequest) error {
+	now := time.Now()
+	request.CreatedAt = now
+	request.UpdatedAt = now
+	request.Status = models.PreferredNamePending
+
+	_, err := r.db.NamedExecContext(ctx, `
+		INSERT INTO preferred_name_requests (player_id, requested_name, status, created_at, updated_at)
+		VALUES (:player_id, :requested_name, :status, :created_at, :updated_at)
+	`, request)
+
+	return err
+}
+
+// FindPreferredNameRequestsByStatus retrieves preferred name requests by status
+func (r *playerRepository) FindPreferredNameRequestsByStatus(ctx context.Context, status models.PreferredNameRequestStatus) ([]models.PreferredNameRequest, error) {
+	var requests []models.PreferredNameRequest
+	err := r.db.SelectContext(ctx, &requests, `
+		SELECT pnr.id, pnr.player_id, pnr.requested_name, pnr.status, pnr.admin_notes, 
+		       pnr.approved_by, pnr.created_at, pnr.updated_at, pnr.processed_at
+		FROM preferred_name_requests pnr
+		WHERE pnr.status = ?
+		ORDER BY pnr.created_at ASC
+	`, string(status))
+	return requests, err
+}
+
+// FindPreferredNameRequestByID retrieves a preferred name request by ID
+func (r *playerRepository) FindPreferredNameRequestByID(ctx context.Context, id uint) (*models.PreferredNameRequest, error) {
+	var request models.PreferredNameRequest
+	err := r.db.GetContext(ctx, &request, `
+		SELECT id, player_id, requested_name, status, admin_notes, approved_by, 
+		       created_at, updated_at, processed_at
+		FROM preferred_name_requests
+		WHERE id = ?
+	`, id)
+	if err != nil {
+		return nil, err
+	}
+	return &request, nil
+}
+
+// FindPreferredNameRequestsByPlayer retrieves all preferred name requests for a player
+func (r *playerRepository) FindPreferredNameRequestsByPlayer(ctx context.Context, playerID string) ([]models.PreferredNameRequest, error) {
+	var requests []models.PreferredNameRequest
+	err := r.db.SelectContext(ctx, &requests, `
+		SELECT id, player_id, requested_name, status, admin_notes, approved_by, 
+		       created_at, updated_at, processed_at
+		FROM preferred_name_requests
+		WHERE player_id = ?
+		ORDER BY created_at DESC
+	`, playerID)
+	return requests, err
+}
+
+// UpdatePreferredNameRequest updates a preferred name request
+func (r *playerRepository) UpdatePreferredNameRequest(ctx context.Context, request *models.PreferredNameRequest) error {
+	request.UpdatedAt = time.Now()
+
+	_, err := r.db.NamedExecContext(ctx, `
+		UPDATE preferred_name_requests 
+		SET status = :status, admin_notes = :admin_notes, approved_by = :approved_by, 
+		    processed_at = :processed_at, updated_at = :updated_at
+		WHERE id = :id
+	`, request)
+
+	return err
+}
+
+// ApprovePreferredNameRequest approves a preferred name request and updates the player
+func (r *playerRepository) ApprovePreferredNameRequest(ctx context.Context, requestID uint, adminUsername string, adminNotes *string) error {
+	// Start transaction
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Get the request
+	var request models.PreferredNameRequest
+	err = tx.GetContext(ctx, &request, `
+		SELECT id, player_id, requested_name, status
+		FROM preferred_name_requests
+		WHERE id = ?
+	`, requestID)
+	if err != nil {
+		return err
+	}
+
+	// Check if still pending
+	if request.Status != models.PreferredNamePending {
+		return fmt.Errorf("request is no longer pending")
+	}
+
+	now := time.Now()
+
+	// Update the request to approved
+	_, err = tx.ExecContext(ctx, `
+		UPDATE preferred_name_requests 
+		SET status = ?, admin_notes = ?, approved_by = ?, processed_at = ?, updated_at = ?
+		WHERE id = ?
+	`, string(models.PreferredNameApproved), adminNotes, adminUsername, now, now, requestID)
+	if err != nil {
+		return err
+	}
+
+	// Update the player's preferred name
+	_, err = tx.ExecContext(ctx, `
+		UPDATE players 
+		SET preferred_name = ?, updated_at = ?
+		WHERE id = ?
+	`, request.RequestedName, now, request.PlayerID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// RejectPreferredNameRequest rejects a preferred name request
+func (r *playerRepository) RejectPreferredNameRequest(ctx context.Context, requestID uint, adminUsername string, adminNotes *string) error {
+	now := time.Now()
+
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE preferred_name_requests 
+		SET status = ?, admin_notes = ?, approved_by = ?, processed_at = ?, updated_at = ?
+		WHERE id = ? AND status = ?
+	`, string(models.PreferredNameRejected), adminNotes, adminUsername, now, now, requestID, string(models.PreferredNamePending))
+
+	return err
+}
+
+// IsPreferredNameAvailable checks if a preferred name is available
+func (r *playerRepository) IsPreferredNameAvailable(ctx context.Context, name string) (bool, error) {
+	var count int
+
+	// Check if name exists in players table or is pending in requests
+	err := r.db.GetContext(ctx, &count, `
+		SELECT COUNT(*) FROM (
+			SELECT 1 FROM players WHERE preferred_name = ?
+			UNION
+			SELECT 1 FROM preferred_name_requests WHERE requested_name = ? AND status = ?
+		)
+	`, name, name, string(models.PreferredNamePending))
+
+	return count == 0, err
+}
+
+// UpdatePlayerPreferredName updates a player's preferred name directly
+func (r *playerRepository) UpdatePlayerPreferredName(ctx context.Context, playerID string, preferredName *string) error {
+	now := time.Now()
+
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE players 
+		SET preferred_name = ?, updated_at = ?
+		WHERE id = ?
+	`, preferredName, now, playerID)
+
+	return err
+}
+
+// CountPendingPreferredNameRequests returns the number of pending preferred name requests
+func (r *playerRepository) CountPendingPreferredNameRequests(ctx context.Context) (int, error) {
+	var count int
+	err := r.db.GetContext(ctx, &count, `
+		SELECT COUNT(*) FROM preferred_name_requests WHERE status = ?
+	`, string(models.PreferredNamePending))
+	return count, err
 }

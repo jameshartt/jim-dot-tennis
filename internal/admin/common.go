@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/models"
@@ -37,6 +38,9 @@ func parseTemplate(templateDir, templatePath string) (*template.Template, error)
 			default:
 				return strings.ToLower(fmt.Sprintf("%v", s))
 			}
+		},
+		"currentYear": func() int {
+			return time.Now().Year()
 		},
 	}
 

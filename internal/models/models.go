@@ -37,11 +37,35 @@ type Player struct {
 	ID             string    `json:"id" db:"id"` // UUID for player identification
 	FirstName      string    `json:"first_name" db:"first_name"`
 	LastName       string    `json:"last_name" db:"last_name"`
+	PreferredName  *string   `json:"preferred_name,omitempty" db:"preferred_name"`     // Optional preferred name for display
 	ClubID         uint      `json:"club_id" db:"club_id"`                             // Player belongs to a club, not directly to a team
 	FantasyMatchID *uint     `json:"fantasy_match_id,omitempty" db:"fantasy_match_id"` // Links player to fantasy mixed doubles match for auth
 	CreatedAt      time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at" db:"updated_at"`
 	Teams          []uint    `json:"teams,omitempty"` // Player can be part of multiple teams through PlayerTeam
+}
+
+// PreferredNameRequestStatus represents the status of a preferred name request
+type PreferredNameRequestStatus string
+
+const (
+	PreferredNamePending  PreferredNameRequestStatus = "Pending"
+	PreferredNameApproved PreferredNameRequestStatus = "Approved"
+	PreferredNameRejected PreferredNameRequestStatus = "Rejected"
+)
+
+// PreferredNameRequest represents a request from a player to set their preferred name
+type PreferredNameRequest struct {
+	ID            uint                       `json:"id" db:"id"`
+	PlayerID      string                     `json:"player_id" db:"player_id"`               // UUID reference to player
+	RequestedName string                     `json:"requested_name" db:"requested_name"`     // The preferred name being requested
+	Status        PreferredNameRequestStatus `json:"status" db:"status"`                     // Current status of the request
+	AdminNotes    *string                    `json:"admin_notes,omitempty" db:"admin_notes"` // Optional notes from admin
+	ApprovedBy    *string                    `json:"approved_by,omitempty" db:"approved_by"` // Admin username who processed the request
+	CreatedAt     time.Time                  `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time                  `json:"updated_at" db:"updated_at"`
+	ProcessedAt   *time.Time                 `json:"processed_at,omitempty" db:"processed_at"` // When admin took action
+	Player        *Player                    `json:"player,omitempty"`                         // Associated player (for joins)
 }
 
 // Club represents a tennis club that has players and teams

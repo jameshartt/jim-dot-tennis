@@ -1209,6 +1209,9 @@
                 <button type="button" class="btn-quick-action btn-injury" onclick="showInjuryModal()">
                     🩹 Report Injury
                 </button>
+                <button type="button" class="btn-quick-action" onclick="showPreferredNameModal()" style="background: #6f42c1;">
+                    📝 Request Preferred Name
+                </button>
             </div>
         </div>
     </div>
@@ -1232,6 +1235,29 @@
             <div class="modal-actions">
                 <button type="button" class="btn-modal-cancel" onclick="hideInjuryModal()">Cancel</button>
                 <button type="button" class="btn-modal-confirm" onclick="reportInjury()">Mark as Injured</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Preferred Name Modal -->
+    <div id="preferredNameModal" class="injury-modal" style="display: none;">
+        <div class="modal-overlay" onclick="hidePreferredNameModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📝 Request Preferred Name</h3>
+                <button class="modal-close" onclick="hidePreferredNameModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>What would you like to be called in team sheets and fixture summaries? This will need admin approval.</p>
+                <div class="date-input-group">
+                    <label for="preferredNameInput">Preferred name:</label>
+                    <input type="text" id="preferredNameInput" class="return-date-input" placeholder="Enter your preferred name..." maxlength="50">
+                </div>
+                <p class="injury-note">Your preferred name must be unique. It will be used to identify you in team selections shared with WhatsApp groups.</p>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-modal-cancel" onclick="hidePreferredNameModal()">Cancel</button>
+                <button type="button" class="btn-modal-confirm" onclick="requestPreferredName()">Submit Request</button>
             </div>
         </div>
     </div>
@@ -1612,12 +1638,80 @@
         // Close modal with Escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
-                const modal = document.getElementById('injuryModal');
-                if (modal.style.display === 'flex') {
+                const injuryModal = document.getElementById('injuryModal');
+                const preferredNameModal = document.getElementById('preferredNameModal');
+                if (injuryModal.style.display === 'flex') {
                     hideInjuryModal();
+                } else if (preferredNameModal.style.display === 'flex') {
+                    hidePreferredNameModal();
                 }
             }
         });
+        
+        // Preferred name modal functions
+        function showPreferredNameModal() {
+            const modal = document.getElementById('preferredNameModal');
+            const input = document.getElementById('preferredNameInput');
+            
+            modal.style.display = 'flex';
+            
+            // Focus on the input after animation
+            setTimeout(() => {
+                input.focus();
+            }, 300);
+        }
+        
+        function hidePreferredNameModal() {
+            const modal = document.getElementById('preferredNameModal');
+            modal.style.display = 'none';
+            
+            // Clear the input
+            document.getElementById('preferredNameInput').value = '';
+        }
+        
+        async function requestPreferredName() {
+            const input = document.getElementById('preferredNameInput');
+            const preferredName = input.value.trim();
+            
+            if (!preferredName) {
+                alert('Please enter a preferred name.');
+                return;
+            }
+            
+            if (preferredName.length < 2) {
+                alert('Preferred name must be at least 2 characters long.');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/my-availability/${calendar.authToken}/request-preferred-name`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        preferredName: preferredName
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        alert(`✅ Preferred name request submitted successfully!\n\nYour request for "${preferredName}" has been sent to the administrators for approval. You'll be able to see your preferred name in team sheets once it's approved.`);
+                        hidePreferredNameModal();
+                    } else {
+                        alert(`❌ ${result.error || 'Failed to submit request'}`);
+                    }
+                } else if (response.status === 409) {
+                    alert('❌ This preferred name is already taken or pending approval. Please choose a different name.');
+                } else {
+                    alert('❌ Failed to submit preferred name request. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error requesting preferred name:', error);
+                alert('❌ Error submitting request. Please check your connection and try again.');
+            }
+        }
         
         // Fantasy match collapse/expand functionality
         function toggleFantasyMatch() {
