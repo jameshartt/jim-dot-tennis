@@ -1294,19 +1294,19 @@
                                             {{if eq (len .Players) 1}}
                                                 {{$player := (index .Players 0)}}
                                                 {{if and $.FixtureDetail.DayCaptain (eq $player.Player.ID $.FixtureDetail.DayCaptain.ID)}}
-                                                    <b>{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}. (C)</b>
+                                                    <b>{{if $player.Player.PreferredName}}{{$player.Player.PreferredName}} (C){{else}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}. (C){{end}}</b>
                                                 {{else}}
-                                                    {{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.
+                                                    {{if $player.Player.PreferredName}}{{$player.Player.PreferredName}}{{else}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}
                                                 {{end}}
                                             {{else if eq (len .Players) 2}}
                                                 {{$player1 := (index .Players 0)}}
                                                 {{$player2 := (index .Players 1)}}
                                                 {{if and $.FixtureDetail.DayCaptain (eq $player1.Player.ID $.FixtureDetail.DayCaptain.ID)}}
-                                                    <b>{{$player1.Player.FirstName}} {{printf "%.1s" $player1.Player.LastName}}. (C)</b>, {{$player2.Player.FirstName}} {{printf "%.1s" $player2.Player.LastName}}.
+                                                    <b>{{if $player1.Player.PreferredName}}{{$player1.Player.PreferredName}} (C){{else}}{{$player1.Player.FirstName}} {{printf "%.1s" $player1.Player.LastName}}. (C){{end}}</b>, {{if $player2.Player.PreferredName}}{{$player2.Player.PreferredName}}{{else}}{{$player2.Player.FirstName}} {{printf "%.1s" $player2.Player.LastName}}.{{end}}
                                                 {{else if and $.FixtureDetail.DayCaptain (eq $player2.Player.ID $.FixtureDetail.DayCaptain.ID)}}
-                                                    {{$player1.Player.FirstName}} {{printf "%.1s" $player1.Player.LastName}}., <b>{{$player2.Player.FirstName}} {{printf "%.1s" $player2.Player.LastName}}. (C)</b>
+                                                    {{if $player1.Player.PreferredName}}{{$player1.Player.PreferredName}}{{else}}{{$player1.Player.FirstName}} {{printf "%.1s" $player1.Player.LastName}}.{{end}}, <b>{{if $player2.Player.PreferredName}}{{$player2.Player.PreferredName}} (C){{else}}{{$player2.Player.FirstName}} {{printf "%.1s" $player2.Player.LastName}}. (C){{end}}</b>
                                                 {{else}}
-                                                    {{$player1.Player.FirstName}} {{printf "%.1s" $player1.Player.LastName}}., {{$player2.Player.FirstName}} {{printf "%.1s" $player2.Player.LastName}}.
+                                                    {{if $player1.Player.PreferredName}}{{$player1.Player.PreferredName}}{{else}}{{$player1.Player.FirstName}} {{printf "%.1s" $player1.Player.LastName}}.{{end}}, {{if $player2.Player.PreferredName}}{{$player2.Player.PreferredName}}{{else}}{{$player2.Player.FirstName}} {{printf "%.1s" $player2.Player.LastName}}.{{end}}
                                                 {{end}}
                                             {{else}}
                                                 <span class="tbd">TBD</span>
@@ -1362,9 +1362,9 @@
                                             {{$player := (index .Players 0)}}
                                             <td class="matchup-player-cell">
                                                 {{if and $.FixtureDetail.DayCaptain (eq $player.Player.ID $.FixtureDetail.DayCaptain.ID)}}
-                                                    <b>{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}. (C)</b>
+                                                    <b>{{if $player.Player.PreferredName}}{{$player.Player.PreferredName}} (C){{else}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}. (C){{end}}</b>
                                                 {{else}}
-                                                    {{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.
+                                                    {{if $player.Player.PreferredName}}{{$player.Player.PreferredName}}{{else}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}
                                                 {{end}}
                                             </td>
                                             <td class="matchup-player-cell"></td>
@@ -1373,16 +1373,16 @@
                                             {{$player2 := (index .Players 1)}}
                                             <td class="matchup-player-cell">
                                                 {{if and $.FixtureDetail.DayCaptain (eq $player1.Player.ID $.FixtureDetail.DayCaptain.ID)}}
-                                                    <b>{{$player1.Player.FirstName}} {{printf "%.1s" $player1.Player.LastName}}. (C)</b>
+                                                    <b>{{if $player1.Player.PreferredName}}{{$player1.Player.PreferredName}} (C){{else}}{{$player1.Player.FirstName}} {{printf "%.1s" $player1.Player.LastName}}. (C){{end}}</b>
                                                 {{else}}
-                                                    {{$player1.Player.FirstName}} {{printf "%.1s" $player1.Player.LastName}}.
+                                                    {{if $player1.Player.PreferredName}}{{$player1.Player.PreferredName}}{{else}}{{$player1.Player.FirstName}} {{printf "%.1s" $player1.Player.LastName}}.{{end}}
                                                 {{end}}
                                             </td>
                                             <td class="matchup-player-cell">
                                                 {{if and $.FixtureDetail.DayCaptain (eq $player2.Player.ID $.FixtureDetail.DayCaptain.ID)}}
-                                                    <b>{{$player2.Player.FirstName}} {{printf "%.1s" $player2.Player.LastName}}. (C)</b>
+                                                    <b>{{if $player2.Player.PreferredName}}{{$player2.Player.PreferredName}} (C){{else}}{{$player2.Player.FirstName}} {{printf "%.1s" $player2.Player.LastName}}. (C){{end}}</b>
                                                 {{else}}
-                                                    {{$player2.Player.FirstName}} {{printf "%.1s" $player2.Player.LastName}}.
+                                                    {{if $player2.Player.PreferredName}}{{$player2.Player.PreferredName}}{{else}}{{$player2.Player.FirstName}} {{printf "%.1s" $player2.Player.LastName}}.{{end}}
                                                 {{end}}
                                             </td>
                                         {{else}}
@@ -1406,7 +1406,7 @@
                                 <tr>
                                     <td class="matchup-type-cell">Team</td>
                                     <td class="matchup-player-cell" colspan="2">
-                                        {{range $index, $player := .FixtureDetail.SelectedPlayers}}{{if $index}}, {{end}}{{if and $.FixtureDetail.DayCaptain (eq $player.PlayerID $.FixtureDetail.DayCaptain.ID)}}<b>{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}. (C)</b>{{else}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}{{end}}
+                                        {{range $index, $player := .FixtureDetail.SelectedPlayers}}{{if $index}}, {{end}}{{if and $.FixtureDetail.DayCaptain (eq $player.PlayerID $.FixtureDetail.DayCaptain.ID)}}<b>{{if $player.Player.PreferredName}}{{$player.Player.PreferredName}} (C){{else}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}. (C){{end}}</b>{{else}}{{if $player.Player.PreferredName}}{{$player.Player.PreferredName}}{{else}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}{{end}}{{end}}
                                     </td>
                                 </tr>
                             </tbody>
@@ -1431,12 +1431,12 @@
 {{if .IsDerby}}{{.FixtureDetail.HomeTeam.Name}} vs {{.FixtureDetail.AwayTeam.Name}}{{else}}{{if .IsStAnnsHome}}🏠 {{.FixtureDetail.HomeTeam.Name}} vs {{.FixtureDetail.AwayTeam.Name}}{{else}}{{.FixtureDetail.HomeTeam.Name}} vs ✈️ {{.FixtureDetail.AwayTeam.Name}}{{end}}{{end}}
 
 Team:{{if .FixtureDetail.Matchups}}{{range .FixtureDetail.Matchups}}
-{{.Matchup.Type}}: {{if .Players}}{{range $index, $player := .Players}}{{if $index}}, {{end}}{{if and $.FixtureDetail.DayCaptain (eq $player.Player.ID $.FixtureDetail.DayCaptain.ID)}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}. (C){{else}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}{{end}}{{else}}TBD{{end}}{{if eq $.FixtureDetail.Status "Completed"}}
+{{.Matchup.Type}}: {{if .Players}}{{range $index, $player := .Players}}{{if $index}}, {{end}}{{if and $.FixtureDetail.DayCaptain (eq $player.Player.ID $.FixtureDetail.DayCaptain.ID)}}{{if $player.Player.PreferredName}}{{$player.Player.PreferredName}} (C){{else}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}. (C){{end}}{{else}}{{if $player.Player.PreferredName}}{{$player.Player.PreferredName}}{{else}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}{{end}}{{end}}{{else}}TBD{{end}}{{if eq $.FixtureDetail.Status "Completed"}}
 {{/* Determine score perspective for copyable text */}}{{$showFromStAnnsView := false}}{{if $.IsDerby}}{{if and $.ManagingTeam (eq $.ManagingTeam.ID $.FixtureDetail.AwayTeam.ID)}}{{$showFromStAnnsView = true}}{{end}}{{else if $.IsStAnnsAway}}{{$showFromStAnnsView = true}}{{end}}{{if or .Matchup.HomeSet1 .Matchup.AwaySet1}}{{if $showFromStAnnsView}}[{{if .Matchup.AwaySet1}}{{.Matchup.AwaySet1}}{{else}}0{{end}}-{{if .Matchup.HomeSet1}}{{.Matchup.HomeSet1}}{{else}}0{{end}}{{if or .Matchup.HomeSet2 .Matchup.AwaySet2}}, {{if .Matchup.AwaySet2}}{{.Matchup.AwaySet2}}{{else}}0{{end}}-{{if .Matchup.HomeSet2}}{{.Matchup.HomeSet2}}{{else}}0{{end}}{{end}}{{if or .Matchup.HomeSet3 .Matchup.AwaySet3}}, {{if .Matchup.AwaySet3}}{{.Matchup.AwaySet3}}{{else}}0{{end}}-{{if .Matchup.HomeSet3}}{{.Matchup.HomeSet3}}{{else}}0{{end}}{{end}}]{{else}}[{{if .Matchup.HomeSet1}}{{.Matchup.HomeSet1}}{{else}}0{{end}}-{{if .Matchup.AwaySet1}}{{.Matchup.AwaySet1}}{{else}}0{{end}}{{if or .Matchup.HomeSet2 .Matchup.AwaySet2}}, {{if .Matchup.HomeSet2}}{{.Matchup.HomeSet2}}{{else}}0{{end}}-{{if .Matchup.AwaySet2}}{{.Matchup.AwaySet2}}{{else}}0{{end}}{{end}}{{if or .Matchup.HomeSet3 .Matchup.AwaySet3}}, {{if .Matchup.HomeSet3}}{{.Matchup.HomeSet3}}{{else}}0{{end}}-{{if .Matchup.AwaySet3}}{{.Matchup.AwaySet3}}{{else}}0{{end}}{{end}}]{{end}}{{else}}{{if $showFromStAnnsView}}({{.Matchup.AwayScore}}-{{.Matchup.HomeScore}}){{else}}({{.Matchup.HomeScore}}-{{.Matchup.AwayScore}}){{end}}{{end}}{{end}}{{end}}{{else}}{{if .FixtureDetail.SelectedPlayers}}
-{{range $index, $selectedPlayer := .FixtureDetail.SelectedPlayers}}{{if $index}}, {{end}}{{if and $.FixtureDetail.DayCaptain (eq $selectedPlayer.PlayerID $.FixtureDetail.DayCaptain.ID)}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}. (C){{else}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}.{{end}}{{end}}{{else}}
+{{range $index, $selectedPlayer := .FixtureDetail.SelectedPlayers}}{{if $index}}, {{end}}{{if and $.FixtureDetail.DayCaptain (eq $selectedPlayer.PlayerID $.FixtureDetail.DayCaptain.ID)}}{{if $selectedPlayer.Player.PreferredName}}{{$selectedPlayer.Player.PreferredName}} (C){{else}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}. (C){{end}}{{else}}{{if $selectedPlayer.Player.PreferredName}}{{$selectedPlayer.Player.PreferredName}}{{else}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}.{{end}}{{end}}{{end}}{{else}}
 No team selection made yet{{end}}{{end}}{{else}}Team:{{if .FixtureDetail.Matchups}}{{range .FixtureDetail.Matchups}}
-{{.Matchup.Type}}: {{if .Players}}{{range $index, $player := .Players}}{{if $index}}, {{end}}{{if and $.FixtureDetail.DayCaptain (eq $player.Player.ID $.FixtureDetail.DayCaptain.ID)}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}. (C){{else}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}{{end}}{{else}}TBD{{end}}{{end}}{{else}}{{if .FixtureDetail.SelectedPlayers}}
-{{range $index, $selectedPlayer := .FixtureDetail.SelectedPlayers}}{{if $index}}, {{end}}{{if and $.FixtureDetail.DayCaptain (eq $selectedPlayer.PlayerID $.FixtureDetail.DayCaptain.ID)}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}. (C){{else}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}.{{end}}{{end}}{{else}}
+{{.Matchup.Type}}: {{if .Players}}{{range $index, $player := .Players}}{{if $index}}, {{end}}{{if and $.FixtureDetail.DayCaptain (eq $player.Player.ID $.FixtureDetail.DayCaptain.ID)}}{{if $player.Player.PreferredName}}{{$player.Player.PreferredName}} (C){{else}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}. (C){{end}}{{else}}{{if $player.Player.PreferredName}}{{$player.Player.PreferredName}}{{else}}{{$player.Player.FirstName}} {{printf "%.1s" $player.Player.LastName}}.{{end}}{{end}}{{end}}{{else}}TBD{{end}}{{end}}{{else}}{{if .FixtureDetail.SelectedPlayers}}
+{{range $index, $selectedPlayer := .FixtureDetail.SelectedPlayers}}{{if $index}}, {{end}}{{if and $.FixtureDetail.DayCaptain (eq $selectedPlayer.PlayerID $.FixtureDetail.DayCaptain.ID)}}{{if $selectedPlayer.Player.PreferredName}}{{$selectedPlayer.Player.PreferredName}} (C){{else}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}. (C){{end}}{{else}}{{if $selectedPlayer.Player.PreferredName}}{{$selectedPlayer.Player.PreferredName}}{{else}}{{$selectedPlayer.Player.FirstName}} {{printf "%.1s" $selectedPlayer.Player.LastName}}.{{end}}{{end}}{{end}}{{else}}
 No team selection made yet{{end}}{{end}}{{end}}
 
 {{if .FixtureDetail.Notes}}📝 Notes: {{.FixtureDetail.Notes}}{{end}}
