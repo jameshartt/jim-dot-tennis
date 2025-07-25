@@ -53,6 +53,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/players/filter", h.players.HandlePlayersFilter)
 	adminMux.HandleFunc("/admin/fixtures", h.fixtures.HandleFixtures)
 	adminMux.HandleFunc("/admin/fixtures/", h.fixtures.HandleFixtures)
+	adminMux.HandleFunc("/admin/fixtures/week-overview", h.fixtures.HandleFixtures)
 	adminMux.HandleFunc("/admin/users", h.users.HandleUsers)
 	adminMux.HandleFunc("/admin/users/", h.users.HandleUsers)
 	adminMux.HandleFunc("/admin/sessions", h.sessions.HandleSessions)
