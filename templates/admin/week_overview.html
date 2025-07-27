@@ -32,7 +32,7 @@
 
         .week-container {
             width: 375px;
-            height: 600px; /* Reduced by 20% from 667px */
+            height: 534px; /* Instagram story friendly */
             background: var(--stanns-white);
             border-radius: 20px;
             position: relative;
@@ -44,9 +44,9 @@
             position: relative;
             background: linear-gradient(135deg, var(--stanns-blue) 0%, var(--stanns-green) 100%);
             color: var(--stanns-white);
-            padding: 20px;
+            padding: 15px;
             text-align: center;
-            height: 120px;
+            height: 100px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -57,47 +57,63 @@
             top: 50%;
             right: 15px;
             transform: translateY(-50%);
-            width: 60px;
-            height: 60px;
+            width: 50px;
+            height: 50px;
             border-radius: 50%;
             overflow: hidden;
             border: 3px solid var(--stanns-white);
         }
 
-        .logo img {
+        .parks-logo {
+            position: absolute;
+            top: 50%;
+            left: 15px;
+            transform: translateY(-50%);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 3px solid var(--stanns-white);
+        }
+
+        .logo img, .parks-logo img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
 
         .header h1 {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: 800;
-            margin-bottom: 5px;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            margin-bottom: 2px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .week-date {
-            font-size: 14px;
-            font-weight: 600;
-            opacity: 0.9;
+            font-size: 16px;
+            font-weight: 700;
+            opacity: 0.95;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .fixtures-grid {
-            padding: 20px 15px;
-            height: calc(100% - 120px);
+            padding: 10px 8px;
+            height: calc(100% - 100px);
             display: grid;
             grid-template-columns: 1fr 1fr;
             grid-template-rows: 1fr 1fr;
-            gap: 15px;
+            gap: 8px;
         }
 
         .division-card {
             background: var(--stanns-white);
-            border-radius: 16px;
-            padding: 15px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            border: 2px solid transparent;
+            border-radius: 12px;
+            padding: 10px;
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
+            border: 3px solid transparent;
             transition: all 0.3s ease;
             display: flex;
             flex-direction: column;
@@ -111,8 +127,9 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 4px;
+            height: 6px;
             background: linear-gradient(90deg, var(--stanns-blue), var(--stanns-green));
+            border-radius: 12px 12px 0 0;
         }
 
         .division-card.div-1 {
@@ -137,14 +154,17 @@
 
         .division-header {
             text-align: center;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
         }
 
         .division-name {
-            font-size: 16px;
-            font-weight: 800;
+            font-size: 20px;
+            font-weight: 900;
             color: var(--stanns-blue);
-            margin-bottom: 4px;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
         }
 
         .fixture-info {
@@ -155,87 +175,158 @@
             text-align: center;
         }
 
+        .fixture-entry {
+            margin-bottom: 12px;
+        }
+
+        .fixture-entry:last-child {
+            margin-bottom: 0;
+        }
+
         .teams {
-            font-size: 11px;
-            font-weight: 600;
+            font-size: 16px;
+            font-weight: 700;
             color: #333;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
+            line-height: 1.2;
+        }
+
+        .teams.single-fixture {
             line-height: 1.3;
+        }
+
+        .teams.single-fixture .team-home,
+        .teams.single-fixture .vs-text,
+        .teams.single-fixture .team-away {
+            display: block;
+            margin-bottom: 3px;
+        }
+
+        .teams.single-fixture .team-away {
+            margin-bottom: 0;
+        }
+
+        .teams.single-fixture .vs-text {
+            font-size: 12px;
+            color: #666;
+            font-weight: 400;
+        }
+
+        .teams.multiple-fixtures {
+            line-height: 1.1;
+        }
+
+        .teams.multiple-fixtures .team-home {
+            display: inline;
+        }
+
+        .teams.multiple-fixtures .vs-text {
+            display: inline;
+            font-size: 14px;
+            color: #333;
+            font-weight: 700;
+            margin: 0 4px;
+        }
+
+        .teams.multiple-fixtures .team-away {
+            display: block;
+            margin-top: 2px;
         }
 
         .team-home {
             color: var(--stanns-blue);
+            font-weight: 700;
+        }
+
+        .team-home.stanns-home {
+            font-weight: 900;
+            text-shadow: 0 1px 2px rgba(20, 85, 161, 0.2);
+            text-decoration: underline;
         }
 
         .team-away {
             color: var(--stanns-green);
+            font-weight: 700;
         }
 
         .vs-text {
-            color: #666;
-            font-weight: 400;
-            margin: 0 2px;
+            color: #333;
+            font-weight: 700;
+            margin: 0 4px;
+            font-size: 14px;
         }
 
         .fixture-details {
-            font-size: 10px;
-            color: #666;
-            font-weight: 400;
+            font-size: 13px;
+            color: #555;
+            font-weight: 600;
+            line-height: 1.1;
         }
 
         .fixture-date {
-            font-weight: 600;
+            font-weight: 700;
             color: var(--stanns-blue);
+            text-transform: uppercase;
+            font-size: 14px;
+            margin-bottom: 2px;
         }
 
         .no-fixture {
-            color: #999;
+            color: #666;
             font-style: italic;
-            font-size: 12px;
+            font-size: 16px;
+            font-weight: 600;
         }
 
         .derby-indicator {
-            background: linear-gradient(90deg, var(--stanns-blue), var(--stanns-green));
+            background: linear-gradient(45deg, var(--stanns-blue), var(--stanns-green));
             color: var(--stanns-white);
-            font-size: 8px;
-            font-weight: 700;
-            padding: 2px 6px;
-            border-radius: 8px;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 3px 8px;
+            border-radius: 12px;
             text-transform: uppercase;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             display: inline-block;
+            letter-spacing: 0.3px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
-        /* Cascading effect */
+        /* Cascading effect - more pronounced */
         .division-card.div-1 {
-            transform: translateY(-5px) rotate(-1deg);
+            transform: translateY(-8px) rotate(-2deg);
             z-index: 4;
+            border: 3px solid rgba(76, 176, 77, 0.3);
         }
 
         .division-card.div-2 {
-            transform: translateY(-2px) rotate(1deg);
+            transform: translateY(-4px) rotate(1.5deg);
             z-index: 3;
+            border: 3px solid rgba(20, 85, 161, 0.3);
         }
 
         .division-card.div-3 {
-            transform: translateY(2px) rotate(-0.5deg);
+            transform: translateY(4px) rotate(-1deg);
             z-index: 2;
+            border: 3px solid rgba(76, 176, 77, 0.2);
         }
 
         .division-card.div-4 {
-            transform: translateY(5px) rotate(0.5deg);
+            transform: translateY(8px) rotate(2deg);
             z-index: 1;
+            border: 3px solid rgba(20, 85, 161, 0.2);
         }
 
         .division-card:hover {
-            transform: translateY(-10px) rotate(0deg) !important;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transform: translateY(-12px) rotate(0deg) scale(1.02) !important;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
             z-index: 10 !important;
+            border: 3px solid var(--stanns-green) !important;
         }
 
-        /* Small text for long team names */
+        /* Smaller text for long team names but still readable */
         .teams.long-names {
-            font-size: 9px;
+            font-size: 14px;
         }
     </style>
 </head>
@@ -243,10 +334,13 @@
 <body>
     <div class="week-container">
         <div class="header">
+            <div class="parks-logo">
+                <img src="/static/parks-league-tennis.jpg" alt="Parks League Brighton & Hove">
+            </div>
             <div class="logo">
                 <img src="/static/st-anns-tennis.jpg" alt="St Ann's Tennis Club">
             </div>
-            <h1>St Ann's Tennis</h1>
+            <h1>St. Ann's 🎾</h1>
             <div class="week-date">
                 Parks League Week Ahead
             </div>
@@ -262,18 +356,26 @@
                     {{$div1Fixtures := index .FixturesByDivision "Division 1"}}
                     {{if $div1Fixtures}}
                         {{range $div1Fixtures}}
-                            {{if .IsDerby}}
-                                <div class="derby-indicator">Derby Match</div>
-                            {{end}}
-                            <div class="teams {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
-                                <span class="team-home">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
-                                <span class="vs-text">vs</span>
-                                <span class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</span>
-                            </div>
-                            <div class="fixture-details">
-                                <div class="fixture-date">{{.ScheduledDate.Format "Mon, Jan 2"}}</div>
-                                <div>{{.ScheduledDate.Format "3:04 PM"}}</div>
-                                {{if .VenueLocation}}<div>@ {{.VenueLocation}}</div>{{end}}
+                            <div class="fixture-entry">
+                                {{if .IsDerby}}
+                                    <div class="derby-indicator">Derby Match</div>
+                                {{end}}
+                                {{if eq (len $div1Fixtures) 1}}
+                                <div class="teams single-fixture {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
+                                    <div class="team-home {{if .IsStAnnsHome}}stanns-home{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</div>
+                                    <div class="vs-text">vs</div>
+                                    <div class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</div>
+                                </div>
+                                {{else}}
+                                <div class="teams multiple-fixtures {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
+                                    <span class="team-home {{if .IsStAnnsHome}}stanns-home{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                                    <span class="vs-text">vs</span>
+                                    <div class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</div>
+                                </div>
+                                {{end}}
+                                <div class="fixture-details">
+                                    <div class="fixture-date">{{.ScheduledDate.Format "Mon, Jan 2"}} {{.ScheduledDate.Format "3:04 PM"}}</div>
+                                </div>
                             </div>
                         {{end}}
                     {{else}}
@@ -291,18 +393,26 @@
                     {{$div2Fixtures := index .FixturesByDivision "Division 2"}}
                     {{if $div2Fixtures}}
                         {{range $div2Fixtures}}
-                            {{if .IsDerby}}
-                                <div class="derby-indicator">Derby Match</div>
-                            {{end}}
-                            <div class="teams {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
-                                <span class="team-home">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
-                                <span class="vs-text">vs</span>
-                                <span class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</span>
-                            </div>
-                            <div class="fixture-details">
-                                <div class="fixture-date">{{.ScheduledDate.Format "Mon, Jan 2"}}</div>
-                                <div>{{.ScheduledDate.Format "3:04 PM"}}</div>
-                                {{if .VenueLocation}}<div>@ {{.VenueLocation}}</div>{{end}}
+                            <div class="fixture-entry">
+                                {{if .IsDerby}}
+                                    <div class="derby-indicator">Derby Match</div>
+                                {{end}}
+                                {{if eq (len $div2Fixtures) 1}}
+                                <div class="teams single-fixture {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
+                                    <div class="team-home {{if .IsStAnnsHome}}stanns-home{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</div>
+                                    <div class="vs-text">vs</div>
+                                    <div class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</div>
+                                </div>
+                                {{else}}
+                                <div class="teams multiple-fixtures {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
+                                    <span class="team-home {{if .IsStAnnsHome}}stanns-home{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                                    <span class="vs-text">vs</span>
+                                    <div class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</div>
+                                </div>
+                                {{end}}
+                                <div class="fixture-details">
+                                    <div class="fixture-date">{{.ScheduledDate.Format "Mon, Jan 2"}} {{.ScheduledDate.Format "3:04 PM"}}</div>
+                                </div>
                             </div>
                         {{end}}
                     {{else}}
@@ -320,18 +430,26 @@
                     {{$div3Fixtures := index .FixturesByDivision "Division 3"}}
                     {{if $div3Fixtures}}
                         {{range $div3Fixtures}}
-                            {{if .IsDerby}}
-                                <div class="derby-indicator">Derby Match</div>
-                            {{end}}
-                            <div class="teams {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
-                                <span class="team-home">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
-                                <span class="vs-text">vs</span>
-                                <span class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</span>
-                            </div>
-                            <div class="fixture-details">
-                                <div class="fixture-date">{{.ScheduledDate.Format "Mon, Jan 2"}}</div>
-                                <div>{{.ScheduledDate.Format "3:04 PM"}}</div>
-                                {{if .VenueLocation}}<div>@ {{.VenueLocation}}</div>{{end}}
+                            <div class="fixture-entry">
+                                {{if .IsDerby}}
+                                    <div class="derby-indicator">Derby Match</div>
+                                {{end}}
+                                {{if eq (len $div3Fixtures) 1}}
+                                <div class="teams single-fixture {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
+                                    <div class="team-home {{if .IsStAnnsHome}}stanns-home{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</div>
+                                    <div class="vs-text">vs</div>
+                                    <div class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</div>
+                                </div>
+                                {{else}}
+                                <div class="teams multiple-fixtures {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
+                                    <span class="team-home {{if .IsStAnnsHome}}stanns-home{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                                    <span class="vs-text">vs</span>
+                                    <div class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</div>
+                                </div>
+                                {{end}}
+                                <div class="fixture-details">
+                                    <div class="fixture-date">{{.ScheduledDate.Format "Mon, Jan 2"}} {{.ScheduledDate.Format "3:04 PM"}}</div>
+                                </div>
                             </div>
                         {{end}}
                     {{else}}
@@ -349,18 +467,26 @@
                     {{$div4Fixtures := index .FixturesByDivision "Division 4"}}
                     {{if $div4Fixtures}}
                         {{range $div4Fixtures}}
-                            {{if .IsDerby}}
-                                <div class="derby-indicator">Derby Match</div>
-                            {{end}}
-                            <div class="teams {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
-                                <span class="team-home">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
-                                <span class="vs-text">vs</span>
-                                <span class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</span>
-                            </div>
-                            <div class="fixture-details">
-                                <div class="fixture-date">{{.ScheduledDate.Format "Mon, Jan 2"}}</div>
-                                <div>{{.ScheduledDate.Format "3:04 PM"}}</div>
-                                {{if .VenueLocation}}<div>@ {{.VenueLocation}}</div>{{end}}
+                            <div class="fixture-entry">
+                                {{if .IsDerby}}
+                                    <div class="derby-indicator">Derby Match</div>
+                                {{end}}
+                                {{if eq (len $div4Fixtures) 1}}
+                                <div class="teams single-fixture {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
+                                    <div class="team-home {{if .IsStAnnsHome}}stanns-home{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</div>
+                                    <div class="vs-text">vs</div>
+                                    <div class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</div>
+                                </div>
+                                {{else}}
+                                <div class="teams multiple-fixtures {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
+                                    <span class="team-home {{if .IsStAnnsHome}}stanns-home{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                                    <span class="vs-text">vs</span>
+                                    <div class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</div>
+                                </div>
+                                {{end}}
+                                <div class="fixture-details">
+                                    <div class="fixture-date">{{.ScheduledDate.Format "Mon, Jan 2"}} {{.ScheduledDate.Format "3:04 PM"}}</div>
+                                </div>
                             </div>
                         {{end}}
                     {{else}}
