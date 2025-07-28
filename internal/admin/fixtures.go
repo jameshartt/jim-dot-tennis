@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"jim-dot-tennis/internal/models"
 )
@@ -39,6 +40,11 @@ func (h *FixturesHandler) HandleFixtures(w http.ResponseWriter, r *http.Request)
 		// Check if this is a notes update request
 		if strings.HasSuffix(r.URL.Path, "/notes") {
 			h.handleUpdateFixtureNotes(w, r)
+			return
+		}
+		// Check if this is a fixture edit request
+		if strings.HasSuffix(r.URL.Path, "/edit") {
+			h.handleFixtureEdit(w, r)
 			return
 		}
 		// Check if this is a team selection request
@@ -1123,5 +1129,186 @@ func (h *FixturesHandler) handleWeekOverview(w http.ResponseWriter, r *http.Requ
 		"WeekEnd":            weekEnd,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
+	}
+}
+
+// handleFixtureEdit handles both GET and POST requests for fixture editing
+func (h *FixturesHandler) handleFixtureEdit(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Admin fixture edit handler called with path: %s, method: %s", r.URL.Path, r.Method)
+
+	// Get user from context
+	user, err := getUserFromContext(r)
+	if err != nil {
+		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
+		return
+	}
+
+	// Extract fixture ID from URL path, removing the "/edit" suffix
+	path := strings.TrimSuffix(r.URL.Path, "/edit")
+	fixtureID, err := parseIDFromPath(path, "/admin/fixtures/")
+	if err != nil {
+		logAndError(w, "Invalid fixture ID", err, http.StatusBadRequest)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		h.handleFixtureEditGet(w, r, user, fixtureID)
+	case http.MethodPost:
+		h.handleFixtureEditPost(w, r, user, fixtureID)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleFixtureEditGet handles GET requests to show the fixture edit page
+func (h *FixturesHandler) handleFixtureEditGet(w http.ResponseWriter, r *http.Request, user *models.User, fixtureID uint) {
+	// Get fixture detail with related data
+	fixtureDetail, err := h.service.GetFixtureDetail(fixtureID)
+	if err != nil {
+		logAndError(w, "Failed to load fixture detail", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Check if fixture is completed - should not be editable
+	if fixtureDetail.Status == models.Completed {
+		http.Error(w, "Cannot edit completed fixtures", http.StatusForbidden)
+		return
+	}
+
+	// Load the fixture edit template
+	tmpl, err := parseTemplate(h.templateDir, "admin/fixture_edit.html")
+	if err != nil {
+		log.Printf("Error parsing fixture edit template: %v", err)
+		http.Error(w, "Failed to load template", http.StatusInternalServerError)
+		return
+	}
+
+	// Get navigation context from query parameters
+	navigationContext := getNavigationContextFromRequest(r)
+
+	// Execute the template with data
+	if err := renderTemplate(w, tmpl, map[string]interface{}{
+		"User":              user,
+		"FixtureDetail":     fixtureDetail,
+		"NavigationContext": navigationContext,
+	}); err != nil {
+		logAndError(w, err.Error(), err, http.StatusInternalServerError)
+	}
+}
+
+// handleFixtureEditPost handles POST requests to update fixture schedule
+func (h *FixturesHandler) handleFixtureEditPost(w http.ResponseWriter, r *http.Request, user *models.User, fixtureID uint) {
+	// Parse form data
+	if err := r.ParseForm(); err != nil {
+		logAndError(w, "Failed to parse form data", err, http.StatusBadRequest)
+		return
+	}
+
+	// Get current fixture to check status and get current date
+	fixtureDetail, err := h.service.GetFixtureDetail(fixtureID)
+	if err != nil {
+		logAndError(w, "Failed to load fixture detail", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Check if fixture is completed - should not be editable
+	if fixtureDetail.Status == models.Completed {
+		http.Error(w, "Cannot edit completed fixtures", http.StatusForbidden)
+		return
+	}
+
+	// Parse the new scheduled date
+	scheduledDateStr := r.FormValue("scheduled_date")
+	if scheduledDateStr == "" {
+		h.renderEditWithError(w, r, user, fixtureDetail, "Scheduled date is required")
+		return
+	}
+
+	newScheduledDate, err := time.Parse("2006-01-02T15:04", scheduledDateStr)
+	if err != nil {
+		h.renderEditWithError(w, r, user, fixtureDetail, "Invalid date format")
+		return
+	}
+
+	// Get rescheduled reason
+	rescheduleReasonStr := r.FormValue("rescheduled_reason")
+	if rescheduleReasonStr == "" {
+		h.renderEditWithError(w, r, user, fixtureDetail, "Reschedule reason is required")
+		return
+	}
+
+	// Validate rescheduled reason
+	var rescheduleReason models.RescheduledReason
+	switch rescheduleReasonStr {
+	case "Weather":
+		rescheduleReason = models.WeatherReason
+	case "CourtAvailability":
+		rescheduleReason = models.CourtAvailability
+	case "Other":
+		rescheduleReason = models.OtherReason
+	default:
+		h.renderEditWithError(w, r, user, fixtureDetail, "Invalid reschedule reason")
+		return
+	}
+
+	// Get additional notes
+	notes := r.FormValue("notes")
+
+	// Update the fixture with new schedule
+	err = h.service.UpdateFixtureSchedule(fixtureID, newScheduledDate, rescheduleReason, notes)
+	if err != nil {
+		h.renderEditWithError(w, r, user, fixtureDetail, fmt.Sprintf("Failed to update fixture: %v", err))
+		return
+	}
+
+	// Redirect back to fixture detail page with success message
+	redirectURL := fmt.Sprintf("/admin/fixtures/%d", fixtureID)
+
+	// Add navigation context if present
+	if from := r.URL.Query().Get("from"); from != "" {
+		redirectURL += "?from=" + from
+		if teamId := r.URL.Query().Get("teamId"); teamId != "" {
+			redirectURL += "&teamId=" + teamId
+		}
+		if teamName := r.URL.Query().Get("teamName"); teamName != "" {
+			redirectURL += "&teamName=" + teamName
+		}
+	}
+
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+}
+
+// renderEditWithError renders the edit page with an error message
+func (h *FixturesHandler) renderEditWithError(w http.ResponseWriter, r *http.Request, user *models.User, fixtureDetail *FixtureDetail, errorMsg string) {
+	// Load the fixture edit template
+	tmpl, err := parseTemplate(h.templateDir, "admin/fixture_edit.html")
+	if err != nil {
+		log.Printf("Error parsing fixture edit template: %v", err)
+		http.Error(w, "Failed to load template", http.StatusInternalServerError)
+		return
+	}
+
+	// Get navigation context from query parameters
+	navigationContext := getNavigationContextFromRequest(r)
+
+	// Execute the template with error
+	if err := renderTemplate(w, tmpl, map[string]interface{}{
+		"User":              user,
+		"FixtureDetail":     fixtureDetail,
+		"NavigationContext": navigationContext,
+		"Error":             errorMsg,
+	}); err != nil {
+		logAndError(w, err.Error(), err, http.StatusInternalServerError)
+	}
+}
+
+// getNavigationContextFromRequest extracts navigation context from query parameters
+func getNavigationContextFromRequest(r *http.Request) map[string]string {
+	return map[string]string{
+		"from":         r.URL.Query().Get("from"),
+		"teamId":       r.URL.Query().Get("teamId"),
+		"teamName":     r.URL.Query().Get("teamName"),
+		"managingTeam": r.URL.Query().Get("managingTeam"),
 	}
 }

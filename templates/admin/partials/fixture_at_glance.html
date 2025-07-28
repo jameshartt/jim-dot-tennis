@@ -1,0 +1,36 @@
+<!-- Fixture At A Glance -->
+<div class="fixture-at-glance{{if .FixtureDetail.Division}}{{if eq .FixtureDetail.Division.Name "Division 1"}} div-1{{else if eq .FixtureDetail.Division.Name "Division 2"}} div-2{{else if eq .FixtureDetail.Division.Name "Division 3"}} div-3{{else if eq .FixtureDetail.Division.Name "Division 4"}} div-4{{end}}{{end}}" title="Click to copy fixture information">
+    <h3>🎾 Fixture At A Glance</h3>
+    <div class="glance-content">
+        <div class="glance-header">
+            <div class="glance-division">{{if .FixtureDetail.Division}}{{if eq .FixtureDetail.Division.Name "Division 1"}}Div. 1{{else if eq .FixtureDetail.Division.Name "Division 2"}}Div. 2{{else if eq .FixtureDetail.Division.Name "Division 3"}}Div. 3{{else if eq .FixtureDetail.Division.Name "Division 4"}}Div. 4{{else}}{{.FixtureDetail.Division.Name}}{{end}}{{else}}Div. TBD{{end}}</div>
+            {{if .FixtureDetail.Week}}<div class="glance-week">Week {{.FixtureDetail.Week.WeekNumber}}</div>{{end}}
+            <div class="glance-date">{{.FixtureDetail.ScheduledDate.Format "Mon, Jan 2"}}</div>
+        </div>
+        
+        <div class="glance-teams">
+            {{if .IsDerby}}
+                <span class="team-home">{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}</span> vs <span class="team-away">{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}</span>
+            {{else}}
+                {{if .IsStAnnsHome}}
+                    <span class="team-home">🏠 (HOME) {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}{{end}}</span> vs <span class="team-away">{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}</span>
+                {{else if .IsStAnnsAway}}
+                    <span class="team-away">✈️ (AWAY) {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}{{end}}</span> @ <span class="team-home">{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                {{else}}
+                    <span class="team-home">{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}</span> vs <span class="team-away">{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}</span>
+                {{end}}
+            {{end}}
+        </div>
+    </div>
+
+    {{template "admin/partials/glance_matchups.html" .}}
+    
+    {{if .FixtureDetail.Notes}}
+    <div class="glance-notes">
+        <div class="glance-notes-title">📝 Notes</div>
+        <div class="glance-notes-content">{{.FixtureDetail.Notes}}</div>
+    </div>
+    {{end}}
+                    
+    {{template "admin/partials/glance_copyable_text.html" .}}
+</div> 

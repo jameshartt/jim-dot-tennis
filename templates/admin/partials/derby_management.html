@@ -1,0 +1,43 @@
+{{if .IsDerby}}
+<!-- Derby Match Management -->
+<div class="derby-management">
+    <div class="derby-header">
+        <span class="derby-badge">⚽ DERBY MATCH</span>
+        <span class="derby-subtitle">Both teams are St. Ann's</span>
+    </div>
+    
+    <div class="team-switcher">
+        <div class="managing-team">
+            <span class="managing-label">Currently Managing:</span>
+            {{if .ManagingTeam}}
+                <span class="managing-team-name">{{.ManagingTeam.Name}}</span>
+            {{else}}
+                <span class="managing-team-name">Unknown Team</span>
+            {{end}}
+        </div>
+        
+        <div class="switch-controls">
+            {{if .ManagingTeam}}
+                {{if eq .ManagingTeam.ID .FixtureDetail.HomeTeam.ID}}
+                    <!-- Currently managing home team, show switch to away -->
+                    <a href="/admin/fixtures/{{.FixtureDetail.ID}}?managingTeam={{.FixtureDetail.AwayTeam.ID}}&teamName={{.FixtureDetail.AwayTeam.Name}}" 
+                       class="btn-switch-team">
+                        Switch to {{.FixtureDetail.AwayTeam.Name}}
+                    </a>
+                {{else}}
+                    <!-- Currently managing away team, show switch to home -->
+                    <a href="/admin/fixtures/{{.FixtureDetail.ID}}?managingTeam={{.FixtureDetail.HomeTeam.ID}}&teamName={{.FixtureDetail.HomeTeam.Name}}" 
+                       class="btn-switch-team">
+                        Switch to {{.FixtureDetail.HomeTeam.Name}}
+                    </a>
+                {{end}}
+            {{end}}
+        </div>
+    </div>
+    
+    <div class="derby-notice">
+        <span class="notice-icon">💡</span>
+        <span class="notice-text">Player selection and matchups will be configured for the team you're currently managing. Use the switch button to manage the other team.</span>
+    </div>
+</div>
+{{end}} 
