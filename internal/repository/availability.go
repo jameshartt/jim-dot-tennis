@@ -91,11 +91,13 @@ func (r *availabilityRepository) UpsertPlayerAvailability(ctx context.Context, p
 	}
 	defer tx.Rollback()
 
+	availabilityPlusTwentyFourHours := date.Add(24 * time.Hour)
+
 	// Delete any existing availability for this exact date
 	_, err = tx.ExecContext(ctx, `
 		DELETE FROM player_availability_exceptions 
 		WHERE player_id = ? AND start_date = ? AND end_date = ?
-	`, playerID, date, date)
+	`, playerID, date, availabilityPlusTwentyFourHours)
 	if err != nil {
 		return err
 	}
@@ -105,7 +107,7 @@ func (r *availabilityRepository) UpsertPlayerAvailability(ctx context.Context, p
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO player_availability_exceptions (player_id, status, start_date, end_date, reason)
 			VALUES (?, ?, ?, ?, ?)
-		`, playerID, string(status), date, date, reason)
+		`, playerID, string(status), date, availabilityPlusTwentyFourHours, reason)
 		if err != nil {
 			return err
 		}
@@ -203,10 +205,11 @@ func (r *availabilityRepository) BatchUpsertPlayerAvailability(ctx context.Conte
 
 	for _, avail := range availabilities {
 		// Delete existing availability for this date
+		availabilityPlusTwentyFourHours := avail.Date.Add(24 * time.Hour)
 		_, err = tx.ExecContext(ctx, `
 			DELETE FROM player_availability_exceptions 
 			WHERE player_id = ? AND start_date = ? AND end_date = ?
-		`, playerID, avail.Date, avail.Date)
+		`, playerID, avail.Date, availabilityPlusTwentyFourHours)
 		if err != nil {
 			return err
 		}
@@ -216,7 +219,7 @@ func (r *availabilityRepository) BatchUpsertPlayerAvailability(ctx context.Conte
 			_, err = tx.ExecContext(ctx, `
 				INSERT INTO player_availability_exceptions (player_id, status, start_date, end_date, reason)
 				VALUES (?, ?, ?, ?, ?)
-			`, playerID, string(avail.Status), avail.Date, avail.Date, avail.Reason)
+			`, playerID, string(avail.Status), avail.Date, availabilityPlusTwentyFourHours, avail.Reason)
 			if err != nil {
 				return err
 			}
