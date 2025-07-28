@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -23,7 +24,7 @@ func getUserFromContext(r *http.Request) (*models.User, error) {
 	return &user, nil
 }
 
-// parseTemplate loads and parses a template file with helper functions
+// parseTemplate loads and parses a template file with helper functions and partials
 func parseTemplate(templateDir, templatePath string) (*template.Template, error) {
 	fullPath := filepath.Join(templateDir, templatePath)
 
@@ -46,7 +47,46 @@ func parseTemplate(templateDir, templatePath string) (*template.Template, error)
 
 	// Parse template with function map
 	tmpl := template.New(filepath.Base(templatePath)).Funcs(funcMap)
-	return tmpl.ParseFiles(fullPath)
+
+	// Parse the main template first
+	tmpl, err := tmpl.ParseFiles(fullPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse any partials in the admin/partials directory with full path names
+	partialsPattern := filepath.Join(templateDir, "admin", "partials", "*.html")
+	partialFiles, err := filepath.Glob(partialsPattern)
+	if err != nil {
+		// If glob fails, continue without partials (not critical)
+		log.Printf("Warning: could not find partials at %s: %v", partialsPattern, err)
+	} else if len(partialFiles) > 0 {
+		// Parse each partial with its desired template name (preserving directory structure)
+		for _, partialFile := range partialFiles {
+			// Read the file content
+			content, err := os.ReadFile(partialFile)
+			if err != nil {
+				return nil, fmt.Errorf("error reading partial %s: %v", partialFile, err)
+			}
+
+			// Get the relative path from templateDir to create the template name
+			relPath, err := filepath.Rel(templateDir, partialFile)
+			if err != nil {
+				return nil, fmt.Errorf("error getting relative path for %s: %v", partialFile, err)
+			}
+
+			// Convert path separators to forward slashes for template names (cross-platform)
+			templateName := filepath.ToSlash(relPath)
+
+			// Parse the content with the full path as template name
+			_, err = tmpl.New(templateName).Parse(string(content))
+			if err != nil {
+				return nil, fmt.Errorf("error parsing partial %s as %s: %v", partialFile, templateName, err)
+			}
+		}
+	}
+
+	return tmpl, nil
 }
 
 // renderTemplate executes a template with given data
