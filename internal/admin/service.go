@@ -373,6 +373,11 @@ func (s *Service) getNextWeekDateRange() (time.Time, time.Time) {
 	return weekStart, weekEnd
 }
 
+// GetNextWeekDateRange returns the start and end dates of the next week (Monday to Sunday) - public method
+func (s *Service) GetNextWeekDateRange() (time.Time, time.Time) {
+	return s.getNextWeekDateRange()
+}
+
 // filterPlayersByQuery performs client-side filtering of players by search query
 // This is used when we need to combine activity filtering with search
 func filterPlayersByQuery(players []models.Player, query string) []models.Player {
@@ -2594,4 +2599,83 @@ func (s *Service) SetFixtureDayCaptain(fixtureID uint, playerID string) error {
 
 	// Save the updated fixture
 	return s.fixtureRepository.Update(ctx, fixture)
+}
+
+// GetStAnnsNextWeekFixturesByDivision retrieves St Ann's fixtures for the next week organized by division
+func (s *Service) GetStAnnsNextWeekFixturesByDivision() (map[string][]FixtureWithRelations, error) {
+	ctx := context.Background()
+
+	// Find St. Ann's club
+	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil {
+		return nil, err
+	}
+	if len(clubs) == 0 {
+		return make(map[string][]FixtureWithRelations), nil // No club found
+	}
+	stAnnsClub := &clubs[0]
+
+	// Get all teams for St. Ann's club
+	teams, err := s.teamRepository.FindByClub(ctx, stAnnsClub.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(teams) == 0 {
+		return make(map[string][]FixtureWithRelations), nil // No teams found
+	}
+
+	// Get next week date range
+	weekStart, weekEnd := s.getNextWeekDateRange()
+
+	// Get all fixtures for all St. Ann's teams within the next week
+	var allFixtures []models.Fixture
+	fixtureMap := make(map[uint]models.Fixture) // Use map to deduplicate fixtures by ID
+
+	for _, team := range teams {
+		teamFixtures, err := s.fixtureRepository.FindByTeam(ctx, team.ID)
+		if err != nil {
+			continue // Skip this team if there's an error
+		}
+		// Filter fixtures for next week and add to map to automatically deduplicate
+		for _, fixture := range teamFixtures {
+			if fixture.ScheduledDate.After(weekStart) && fixture.ScheduledDate.Before(weekEnd) {
+				if fixture.Status == models.Scheduled || fixture.Status == models.InProgress {
+					fixtureMap[fixture.ID] = fixture
+				}
+			}
+		}
+	}
+
+	// Convert map back to slice
+	for _, fixture := range fixtureMap {
+		allFixtures = append(allFixtures, fixture)
+	}
+
+	// Build FixtureWithRelations by fetching related data
+	fixturesWithRelations := s.buildFixturesWithRelations(ctx, allFixtures, stAnnsClub)
+
+	// Organize fixtures by division
+	fixturesByDivision := make(map[string][]FixtureWithRelations)
+
+	// Initialize division groups in the order we want (1, 2, 3, 4)
+	fixturesByDivision["Division 1"] = []FixtureWithRelations{}
+	fixturesByDivision["Division 2"] = []FixtureWithRelations{}
+	fixturesByDivision["Division 3"] = []FixtureWithRelations{}
+	fixturesByDivision["Division 4"] = []FixtureWithRelations{}
+
+	for _, fixture := range fixturesWithRelations {
+		if fixture.Division != nil {
+			divisionName := fixture.Division.Name
+			fixturesByDivision[divisionName] = append(fixturesByDivision[divisionName], fixture)
+		} else {
+			// If no division, put in a "Other" category
+			if fixturesByDivision["Other"] == nil {
+				fixturesByDivision["Other"] = []FixtureWithRelations{}
+			}
+			fixturesByDivision["Other"] = append(fixturesByDivision["Other"], fixture)
+		}
+	}
+
+	return fixturesByDivision, nil
 }

@@ -28,6 +28,12 @@ func NewFixturesHandler(service *Service, templateDir string) *FixturesHandler {
 func (h *FixturesHandler) HandleFixtures(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Admin fixtures handler called with path: %s, method: %s", r.URL.Path, r.Method)
 
+	// Check if this is a week overview request
+	if strings.HasSuffix(r.URL.Path, "/week-overview") {
+		h.handleWeekOverview(w, r)
+		return
+	}
+
 	// Check if this is a specific fixture detail request
 	if strings.Contains(r.URL.Path, "/fixtures/") && r.URL.Path != "/admin/fixtures/" {
 		// Check if this is a notes update request
@@ -1067,4 +1073,52 @@ func (h *FixturesHandler) handleSetDayCaptain(w http.ResponseWriter, r *http.Req
 		redirectURL += fmt.Sprintf("?managingTeam=%s", managingTeamParam)
 	}
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+}
+
+// handleWeekOverview handles the week overview page for Instagram story screenshots
+func (h *FixturesHandler) handleWeekOverview(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Admin week overview handler called with path: %s, method: %s", r.URL.Path, r.Method)
+
+	// Get user from context
+	user, err := getUserFromContext(r)
+	if err != nil {
+		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
+		return
+	}
+
+	// Only handle GET requests
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get next week's fixtures organized by division
+	fixturesByDivision, err := h.service.GetStAnnsNextWeekFixturesByDivision()
+	if err != nil {
+		logAndError(w, "Failed to load next week's fixtures", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Load the week overview template
+	tmpl, err := parseTemplate(h.templateDir, "admin/week_overview.html")
+	if err != nil {
+		log.Printf("Error parsing week overview template: %v", err)
+		// Fallback to simple HTML response
+		renderFallbackHTML(w, "Week Overview", "Week Overview",
+			"Week overview page - coming soon", "/admin/fixtures")
+		return
+	}
+
+	// Calculate the date range for the week being displayed
+	weekStart, weekEnd := h.service.GetNextWeekDateRange()
+
+	// Execute the template with data
+	if err := renderTemplate(w, tmpl, map[string]interface{}{
+		"User":               user,
+		"FixturesByDivision": fixturesByDivision,
+		"WeekStart":          weekStart,
+		"WeekEnd":            weekEnd,
+	}); err != nil {
+		logAndError(w, err.Error(), err, http.StatusInternalServerError)
+	}
 }
