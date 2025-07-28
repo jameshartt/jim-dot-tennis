@@ -237,8 +237,146 @@
             margin-bottom: 0;
         }
         
-
+        /* Upcoming Fixtures Styles */
+        .fixtures-loading {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 20px;
+        }
         
+        .fixtures-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .fixture-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            border-left: 4px solid #4a7c59;
+            transition: box-shadow 0.2s ease;
+        }
+        
+        .fixture-card:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .fixture-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .fixture-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .fixture-division {
+            background: #4a7c59;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .fixture-week {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .fixture-date {
+            color: #2c5530;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        .fixture-matchup {
+            margin-bottom: 10px;
+        }
+        
+        .fixture-teams {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c5530;
+            margin-bottom: 5px;
+        }
+        
+        .fixture-my-team {
+            color: #4a7c59;
+        }
+        
+        .fixture-home-indicator {
+            background: #d4edda;
+            color: #155724;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .fixture-away-indicator {
+            background: #fff3cd;
+            color: #856404;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .fixture-derby-indicator {
+            background: #e2d6e7;
+            color: #6f42c1;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .fixture-venue {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        
+        .fixture-disclaimer {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 15px;
+            font-size: 13px;
+            color: #856404;
+        }
+        
+        .fixture-disclaimer strong {
+            color: #664d03;
+        }
+        
+        .no-fixtures {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 30px 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px dashed #dee2e6;
+        }
+        
+        .no-fixtures h4 {
+            color: #2c5530;
+            margin-bottom: 10px;
+        }
+
         .footer-links {
             text-align: center;
             margin-top: 30px;
@@ -643,6 +781,20 @@
                 padding: 5px;
             }
             
+            .fixture-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            
+            .fixture-info {
+                gap: 10px;
+            }
+            
+            .fixture-teams {
+                font-size: 16px;
+            }
+            
             .calendar-month-header {
                 font-size: 20px;
                 margin-bottom: 15px;
@@ -753,6 +905,18 @@
 
             .calendar-container {
                 padding: 0px;
+            }
+            
+            .fixture-card {
+                padding: 15px;
+            }
+            
+            .fixture-teams {
+                font-size: 15px;
+            }
+            
+            .fixture-date {
+                font-size: 14px;
             }
             
             .calendar-month-header {
@@ -873,6 +1037,23 @@
             
             .calendar-container {
                 padding: 0px;
+            }
+            
+            .fixture-card {
+                padding: 12px;
+            }
+            
+            .fixture-teams {
+                font-size: 14px;
+            }
+            
+            .fixture-date {
+                font-size: 13px;
+            }
+            
+            .fixture-division {
+                font-size: 11px;
+                padding: 3px 6px;
             }
             
             .calendar-month-header {
@@ -1163,6 +1344,13 @@
             </div>
         </div>
         
+        <div class="availability-section" id="upcoming-fixtures-section" style="display: none;">
+            <h2 class="section-title">Your Upcoming Fixtures</h2>
+            <div id="upcoming-fixtures-container">
+                <div class="fixtures-loading">Loading your fixture information...</div>
+            </div>
+        </div>
+        
         <div class="availability-section">
             <h2 class="section-title">Set Your Availability (Initials: {{printf "%.1s" .Player.FirstName}}.{{printf "%.1s" .Player.LastName}}.)</h2>
             <p class="availability-instructions">
@@ -1274,6 +1462,7 @@
             init() {
                 this.loadAvailabilityData();
                 this.renderCalendar();
+                this.loadUpcomingFixtures();
             }
             
             async loadAvailabilityData() {
@@ -1291,15 +1480,121 @@
                         // Convert availability array to map for easier lookup
                         if (data.availability) {
                             data.availability.forEach(avail => {
-                                this.availabilityData.set(avail.date, avail.status);
-                            });
-                        }
-                        this.renderCalendar();
-                    }
-                } catch (error) {
-                    console.error('Error loading availability data:', error);
+                                                        this.availabilityData.set(avail.date, avail.status);
+                    });
                 }
+                this.renderCalendar();
+                // Always render fixtures from the response
+                this.renderUpcomingFixtures(data.upcoming_fixtures || []);
             }
+        } catch (error) {
+            console.error('Error loading availability data:', error);
+        }
+    }
+    
+    async loadUpcomingFixtures() {
+        // Only load if we haven't already loaded them from availability data
+        const container = document.getElementById('upcoming-fixtures-container');
+        if (container && container.innerHTML.includes('fixtures-loading')) {
+            try {
+                console.log('Loading upcoming fixtures for token:', this.authToken);
+                const response = await fetch(`/my-availability/${this.authToken}/data`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                console.log('Fixtures response status:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Fixtures data received:', data);
+                    
+                    // Always render fixtures, even if empty array
+                    this.renderUpcomingFixtures(data.upcoming_fixtures || []);
+                } else {
+                    console.warn('Failed to load fixtures, status:', response.status);
+                    this.renderUpcomingFixtures([]);
+                }
+            } catch (error) {
+                console.error('Error loading upcoming fixtures:', error);
+                this.renderUpcomingFixtures([]);
+            }
+        }
+    }
+    
+    renderUpcomingFixtures(fixtures) {
+        const container = document.getElementById('upcoming-fixtures-container');
+        const section = document.getElementById('upcoming-fixtures-section');
+        
+        if (!container || !section) return;
+        
+        console.log('Rendering fixtures:', fixtures);
+        
+        if (!fixtures || fixtures.length === 0) {
+            // Hide the entire section if there are no fixtures
+            section.style.display = 'none';
+            return;
+        }
+        
+        // Show the section if there are fixtures
+        section.style.display = 'block';
+        
+        let html = '<div class="fixtures-list">';
+        
+        fixtures.forEach(fixture => {
+            const date = new Date(fixture.scheduled_date);
+            const formattedDate = date.toLocaleDateString('en-GB', { 
+                weekday: 'short', 
+                day: 'numeric', 
+                month: 'short' 
+            });
+            
+            // Location info removed for now - venues are TBD and everyone knows club locations
+            
+            let indicator = '';
+            if (fixture.is_derby) {
+                indicator = '<span class="fixture-derby-indicator">DERBY</span>';
+            } else if (fixture.is_home) {
+                indicator = '<span class="fixture-home-indicator">HOME</span>';
+            } else if (fixture.is_away) {
+                indicator = '<span class="fixture-away-indicator">AWAY</span>';
+            }
+            
+            html += `
+                <div class="fixture-card">
+                    <div class="fixture-header">
+                        <div class="fixture-info">
+                            <span class="fixture-division">${fixture.division || 'TBD'}</span>
+                            <span class="fixture-week">Week ${fixture.week_number || 'TBD'}</span>
+                        </div>
+                        <div class="fixture-date">${formattedDate}</div>
+                    </div>
+                    <div class="fixture-matchup">
+                        <div class="fixture-teams">
+                            <span class="fixture-my-team">${fixture.my_team || 'Your Team'}</span> 
+                            vs 
+                            ${fixture.opponent_team || 'TBD'}
+                            ${indicator}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        
+        // Add disclaimer
+        html += `
+            <div class="fixture-disclaimer">
+                <strong>⚠️ Important:</strong> This information is subject to change, even on the day of play. 
+                Always check with your team captain or the latest team communications before traveling to any venue. 
+            </div>
+        `;
+        
+        container.innerHTML = html;
+    }
             
             renderCalendar() {
                 const calendar = document.getElementById('availability-calendar');
