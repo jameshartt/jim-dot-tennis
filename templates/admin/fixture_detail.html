@@ -31,11 +31,16 @@
         <div class="container">
             <div class="action-bar">
                 <h2>Fixture Information</h2>
-                {{if and .NavigationContext (eq .NavigationContext.from "team")}}
-                    <a href="/admin/teams/{{.NavigationContext.teamId}}" class="btn-back">← Back to {{.NavigationContext.teamName}}</a>
-                {{else}}
-                    <a href="/admin/fixtures" class="btn-back">← Back to Fixtures</a>
-                {{end}}
+                <div class="action-buttons">
+                    {{if ne .FixtureDetail.Status "Completed"}}
+                        <a href="/admin/fixtures/{{.FixtureDetail.ID}}/edit" class="btn-edit">📅 Edit Schedule</a>
+                    {{end}}
+                    {{if and .NavigationContext (eq .NavigationContext.from "team")}}
+                        <a href="/admin/teams/{{.NavigationContext.teamId}}" class="btn-back">← Back to {{.NavigationContext.teamName}}</a>
+                    {{else}}
+                        <a href="/admin/fixtures" class="btn-back">← Back to Fixtures</a>
+                    {{end}}
+                </div>
             </div>
 
             <div class="fixture-detail">

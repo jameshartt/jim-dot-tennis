@@ -2712,3 +2712,65 @@ func (s *Service) GetStAnnsNextWeekFixturesByDivision() (map[string][]FixtureWit
 
 	return fixturesByDivision, nil
 }
+
+// UpdateFixtureSchedule updates a fixture's scheduled date and adds the previous date to history
+func (s *Service) UpdateFixtureSchedule(fixtureID uint, newScheduledDate time.Time, rescheduleReason models.RescheduledReason, notes string) error {
+	ctx := context.Background()
+
+	// Get the current fixture to retrieve the current scheduled date
+	currentFixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
+	if err != nil {
+		return fmt.Errorf("failed to get current fixture: %w", err)
+	}
+
+	// Check if fixture is completed
+	if currentFixture.Status == models.Completed {
+		return fmt.Errorf("cannot reschedule completed fixture")
+	}
+
+	// Prepare the previous dates array
+	var previousDates []time.Time
+
+	// Parse existing previous dates from JSON
+	if currentFixture.PreviousDates != nil && len(currentFixture.PreviousDates) > 0 {
+		// Note: PreviousDates is already a []time.Time slice from the model
+		previousDates = currentFixture.PreviousDates
+	}
+
+	// Add the current scheduled date to previous dates if it's different from the new date
+	if !currentFixture.ScheduledDate.Equal(newScheduledDate) {
+		// Check if this date is already in the previous dates to avoid duplicates
+		dateExists := false
+		for _, prevDate := range previousDates {
+			if prevDate.Equal(currentFixture.ScheduledDate) {
+				dateExists = true
+				break
+			}
+		}
+
+		if !dateExists {
+			previousDates = append(previousDates, currentFixture.ScheduledDate)
+		}
+	}
+
+	// Update the fixture with new data
+	updatedFixture := *currentFixture
+	updatedFixture.ScheduledDate = newScheduledDate
+	updatedFixture.PreviousDates = previousDates
+	updatedFixture.RescheduledReason = &rescheduleReason
+	if notes != "" {
+		updatedFixture.Notes = notes
+	}
+	updatedFixture.UpdatedAt = time.Now()
+
+	// Save the updated fixture
+	err = s.fixtureRepository.Update(ctx, &updatedFixture)
+	if err != nil {
+		return fmt.Errorf("failed to update fixture: %w", err)
+	}
+
+	log.Printf("Fixture %d rescheduled from %v to %v for reason: %s",
+		fixtureID, currentFixture.ScheduledDate, newScheduledDate, rescheduleReason)
+
+	return nil
+}

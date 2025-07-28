@@ -182,25 +182,36 @@ const (
 	Postponed  FixtureStatus = "Postponed"  // Fixture was postponed
 )
 
+// RescheduledReason represents the reason for rescheduling a fixture
+type RescheduledReason string
+
+const (
+	WeatherReason     RescheduledReason = "Weather"           // Weather-related rescheduling
+	CourtAvailability RescheduledReason = "CourtAvailability" // Court not available
+	OtherReason       RescheduledReason = "Other"             // Other reasons
+)
+
 // Fixture represents a scheduled match between two teams
 type Fixture struct {
-	ID                  uint            `json:"id" db:"id"`
-	HomeTeamID          uint            `json:"home_team_id" db:"home_team_id"`
-	AwayTeamID          uint            `json:"away_team_id" db:"away_team_id"`
-	DivisionID          uint            `json:"division_id" db:"division_id"`
-	SeasonID            uint            `json:"season_id" db:"season_id"` // Reference to season
-	WeekID              uint            `json:"week_id" db:"week_id"`     // Reference to week
-	ScheduledDate       time.Time       `json:"scheduled_date" db:"scheduled_date"`
-	VenueLocation       string          `json:"venue_location" db:"venue_location"`
-	Status              FixtureStatus   `json:"status" db:"status"`
-	CompletedDate       *time.Time      `json:"completed_date,omitempty" db:"completed_date"`                 // When fixture was completed
-	DayCaptainID        *string         `json:"day_captain_id,omitempty" db:"day_captain_id"`                 // Optional day captain for this fixture (UUID)
-	ExternalMatchCardID *int            `json:"external_match_card_id,omitempty" db:"external_match_card_id"` // BHPLTA match card ID
-	Notes               string          `json:"notes" db:"notes"`
-	CreatedAt           time.Time       `json:"created_at" db:"created_at"`
-	UpdatedAt           time.Time       `json:"updated_at" db:"updated_at"`
-	Matchups            []Matchup       `json:"matchups,omitempty"`
-	SelectedPlayers     []FixturePlayer `json:"selected_players,omitempty"`
+	ID                  uint               `json:"id" db:"id"`
+	HomeTeamID          uint               `json:"home_team_id" db:"home_team_id"`
+	AwayTeamID          uint               `json:"away_team_id" db:"away_team_id"`
+	DivisionID          uint               `json:"division_id" db:"division_id"`
+	SeasonID            uint               `json:"season_id" db:"season_id"` // Reference to season
+	WeekID              uint               `json:"week_id" db:"week_id"`     // Reference to week
+	ScheduledDate       time.Time          `json:"scheduled_date" db:"scheduled_date"`
+	VenueLocation       string             `json:"venue_location" db:"venue_location"`
+	Status              FixtureStatus      `json:"status" db:"status"`
+	CompletedDate       *time.Time         `json:"completed_date,omitempty" db:"completed_date"`                 // When fixture was completed
+	DayCaptainID        *string            `json:"day_captain_id,omitempty" db:"day_captain_id"`                 // Optional day captain for this fixture (UUID)
+	ExternalMatchCardID *int               `json:"external_match_card_id,omitempty" db:"external_match_card_id"` // BHPLTA match card ID
+	Notes               string             `json:"notes" db:"notes"`
+	PreviousDates       []time.Time        `json:"previous_dates,omitempty" db:"previous_dates"`         // Previous scheduled dates (stored as JSON)
+	RescheduledReason   *RescheduledReason `json:"rescheduled_reason,omitempty" db:"rescheduled_reason"` // Reason for rescheduling
+	CreatedAt           time.Time          `json:"created_at" db:"created_at"`
+	UpdatedAt           time.Time          `json:"updated_at" db:"updated_at"`
+	Matchups            []Matchup          `json:"matchups,omitempty"`
+	SelectedPlayers     []FixturePlayer    `json:"selected_players,omitempty"`
 }
 
 // MatchupType represents the type of matchup (Men's, Women's, 1st Mixed, 2nd Mixed)
