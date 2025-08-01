@@ -16,14 +16,15 @@ import (
 
 // MatchCardService handles importing match card data from BHPLTA
 type MatchCardService struct {
-	fixtureRepo repository.FixtureRepository
-	matchupRepo repository.MatchupRepository
-	teamRepo    repository.TeamRepository
-	clubRepo    repository.ClubRepository
-	playerRepo  repository.PlayerRepository
-	parser      *MatchCardParser
-	matcher     *PlayerMatcher
-	httpClient  *http.Client
+	fixtureRepo    repository.FixtureRepository
+	matchupRepo    repository.MatchupRepository
+	teamRepo       repository.TeamRepository
+	clubRepo       repository.ClubRepository
+	playerRepo     repository.PlayerRepository
+	parser         *MatchCardParser
+	matcher        *PlayerMatcher
+	httpClient     *http.Client
+	nonceExtractor *NonceExtractor
 }
 
 // ImportConfig holds configuration for importing match cards
@@ -60,17 +61,50 @@ func NewMatchCardService(
 	playerRepo repository.PlayerRepository,
 ) *MatchCardService {
 	return &MatchCardService{
-		fixtureRepo: fixtureRepo,
-		matchupRepo: matchupRepo,
-		teamRepo:    teamRepo,
-		clubRepo:    clubRepo,
-		playerRepo:  playerRepo,
-		parser:      NewMatchCardParser(),
-		matcher:     NewPlayerMatcher(playerRepo),
+		fixtureRepo:    fixtureRepo,
+		matchupRepo:    matchupRepo,
+		teamRepo:       teamRepo,
+		clubRepo:       clubRepo,
+		playerRepo:     playerRepo,
+		parser:         NewMatchCardParser(),
+		matcher:        NewPlayerMatcher(playerRepo),
+		nonceExtractor: NewNonceExtractor(),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 	}
+}
+
+// ImportWeekMatchCardsWithAutoNonce imports match cards with automatic nonce extraction
+func (s *MatchCardService) ImportWeekMatchCardsWithAutoNonce(ctx context.Context, config ImportConfig, week int) (*ImportResult, error) {
+	// If no nonce is provided, extract it automatically
+	if config.Nonce == "" {
+		if config.Verbose {
+			fmt.Printf("No nonce provided, attempting to extract from website...\n")
+		}
+
+		var nonceResult *NonceResult
+		var err error
+
+		if config.ClubCode != "" {
+			// Use club code if available for better access
+			nonceResult, err = s.nonceExtractor.ExtractNonceWithClubCode(config.ClubCode)
+		} else {
+			// Extract without club code
+			nonceResult, err = s.nonceExtractor.ExtractNonce()
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract nonce: %w", err)
+		}
+
+		config.Nonce = nonceResult.Nonce
+		if config.Verbose {
+			fmt.Printf("Successfully extracted nonce: %s...\n", config.Nonce[:10])
+		}
+	}
+
+	return s.ImportWeekMatchCards(ctx, config, week)
 }
 
 // ImportWeekMatchCards imports match cards for a specific week
@@ -194,14 +228,6 @@ func (s *MatchCardService) fetchMatchCards(config ImportConfig, week int) ([]byt
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
-
-	// Debug: print the raw response
-	debugLength := len(body)
-	if debugLength > 200 {
-		debugLength = 200
-	}
-	fmt.Printf("DEBUG: Raw response (first %d chars): %s\n", debugLength, string(body[:debugLength]))
-	fmt.Printf("DEBUG: Response length: %d bytes\n", len(body))
 
 	return body, nil
 }
