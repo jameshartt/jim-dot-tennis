@@ -14,12 +14,13 @@ type Handler struct {
 	templateDir string
 
 	// Sub-handlers for different domains
-	dashboard *DashboardHandler
-	players   *PlayersHandler
-	fixtures  *FixturesHandler
-	teams     *TeamsHandler
-	users     *UsersHandler
-	sessions  *SessionsHandler
+	dashboard       *DashboardHandler
+	players         *PlayersHandler
+	fixtures        *FixturesHandler
+	teams           *TeamsHandler
+	users           *UsersHandler
+	sessions        *SessionsHandler
+	matchCardImport *MatchCardImportationHandler
 }
 
 // New creates a new admin handler
@@ -27,14 +28,15 @@ func New(db *database.DB, templateDir string) *Handler {
 	service := NewService(db)
 
 	return &Handler{
-		service:     service,
-		templateDir: templateDir,
-		dashboard:   NewDashboardHandler(service, templateDir),
-		players:     NewPlayersHandler(service, templateDir),
-		fixtures:    NewFixturesHandler(service, templateDir),
-		teams:       NewTeamsHandler(service, templateDir),
-		users:       NewUsersHandler(service, templateDir),
-		sessions:    NewSessionsHandler(service, templateDir),
+		service:         service,
+		templateDir:     templateDir,
+		dashboard:       NewDashboardHandler(service, templateDir),
+		players:         NewPlayersHandler(service, templateDir),
+		fixtures:        NewFixturesHandler(service, templateDir),
+		teams:           NewTeamsHandler(service, templateDir),
+		users:           NewUsersHandler(service, templateDir),
+		sessions:        NewSessionsHandler(service, templateDir),
+		matchCardImport: NewMatchCardImportationHandler(service, templateDir),
 	}
 }
 
@@ -60,6 +62,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/sessions/", h.sessions.HandleSessions)
 	adminMux.HandleFunc("/admin/teams", h.teams.HandleTeams)
 	adminMux.HandleFunc("/admin/teams/", h.teams.HandleTeams)
+
+	// Match card import routes
+	adminMux.HandleFunc("/admin/match-card-import", h.matchCardImport.HandleMatchCardImportation)
+	adminMux.HandleFunc("/admin/match-card-import/", h.matchCardImport.HandleMatchCardImportation)
 
 	// Preferred name approval routes
 	adminMux.HandleFunc("/admin/preferred-names", h.service.HandlePreferredNameApprovals)
