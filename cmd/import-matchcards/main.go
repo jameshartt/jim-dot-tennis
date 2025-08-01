@@ -16,7 +16,7 @@ func main() {
 	// Define command line flags
 	var (
 		dbPath        = flag.String("db", "", "Database path")
-		nonce         = flag.String("nonce", "", "BHPLTA nonce")
+		nonce         = flag.String("nonce", "", "BHPLTA nonce (if empty, will try to extract automatically)")
 		clubCode      = flag.String("club-code", "", "Club code")
 		week          = flag.Int("week", 0, "Week number")
 		year          = flag.Int("year", 0, "Year")
@@ -25,21 +25,22 @@ func main() {
 		dryRun        = flag.Bool("dry-run", false, "Dry run mode")
 		verbose       = flag.Bool("verbose", false, "Verbose output")
 		clearExisting = flag.Bool("clear-existing", false, "Clear existing matchups before importing")
+		autoNonce     = flag.Bool("auto-nonce", false, "Automatically extract nonce from website")
 	)
 	flag.Parse()
 
 	// Validate required flags
-	if *nonce == "" {
-		log.Fatal("nonce is required")
+	if *nonce == "" && !*autoNonce {
+		log.Fatal("nonce is required (or use -auto-nonce to extract automatically)")
 	}
-	if *clubCode == "" {
-		log.Fatal("club-code is required")
+	if *clubCode == "" && *nonce == "" {
+		log.Fatal("club-code is required when auto-extracting nonce")
 	}
 
 	// Parse rate limit
-	rateLimit, err := time.ParseDuration("1s") // Default rate limit
-	if err != nil {
-		log.Fatalf("Invalid rate limit: %v", err)
+	rateLimit, rateLimitErr := time.ParseDuration("1s") // Default rate limit
+	if rateLimitErr != nil {
+		log.Fatalf("Invalid rate limit: %v", rateLimitErr)
 	}
 
 	// Connect to database
@@ -85,7 +86,15 @@ func main() {
 
 	// Import match cards for the specified week
 	ctx := context.Background()
-	result, err := service.ImportWeekMatchCards(ctx, config, *week)
+	var result *services.ImportResult
+
+	// Use auto-nonce extraction if requested or if no nonce provided
+	if *autoNonce || *nonce == "" {
+		result, err = service.ImportWeekMatchCardsWithAutoNonce(ctx, config, *week)
+	} else {
+		result, err = service.ImportWeekMatchCards(ctx, config, *week)
+	}
+
 	if err != nil {
 		log.Fatalf("Failed to import match cards: %v", err)
 	}

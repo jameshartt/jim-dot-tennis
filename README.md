@@ -21,6 +21,14 @@ A comprehensive tennis league management system built with Go, designed to handl
 - **Dry Run Support**: Test data imports without making database changes
 - **Comprehensive Logging**: Detailed logging with configurable verbosity levels
 
+### Match Card Import (BHPLTA Integration)
+- **Automatic Nonce Extraction**: Automatically extract WordPress nonces from BHPLTA website
+- **Match Card Import**: Import completed match results from BHPLTA match card system  
+- **Player Matching**: Intelligent matching of players from match cards to database records
+- **Derby Match Support**: Special handling for matches between teams from the same club
+- **Batch Processing**: Import multiple weeks of match data with rate limiting
+- **Fallback Options**: Manual nonce support when automatic extraction fails
+
 ## Architecture
 
 ### Database Schema
@@ -145,6 +153,35 @@ The script will:
 - Create 4 divisions with appropriate play days
 - Import clubs, teams, and fixtures from CSV files
 - Associate fixtures with the correct weeks
+
+#### BHPLTA Match Card Import
+
+Import completed match results from the BHPLTA website with automatic nonce extraction:
+
+```bash
+# Build the utilities
+make build-utils
+
+# Test nonce extraction
+./bin/extract-nonce -club-code="STANN001" -verbose
+
+# Import match cards with automatic nonce
+./bin/import-matchcards \
+  -auto-nonce \
+  -club-code="STANN001" \
+  -week=1 \
+  -year=2024 \
+  -club-id=123 \
+  -club-name="St Ann's Tennis Club" \
+  -db="./tennis.db" \
+  -verbose \
+  -dry-run
+
+# Run demo script
+./scripts/demo-auto-nonce.sh STANN001
+```
+
+For detailed information, see [Automatic Nonce Extraction Documentation](docs/automatic_nonce_extraction.md).
 
 #### Development
 

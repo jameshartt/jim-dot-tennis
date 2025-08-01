@@ -6,8 +6,10 @@ DOCKER_COMPOSE = docker-compose
 # Project name
 PROJECT = jim-dot-tennis
 
-# Local binary path
+# Local binary paths
 BINARY_PATH = ./bin/jim-dot-tennis
+EXTRACT_NONCE_PATH = ./bin/extract-nonce
+IMPORT_MATCHCARDS_PATH = ./bin/import-matchcards
 
 # Default target
 all: build run
@@ -18,6 +20,24 @@ build-local:
 	@echo "Building $(PROJECT) binary..."
 	@mkdir -p bin
 	go build -o $(BINARY_PATH) ./cmd/jim-dot-tennis
+
+# Build the extract-nonce utility
+build-extract-nonce:
+	@echo "Building extract-nonce utility..."
+	@mkdir -p bin
+	go build -o $(EXTRACT_NONCE_PATH) ./cmd/extract-nonce
+
+# Build the import-matchcards utility
+build-import-matchcards:
+	@echo "Building import-matchcards utility..."
+	@mkdir -p bin
+	go build -o $(IMPORT_MATCHCARDS_PATH) ./cmd/import-matchcards
+
+# Build all utilities
+build-utils: build-extract-nonce build-import-matchcards
+
+# Build everything
+build-all: build-local build-utils
 
 # Run the application locally with database at project root
 run-local: build-local
@@ -33,6 +53,8 @@ local: run-local
 clean-local:
 	@echo "Cleaning local build artifacts..."
 	rm -f $(BINARY_PATH)
+	rm -f $(EXTRACT_NONCE_PATH)
+	rm -f $(IMPORT_MATCHCARDS_PATH)
 	rm -f ./tennis.db
 
 # Build the Docker images

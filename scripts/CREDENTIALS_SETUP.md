@@ -2,9 +2,23 @@
 
 This guide explains how to get the required authentication credentials for importing tennis match card data.
 
-## Required Credentials
+## Automatic Nonce Extraction (Recommended)
 
-You only need one piece of authentication data:
+As of the latest version, the system can automatically extract nonces from the BHPLTA website! You no longer need to manually find nonces in most cases.
+
+### Quick Start with Auto-Nonce
+
+```bash
+# Test nonce extraction
+./cmd/extract-nonce/extract-nonce -club-code=YOUR_CLUB_CODE -verbose
+
+# Import with automatic nonce extraction
+./cmd/import-matchcards/import-matchcards -auto-nonce -club-code=YOUR_CLUB_CODE -week=1 -year=2024
+```
+
+## Manual Credentials (Fallback)
+
+If automatic extraction doesn't work, you can still manually provide:
 
 - **TENNIS_NONCE** - The BHPLTA nonce for API authentication
 

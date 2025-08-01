@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match Card Importation - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#2c3e50">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+            text-decoration: underline;
+        }
+        .admin-container {
+            padding: 1rem 0;
+        }
+
+        .admin-content {
+            margin-bottom: 2rem;
+        }
+
+        .admin-content h1 {
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .card {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .card-header {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem;
+            font-weight: 600;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+            display: block;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        .form-check {
+            margin: 0.5rem 0;
+        }
+
+        .form-check-input {
+            margin-right: 0.5rem;
+        }
+
+        .form-actions {
+            margin-top: 1.5rem;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #545b62;
+            color: white;
+            text-decoration: none;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .text-muted {
+            color: #6c757d;
+        }
+
+        .spinner-border {
+            width: 1rem;
+            height: 1rem;
+            border: 0.125em solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spinner-border 0.75s linear infinite;
+        }
+
+        @keyframes spinner-border {
+            to { transform: rotate(360deg); }
+        }
+
+        .spinner-border-sm {
+            width: 0.875rem;
+            height: 0.875rem;
+            border-width: 0.125em;
+        }
+
+        .import-success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        .import-error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: #6c757d;
+            margin-top: 0.25rem;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        .alert-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+
+        .alert-info {
+            background-color: #d1ecf1;
+            border: 1px solid #b7d4ea;
+            color: #0c5460;
+        }
+
+        .mt-3 {
+            margin-top: 1rem;
+        }
+
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 0 -0.5rem;
+        }
+
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+            padding: 0 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .col-md-6 {
+                flex: 0 0 100%;
+                max-width: 100%;
+            }
+            
+            .form-actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.5rem;
+            }
+            
+            .stat-value {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin">Admin</a> / Match Card Import
+            </div>
+            <h1>🎾 Match Card Importation</h1>
+            <p class="text-muted">Import completed match results from BHPLTA using automatic n-once extraction</p>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <div class="admin-container">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Import Parameters</h3>
+                            </div>
+                            <div class="card-body">
+                                <form id="import-form" hx-post="/admin/match-card-import" hx-target="#import-results" hx-swap="innerHTML">
+                                    <div class="form-group">
+                                        <label for="week">Week</label>
+                                        <select class="form-control" id="week" name="week" required>
+                                            <option value="">Select a week...</option>
+                                            {{range $i := .WeekOptions}}
+                                            <option value="{{$i}}" {{if eq $i $.DefaultWeek}}selected{{end}}>Week {{$i}}</option>
+                                            {{end}}
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="year">Year</label>
+                                        <input type="number" class="form-control" id="year" name="year" 
+                                               value="{{.DefaultYear}}" min="{{.DefaultYear}}" max="{{.MaxYear}}" required>
+                                        <small class="form-text text-muted">Cannot import data from years before {{.DefaultYear}}</small>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="club_name">Club Name</label>
+                                        <input type="text" class="form-control" id="club_name" name="club_name" 
+                                               value="St+Anns" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="club_id">Club ID</label>
+                                        <input type="number" class="form-control" id="club_id" name="club_id" 
+                                               value="10" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="club_code">Club Code/Password</label>
+                                        <input type="password" class="form-control" id="club_code" name="club_code" 
+                                               placeholder="Enter your club password" required>
+                                        <small class="form-text text-muted">
+                                            🔐 Your club password is used to authenticate with BHPLTA. 
+                                        </small>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="clear_existing" name="clear_existing" checked>
+                                            <label class="form-check-label" for="clear_existing">
+                                                Clear Existing Matchups
+                                            </label>
+                                            <small class="form-text text-muted">
+                                                ⚠️ This will remove existing matchup data before importing new data
+                                            </small>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="dry_run" name="dry_run">
+                                            <label class="form-check-label" for="dry_run">
+                                                Dry Run Mode
+                                            </label>
+                                            <small class="form-text text-muted">
+                                                🔍 Test the import without making database changes
+                                            </small>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-primary" id="import-btn">
+                                            <span class="btn-text">🚀 Start Import</span>
+                                            <span class="btn-loading" style="display: none;">
+                                                <span class="spinner-border spinner-border-sm" role="status"></span>
+                                                Importing...
+                                            </span>
+                                        </button>
+                                        <a href="/admin" class="btn btn-secondary">← Back to Dashboard</a>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Import Results</h3>
+                            </div>
+                            <div class="card-body" id="import-results">
+                                <div class="text-center text-muted py-4">
+                                    <p>📥 No import has been run yet.</p>
+                                    <p>Fill in the parameters and click "Start Import" to begin.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; Jim.Tennis 2025</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('import-form');
+            const importBtn = document.getElementById('import-btn');
+            const btnText = importBtn.querySelector('.btn-text');
+            const btnLoading = importBtn.querySelector('.btn-loading');
+            
+            // Handle form submission states
+            form.addEventListener('htmx:beforeRequest', function() {
+                importBtn.disabled = true;
+                btnText.style.display = 'none';
+                btnLoading.style.display = 'inline-flex';
+            });
+            
+            form.addEventListener('htmx:afterRequest', function() {
+                importBtn.disabled = false;
+                btnText.style.display = 'inline';
+                btnLoading.style.display = 'none';
+            });
+            
+            // Handle successful completion
+            form.addEventListener('htmx:responseError', function(event) {
+                console.error('Import failed:', event.detail);
+            });
+        });
+    </script>
+</body>
+</html> 
