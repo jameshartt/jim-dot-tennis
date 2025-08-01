@@ -6,6 +6,18 @@
     <title>Match Card Importation - Jim.Tennis Admin</title>
     <link rel="stylesheet" href="/static/css/main.css">
     <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <script>
+        // Fallback HTMX loader in case CDN fails (common on mobile)
+        if (typeof htmx === 'undefined') {
+            console.warn('HTMX failed to load from CDN, loading fallback...');
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/htmx.org@1.9.4/dist/htmx.min.js';
+            script.onerror = function() {
+                console.error('Both HTMX CDNs failed, form will use standard submission');
+            };
+            document.head.appendChild(script);
+        }
+    </script>
     <link rel="icon" type="image/png" href="/static/img/favicon.png">
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#2c3e50">
@@ -133,6 +145,17 @@
         .btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
+        }
+        
+        .btn[data-form-incomplete] {
+            background-color: #6c757d !important;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        .btn[data-form-incomplete]:hover {
+            background-color: #6c757d !important;
+            transform: none !important;
         }
 
         .text-muted {
@@ -347,6 +370,9 @@
                                     </div>
 
                                     <div class="form-actions">
+                                        <div id="form-status" class="alert alert-info" style="display: none; margin-bottom: 1rem;">
+                                            <span id="form-status-text"></span>
+                                        </div>
                                         <button type="submit" class="btn btn-primary" id="import-btn">
                                             <span class="btn-text">🚀 Start Import</span>
                                             <span class="btn-loading" style="display: none;">
@@ -391,15 +417,45 @@
             const importBtn = document.getElementById('import-btn');
             const btnText = importBtn.querySelector('.btn-text');
             const btnLoading = importBtn.querySelector('.btn-loading');
+            const formStatus = document.getElementById('form-status');
+            const formStatusText = document.getElementById('form-status-text');
+            
+            function showStatus(message, type = 'info') {
+                formStatus.className = `alert alert-${type}`;
+                formStatus.style.display = 'block';
+                formStatusText.textContent = message;
+            }
+            
+            function hideStatus() {
+                formStatus.style.display = 'none';
+            }
+            
+            // Add debug logging for mobile
+            console.log('Match card import form initialized');
+            console.log('HTMX available:', typeof htmx !== 'undefined');
+            
+            // If HTMX is not available, modify form for standard submission
+            if (typeof htmx === 'undefined') {
+                console.log('HTMX not available, configuring for standard form submission');
+                form.removeAttribute('hx-post');
+                form.removeAttribute('hx-target');
+                form.removeAttribute('hx-swap');
+                form.setAttribute('method', 'POST');
+                form.setAttribute('action', '/admin/match-card-import');
+                showStatus('⚠️ Using fallback mode - page will reload after import', 'warning');
+            }
             
             // Handle form submission states
-            form.addEventListener('htmx:beforeRequest', function() {
+            form.addEventListener('htmx:beforeRequest', function(evt) {
+                console.log('HTMX beforeRequest event fired');
+                hideStatus();
                 importBtn.disabled = true;
                 btnText.style.display = 'none';
                 btnLoading.style.display = 'inline-flex';
             });
             
-            form.addEventListener('htmx:afterRequest', function() {
+            form.addEventListener('htmx:afterRequest', function(evt) {
+                console.log('HTMX afterRequest event fired');
                 importBtn.disabled = false;
                 btnText.style.display = 'inline';
                 btnLoading.style.display = 'none';
@@ -408,7 +464,110 @@
             // Handle successful completion
             form.addEventListener('htmx:responseError', function(event) {
                 console.error('Import failed:', event.detail);
+                showStatus('❌ Import request failed. Please try again.', 'warning');
             });
+            
+            // Add fallback for when HTMX fails (mobile networks, CSP issues, etc.)
+            form.addEventListener('submit', function(evt) {
+                console.log('Form submit event fired');
+                
+                // Prevent submission if button is disabled or form incomplete
+                if (importBtn.disabled || importBtn.hasAttribute('data-form-incomplete')) {
+                    evt.preventDefault();
+                    if (importBtn.hasAttribute('data-form-incomplete')) {
+                        showStatus('⚠️ Please fill in all required fields before submitting', 'warning');
+                    } else {
+                        showStatus('⚠️ Import is already in progress', 'warning');
+                    }
+                    return false;
+                }
+                
+                // Check if required fields are filled
+                const requiredFields = form.querySelectorAll('[required]');
+                for (let field of requiredFields) {
+                    if (!field.value) {
+                        evt.preventDefault();
+                        showStatus('⚠️ Please fill in all required fields before submitting', 'warning');
+                        return false;
+                    }
+                }
+                
+                hideStatus();
+                
+                // Check if HTMX is available and will handle this
+                if (typeof htmx === 'undefined') {
+                    console.warn('HTMX not available, using standard form submission');
+                    // Show loading state for standard submission
+                    importBtn.disabled = true;
+                    btnText.style.display = 'none';
+                    btnLoading.style.display = 'inline-flex';
+                    // Let the browser handle normal form submission
+                    return true;
+                }
+                
+                // If HTMX is available but hasn't triggered within 100ms, something is wrong
+                setTimeout(function() {
+                    if (importBtn.disabled === false) {
+                        console.warn('HTMX may not be working, triggering manual state change');
+                        importBtn.disabled = true;
+                        btnText.style.display = 'none';
+                        btnLoading.style.display = 'inline-flex';
+                        
+                        // Reset after 30 seconds as a safety measure
+                        setTimeout(function() {
+                            importBtn.disabled = false;
+                            btnText.style.display = 'inline';
+                            btnLoading.style.display = 'none';
+                            showStatus('⏱️ Request timeout. Please try again.', 'warning');
+                        }, 30000);
+                    }
+                }, 100);
+            });
+            
+            // Additional mobile-specific event handlers
+            importBtn.addEventListener('touchstart', function(evt) {
+                console.log('Touch start detected on import button');
+            });
+            
+            // Check if all required fields are filled before allowing submission
+            form.addEventListener('input', function(evt) {
+                const requiredFields = form.querySelectorAll('[required]');
+                let allFilled = true;
+                
+                for (let field of requiredFields) {
+                    if (!field.value) {
+                        allFilled = false;
+                        break;
+                    }
+                }
+                
+                // Enable/disable button based on form validity
+                if (allFilled !== !importBtn.hasAttribute('data-form-incomplete')) {
+                    if (allFilled) {
+                        importBtn.removeAttribute('data-form-incomplete');
+                        hideStatus();
+                        console.log('All required fields filled');
+                    } else {
+                        importBtn.setAttribute('data-form-incomplete', 'true');
+                        showStatus('📝 Please fill in all required fields to enable import', 'info');
+                        console.log('Some required fields are empty');
+                    }
+                }
+            });
+            
+            // Check form validity on page load
+            const requiredFields = form.querySelectorAll('[required]');
+            let allFilled = true;
+            for (let field of requiredFields) {
+                if (!field.value) {
+                    allFilled = false;
+                    break;
+                }
+            }
+            if (!allFilled) {
+                importBtn.setAttribute('data-form-incomplete', 'true');
+                showStatus('📝 Please fill in all required fields to enable import', 'info');
+            }
         });
     </script>
 </body>
