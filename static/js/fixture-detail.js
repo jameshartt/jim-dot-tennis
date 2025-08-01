@@ -66,10 +66,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="glance-notes-title">📝 Notes</div>
                         <div class="glance-notes-content">${escapeHtml(notesText)}</div>
                     `;
-                    // Insert before the glance-matchups section
+                    // Insert after the glance-matchups section
                     const glanceMatchups = document.querySelector('.glance-matchups');
                     if (glanceMatchups) {
-                        glanceMatchups.parentNode.insertAfter(newGlanceNotes, glanceMatchups);
+                        glanceMatchups.parentNode.insertBefore(newGlanceNotes, glanceMatchups.nextSibling);
                     } else if (glanceContent) {
                         glanceContent.appendChild(newGlanceNotes);
                     }
