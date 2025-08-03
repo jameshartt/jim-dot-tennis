@@ -54,6 +54,22 @@ func parseTemplate(templateDir, templatePath string) (*template.Template, error)
 			// Otherwise show one decimal place
 			return fmt.Sprintf("%.1f", points)
 		},
+		"until": func(n int) []int {
+			result := make([]int, n)
+			for i := 0; i < n; i++ {
+				result[i] = i
+			}
+			return result
+		},
+		"lt": func(a, b int) bool {
+			return a < b
+		},
+		"le": func(a, b int) bool {
+			return a <= b
+		},
+		"ge": func(a, b int) bool {
+			return a >= b
+		},
 	}
 
 	// Parse template with function map

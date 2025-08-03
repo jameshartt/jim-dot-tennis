@@ -7,50 +7,54 @@
     <link rel="stylesheet" href="/static/css/main.css">
     <link rel="icon" type="image/png" href="/static/img/favicon.png">
     <style>
+        body {
+            font-size: 14px;
+            line-height: 1.2;
+            margin: 0;
+            padding: 0;
+        }
+        
         .admin-header {
             background: var(--primary-color);
             color: white;
-            padding: 1rem 0;
-            margin-bottom: 2rem;
+            padding: 0.4rem 0;
+            margin-bottom: 0.6rem;
         }
+        
         .breadcrumb {
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
+            font-size: 0.7rem;
+            margin-bottom: 0.2rem;
         }
+        
         .breadcrumb a {
             color: #ffffff80;
             text-decoration: none;
         }
-        .breadcrumb a:hover {
-            color: white;
-        }
+        
         .admin-content {
-            padding: 0 1rem;
+            padding: 0 0.5rem;
         }
         
         .points-header {
             display: flex;
             align-items: center;
-            gap: 2rem;
-            margin-bottom: 2rem;
+            gap: 0.8rem;
+            margin-bottom: 0.8rem;
             background: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 0.6rem;
+            border-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
         
         .club-logo {
-            width: 80px;
-            height: 80px;
+            width: 45px;
+            height: 45px;
             object-fit: contain;
         }
         
-        .points-info {
-            flex: 1;
-        }
-        
         .points-info h2 {
-            margin: 0 0 0.5rem 0;
+            margin: 0 0 0.2rem 0;
+            font-size: 1.3rem;
             color: var(--primary-color);
         }
         
@@ -58,44 +62,46 @@
             font-size: 1.1rem;
             font-weight: 600;
             color: var(--secondary-color);
-            margin-bottom: 1rem;
+            margin-bottom: 0.3rem;
         }
         
         .rules-text {
-            font-size: 0.95rem;
+            font-size: 1rem;
             color: #666;
-            line-height: 1.4;
+            line-height: 1.2;
         }
         
         .points-tables {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            margin-bottom: 2rem;
+            gap: 0.8rem;
+            margin-bottom: 0.5rem;
         }
         
         .points-section {
             background: white;
-            border-radius: 8px;
-            padding: 1.5rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 4px;
+            padding: 0.6rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
         
         .points-section h3 {
-            margin: 0 0 1rem 0;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid var(--primary-color);
+            margin: 0 0 0.4rem 0;
+            padding-bottom: 0.2rem;
+            border-bottom: 1px solid var(--primary-color);
             color: var(--primary-color);
+            font-size: 1.2rem;
         }
         
         .points-table {
             width: 100%;
             border-collapse: collapse;
+            font-size: 13px;
         }
         
         .points-table th,
         .points-table td {
-            padding: 0.75rem 0.5rem;
+            padding: 0.2rem 0.3rem;
             text-align: left;
             border-bottom: 1px solid #e9ecef;
         }
@@ -104,8 +110,8 @@
             background: #f8f9fa;
             font-weight: 600;
             color: #495057;
-            position: sticky;
-            top: 0;
+            font-size: 12px;
+            text-transform: uppercase;
         }
         
         .points-table tbody tr:hover {
@@ -114,76 +120,83 @@
         
         .player-name {
             font-weight: 500;
+            font-size: 13px;
+            white-space: nowrap;
+            width: 1%;
         }
         
         .matches-played {
             text-align: center;
             color: #666;
+            width: 25px;
         }
         
         .points-total {
             text-align: center;
             font-weight: 600;
             color: var(--success-color);
+            width: 30px;
         }
         
-        .rank-number {
-            text-align: center;
-            font-weight: 600;
-            color: var(--primary-color);
-            width: 40px;
+
+        
+        h1 {
+            font-size: 1.4rem;
+            margin: 0;
         }
         
-        /* Mobile responsiveness */
+        @media print {
+            body {
+                font-size: 12px;
+            }
+            .admin-header {
+                padding: 0.2rem 0;
+                margin-bottom: 0.3rem;
+            }
+            .points-header {
+                padding: 0.3rem;
+                margin-bottom: 0.4rem;
+                gap: 0.5rem;
+            }
+            .club-logo {
+                width: 30px;
+                height: 30px;
+            }
+            .points-tables {
+                gap: 0.5rem;
+                margin-bottom: 0.2rem;
+            }
+            .points-section {
+                padding: 0.3rem;
+            }
+            .points-section h3 {
+                margin: 0 0 0.2rem 0;
+                font-size: 1rem;
+            }
+            .points-table {
+                font-size: 11px;
+            }
+            .points-table th,
+            .points-table td {
+                padding: 0.1rem 0.15rem;
+            }
+            .points-info h2 {
+                font-size: 1.1rem;
+            }
+            .week-info {
+                font-size: 0.9rem;
+            }
+            .rules-text {
+                font-size: 0.8rem;
+                line-height: 1.1;
+            }
+        }
+        
         @media (max-width: 768px) {
             .points-header {
                 flex-direction: column;
                 text-align: center;
-                gap: 1rem;
-            }
-            
-            .club-logo {
-                width: 60px;
-                height: 60px;
-            }
-            
-            .points-tables {
-                grid-template-columns: 1fr;
-                gap: 1.5rem;
-            }
-            
-            .points-table th,
-            .points-table td {
-                padding: 0.5rem 0.25rem;
-                font-size: 0.9rem;
-            }
-            
-            .player-name {
-                font-size: 0.85rem;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .admin-content {
-                padding: 0 0.5rem;
-            }
-            
-            .points-header {
-                padding: 1rem;
-            }
-            
-            .points-section {
-                padding: 1rem;
-            }
-            
-            .points-table th,
-            .points-table td {
-                padding: 0.4rem 0.2rem;
-                font-size: 0.8rem;
-            }
-            
-            .rules-text {
-                font-size: 0.85rem;
+                gap: 0.4rem;
             }
         }
         
@@ -191,7 +204,8 @@
             text-align: center;
             color: #666;
             font-style: italic;
-            padding: 2rem;
+            padding: 0.8rem;
+            font-size: 12px;
         }
     </style>
 </head>
@@ -212,7 +226,7 @@
                 <h2>St Ann's Tennis Club - Division 4</h2>
                 <div class="week-info">Week {{.CurrentWeek}} of 18</div>
                 <div class="rules-text">
-                    54 points available. Only the first 18 matches per player will be recorded this year as Div 4 are playing additional matches. 1 pt per win, 1 pt per set, 0.5 pts for halved matches (equal sets won). MP = Matches Played
+                    54pts max. First 18 matches only. 1pt win, 1pt per set, 0.5pt halved. MP=Matches Played
                 </div>
             </div>
         </div>
@@ -220,21 +234,19 @@
         <div class="points-tables">
             <!-- Men's Points Table -->
             <div class="points-section">
-                <h3>👨 Men</h3>
+                <h3>Men</h3>
                 {{if .MenPlayers}}
                 <table class="points-table">
                     <thead>
                         <tr>
-                            <th class="rank-number">#</th>
-                            <th>Player Name</th>
+                            <th>Name</th>
                             <th class="matches-played">MP</th>
-                            <th class="points-total">Points</th>
+                            <th class="points-total">Pts</th>
                         </tr>
                     </thead>
                     <tbody>
                         {{range $index, $player := .MenPlayers}}
                         <tr>
-                            <td class="rank-number">{{add $index 1}}</td>
                             <td class="player-name">{{$player.Name}}</td>
                             <td class="matches-played">{{$player.MatchesPlayed}}</td>
                             <td class="points-total">{{formatPoints $player.TotalPoints}}</td>
@@ -243,29 +255,27 @@
                     </tbody>
                 </table>
                 {{else}}
-                <div class="empty-state">
-                    No men's results available yet.
-                </div>
+                                 <div class="empty-state">
+                     No results yet
+                 </div>
                 {{end}}
             </div>
 
             <!-- Women's Points Table -->
             <div class="points-section">
-                <h3>👩 Women</h3>
+                <h3>Women</h3>
                 {{if .WomenPlayers}}
                 <table class="points-table">
                     <thead>
                         <tr>
-                            <th class="rank-number">#</th>
-                            <th>Player Name</th>
+                            <th>Name</th>
                             <th class="matches-played">MP</th>
-                            <th class="points-total">Points</th>
+                            <th class="points-total">Pts</th>
                         </tr>
                     </thead>
                     <tbody>
                         {{range $index, $player := .WomenPlayers}}
                         <tr>
-                            <td class="rank-number">{{add $index 1}}</td>
                             <td class="player-name">{{$player.Name}}</td>
                             <td class="matches-played">{{$player.MatchesPlayed}}</td>
                             <td class="points-total">{{formatPoints $player.TotalPoints}}</td>
@@ -274,9 +284,9 @@
                     </tbody>
                 </table>
                 {{else}}
-                <div class="empty-state">
-                    No women's results available yet.
-                </div>
+                                 <div class="empty-state">
+                     No results yet
+                 </div>
                 {{end}}
             </div>
         </div>
