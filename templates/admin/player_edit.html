@@ -330,6 +330,16 @@
                 <input type="text" id="last_name" name="last_name" value="{{.Player.LastName}}" required>
             </div>
             
+            <div class="form-group">
+                <label for="gender">Gender <span class="form-required">*</span></label>
+                <select id="gender" name="gender" required>
+                    <option value="">Select Gender</option>
+                    <option value="Men" {{if eq .Player.Gender "Men"}}selected{{end}}>Men</option>
+                    <option value="Women" {{if eq .Player.Gender "Women"}}selected{{end}}>Women</option>
+                    <option value="Unknown" {{if eq .Player.Gender "Unknown"}}selected{{end}}>Unknown</option>
+                </select>
+            </div>
+            
             <!-- Email and phone fields removed - will be reimplemented later -->
             
             <!-- Fantasy Doubles Section -->
@@ -453,7 +463,7 @@
     <script>
         // Add form validation feedback
         document.querySelector('form').addEventListener('submit', function(e) {
-            const requiredFields = this.querySelectorAll('input[required]');
+            const requiredFields = this.querySelectorAll('input[required], select[required]');
             let isValid = true;
             
             requiredFields.forEach(field => {
@@ -471,9 +481,12 @@
             }
         });
         
-        // Clear error styling on input
-        document.querySelectorAll('input').forEach(input => {
-            input.addEventListener('input', function() {
+        // Clear error styling on input and select
+        document.querySelectorAll('input, select').forEach(field => {
+            field.addEventListener('input', function() {
+                this.style.borderColor = '#ddd';
+            });
+            field.addEventListener('change', function() {
                 this.style.borderColor = '#ddd';
             });
         });

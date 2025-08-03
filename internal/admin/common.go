@@ -43,6 +43,17 @@ func parseTemplate(templateDir, templatePath string) (*template.Template, error)
 		"currentYear": func() int {
 			return time.Now().Year()
 		},
+		"add": func(a, b int) int {
+			return a + b
+		},
+		"formatPoints": func(points float64) string {
+			// If it's a whole number, show as integer
+			if points == float64(int(points)) {
+				return fmt.Sprintf("%.0f", points)
+			}
+			// Otherwise show one decimal place
+			return fmt.Sprintf("%.1f", points)
+		},
 	}
 
 	// Parse template with function map

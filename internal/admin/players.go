@@ -168,10 +168,17 @@ func (h *PlayersHandler) handlePlayerNewPost(w http.ResponseWriter, r *http.Requ
 	// Get player fields from form
 	firstName := strings.TrimSpace(r.FormValue("first_name"))
 	lastName := strings.TrimSpace(r.FormValue("last_name"))
+	gender := strings.TrimSpace(r.FormValue("gender"))
 
 	// Validate required fields
-	if firstName == "" || lastName == "" {
-		logAndError(w, "First name and last name are required", fmt.Errorf("missing required fields"), http.StatusBadRequest)
+	if firstName == "" || lastName == "" || gender == "" {
+		logAndError(w, "First name, last name, and gender are required", fmt.Errorf("missing required fields"), http.StatusBadRequest)
+		return
+	}
+
+	// Validate gender value
+	if gender != "Men" && gender != "Women" && gender != "Unknown" {
+		logAndError(w, "Invalid gender value", fmt.Errorf("gender must be Men, Women, or Unknown"), http.StatusBadRequest)
 		return
 	}
 
@@ -192,6 +199,7 @@ func (h *PlayersHandler) handlePlayerNewPost(w http.ResponseWriter, r *http.Requ
 		ID:        uuid.New().String(),
 		FirstName: firstName,
 		LastName:  lastName,
+		Gender:    models.PlayerGender(gender),
 		ClubID:    stAnnsClubID, // Auto-assign to St. Ann's instead of 0
 	}
 
@@ -343,6 +351,21 @@ func (h *PlayersHandler) handlePlayerEditPost(w http.ResponseWriter, r *http.Req
 	// Update player fields from form
 	player.FirstName = strings.TrimSpace(r.FormValue("first_name"))
 	player.LastName = strings.TrimSpace(r.FormValue("last_name"))
+
+	// Handle gender field
+	gender := strings.TrimSpace(r.FormValue("gender"))
+	if gender == "" {
+		logAndError(w, "Gender is required", fmt.Errorf("missing gender field"), http.StatusBadRequest)
+		return
+	}
+
+	// Validate gender value
+	if gender != "Men" && gender != "Women" && gender != "Unknown" {
+		logAndError(w, "Invalid gender value", fmt.Errorf("gender must be Men, Women, or Unknown"), http.StatusBadRequest)
+		return
+	}
+
+	player.Gender = models.PlayerGender(gender)
 
 	// Handle club ID (convert from string to uint)
 	clubIDStr := r.FormValue("club_id")
@@ -514,6 +537,9 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 					<td class="col-name">
 						<a href="/admin/players/%s/edit" class="row-link">%s %s</a>
 					</td>
+					<td class="col-gender">
+						%s
+					</td>
 					<td class="col-availability">
 						%s
 					</td>
@@ -523,12 +549,12 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 				</tr>
 			`, playerWithAvail.Player.ID, playerWithAvail.Player.FirstName, playerWithAvail.Player.LastName, activeClass,
 				playerWithAvail.Player.ID, playerWithAvail.Player.FirstName, playerWithAvail.Player.LastName,
-				availStatusIcon, actionButton)))
+				playerWithAvail.Player.Gender, availStatusIcon, actionButton)))
 		}
 	} else {
 		w.Write([]byte(`
 			<tr>
-				<td colspan="3" style="text-align: center; padding: 2rem;">
+				<td colspan="4" style="text-align: center; padding: 2rem;">
 					No players found matching your criteria.
 				</td>
 			</tr>

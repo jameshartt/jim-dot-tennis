@@ -32,17 +32,27 @@ type Week struct {
 	Fixtures   []Fixture `json:"fixtures,omitempty"` // Fixtures in this week
 }
 
+// PlayerGender represents the gender of a tennis player
+type PlayerGender string
+
+const (
+	PlayerGenderMen     PlayerGender = "Men"
+	PlayerGenderWomen   PlayerGender = "Women"
+	PlayerGenderUnknown PlayerGender = "Unknown"
+)
+
 // Player represents a player in the tennis league
 type Player struct {
-	ID             string    `json:"id" db:"id"` // UUID for player identification
-	FirstName      string    `json:"first_name" db:"first_name"`
-	LastName       string    `json:"last_name" db:"last_name"`
-	PreferredName  *string   `json:"preferred_name,omitempty" db:"preferred_name"`     // Optional preferred name for display
-	ClubID         uint      `json:"club_id" db:"club_id"`                             // Player belongs to a club, not directly to a team
-	FantasyMatchID *uint     `json:"fantasy_match_id,omitempty" db:"fantasy_match_id"` // Links player to fantasy mixed doubles match for auth
-	CreatedAt      time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at" db:"updated_at"`
-	Teams          []uint    `json:"teams,omitempty"` // Player can be part of multiple teams through PlayerTeam
+	ID             string       `json:"id" db:"id"` // UUID for player identification
+	FirstName      string       `json:"first_name" db:"first_name"`
+	LastName       string       `json:"last_name" db:"last_name"`
+	PreferredName  *string      `json:"preferred_name,omitempty" db:"preferred_name"`     // Optional preferred name for display
+	Gender         PlayerGender `json:"gender" db:"gender"`                               // Player gender: Men, Women, or Unknown
+	ClubID         uint         `json:"club_id" db:"club_id"`                             // Player belongs to a club, not directly to a team
+	FantasyMatchID *uint        `json:"fantasy_match_id,omitempty" db:"fantasy_match_id"` // Links player to fantasy mixed doubles match for auth
+	CreatedAt      time.Time    `json:"created_at" db:"created_at"`
+	UpdatedAt      time.Time    `json:"updated_at" db:"updated_at"`
+	Teams          []uint       `json:"teams,omitempty"` // Player can be part of multiple teams through PlayerTeam
 }
 
 // PreferredNameRequestStatus represents the status of a preferred name request

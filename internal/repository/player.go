@@ -83,7 +83,7 @@ func NewPlayerRepository(db *database.DB) PlayerRepository {
 func (r *playerRepository) FindAll(ctx context.Context) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, preferred_name, club_id, fantasy_match_id, created_at, updated_at
+		SELECT id, first_name, last_name, preferred_name, gender, club_id, fantasy_match_id, created_at, updated_at
 		FROM players 
 		ORDER BY last_name ASC, first_name ASC
 	`)
@@ -94,7 +94,7 @@ func (r *playerRepository) FindAll(ctx context.Context) ([]models.Player, error)
 func (r *playerRepository) FindByID(ctx context.Context, id string) (*models.Player, error) {
 	var player models.Player
 	err := r.db.GetContext(ctx, &player, `
-		SELECT id, first_name, last_name, preferred_name, club_id, fantasy_match_id, created_at, updated_at
+		SELECT id, first_name, last_name, preferred_name, gender, club_id, fantasy_match_id, created_at, updated_at
 		FROM players 
 		WHERE id = ?
 	`, id)
@@ -111,8 +111,8 @@ func (r *playerRepository) Create(ctx context.Context, player *models.Player) er
 	player.UpdatedAt = now
 
 	_, err := r.db.NamedExecContext(ctx, `
-		INSERT INTO players (id, first_name, last_name, preferred_name, club_id, fantasy_match_id, created_at, updated_at)
-		VALUES (:id, :first_name, :last_name, :preferred_name, :club_id, :fantasy_match_id, :created_at, :updated_at)
+		INSERT INTO players (id, first_name, last_name, preferred_name, gender, club_id, fantasy_match_id, created_at, updated_at)
+		VALUES (:id, :first_name, :last_name, :preferred_name, :gender, :club_id, :fantasy_match_id, :created_at, :updated_at)
 	`, player)
 
 	return err
@@ -124,7 +124,7 @@ func (r *playerRepository) Update(ctx context.Context, player *models.Player) er
 
 	_, err := r.db.NamedExecContext(ctx, `
 		UPDATE players 
-		SET first_name = :first_name, last_name = :last_name, preferred_name = :preferred_name,
+		SET first_name = :first_name, last_name = :last_name, preferred_name = :preferred_name, gender = :gender,
 		    club_id = :club_id, fantasy_match_id = :fantasy_match_id, updated_at = :updated_at
 		WHERE id = :id
 	`, player)
@@ -142,7 +142,7 @@ func (r *playerRepository) Delete(ctx context.Context, id string) error {
 func (r *playerRepository) FindByClub(ctx context.Context, clubID uint) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, club_id, created_at, updated_at
+		SELECT id, first_name, last_name, preferred_name, gender, club_id, fantasy_match_id, created_at, updated_at
 		FROM players 
 		WHERE club_id = ?
 		ORDER BY last_name ASC, first_name ASC
@@ -154,7 +154,7 @@ func (r *playerRepository) FindByClub(ctx context.Context, clubID uint) ([]model
 func (r *playerRepository) FindByName(ctx context.Context, firstName, lastName string) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, club_id, created_at, updated_at
+		SELECT id, first_name, last_name, preferred_name, gender, club_id, fantasy_match_id, created_at, updated_at
 		FROM players 
 		WHERE first_name = ? AND last_name = ?
 		ORDER BY created_at ASC
@@ -167,7 +167,7 @@ func (r *playerRepository) FindByNameLike(ctx context.Context, name string) ([]m
 	var players []models.Player
 	searchPattern := "%" + name + "%"
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, club_id, created_at, updated_at
+		SELECT id, first_name, last_name, preferred_name, gender, club_id, fantasy_match_id, created_at, updated_at
 		FROM players 
 		WHERE first_name LIKE ? OR last_name LIKE ? OR (first_name || ' ' || last_name) LIKE ?
 		ORDER BY last_name ASC, first_name ASC
@@ -179,7 +179,7 @@ func (r *playerRepository) FindByNameLike(ctx context.Context, name string) ([]m
 func (r *playerRepository) FindByTeam(ctx context.Context, teamID uint, seasonID uint) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT p.id, p.first_name, p.last_name, p.club_id, p.created_at, p.updated_at
+		SELECT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.club_id, p.fantasy_match_id, p.created_at, p.updated_at
 		FROM players p
 		INNER JOIN player_teams pt ON p.id = pt.player_id
 		WHERE pt.team_id = ? AND pt.season_id = ?
@@ -321,7 +321,7 @@ func (r *playerRepository) SearchPlayers(ctx context.Context, query string) ([]m
 	var players []models.Player
 	searchPattern := "%" + query + "%"
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, club_id, created_at, updated_at
+		SELECT id, first_name, last_name, preferred_name, gender, club_id, fantasy_match_id, created_at, updated_at
 		FROM players 
 		WHERE first_name LIKE ? OR last_name LIKE ?
 		ORDER BY last_name ASC, first_name ASC
@@ -333,7 +333,7 @@ func (r *playerRepository) SearchPlayers(ctx context.Context, query string) ([]m
 func (r *playerRepository) FindActivePlayersInSeason(ctx context.Context, seasonID uint) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT DISTINCT p.id, p.first_name, p.last_name, p.club_id, p.created_at, p.updated_at
+		SELECT DISTINCT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.club_id, p.fantasy_match_id, p.created_at, p.updated_at
 		FROM players p
 		INNER JOIN player_teams pt ON p.id = pt.player_id
 		WHERE pt.season_id = ? AND pt.is_active = TRUE
@@ -346,7 +346,7 @@ func (r *playerRepository) FindActivePlayersInSeason(ctx context.Context, season
 func (r *playerRepository) FindInactivePlayersInSeason(ctx context.Context, seasonID uint) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT p.id, p.first_name, p.last_name, p.club_id, p.created_at, p.updated_at
+		SELECT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.club_id, p.fantasy_match_id, p.created_at, p.updated_at
 		FROM players p
 		WHERE p.id NOT IN (
 			SELECT DISTINCT player_id 

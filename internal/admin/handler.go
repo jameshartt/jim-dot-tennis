@@ -21,6 +21,7 @@ type Handler struct {
 	users           *UsersHandler
 	sessions        *SessionsHandler
 	matchCardImport *MatchCardImportationHandler
+	points          *PointsHandler
 }
 
 // New creates a new admin handler
@@ -37,6 +38,7 @@ func New(db *database.DB, templateDir string) *Handler {
 		users:           NewUsersHandler(service, templateDir),
 		sessions:        NewSessionsHandler(service, templateDir),
 		matchCardImport: NewMatchCardImportationHandler(service, templateDir),
+		points:          NewPointsHandler(service, templateDir),
 	}
 }
 
@@ -66,6 +68,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	// Match card import routes
 	adminMux.HandleFunc("/admin/match-card-import", h.matchCardImport.HandleMatchCardImportation)
 	adminMux.HandleFunc("/admin/match-card-import/", h.matchCardImport.HandleMatchCardImportation)
+
+	// Points table route
+	adminMux.HandleFunc("/admin/points-table", h.points.HandlePointsTable)
+	adminMux.HandleFunc("/admin/points-table/", h.points.HandlePointsTable)
 
 	// Preferred name approval routes
 	adminMux.HandleFunc("/admin/preferred-names", h.service.HandlePreferredNameApprovals)
