@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"sort"
+	"strings"
 
 	"jim-dot-tennis/internal/models"
 )
@@ -15,6 +16,7 @@ import (
 type PlayerPoints struct {
 	ID            string
 	Name          string
+	LastName      string
 	Gender        models.PlayerGender
 	MatchesPlayed int
 	TotalPoints   float64
@@ -123,6 +125,7 @@ func (h *PointsHandler) calculatePlayerPoints() ([]PlayerPoints, []PlayerPoints,
 		playerPointsMap[player.ID] = &PlayerPoints{
 			ID:            player.ID,
 			Name:          displayName,
+			LastName:      player.LastName,
 			Gender:        player.Gender,
 			MatchesPlayed: 0,
 			TotalPoints:   0,
@@ -155,13 +158,14 @@ func (h *PointsHandler) calculatePlayerPoints() ([]PlayerPoints, []PlayerPoints,
 		}
 	}
 
-	// Sort by total points (descending), then by matches played (ascending) as tiebreaker
+	// Sort by total points (descending), then by last name (ascending) as tiebreaker
 	sortPlayersByPoints := func(players []PlayerPoints) {
 		sort.Slice(players, func(i, j int) bool {
 			// Use small epsilon for float comparison
 			const epsilon = 1e-9
 			if math.Abs(players[i].TotalPoints-players[j].TotalPoints) < epsilon {
-				return players[i].MatchesPlayed < players[j].MatchesPlayed
+				// If points are equal, sort by last name alphabetically (case-insensitive)
+				return strings.ToLower(players[i].LastName) < strings.ToLower(players[j].LastName)
 			}
 			return players[i].TotalPoints > players[j].TotalPoints
 		})
