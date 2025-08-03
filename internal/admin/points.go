@@ -14,14 +14,15 @@ import (
 
 // PlayerPoints represents a player's points and match statistics
 type PlayerPoints struct {
-	ID            string
-	Name          string
-	LastName      string
-	Gender        models.PlayerGender
-	MatchesPlayed int
-	TotalPoints   float64
-	WinPoints     float64
-	SetPoints     float64
+	ID               string
+	Name             string
+	LastName         string
+	Gender           models.PlayerGender
+	ReportingPrivacy models.PlayerReportingPrivacy
+	MatchesPlayed    int
+	TotalPoints      float64
+	WinPoints        float64
+	SetPoints        float64
 }
 
 // PointsHandler handles points table requests
@@ -123,14 +124,15 @@ func (h *PointsHandler) calculatePlayerPoints() ([]PlayerPoints, []PlayerPoints,
 		}
 
 		playerPointsMap[player.ID] = &PlayerPoints{
-			ID:            player.ID,
-			Name:          displayName,
-			LastName:      player.LastName,
-			Gender:        player.Gender,
-			MatchesPlayed: 0,
-			TotalPoints:   0,
-			WinPoints:     0,
-			SetPoints:     0,
+			ID:               player.ID,
+			Name:             displayName,
+			LastName:         player.LastName,
+			Gender:           player.Gender,
+			ReportingPrivacy: player.ReportingPrivacy,
+			MatchesPlayed:    0,
+			TotalPoints:      0,
+			WinPoints:        0,
+			SetPoints:        0,
 		}
 	}
 
@@ -146,8 +148,8 @@ func (h *PointsHandler) calculatePlayerPoints() ([]PlayerPoints, []PlayerPoints,
 	var menPlayers, womenPlayers []PlayerPoints
 
 	for _, playerPoints := range playerPointsMap {
-		// Only include players who have played at least one match
-		if playerPoints.MatchesPlayed > 0 {
+		// Only include players who have played at least one match and have visible reporting privacy
+		if playerPoints.MatchesPlayed > 0 && playerPoints.ReportingPrivacy == models.PlayerReportingVisible {
 			switch playerPoints.Gender {
 			case models.PlayerGenderMen:
 				menPlayers = append(menPlayers, *playerPoints)
@@ -242,7 +244,7 @@ func (h *PointsHandler) getCompletedMatchupsWithPlayers(ctx context.Context) ([]
 // getMatchupPlayers retrieves home and away players for a specific matchup
 func (h *PointsHandler) getMatchupPlayers(ctx context.Context, matchupID uint) ([]models.Player, []models.Player, error) {
 	query := `
-		SELECT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, 
+		SELECT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy,
 		       p.club_id, p.fantasy_match_id, p.created_at, p.updated_at, mp.is_home
 		FROM players p
 		INNER JOIN matchup_players mp ON p.id = mp.player_id
@@ -264,7 +266,7 @@ func (h *PointsHandler) getMatchupPlayers(ctx context.Context, matchupID uint) (
 
 		err := rows.Scan(
 			&player.ID, &player.FirstName, &player.LastName, &player.PreferredName,
-			&player.Gender, &player.ClubID, &player.FantasyMatchID,
+			&player.Gender, &player.ReportingPrivacy, &player.ClubID, &player.FantasyMatchID,
 			&player.CreatedAt, &player.UpdatedAt, &isHome,
 		)
 		if err != nil {

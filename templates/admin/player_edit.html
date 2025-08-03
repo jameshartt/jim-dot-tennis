@@ -340,6 +340,15 @@
                 </select>
             </div>
             
+            <div class="form-group">
+                <label for="reporting_privacy">Points Table Visibility <span class="form-required">*</span></label>
+                <select id="reporting_privacy" name="reporting_privacy" required>
+                    <option value="">Select Visibility</option>
+                    <option value="visible" {{if eq .Player.ReportingPrivacy "visible"}}selected{{end}}>Visible on Points Table</option>
+                    <option value="hidden" {{if eq .Player.ReportingPrivacy "hidden"}}selected{{end}}>Hidden from Points Table</option>
+                </select>
+            </div>
+            
             <!-- Email and phone fields removed - will be reimplemented later -->
             
             <!-- Fantasy Doubles Section -->

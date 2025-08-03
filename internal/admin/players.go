@@ -196,11 +196,12 @@ func (h *PlayersHandler) handlePlayerNewPost(w http.ResponseWriter, r *http.Requ
 
 	// Create new player with generated UUID and auto-assigned to St. Ann's
 	player := &models.Player{
-		ID:        uuid.New().String(),
-		FirstName: firstName,
-		LastName:  lastName,
-		Gender:    models.PlayerGender(gender),
-		ClubID:    stAnnsClubID, // Auto-assign to St. Ann's instead of 0
+		ID:               uuid.New().String(),
+		FirstName:        firstName,
+		LastName:         lastName,
+		Gender:           models.PlayerGender(gender),
+		ReportingPrivacy: models.PlayerReportingVisible, // Default to visible
+		ClubID:           stAnnsClubID,                  // Auto-assign to St. Ann's instead of 0
 	}
 
 	// Create the player
@@ -366,6 +367,21 @@ func (h *PlayersHandler) handlePlayerEditPost(w http.ResponseWriter, r *http.Req
 	}
 
 	player.Gender = models.PlayerGender(gender)
+
+	// Handle reporting privacy field
+	reportingPrivacy := strings.TrimSpace(r.FormValue("reporting_privacy"))
+	if reportingPrivacy == "" {
+		logAndError(w, "Reporting privacy is required", fmt.Errorf("missing reporting_privacy field"), http.StatusBadRequest)
+		return
+	}
+
+	// Validate reporting privacy value
+	if reportingPrivacy != "visible" && reportingPrivacy != "hidden" {
+		logAndError(w, "Invalid reporting privacy value", fmt.Errorf("reporting_privacy must be visible or hidden"), http.StatusBadRequest)
+		return
+	}
+
+	player.ReportingPrivacy = models.PlayerReportingPrivacy(reportingPrivacy)
 
 	// Handle club ID (convert from string to uint)
 	clubIDStr := r.FormValue("club_id")
