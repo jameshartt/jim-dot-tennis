@@ -93,6 +93,15 @@ type ClubVenueStats struct {
 	Rank          int // New field for ranking
 }
 
+// Page 9: Availability Engagement Stats
+type ClubAvailabilityEngagement struct {
+	PlayersSetAvailability             int     // Players who set availability at least once
+	PlayersWhoPlayed                   int     // Players who played at least one match
+	EngagementPercentage               float64 // Percentage of players who played that also set availability
+	TotalAvailabilityUpdates           int     // Total number of availability updates
+	AvailabilityActivePlayerPercentage float64 // What % of active players used availability
+}
+
 // Page 10: Club Season Highlights
 type ClubSeasonHighlights struct {
 	BestFixtureResult   string
@@ -111,19 +120,20 @@ type ClubTimelineEvent struct {
 
 // Main club wrapped data structure - for all players collectively
 type ClubWrappedData struct {
-	ClubName            string
-	SeasonYear          int
-	OverallStats        ClubOverallStats
-	FixtureBreakdown    ClubFixtureBreakdown
-	PlayingStylePlayers ClubPlayingStyleStats
-	ThreeSetWarriors    []PlayerAchievement
-	GameGrinders        []PlayerAchievement
-	TopWinPercentage    []PlayerAchievement // New field for top win percentage players
-	TopPairings         []ClubPartnership   // New field for top pairings
-	BestPartnerships    []ClubPartnership
-	BestAwayVenues      []ClubVenueStats // New field for best away venues
-	LuckyVenue          *ClubVenueStats
-	SeasonHighlights    ClubSeasonHighlights
+	ClubName               string
+	SeasonYear             int
+	OverallStats           ClubOverallStats
+	FixtureBreakdown       ClubFixtureBreakdown
+	PlayingStylePlayers    ClubPlayingStyleStats
+	ThreeSetWarriors       []PlayerAchievement
+	GameGrinders           []PlayerAchievement
+	TopWinPercentage       []PlayerAchievement // New field for top win percentage players
+	TopPairings            []ClubPartnership   // New field for top pairings
+	BestPartnerships       []ClubPartnership
+	BestAwayVenues         []ClubVenueStats           // New field for best away venues
+	AvailabilityEngagement ClubAvailabilityEngagement // New field for availability engagement
+	LuckyVenue             *ClubVenueStats
+	SeasonHighlights       ClubSeasonHighlights
 }
 
 // HandleWrapped handles the main club-wide season wrapped
@@ -198,9 +208,10 @@ func (h *ClubWrappedHandler) generateClubWrappedData() (*ClubWrappedData, error)
 
 	wrappedData.ThreeSetWarriors = h.getClubThreeSetWarriors(ctx)
 	wrappedData.GameGrinders = h.getClubGameGrinders(ctx)
-	wrappedData.TopWinPercentage = h.getTopWinPercentagePlayers(ctx) // New method call
-	wrappedData.TopPairings = h.getTopPairings(ctx)                  // New method call for top pairings
-	wrappedData.BestAwayVenues = h.getClubBestAwayVenues(ctx)        // New method call
+	wrappedData.TopWinPercentage = h.getTopWinPercentagePlayers(ctx)          // New method call
+	wrappedData.TopPairings = h.getTopPairings(ctx)                           // New method call for top pairings
+	wrappedData.BestAwayVenues = h.getClubBestAwayVenues(ctx)                 // New method call
+	wrappedData.AvailabilityEngagement = h.getClubAvailabilityEngagement(ctx) // New method call for availability engagement
 	wrappedData.LuckyVenue = h.getClubLuckyVenue(ctx)
 
 	if err := h.calculateClubSeasonHighlights(ctx, &wrappedData.SeasonHighlights); err != nil {
@@ -735,6 +746,58 @@ func (h *ClubWrappedHandler) getClubBestAwayVenues(ctx context.Context) []ClubVe
 func (h *ClubWrappedHandler) getClubLuckyVenue(ctx context.Context) *ClubVenueStats {
 	// Page 9: Lucky Venue - venue where club has best win percentage
 	return nil
+}
+
+func (h *ClubWrappedHandler) getClubAvailabilityEngagement(ctx context.Context) ClubAvailabilityEngagement {
+	// Page 9: Availability Engagement Stats
+	engagement := ClubAvailabilityEngagement{}
+
+	// Get players who set availability at least once (from availability exceptions table)
+	availabilityQuery := `
+		SELECT COUNT(DISTINCT player_id)
+		FROM player_availability_exceptions
+	`
+	err := h.service.db.QueryRowContext(ctx, availabilityQuery).Scan(&engagement.PlayersSetAvailability)
+	if err != nil {
+		log.Printf("Error getting players who set availability: %v", err)
+	}
+
+	// Get players who played at least one match
+	playedQuery := `
+		SELECT COUNT(DISTINCT mp.player_id)
+		FROM matchup_players mp
+		INNER JOIN matchups m ON mp.matchup_id = m.id
+		WHERE m.status = 'Finished'
+	`
+	err = h.service.db.QueryRowContext(ctx, playedQuery).Scan(&engagement.PlayersWhoPlayed)
+	if err != nil {
+		log.Printf("Error getting players who played: %v", err)
+	}
+
+	// Calculate engagement percentage (what % of active players used availability system)
+	if engagement.PlayersWhoPlayed > 0 {
+		engagement.AvailabilityActivePlayerPercentage = float64(engagement.PlayersSetAvailability) / float64(engagement.PlayersWhoPlayed) * 100.0
+	}
+
+	// Get total availability updates (total records in exceptions table)
+	totalUpdatesQuery := `
+		SELECT COUNT(*)
+		FROM player_availability_exceptions
+	`
+	err = h.service.db.QueryRowContext(ctx, totalUpdatesQuery).Scan(&engagement.TotalAvailabilityUpdates)
+	if err != nil {
+		log.Printf("Error getting total availability updates: %v", err)
+	}
+
+	// Calculate what percentage of players who set availability actually played
+	if engagement.PlayersSetAvailability > 0 {
+		engagement.EngagementPercentage = float64(engagement.PlayersWhoPlayed) / float64(engagement.PlayersSetAvailability) * 100.0
+	}
+
+	log.Printf("=== DEBUG: Availability Engagement - PlayersSetAvailability: %d, PlayersWhoPlayed: %d, ActivePlayerPercentage: %.1f%%, TotalUpdates: %d ===",
+		engagement.PlayersSetAvailability, engagement.PlayersWhoPlayed, engagement.AvailabilityActivePlayerPercentage, engagement.TotalAvailabilityUpdates)
+
+	return engagement
 }
 
 func (h *ClubWrappedHandler) getTopWinPercentagePlayers(ctx context.Context) []PlayerAchievement {

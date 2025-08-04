@@ -380,12 +380,71 @@
             </div>
         </div>
 
+        <!-- Page 9: Availability Engagement -->
+        <div class="wrapped-page" id="page-9">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title">Availability Engagement</h1>
+                    <h2 class="wrapped-subtitle">How well players used the availability system</h2>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card animate-fade-in">
+                        <div class="stat-number">{{.WrappedData.AvailabilityEngagement.PlayersSetAvailability}}</div>
+                        <div class="stat-label">Players Set Availability</div>
+                        <div class="stat-subtitle">Used the system at least once</div>
+                    </div>
+                    
+                    <div class="stat-card animate-fade-in delay-1">
+                        <div class="stat-number">{{.WrappedData.AvailabilityEngagement.PlayersWhoPlayed}}</div>
+                        <div class="stat-label">Players Who Played</div>
+                        <div class="stat-subtitle">Participated in matches</div>
+                    </div>
+                    
+                    <div class="stat-card animate-fade-in delay-2">
+                        <div class="stat-number">{{printf "%.1f" .WrappedData.AvailabilityEngagement.AvailabilityActivePlayerPercentage}}%</div>
+                        <div class="stat-label">Active Player Adoption</div>
+                        <div class="stat-subtitle">Of players who played</div>
+                    </div>
+                    
+                    <div class="stat-card animate-fade-in delay-3">
+                        <div class="stat-number">{{.WrappedData.AvailabilityEngagement.TotalAvailabilityUpdates}}</div>
+                        <div class="stat-label">Total Updates</div>
+                        <div class="stat-subtitle">Availability changes made</div>
+                    </div>
+                </div>
+                
+                {{if gt .WrappedData.AvailabilityEngagement.AvailabilityActivePlayerPercentage 75.0}}
+                <div class="highlight-section animate-bounce-in">
+                    <div class="highlight-icon">📅</div>
+                    <div class="highlight-title">Excellent Engagement!</div>
+                    <div class="highlight-name">{{printf "%.1f" .WrappedData.AvailabilityEngagement.AvailabilityActivePlayerPercentage}}% adoption rate</div>
+                    <div class="highlight-subtitle">Most active players used the availability system</div>
+                </div>
+                {{else if gt .WrappedData.AvailabilityEngagement.AvailabilityActivePlayerPercentage 50.0}}
+                <div class="highlight-section animate-bounce-in">
+                    <div class="highlight-icon">📊</div>
+                    <div class="highlight-title">Good Adoption</div>
+                    <div class="highlight-name">{{printf "%.1f" .WrappedData.AvailabilityEngagement.AvailabilityActivePlayerPercentage}}% adoption rate</div>
+                    <div class="highlight-subtitle">Over half of active players engaged</div>
+                </div>
+                {{else if gt .WrappedData.AvailabilityEngagement.AvailabilityActivePlayerPercentage 0.0}}
+                <div class="highlight-section animate-bounce-in">
+                    <div class="highlight-icon">📋</div>
+                    <div class="highlight-title">Room for Growth</div>
+                    <div class="highlight-name">{{printf "%.1f" .WrappedData.AvailabilityEngagement.AvailabilityActivePlayerPercentage}}% adoption rate</div>
+                    <div class="highlight-subtitle">Opportunity to improve system usage</div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
         <!-- Navigation -->
         <div class="wrapped-navigation">
             <button class="nav-btn prev-btn" onclick="previousPage()" id="prevBtn">❮</button>
             <div class="page-indicator">
                 <span class="current-page" id="currentPageNum">1</span>
-                <span class="total-pages">/ 8</span>
+                <span class="total-pages">/ 9</span>
             </div>
             <button class="nav-btn next-btn" onclick="nextPage()" id="nextBtn">❯</button>
         </div>
@@ -397,7 +456,7 @@
 
     <script>
         let currentPage = 1;
-        const totalPages = 8;
+        const totalPages = 9;
 
         function showPage(pageNum) {
             // Hide all pages
@@ -444,7 +503,7 @@
         // Initialize
         showPage(1);
         
-        console.log("St. Ann's Season Wrapped loaded");
+        console.log("St. Ann's Season Wrapped loaded with 9 pages");
     </script>
 </body>
 </html> 
