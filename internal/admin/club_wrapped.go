@@ -564,7 +564,91 @@ func (h *ClubWrappedHandler) getClubThreeSetWarriors(ctx context.Context) []Play
 
 func (h *ClubWrappedHandler) getClubGameGrinders(ctx context.Context) []PlayerAchievement {
 	// Page 5: Game Grinders - players with highest games per set
-	return []PlayerAchievement{}
+	query := `
+		WITH player_game_stats AS (
+			SELECT 
+				p.id,
+				COALESCE(p.preferred_name, p.first_name || ' ' || p.last_name) as name,
+				COUNT(*) as total_matchups,
+				-- Count all valid sets (excluding championship tiebreaks in set 3)
+				SUM(
+					CASE WHEN m.home_set1 IS NOT NULL AND m.away_set1 IS NOT NULL THEN 1 ELSE 0 END +
+					CASE WHEN m.home_set2 IS NOT NULL AND m.away_set2 IS NOT NULL THEN 1 ELSE 0 END +
+					CASE WHEN m.home_set3 IS NOT NULL AND m.away_set3 IS NOT NULL 
+						AND (m.home_set3 + m.away_set3) < 10 THEN 1 ELSE 0 END
+				) as total_sets,
+				-- Sum all games from valid sets
+				SUM(
+					COALESCE(m.home_set1, 0) + COALESCE(m.away_set1, 0) +
+					COALESCE(m.home_set2, 0) + COALESCE(m.away_set2, 0) +
+					CASE WHEN m.home_set3 IS NOT NULL AND m.away_set3 IS NOT NULL 
+						AND (m.home_set3 + m.away_set3) < 10 
+						THEN m.home_set3 + m.away_set3 
+						ELSE 0 END
+				) as total_games
+			FROM matchup_players mp
+			INNER JOIN matchups m ON mp.matchup_id = m.id
+			INNER JOIN players p ON mp.player_id = p.id
+			WHERE m.status = 'Finished'
+				AND (m.home_set1 IS NOT NULL OR m.home_set2 IS NOT NULL OR m.home_set3 IS NOT NULL)
+			GROUP BY p.id, name
+			HAVING total_matchups >= 5 AND total_sets >= 10
+		)
+		SELECT 
+			id,
+			name,
+			total_matchups,
+			total_sets,
+			total_games,
+			ROUND(CAST(total_games AS FLOAT) / total_sets, 2) as avg_games_per_set
+		FROM player_game_stats
+		ORDER BY avg_games_per_set DESC, total_games DESC
+		LIMIT 10
+	`
+
+	rows, err := h.service.db.QueryContext(ctx, query)
+	if err != nil {
+		log.Printf("Error getting game grinders: %v", err)
+		return []PlayerAchievement{}
+	}
+	defer rows.Close()
+
+	var achievements []PlayerAchievement
+	currentRank := 1
+	var previousAverage *float64
+
+	for rows.Next() {
+		var playerID, playerName string
+		var totalMatchups, totalSets, totalGames int
+		var avgGamesPerSet float64
+
+		err := rows.Scan(&playerID, &playerName, &totalMatchups, &totalSets, &totalGames, &avgGamesPerSet)
+		if err != nil {
+			log.Printf("Error scanning game grinder: %v", err)
+			continue
+		}
+
+		// Handle ties: if average is different from previous, update rank
+		if previousAverage != nil && avgGamesPerSet != *previousAverage {
+			currentRank = len(achievements) + 1
+		}
+
+		achievement := PlayerAchievement{
+			PlayerSummary: PlayerSummary{
+				ID:           playerID,
+				Name:         playerName,
+				MatchesCount: totalMatchups,
+			},
+			Value:       avgGamesPerSet,
+			Description: fmt.Sprintf("%.2f games per set (%d games/%d sets)", avgGamesPerSet, totalGames, totalSets),
+			Rank:        currentRank,
+		}
+
+		achievements = append(achievements, achievement)
+		previousAverage = &avgGamesPerSet
+	}
+
+	return achievements
 }
 
 func (h *ClubWrappedHandler) getClubUndefeatedLegends(ctx context.Context) []PlayerAchievement {

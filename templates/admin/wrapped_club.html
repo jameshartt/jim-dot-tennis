@@ -323,7 +323,6 @@
                         <div class="achievement-details">
                             <div class="achievement-name">{{.PlayerSummary.Name}}</div>
                             <div class="achievement-value">{{.Description}}</div>
-                            <div class="achievement-subtitle">Loves the long battles! 🎾⚔️</div>
                         </div>
                     </div>
                     {{end}}
@@ -338,12 +337,45 @@
             </div>
         </div>
 
+        <!-- Page 8: Game Grinders -->
+        <div class="wrapped-page" id="page-8">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title">Game Grinders</h1>
+                    <h2 class="wrapped-subtitle">Highest average games per set (5+ matches, champ tie breaks ignored)</h2>
+                </div>
+                
+                {{if .WrappedData.GameGrinders}}
+                <div class="achievements-list">
+                    {{range .WrappedData.GameGrinders}}
+                    <div class="achievement-card animate-slide-in delay-{{.Rank}}">
+                        <div class="achievement-rank">{{.Rank}}</div>
+                        <div class="achievement-icon">
+                            {{if eq .Rank 1}}🏆{{else if eq .Rank 2}}🥈{{else if eq .Rank 3}}🥉{{else}}⭐{{end}}
+                        </div>
+                        <div class="achievement-details">
+                            <div class="achievement-name">{{.PlayerSummary.Name}}</div>
+                            <div class="achievement-value">{{.Description}}</div>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{else}}
+                <div class="no-data-message">
+                    <div class="no-data-icon">🎯</div>
+                    <div class="no-data-text">No game grinders found</div>
+                    <div class="no-data-subtitle">Need 5+ matches and 10+ sets</div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
         <!-- Navigation -->
         <div class="wrapped-navigation">
             <button class="nav-btn prev-btn" onclick="previousPage()" id="prevBtn">❮</button>
             <div class="page-indicator">
                 <span class="current-page" id="currentPageNum">1</span>
-                <span class="total-pages">/ 7</span>
+                <span class="total-pages">/ 8</span>
             </div>
             <button class="nav-btn next-btn" onclick="nextPage()" id="nextBtn">❯</button>
         </div>
@@ -355,7 +387,7 @@
 
     <script>
         let currentPage = 1;
-        const totalPages = 7;
+        const totalPages = 8;
 
         function showPage(pageNum) {
             // Hide all pages
