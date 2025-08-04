@@ -63,6 +63,10 @@
     background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
 }
 
+.wrapped-page#page-6 {
+    background: linear-gradient(135deg, #667eea 0%, #a8edea 100%);
+}
+
 .wrapped-content {
     max-width: 900px;
     width: 90%;
@@ -446,6 +450,88 @@
 }
 
 .pairing-matches {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    font-weight: 500;
+}
+
+/* Venue cards */
+.venues-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    max-width: 1200px;
+    margin: 0 auto 2rem auto;
+}
+
+.venue-card {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    align-items: center;
+    gap: 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    border-radius: 15px;
+    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.venue-card:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-4px);
+}
+
+.venue-rank {
+    width: 45px;
+    height: 45px;
+    background: linear-gradient(45deg, #ffd700, #ffed4e);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: 900;
+    color: #000;
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+}
+
+.venue-icon {
+    font-size: 1.5rem;
+}
+
+.venue-details {
+    text-align: left;
+}
+
+.venue-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    color: #ffd700;
+    line-height: 1.2;
+}
+
+.venue-stats {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 0.15rem;
+    flex-wrap: wrap;
+}
+
+.venue-percentage {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #4CAF50;
+}
+
+.venue-record {
+    font-size: 0.85rem;
+    font-weight: 500;
+    opacity: 0.8;
+}
+
+.venue-matches {
     font-size: 0.9rem;
     opacity: 0.8;
     font-weight: 500;
@@ -988,6 +1074,52 @@
     .pairings-list {
         grid-template-columns: 1fr;
         gap: 0.75rem;
+    }
+    
+    .venues-list {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    
+    .venue-card {
+        grid-template-columns: auto 1fr;
+        gap: 0.75rem;
+        padding: 0.75rem;
+    }
+    
+    .venue-rank {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+    
+    .venue-name {
+        font-size: 1rem;
+    }
+    
+    .venue-stats {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+    
+    .venue-percentage {
+        font-size: 0.8rem;
+    }
+    
+    .venue-record {
+        font-size: 0.7rem;
+    }
+    
+    .venue-matches {
+        font-size: 0.8rem;
+    }
+    
+    .venue-icon {
+        grid-column: 1 / -1;
+        justify-self: center;
+        margin-top: 0.5rem;
+        font-size: 1.2rem;
     }
     
     .wrapped-navigation {

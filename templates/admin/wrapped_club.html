@@ -267,12 +267,49 @@
             </div>
         </div>
 
+        <!-- Page 6: Best Away Venues -->
+        <div class="wrapped-page" id="page-6">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title">Lucky Away Grounds</h1>
+                    <h2 class="wrapped-subtitle">Best away venues (2+ fixtures)</h2>
+                </div>
+                
+                {{if .WrappedData.BestAwayVenues}}
+                <div class="venues-list">
+                    {{range .WrappedData.BestAwayVenues}}
+                    <div class="venue-card animate-slide-in delay-{{.Rank}}">
+                        <div class="venue-rank">{{.Rank}}</div>
+                        <div class="venue-icon">
+                            {{if eq .Rank 1}}🏆{{else if eq .Rank 2}}🥈{{else if eq .Rank 3}}🥉{{else}}⭐{{end}}
+                        </div>
+                        <div class="venue-details">
+                            <div class="venue-name">{{.VenueName}}</div>
+                            <div class="venue-stats">
+                                <span class="venue-percentage">{{printf "%.1f" .WinPercentage}}% success rate</span>
+                                <span class="venue-record">{{.Wins}}W-{{.Draws}}D-{{.Losses}}L</span>
+                            </div>
+                            <div class="venue-matches">{{.MatchesPlayed}} away fixtures</div>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{else}}
+                <div class="no-data-message">
+                    <div class="no-data-icon">🏟️</div>
+                    <div class="no-data-text">No away venues found</div>
+                    <div class="no-data-subtitle">Need 2+ away fixtures to qualify</div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
         <!-- Navigation -->
         <div class="wrapped-navigation">
             <button class="nav-btn prev-btn" onclick="previousPage()" id="prevBtn">❮</button>
             <div class="page-indicator">
                 <span class="current-page" id="currentPageNum">1</span>
-                <span class="total-pages">/ 5</span>
+                <span class="total-pages">/ 6</span>
             </div>
             <button class="nav-btn next-btn" onclick="nextPage()" id="nextBtn">❯</button>
         </div>
@@ -284,7 +321,7 @@
 
     <script>
         let currentPage = 1;
-        const totalPages = 5;
+        const totalPages = 6;
 
         function showPage(pageNum) {
             // Hide all pages

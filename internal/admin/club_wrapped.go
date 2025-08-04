@@ -88,6 +88,9 @@ type ClubVenueStats struct {
 	MatchesPlayed int
 	WinPercentage float64
 	Wins          int
+	Draws         int
+	Losses        int
+	Rank          int // New field for ranking
 }
 
 // Page 10: Club Season Highlights
@@ -119,6 +122,7 @@ type ClubWrappedData struct {
 	TopWinPercentage    []PlayerAchievement // New field for top win percentage players
 	TopPairings         []ClubPartnership   // New field for top pairings
 	BestPartnerships    []ClubPartnership
+	BestAwayVenues      []ClubVenueStats // New field for best away venues
 	LuckyVenue          *ClubVenueStats
 	SeasonHighlights    ClubSeasonHighlights
 }
@@ -199,6 +203,7 @@ func (h *ClubWrappedHandler) generateClubWrappedData() (*ClubWrappedData, error)
 	wrappedData.TopWinPercentage = h.getTopWinPercentagePlayers(ctx) // New method call
 	wrappedData.TopPairings = h.getTopPairings(ctx)                  // New method call for top pairings
 	wrappedData.BestPartnerships = h.getClubBestPartnerships(ctx)
+	wrappedData.BestAwayVenues = h.getClubBestAwayVenues(ctx) // New method call
 	wrappedData.LuckyVenue = h.getClubLuckyVenue(ctx)
 
 	if err := h.calculateClubSeasonHighlights(ctx, &wrappedData.SeasonHighlights); err != nil {
@@ -491,6 +496,90 @@ func (h *ClubWrappedHandler) getClubUndefeatedLegends(ctx context.Context) []Pla
 func (h *ClubWrappedHandler) getClubBestPartnerships(ctx context.Context) []ClubPartnership {
 	// Page 7: Dynamic Duos - player combinations with perfect winning percentages
 	return []ClubPartnership{}
+}
+
+func (h *ClubWrappedHandler) getClubBestAwayVenues(ctx context.Context) []ClubVenueStats {
+	// Find best away venues (excluding home fixtures and derbies)
+	query := `
+		WITH fixture_results AS (
+			SELECT 
+				f.venue_location,
+				f.id as fixture_id,
+				SUM(m.away_score) as away_total,
+				SUM(m.home_score) as home_total,
+				CASE 
+					WHEN SUM(m.away_score) > SUM(m.home_score) THEN 1
+					WHEN SUM(m.away_score) = SUM(m.home_score) THEN 0.5
+					ELSE 0
+				END as points
+			FROM fixtures f
+			INNER JOIN matchups m ON f.id = m.fixture_id
+			INNER JOIN teams at ON f.away_team_id = at.id
+			INNER JOIN teams ht ON f.home_team_id = ht.id
+			INNER JOIN clubs ac ON at.club_id = ac.id
+			INNER JOIN clubs hc ON ht.club_id = hc.id
+			WHERE f.status = 'Completed' 
+				AND m.status = 'Finished'
+				AND (ac.name LIKE '%St Ann%' OR ac.name LIKE '%Saint Ann%')
+				AND NOT (hc.name LIKE '%St Ann%' OR hc.name LIKE '%Saint Ann%')
+			GROUP BY f.venue_location, f.id
+		)
+		SELECT 
+			venue_location,
+			COUNT(*) as matches_played,
+			SUM(CASE WHEN points = 1 THEN 1 ELSE 0 END) as wins,
+			SUM(CASE WHEN points = 0.5 THEN 1 ELSE 0 END) as draws,
+			SUM(CASE WHEN points = 0 THEN 1 ELSE 0 END) as losses,
+			ROUND(SUM(points) * 100.0 / COUNT(*), 1) as win_percentage
+		FROM fixture_results
+		GROUP BY venue_location
+		HAVING matches_played >= 2
+		ORDER BY win_percentage DESC, matches_played DESC
+		LIMIT 5
+	`
+
+	rows, err := h.service.db.QueryContext(ctx, query)
+	if err != nil {
+		log.Printf("Error getting best away venues: %v", err)
+		return []ClubVenueStats{}
+	}
+	defer rows.Close()
+
+	var venues []ClubVenueStats
+	currentRank := 1
+	var previousWinPercentage *float64
+
+	for rows.Next() {
+		var venueName string
+		var matchesPlayed, wins, draws, losses int
+		var winPercentage float64
+
+		err := rows.Scan(&venueName, &matchesPlayed, &wins, &draws, &losses, &winPercentage)
+		if err != nil {
+			log.Printf("Error scanning venue: %v", err)
+			continue
+		}
+
+		// Handle ties: if win percentage is different from previous, update rank
+		if previousWinPercentage != nil && winPercentage != *previousWinPercentage {
+			currentRank = len(venues) + 1
+		}
+
+		venue := ClubVenueStats{
+			VenueName:     venueName,
+			MatchesPlayed: matchesPlayed,
+			WinPercentage: winPercentage,
+			Wins:          wins,
+			Draws:         draws,
+			Losses:        losses,
+			Rank:          currentRank,
+		}
+
+		venues = append(venues, venue)
+		previousWinPercentage = &winPercentage
+	}
+
+	return venues
 }
 
 func (h *ClubWrappedHandler) getClubLuckyVenue(ctx context.Context) *ClubVenueStats {
