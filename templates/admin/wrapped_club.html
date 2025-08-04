@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>St. Ann's Season Wrapped {{.WrappedData.SeasonYear}} - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/wrapped.css">
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+</head>
+<body class="wrapped-body">
+    <div class="wrapped-container">
+        <!-- Page 1: Club Journey -->
+        <div class="wrapped-page active" id="page-1">
+            <div class="page-background page-1-bg">
+                <div class="wrapped-content">
+                    <div class="wrapped-header">
+                        <h1 class="wrapped-title gradient-text">{{.WrappedData.ClubName}}</h1>
+                        <h2 class="wrapped-subtitle">Season {{.WrappedData.SeasonYear}} Wrapped</h2>
+                    </div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card animate-fade-in">
+                            <div class="stat-number">{{.WrappedData.OverallStats.TotalMatchups}}</div>
+                            <div class="stat-label">Individual Matchups</div>
+                            <div class="stat-subtitle">Across all divisions</div>
+                        </div>
+                        
+                        <div class="stat-card animate-fade-in delay-1">
+                            <div class="stat-number">{{.WrappedData.OverallStats.TotalFixtures}}</div>
+                            <div class="stat-label">Team Fixtures</div>
+                            <div class="stat-subtitle">Club-wide competition</div>
+                        </div>
+                        
+                        <div class="stat-card animate-fade-in delay-3">
+                            <div class="stat-number">{{.WrappedData.OverallStats.PlayersUsed}}</div>
+                            <div class="stat-label">Players Active</div>
+                            <div class="stat-subtitle">Club participation</div>
+                        </div>
+                    </div>
+                    
+                    {{if .WrappedData.OverallStats.MostActivePlayer.Name}}
+                    <div class="highlight-section animate-bounce-in">
+                        <div class="highlight-icon">🏆</div>
+                        <div class="highlight-title">Most Active Player</div>
+                        <div class="highlight-name">{{.WrappedData.OverallStats.MostActivePlayer.Name}}</div>
+                        <div class="highlight-subtitle">{{.WrappedData.OverallStats.MostActivePlayer.MatchesCount}} matches played</div>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Page 2: Fixture Mastery -->
+        <div class="wrapped-page" id="page-2">
+            <div class="page-background page-2-bg">
+                <div class="wrapped-content">
+                    <div class="wrapped-header">
+                        <h1 class="wrapped-title">Fixture Mastery</h1>
+                        <h2 class="wrapped-subtitle">How St. Ann's performed</h2>
+                    </div>
+                    
+                                         <div class="fixture-breakdown">
+                         <!-- Perfect Victories -->
+                         {{if gt .WrappedData.FixtureBreakdown.Perfect_8_0 0}}
+                         <div class="breakdown-row victory animate-slide-in">
+                             <div class="breakdown-icon">🔥</div>
+                             <div class="breakdown-score">8-0</div>
+                             <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Perfect_8_0}}</div>
+                             <div class="breakdown-label">Perfect Victories</div>
+                         </div>
+                         {{end}}
+                         
+                         {{if gt .WrappedData.FixtureBreakdown.NearPerfect_7_1 0}}
+                         <div class="breakdown-row victory animate-slide-in delay-1">
+                             <div class="breakdown-icon">⭐</div>
+                             <div class="breakdown-score">7-1</div>
+                             <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.NearPerfect_7_1}}</div>
+                             <div class="breakdown-label">Near Perfect Victories</div>
+                         </div>
+                         {{end}}
+                         
+                         {{if gt .WrappedData.FixtureBreakdown.Strong_6_2 0}}
+                         <div class="breakdown-row victory animate-slide-in delay-2">
+                             <div class="breakdown-icon">💪</div>
+                             <div class="breakdown-score">6-2</div>
+                             <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Strong_6_2}}</div>
+                             <div class="breakdown-label">Strong Victories</div>
+                         </div>
+                         {{end}}
+                         
+                         {{if gt .WrappedData.FixtureBreakdown.Close_5_3 0}}
+                         <div class="breakdown-row victory animate-slide-in delay-3">
+                             <div class="breakdown-icon">🎾</div>
+                             <div class="breakdown-score">5-3</div>
+                             <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Close_5_3}}</div>
+                             <div class="breakdown-label">Close Victories</div>
+                         </div>
+                         {{end}}
+                         
+                         <!-- Draws -->
+                         {{if gt .WrappedData.FixtureBreakdown.Draw_4_4 0}}
+                         <div class="breakdown-row draw animate-slide-in delay-4">
+                             <div class="breakdown-icon">🤝</div>
+                             <div class="breakdown-score">4-4</div>
+                             <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Draw_4_4}}</div>
+                             <div class="breakdown-label">Perfect Draws</div>
+                         </div>
+                         {{end}}
+                         
+                         <!-- Defeats -->
+                         {{if gt .WrappedData.FixtureBreakdown.CloseDefeat_3_5 0}}
+                         <div class="breakdown-row defeat animate-slide-in delay-5">
+                             <div class="breakdown-icon">😤</div>
+                             <div class="breakdown-score">3-5</div>
+                             <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.CloseDefeat_3_5}}</div>
+                             <div class="breakdown-label">Close Defeats</div>
+                         </div>
+                         {{end}}
+                         
+                         {{if gt .WrappedData.FixtureBreakdown.Heavy_2_6 0}}
+                         <div class="breakdown-row defeat animate-slide-in delay-6">
+                             <div class="breakdown-icon">😞</div>
+                             <div class="breakdown-score">2-6</div>
+                             <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Heavy_2_6}}</div>
+                             <div class="breakdown-label">Heavy Defeats</div>
+                         </div>
+                         {{end}}
+                         
+                         {{if gt .WrappedData.FixtureBreakdown.NearWhitewash_1_7 0}}
+                         <div class="breakdown-row defeat animate-slide-in delay-7">
+                             <div class="breakdown-icon">😰</div>
+                             <div class="breakdown-score">1-7</div>
+                             <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.NearWhitewash_1_7}}</div>
+                             <div class="breakdown-label">Near Whitewash</div>
+                         </div>
+                         {{end}}
+                         
+                         {{if gt .WrappedData.FixtureBreakdown.Whitewash_0_8 0}}
+                         <div class="breakdown-row defeat animate-slide-in delay-8">
+                             <div class="breakdown-icon">💔</div>
+                             <div class="breakdown-score">0-8</div>
+                             <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Whitewash_0_8}}</div>
+                             <div class="breakdown-label">Complete Whitewash</div>
+                         </div>
+                         {{end}}
+                     </div>
+                    
+                    <div class="total-fixtures">
+                        Total Fixtures: {{.WrappedData.FixtureBreakdown.TotalFixtures}}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Page 3: Playing Style Personalities -->
+        <div class="wrapped-page" id="page-3">
+            <div class="page-background page-3-bg">
+                <div class="wrapped-content">
+                    <div class="wrapped-header">
+                        <h1 class="wrapped-title">Playing Style Personalities</h1>
+                        <h2 class="wrapped-subtitle">How our players roll</h2>
+                    </div>
+                    
+                    {{if .WrappedData.PlayingStylePlayers.MixedOnlyPlayers}}
+                    <div class="personality-section animate-fade-in">
+                        <div class="personality-title">As God Intended 😉</div>
+                        <div class="personality-subtitle">Mixed Doubles Only</div>
+                        <div class="personality-players">
+                            {{range .WrappedData.PlayingStylePlayers.MixedOnlyPlayers}}
+                            <div class="personality-player">{{.Name}}</div>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+                    
+                    {{if .WrappedData.PlayingStylePlayers.MensOnlyPlayers}}
+                    <div class="personality-section animate-fade-in delay-1">
+                        <div class="personality-title">Manly Men 💪</div>
+                        <div class="personality-subtitle">Men's Matches Only</div>
+                        <div class="personality-players">
+                            {{range .WrappedData.PlayingStylePlayers.MensOnlyPlayers}}
+                            <div class="personality-player">{{.Name}}</div>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+                    
+                    {{if .WrappedData.PlayingStylePlayers.WomensOnlyPlayers}}
+                    <div class="personality-section animate-fade-in delay-2">
+                        <div class="personality-title">Fabulous Women ✨</div>
+                        <div class="personality-subtitle">Women's Matches Only</div>
+                        <div class="personality-players">
+                            {{range .WrappedData.PlayingStylePlayers.WomensOnlyPlayers}}
+                            <div class="personality-player">{{.Name}}</div>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="wrapped-navigation">
+            <button class="nav-btn prev-btn" onclick="previousPage()" id="prevBtn">❮</button>
+            <div class="page-indicator">
+                <span class="current-page" id="currentPageNum">1</span>
+                <span class="total-pages">/ 3</span>
+            </div>
+            <button class="nav-btn next-btn" onclick="nextPage()" id="nextBtn">❯</button>
+        </div>
+        
+        <div class="wrapped-footer">
+            <a href="/admin/dashboard" class="back-link">← Back to Dashboard</a>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        const totalPages = 3;
+
+        function showPage(pageNum) {
+            // Hide all pages
+            document.querySelectorAll('.wrapped-page').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // Show current page
+            document.getElementById(`page-${pageNum}`).classList.add('active');
+            
+            // Update navigation
+            document.getElementById('currentPageNum').textContent = pageNum;
+            
+            // Update button states
+            document.getElementById('prevBtn').style.display = pageNum === 1 ? 'none' : 'block';
+            document.getElementById('nextBtn').style.display = pageNum === totalPages ? 'none' : 'block';
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                showPage(currentPage);
+            }
+        }
+
+        function previousPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                showPage(currentPage);
+            }
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                e.preventDefault();
+                nextPage();
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                previousPage();
+            }
+        });
+
+        // Initialize
+        showPage(1);
+        
+        console.log("St. Ann's Season Wrapped loaded");
+    </script>
+</body>
+</html> 

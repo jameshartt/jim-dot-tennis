@@ -22,6 +22,7 @@ type Handler struct {
 	sessions        *SessionsHandler
 	matchCardImport *MatchCardImportationHandler
 	points          *PointsHandler
+	clubWrapped     *ClubWrappedHandler
 }
 
 // New creates a new admin handler
@@ -39,6 +40,7 @@ func New(db *database.DB, templateDir string) *Handler {
 		sessions:        NewSessionsHandler(service, templateDir),
 		matchCardImport: NewMatchCardImportationHandler(service, templateDir),
 		points:          NewPointsHandler(service, templateDir),
+		clubWrapped:     NewClubWrappedHandler(service, templateDir),
 	}
 }
 
@@ -72,6 +74,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	// Points table route
 	adminMux.HandleFunc("/admin/points-table", h.points.HandlePointsTable)
 	adminMux.HandleFunc("/admin/points-table/", h.points.HandlePointsTable)
+
+	// Season wrapped routes
+	adminMux.HandleFunc("/admin/wrapped", h.clubWrapped.HandleWrapped)
+	adminMux.HandleFunc("/admin/wrapped/", h.clubWrapped.HandleWrapped)
 
 	// Preferred name approval routes
 	adminMux.HandleFunc("/admin/preferred-names", h.service.HandlePreferredNameApprovals)
