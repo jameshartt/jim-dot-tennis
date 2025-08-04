@@ -480,7 +480,86 @@ func (h *ClubWrappedHandler) calculateClubPlayingStylePlayers(ctx context.Contex
 // Stub implementations for remaining methods (Pages 4, 5, 6, 7, 9, 10)
 func (h *ClubWrappedHandler) getClubThreeSetWarriors(ctx context.Context) []PlayerAchievement {
 	// Page 4: Three-Set Warriors - players with highest proportion of 3-set matches
-	return []PlayerAchievement{}
+	query := `
+		WITH player_set_stats AS (
+			SELECT 
+				p.id,
+				COALESCE(p.preferred_name, p.first_name || ' ' || p.last_name) as name,
+				COUNT(*) as total_matches,
+				SUM(CASE 
+					WHEN m.home_set3 IS NOT NULL OR m.away_set3 IS NOT NULL 
+					THEN 1 
+					ELSE 0 
+				END) as three_set_matches,
+				ROUND(
+					SUM(CASE 
+						WHEN m.home_set3 IS NOT NULL OR m.away_set3 IS NOT NULL 
+						THEN 1 
+						ELSE 0 
+					END) * 100.0 / COUNT(*), 1
+				) as three_set_percentage
+			FROM matchup_players mp
+			INNER JOIN matchups m ON mp.matchup_id = m.id
+			INNER JOIN players p ON mp.player_id = p.id
+			WHERE m.status = 'Finished'
+			GROUP BY p.id, name
+			HAVING total_matches >= 5
+		)
+		SELECT 
+			id,
+			name,
+			total_matches,
+			three_set_matches,
+			three_set_percentage
+		FROM player_set_stats
+		WHERE three_set_percentage > 0
+		ORDER BY three_set_percentage DESC, three_set_matches DESC
+		LIMIT 10
+	`
+
+	rows, err := h.service.db.QueryContext(ctx, query)
+	if err != nil {
+		log.Printf("Error getting three set warriors: %v", err)
+		return []PlayerAchievement{}
+	}
+	defer rows.Close()
+
+	var achievements []PlayerAchievement
+	currentRank := 1
+	var previousPercentage *float64
+
+	for rows.Next() {
+		var playerID, playerName string
+		var totalMatches, threeSetMatches int
+		var threeSetPercentage float64
+
+		err := rows.Scan(&playerID, &playerName, &totalMatches, &threeSetMatches, &threeSetPercentage)
+		if err != nil {
+			log.Printf("Error scanning three set warrior: %v", err)
+			continue
+		}
+
+		// Handle ties: if percentage is different from previous, update rank
+		if previousPercentage != nil && threeSetPercentage != *previousPercentage {
+			currentRank = len(achievements) + 1
+		}
+
+		achievement := PlayerAchievement{
+			PlayerSummary: PlayerSummary{
+				ID:           playerID,
+				Name:         playerName,
+				MatchesCount: totalMatches,
+			},
+			Value:       threeSetPercentage,
+			Description: fmt.Sprintf("%.1f%% three-set matches (%d/%d)", threeSetPercentage, threeSetMatches, totalMatches),
+			Rank:        currentRank,
+		}
+
+		achievements = append(achievements, achievement)
+		previousPercentage = &threeSetPercentage
+	}
+
+	return achievements
 }
 
 func (h *ClubWrappedHandler) getClubGameGrinders(ctx context.Context) []PlayerAchievement {

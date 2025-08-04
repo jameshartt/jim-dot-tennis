@@ -304,12 +304,46 @@
             </div>
         </div>
 
+        <!-- Page 7: Three Set Warriors -->
+        <div class="wrapped-page" id="page-7">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title">Three Set Warriors</h1>
+                    <h2 class="wrapped-subtitle">Masters of the marathon match (5+ matches)</h2>
+                </div>
+                
+                {{if .WrappedData.ThreeSetWarriors}}
+                <div class="achievements-list">
+                    {{range .WrappedData.ThreeSetWarriors}}
+                    <div class="achievement-card animate-slide-in delay-{{.Rank}}">
+                        <div class="achievement-rank">{{.Rank}}</div>
+                        <div class="achievement-icon">
+                            {{if eq .Rank 1}}🏆{{else if eq .Rank 2}}🥈{{else if eq .Rank 3}}🥉{{else}}⭐{{end}}
+                        </div>
+                        <div class="achievement-details">
+                            <div class="achievement-name">{{.PlayerSummary.Name}}</div>
+                            <div class="achievement-value">{{.Description}}</div>
+                            <div class="achievement-subtitle">Loves the long battles! 🎾⚔️</div>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{else}}
+                <div class="no-data-message">
+                    <div class="no-data-icon">🎾</div>
+                    <div class="no-data-text">No three set warriors found</div>
+                    <div class="no-data-subtitle">Need 5+ matches to qualify</div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
         <!-- Navigation -->
         <div class="wrapped-navigation">
             <button class="nav-btn prev-btn" onclick="previousPage()" id="prevBtn">❮</button>
             <div class="page-indicator">
                 <span class="current-page" id="currentPageNum">1</span>
-                <span class="total-pages">/ 6</span>
+                <span class="total-pages">/ 7</span>
             </div>
             <button class="nav-btn next-btn" onclick="nextPage()" id="nextBtn">❯</button>
         </div>
@@ -321,7 +355,7 @@
 
     <script>
         let currentPage = 1;
-        const totalPages = 6;
+        const totalPages = 7;
 
         function showPage(pageNum) {
             // Hide all pages

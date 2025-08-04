@@ -67,6 +67,10 @@
     background: linear-gradient(135deg, #667eea 0%, #a8edea 100%);
 }
 
+.wrapped-page#page-7 {
+    background: linear-gradient(135deg, #ff8a80 0%, #ffb74d 100%);
+}
+
 .wrapped-content {
     max-width: 900px;
     width: 90%;
