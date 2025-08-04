@@ -60,6 +60,10 @@
     background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
 }
 
+.page-4-bg {
+    background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%);
+}
+
 .wrapped-content {
     max-width: 900px;
     width: 90%;
@@ -255,7 +259,6 @@
     margin-bottom: 0.5rem;
     background: linear-gradient(45deg, #ffd700, #ffed4e);
     -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
     background-clip: text;
 }
 
@@ -284,6 +287,100 @@
 .personality-player:hover {
     background: rgba(255, 255, 255, 0.3);
     transform: translateY(-2px);
+}
+
+/* Achievement cards */
+.achievements-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.achievement-card {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 1.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    padding: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.achievement-card:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-4px);
+}
+
+.achievement-rank {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(45deg, #ffd700, #ffed4e);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: #000;
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+}
+
+.achievement-details {
+    text-align: left;
+}
+
+.achievement-name {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    color: #ffd700;
+}
+
+.achievement-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.achievement-subtitle {
+    font-size: 0.9rem;
+    opacity: 0.7;
+}
+
+.achievement-icon {
+    font-size: 2rem;
+}
+
+/* No data message */
+.no-data-message {
+    text-align: center;
+    padding: 3rem 2rem;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.no-data-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.6;
+}
+
+.no-data-text {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.no-data-subtitle {
+    font-size: 1rem;
+    opacity: 0.7;
 }
 
 /* Navigation */
@@ -758,6 +855,29 @@
     .personality-players {
         flex-direction: column;
         align-items: center;
+    }
+    
+    .achievement-card {
+        grid-template-columns: auto 1fr;
+        gap: 1rem;
+        padding: 1rem;
+    }
+    
+    .achievement-rank {
+        width: 50px;
+        height: 50px;
+        font-size: 1.2rem;
+    }
+    
+    .achievement-name {
+        font-size: 1.1rem;
+    }
+    
+    .achievement-icon {
+        grid-column: 1 / -1;
+        justify-self: center;
+        margin-top: 0.5rem;
+        font-size: 1.5rem;
     }
     
     .wrapped-navigation {

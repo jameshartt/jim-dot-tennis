@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -113,6 +114,7 @@ type ClubWrappedData struct {
 	ThreeSetWarriors    []PlayerAchievement
 	GameGrinders        []PlayerAchievement
 	UndefeatedLegends   []PlayerAchievement
+	TopWinPercentage    []PlayerAchievement // New field for top win percentage players
 	BestPartnerships    []ClubPartnership
 	LuckyVenue          *ClubVenueStats
 	SeasonHighlights    ClubSeasonHighlights
@@ -191,6 +193,7 @@ func (h *ClubWrappedHandler) generateClubWrappedData() (*ClubWrappedData, error)
 	wrappedData.ThreeSetWarriors = h.getClubThreeSetWarriors(ctx)
 	wrappedData.GameGrinders = h.getClubGameGrinders(ctx)
 	wrappedData.UndefeatedLegends = h.getClubUndefeatedLegends(ctx)
+	wrappedData.TopWinPercentage = h.getTopWinPercentagePlayers(ctx) // New method call
 	wrappedData.BestPartnerships = h.getClubBestPartnerships(ctx)
 	wrappedData.LuckyVenue = h.getClubLuckyVenue(ctx)
 
@@ -489,6 +492,95 @@ func (h *ClubWrappedHandler) getClubBestPartnerships(ctx context.Context) []Club
 func (h *ClubWrappedHandler) getClubLuckyVenue(ctx context.Context) *ClubVenueStats {
 	// Page 9: Lucky Venue - venue where club has best win percentage
 	return nil
+}
+
+func (h *ClubWrappedHandler) getTopWinPercentagePlayers(ctx context.Context) []PlayerAchievement {
+	// Find players with highest win percentage (minimum 9 fixtures played)
+	query := `
+		WITH player_stats AS (
+			SELECT 
+				p.id,
+				COALESCE(p.preferred_name, p.first_name || ' ' || p.last_name) as name,
+				COUNT(DISTINCT m.fixture_id) as fixtures_played,
+				COUNT(*) as total_matchups,
+				SUM(CASE 
+					WHEN (mp.is_home = 1 AND m.home_score > m.away_score) 
+						OR (mp.is_home = 0 AND m.away_score > m.home_score)
+					THEN 1 
+					ELSE 0 
+				END) as wins,
+				SUM(CASE 
+					WHEN m.home_score = m.away_score 
+					THEN 0.5 
+					ELSE 0 
+				END) as draws
+			FROM matchup_players mp
+			INNER JOIN matchups m ON mp.matchup_id = m.id
+			INNER JOIN players p ON mp.player_id = p.id
+			INNER JOIN fixtures f ON m.fixture_id = f.id
+			WHERE m.status = 'Finished'
+			GROUP BY p.id, name
+			HAVING fixtures_played >= 9
+		)
+		SELECT 
+			id,
+			name,
+			fixtures_played,
+			ROUND((wins + draws) * 100.0 / total_matchups, 1) as win_percentage
+		FROM player_stats
+		WHERE total_matchups > 0
+		ORDER BY win_percentage DESC, fixtures_played DESC
+		LIMIT 10
+	`
+
+	rows, err := h.service.db.QueryContext(ctx, query)
+	if err != nil {
+		log.Printf("Error getting top win percentage players: %v", err)
+		return []PlayerAchievement{}
+	}
+	defer rows.Close()
+
+	var achievements []PlayerAchievement
+	currentRank := 1
+	var previousWinPercentage *float64
+
+	for rows.Next() {
+		var playerID, playerName string
+		var fixturesPlayed int
+		var winPercentage float64
+
+		err := rows.Scan(&playerID, &playerName, &fixturesPlayed, &winPercentage)
+		if err != nil {
+			log.Printf("Error scanning win percentage player: %v", err)
+			continue
+		}
+
+		// Handle ties: if win percentage is different from previous, update rank
+		if previousWinPercentage != nil && winPercentage != *previousWinPercentage {
+			currentRank = len(achievements) + 1
+		}
+
+		achievement := PlayerAchievement{
+			PlayerSummary: PlayerSummary{
+				ID:           playerID,
+				Name:         playerName,
+				MatchesCount: fixturesPlayed,
+			},
+			Value:       winPercentage,
+			Description: fmt.Sprintf("%.1f%% win rate", winPercentage),
+			Rank:        currentRank,
+		}
+
+		achievements = append(achievements, achievement)
+		previousWinPercentage = &winPercentage
+
+		// Stop if we have 5 distinct positions or 5 players total
+		if len(achievements) >= 5 {
+			break
+		}
+	}
+
+	return achievements
 }
 
 func (h *ClubWrappedHandler) calculateClubSeasonHighlights(ctx context.Context, highlights *ClubSeasonHighlights) error {
