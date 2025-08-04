@@ -102,6 +102,35 @@ type ClubAvailabilityEngagement struct {
 	AvailabilityActivePlayerPercentage float64 // What % of active players used availability
 }
 
+// Page 10: Comeback Kings/Queens - Players who won after losing first set
+type ComebackAchievement struct {
+	PlayerSummary
+	ComebackWins       int
+	TotalMatches       int
+	ComebackPercentage float64
+	Description        string
+	Rank               int
+}
+
+// Page 11: Social Butterflies - Players with most different partners
+type SocialButterflyAchievement struct {
+	PlayerSummary
+	UniquePartners    int
+	TotalPartnerships int
+	Description       string
+	Rank              int
+}
+
+// Page 12: Championship Tiebreak Masters
+type TiebreakMasterAchievement struct {
+	PlayerSummary
+	TiebreakMatches int
+	TiebreakWins    int
+	TiebreakWinRate float64
+	Description     string
+	Rank            int
+}
+
 // Page 10: Club Season Highlights
 type ClubSeasonHighlights struct {
 	BestFixtureResult   string
@@ -130,8 +159,11 @@ type ClubWrappedData struct {
 	TopWinPercentage       []PlayerAchievement // New field for top win percentage players
 	TopPairings            []ClubPartnership   // New field for top pairings
 	BestPartnerships       []ClubPartnership
-	BestAwayVenues         []ClubVenueStats           // New field for best away venues
-	AvailabilityEngagement ClubAvailabilityEngagement // New field for availability engagement
+	BestAwayVenues         []ClubVenueStats             // New field for best away venues
+	AvailabilityEngagement ClubAvailabilityEngagement   // New field for availability engagement
+	ComebackKings          []ComebackAchievement        // New field for comeback achievements
+	SocialButterflies      []SocialButterflyAchievement // New field for social butterflies
+	TiebreakMasters        []TiebreakMasterAchievement  // New field for tiebreak masters
 	LuckyVenue             *ClubVenueStats
 	SeasonHighlights       ClubSeasonHighlights
 }
@@ -212,6 +244,9 @@ func (h *ClubWrappedHandler) generateClubWrappedData() (*ClubWrappedData, error)
 	wrappedData.TopPairings = h.getTopPairings(ctx)                           // New method call for top pairings
 	wrappedData.BestAwayVenues = h.getClubBestAwayVenues(ctx)                 // New method call
 	wrappedData.AvailabilityEngagement = h.getClubAvailabilityEngagement(ctx) // New method call for availability engagement
+	wrappedData.ComebackKings = h.getComebackKings(ctx)                       // New method call for comeback achievements
+	wrappedData.SocialButterflies = h.getSocialButterflies(ctx)               // New method call for social butterflies
+	wrappedData.TiebreakMasters = h.getTiebreakMasters(ctx)                   // New method call for tiebreak masters
 	wrappedData.LuckyVenue = h.getClubLuckyVenue(ctx)
 
 	if err := h.calculateClubSeasonHighlights(ctx, &wrappedData.SeasonHighlights); err != nil {
@@ -977,6 +1012,249 @@ func (h *ClubWrappedHandler) getTopPairings(ctx context.Context) []ClubPartnersh
 	}
 
 	return partnerships
+}
+
+func (h *ClubWrappedHandler) getComebackKings(ctx context.Context) []ComebackAchievement {
+	// Page 10: Comeback Kings/Queens - Players who won matches after losing the first set
+	query := `
+		WITH comeback_stats AS (
+			SELECT 
+				p.id,
+				COALESCE(p.preferred_name, p.first_name || ' ' || p.last_name) as name,
+				COUNT(*) as total_matches,
+				SUM(CASE 
+					WHEN (
+						-- Lost first set but won the match
+						((mp.is_home = 1 AND m.home_set1 < m.away_set1) OR (mp.is_home = 0 AND m.away_set1 < m.home_set1))
+						AND
+						((mp.is_home = 1 AND m.home_score > m.away_score) OR (mp.is_home = 0 AND m.away_score > m.home_score))
+					)
+					THEN 1 
+					ELSE 0 
+				END) as comeback_wins
+			FROM matchup_players mp
+			INNER JOIN matchups m ON mp.matchup_id = m.id
+			INNER JOIN players p ON mp.player_id = p.id
+			WHERE m.status = 'Finished'
+				AND m.home_set1 IS NOT NULL 
+				AND m.away_set1 IS NOT NULL
+				AND m.home_score IS NOT NULL
+				AND m.away_score IS NOT NULL
+			GROUP BY p.id, name
+			HAVING total_matches >= 5 AND comeback_wins > 0
+		)
+		SELECT 
+			id,
+			name,
+			total_matches,
+			comeback_wins,
+			ROUND(comeback_wins * 100.0 / total_matches, 1) as comeback_percentage
+		FROM comeback_stats
+		ORDER BY comeback_percentage DESC, comeback_wins DESC
+		LIMIT 10
+	`
+
+	rows, err := h.service.db.QueryContext(ctx, query)
+	if err != nil {
+		log.Printf("Error getting comeback kings: %v", err)
+		return []ComebackAchievement{}
+	}
+	defer rows.Close()
+
+	var achievements []ComebackAchievement
+	currentRank := 1
+	var previousPercentage *float64
+
+	for rows.Next() {
+		var playerID, playerName string
+		var totalMatches, comebackWins int
+		var comebackPercentage float64
+
+		err := rows.Scan(&playerID, &playerName, &totalMatches, &comebackWins, &comebackPercentage)
+		if err != nil {
+			log.Printf("Error scanning comeback achievement: %v", err)
+			continue
+		}
+
+		// Handle ties: if percentage is different from previous, update rank
+		if previousPercentage != nil && comebackPercentage != *previousPercentage {
+			currentRank = len(achievements) + 1
+		}
+
+		achievement := ComebackAchievement{
+			PlayerSummary: PlayerSummary{
+				ID:           playerID,
+				Name:         playerName,
+				MatchesCount: totalMatches,
+			},
+			ComebackWins:       comebackWins,
+			TotalMatches:       totalMatches,
+			ComebackPercentage: comebackPercentage,
+			Description:        fmt.Sprintf("%.1f%% comeback rate (%d/%d matches)", comebackPercentage, comebackWins, totalMatches),
+			Rank:               currentRank,
+		}
+
+		achievements = append(achievements, achievement)
+		previousPercentage = &comebackPercentage
+	}
+
+	return achievements
+}
+
+func (h *ClubWrappedHandler) getSocialButterflies(ctx context.Context) []SocialButterflyAchievement {
+	// Page 11: Social Butterflies - Players with most different partners
+	query := `
+		WITH player_partnerships AS (
+			SELECT 
+				mp1.player_id,
+				COALESCE(p1.preferred_name, p1.first_name || ' ' || p1.last_name) as player_name,
+				COUNT(DISTINCT mp2.player_id) as unique_partners,
+				COUNT(*) as total_partnerships
+			FROM matchup_players mp1
+			INNER JOIN matchup_players mp2 ON mp1.matchup_id = mp2.matchup_id 
+				AND mp1.is_home = mp2.is_home 
+				AND mp1.player_id != mp2.player_id  -- Don't count self
+			INNER JOIN matchups m ON mp1.matchup_id = m.id
+			INNER JOIN players p1 ON mp1.player_id = p1.id
+			WHERE m.status = 'Finished'
+			GROUP BY mp1.player_id, player_name
+			HAVING total_partnerships >= 5  -- Minimum partnerships to qualify
+		)
+		SELECT 
+			player_id,
+			player_name,
+			unique_partners,
+			total_partnerships
+		FROM player_partnerships
+		ORDER BY unique_partners DESC, total_partnerships DESC
+		LIMIT 10
+	`
+
+	rows, err := h.service.db.QueryContext(ctx, query)
+	if err != nil {
+		log.Printf("Error getting social butterflies: %v", err)
+		return []SocialButterflyAchievement{}
+	}
+	defer rows.Close()
+
+	var achievements []SocialButterflyAchievement
+	currentRank := 1
+	var previousPartners *int
+
+	for rows.Next() {
+		var playerID, playerName string
+		var uniquePartners, totalPartnerships int
+
+		err := rows.Scan(&playerID, &playerName, &uniquePartners, &totalPartnerships)
+		if err != nil {
+			log.Printf("Error scanning social butterfly: %v", err)
+			continue
+		}
+
+		// Handle ties: if unique partners is different from previous, update rank
+		if previousPartners != nil && uniquePartners != *previousPartners {
+			currentRank = len(achievements) + 1
+		}
+
+		achievement := SocialButterflyAchievement{
+			PlayerSummary: PlayerSummary{
+				ID:           playerID,
+				Name:         playerName,
+				MatchesCount: totalPartnerships,
+			},
+			UniquePartners:    uniquePartners,
+			TotalPartnerships: totalPartnerships,
+			Description:       fmt.Sprintf("%d different partners (%d total partnerships)", uniquePartners, totalPartnerships),
+			Rank:              currentRank,
+		}
+
+		achievements = append(achievements, achievement)
+		previousPartners = &uniquePartners
+	}
+
+	return achievements
+}
+
+func (h *ClubWrappedHandler) getTiebreakMasters(ctx context.Context) []TiebreakMasterAchievement {
+	// Page 12: Championship Tiebreak Masters - Players in matches where final set had values >= 10
+	query := `
+		WITH tiebreak_stats AS (
+			SELECT 
+				p.id,
+				COALESCE(p.preferred_name, p.first_name || ' ' || p.last_name) as name,
+				COUNT(*) as tiebreak_matches,
+				SUM(CASE 
+					WHEN (mp.is_home = 1 AND m.home_score > m.away_score) 
+						OR (mp.is_home = 0 AND m.away_score > m.home_score)
+					THEN 1 
+					ELSE 0 
+				END) as tiebreak_wins
+			FROM matchup_players mp
+			INNER JOIN matchups m ON mp.matchup_id = m.id
+			INNER JOIN players p ON mp.player_id = p.id
+			WHERE m.status = 'Finished'
+				AND (
+					(m.home_set3 >= 10 OR m.away_set3 >= 10)  -- Championship tiebreak in set 3
+				)
+			GROUP BY p.id, name
+			HAVING tiebreak_matches >= 2  -- Minimum tiebreak matches to qualify
+		)
+		SELECT 
+			id,
+			name,
+			tiebreak_matches,
+			tiebreak_wins,
+			ROUND(tiebreak_wins * 100.0 / tiebreak_matches, 1) as tiebreak_win_rate
+		FROM tiebreak_stats
+		ORDER BY tiebreak_win_rate DESC, tiebreak_matches DESC
+		LIMIT 10
+	`
+
+	rows, err := h.service.db.QueryContext(ctx, query)
+	if err != nil {
+		log.Printf("Error getting tiebreak masters: %v", err)
+		return []TiebreakMasterAchievement{}
+	}
+	defer rows.Close()
+
+	var achievements []TiebreakMasterAchievement
+	currentRank := 1
+	var previousWinRate *float64
+
+	for rows.Next() {
+		var playerID, playerName string
+		var tiebreakMatches, tiebreakWins int
+		var tiebreakWinRate float64
+
+		err := rows.Scan(&playerID, &playerName, &tiebreakMatches, &tiebreakWins, &tiebreakWinRate)
+		if err != nil {
+			log.Printf("Error scanning tiebreak master: %v", err)
+			continue
+		}
+
+		// Handle ties: if win rate is different from previous, update rank
+		if previousWinRate != nil && tiebreakWinRate != *previousWinRate {
+			currentRank = len(achievements) + 1
+		}
+
+		achievement := TiebreakMasterAchievement{
+			PlayerSummary: PlayerSummary{
+				ID:           playerID,
+				Name:         playerName,
+				MatchesCount: tiebreakMatches,
+			},
+			TiebreakMatches: tiebreakMatches,
+			TiebreakWins:    tiebreakWins,
+			TiebreakWinRate: tiebreakWinRate,
+			Description:     fmt.Sprintf("%.1f%% win rate in tiebreaks (%d/%d)", tiebreakWinRate, tiebreakWins, tiebreakMatches),
+			Rank:            currentRank,
+		}
+
+		achievements = append(achievements, achievement)
+		previousWinRate = &tiebreakWinRate
+	}
+
+	return achievements
 }
 
 func (h *ClubWrappedHandler) calculateClubSeasonHighlights(ctx context.Context, highlights *ClubSeasonHighlights) error {

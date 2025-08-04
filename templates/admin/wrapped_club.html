@@ -439,12 +439,120 @@
             </div>
         </div>
 
+        <!-- Page 10: Comeback Kings/Queens -->
+        <div class="wrapped-page" id="page-10">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title">Comeback Kings & Queens</h1>
+                    <h2 class="wrapped-subtitle">Masters of resilience (5+ matches)</h2>
+                </div>
+                    
+                {{if .WrappedData.ComebackKings}}
+                <div class="achievements-list">
+                    {{range .WrappedData.ComebackKings}}
+                    <div class="achievement-card animate-slide-in delay-{{.Rank}}">
+                        <div class="achievement-rank-wrapper">
+                            <div class="achievement-rank">{{.Rank}}</div>
+                            <div class="achievement-icon">
+                                {{if eq .Rank 1}}👑{{else if eq .Rank 2}}🥈{{else if eq .Rank 3}}🥉{{else}}💪{{end}}
+                            </div>
+                        </div>
+                        <div class="achievement-details">
+                            <div class="achievement-name">{{.PlayerSummary.Name}}</div>
+                            <div class="achievement-value">{{.Description}}</div>
+                            <div class="achievement-subtitle">Won after losing first set</div>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{else}}
+                <div class="no-data-message">
+                    <div class="no-data-icon">👑</div>
+                    <div class="no-data-text">No comeback kings found</div>
+                    <div class="no-data-subtitle">Need 5+ matches with comeback wins</div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Page 11: Social Butterflies -->
+        <div class="wrapped-page" id="page-11">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title">Social Butterflies</h1>
+                    <h2 class="wrapped-subtitle">Players with the most different partners (5+ partnerships)</h2>
+                </div>
+                    
+                {{if .WrappedData.SocialButterflies}}
+                <div class="achievements-list">
+                    {{range .WrappedData.SocialButterflies}}
+                    <div class="achievement-card animate-slide-in delay-{{.Rank}}">
+                        <div class="achievement-rank-wrapper">
+                            <div class="achievement-rank">{{.Rank}}</div>
+                            <div class="achievement-icon">
+                                {{if eq .Rank 1}}🦋{{else if eq .Rank 2}}🥈{{else if eq .Rank 3}}🥉{{else}}🤝{{end}}
+                            </div>
+                        </div>
+                        <div class="achievement-details">
+                            <div class="achievement-name">{{.PlayerSummary.Name}}</div>
+                            <div class="achievement-value">{{.Description}}</div>
+                            <div class="achievement-subtitle">Building connections across the club</div>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{else}}
+                <div class="no-data-message">
+                    <div class="no-data-icon">🦋</div>
+                    <div class="no-data-text">No social butterflies found</div>
+                    <div class="no-data-subtitle">Need 5+ partnerships to qualify</div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Page 12: Championship Tiebreak Masters -->
+        <div class="wrapped-page" id="page-12">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title">Championship Tiebreak Masters</h1>
+                    <h2 class="wrapped-subtitle">Pressure performers (2+ tiebreak matches)</h2>
+                </div>
+                    
+                {{if .WrappedData.TiebreakMasters}}
+                <div class="achievements-list">
+                    {{range .WrappedData.TiebreakMasters}}
+                    <div class="achievement-card animate-slide-in delay-{{.Rank}}">
+                        <div class="achievement-rank-wrapper">
+                            <div class="achievement-rank">{{.Rank}}</div>
+                            <div class="achievement-icon">
+                                {{if eq .Rank 1}}🎯{{else if eq .Rank 2}}🥈{{else if eq .Rank 3}}🥉{{else}}⚡{{end}}
+                            </div>
+                        </div>
+                        <div class="achievement-details">
+                            <div class="achievement-name">{{.PlayerSummary.Name}}</div>
+                            <div class="achievement-value">{{.Description}}</div>
+                            <div class="achievement-subtitle">Clutch under pressure</div>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{else}}
+                <div class="no-data-message">
+                    <div class="no-data-icon">🎯</div>
+                    <div class="no-data-text">No tiebreak masters found</div>
+                    <div class="no-data-subtitle">Need 2+ championship tiebreak matches</div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
         <!-- Navigation -->
         <div class="wrapped-navigation">
             <button class="nav-btn prev-btn" onclick="previousPage()" id="prevBtn">❮</button>
             <div class="page-indicator">
                 <span class="current-page" id="currentPageNum">1</span>
-                <span class="total-pages">/ 9</span>
+                <span class="total-pages">/ 12</span>
             </div>
             <button class="nav-btn next-btn" onclick="nextPage()" id="nextBtn">❯</button>
         </div>
@@ -456,7 +564,7 @@
 
     <script>
         let currentPage = 1;
-        const totalPages = 9;
+        const totalPages = 12;
 
         function showPage(pageNum) {
             // Hide all pages
@@ -503,7 +611,7 @@
         // Initialize
         showPage(1);
         
-        console.log("St. Ann's Season Wrapped loaded with 9 pages");
+        console.log("St. Ann's Season Wrapped loaded with 12 pages");
     </script>
 </body>
 </html> 
