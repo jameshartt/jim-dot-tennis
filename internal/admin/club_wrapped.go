@@ -118,7 +118,6 @@ type ClubWrappedData struct {
 	PlayingStylePlayers ClubPlayingStyleStats
 	ThreeSetWarriors    []PlayerAchievement
 	GameGrinders        []PlayerAchievement
-	UndefeatedLegends   []PlayerAchievement
 	TopWinPercentage    []PlayerAchievement // New field for top win percentage players
 	TopPairings         []ClubPartnership   // New field for top pairings
 	BestPartnerships    []ClubPartnership
@@ -199,11 +198,9 @@ func (h *ClubWrappedHandler) generateClubWrappedData() (*ClubWrappedData, error)
 
 	wrappedData.ThreeSetWarriors = h.getClubThreeSetWarriors(ctx)
 	wrappedData.GameGrinders = h.getClubGameGrinders(ctx)
-	wrappedData.UndefeatedLegends = h.getClubUndefeatedLegends(ctx)
 	wrappedData.TopWinPercentage = h.getTopWinPercentagePlayers(ctx) // New method call
 	wrappedData.TopPairings = h.getTopPairings(ctx)                  // New method call for top pairings
-	wrappedData.BestPartnerships = h.getClubBestPartnerships(ctx)
-	wrappedData.BestAwayVenues = h.getClubBestAwayVenues(ctx) // New method call
+	wrappedData.BestAwayVenues = h.getClubBestAwayVenues(ctx)        // New method call
 	wrappedData.LuckyVenue = h.getClubLuckyVenue(ctx)
 
 	if err := h.calculateClubSeasonHighlights(ctx, &wrappedData.SeasonHighlights); err != nil {
@@ -649,16 +646,6 @@ func (h *ClubWrappedHandler) getClubGameGrinders(ctx context.Context) []PlayerAc
 	}
 
 	return achievements
-}
-
-func (h *ClubWrappedHandler) getClubUndefeatedLegends(ctx context.Context) []PlayerAchievement {
-	// Page 6: Undefeated Legends - players with perfect winning percentages
-	return []PlayerAchievement{}
-}
-
-func (h *ClubWrappedHandler) getClubBestPartnerships(ctx context.Context) []ClubPartnership {
-	// Page 7: Dynamic Duos - player combinations with perfect winning percentages
-	return []ClubPartnership{}
 }
 
 func (h *ClubWrappedHandler) getClubBestAwayVenues(ctx context.Context) []ClubVenueStats {
