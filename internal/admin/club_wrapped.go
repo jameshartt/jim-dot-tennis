@@ -78,6 +78,8 @@ type ClubPartnership struct {
 	WinPercentage   float64
 	Wins            int
 	Draws           int
+	Losses          int // New field for losses
+	Rank            int // New field for ranking
 }
 
 // Page 9: Club Venue Stats
@@ -115,6 +117,7 @@ type ClubWrappedData struct {
 	GameGrinders        []PlayerAchievement
 	UndefeatedLegends   []PlayerAchievement
 	TopWinPercentage    []PlayerAchievement // New field for top win percentage players
+	TopPairings         []ClubPartnership   // New field for top pairings
 	BestPartnerships    []ClubPartnership
 	LuckyVenue          *ClubVenueStats
 	SeasonHighlights    ClubSeasonHighlights
@@ -194,6 +197,7 @@ func (h *ClubWrappedHandler) generateClubWrappedData() (*ClubWrappedData, error)
 	wrappedData.GameGrinders = h.getClubGameGrinders(ctx)
 	wrappedData.UndefeatedLegends = h.getClubUndefeatedLegends(ctx)
 	wrappedData.TopWinPercentage = h.getTopWinPercentagePlayers(ctx) // New method call
+	wrappedData.TopPairings = h.getTopPairings(ctx)                  // New method call for top pairings
 	wrappedData.BestPartnerships = h.getClubBestPartnerships(ctx)
 	wrappedData.LuckyVenue = h.getClubLuckyVenue(ctx)
 
@@ -581,6 +585,96 @@ func (h *ClubWrappedHandler) getTopWinPercentagePlayers(ctx context.Context) []P
 	}
 
 	return achievements
+}
+
+func (h *ClubWrappedHandler) getTopPairings(ctx context.Context) []ClubPartnership {
+	// Find perfect partnerships with 100% win rate (minimum 2 matches together)
+	query := `
+		WITH pairing_stats AS (
+			SELECT 
+				p1.id as player1_id,
+				COALESCE(p1.preferred_name, p1.first_name || ' ' || p1.last_name) as player1_name,
+				p2.id as player2_id,
+				COALESCE(p2.preferred_name, p2.first_name || ' ' || p2.last_name) as player2_name,
+				COUNT(*) as matches_together,
+				SUM(CASE 
+					WHEN (mp1.is_home = 1 AND m.home_score > m.away_score) 
+						OR (mp1.is_home = 0 AND m.away_score > m.home_score)
+					THEN 1 
+					ELSE 0 
+				END) as wins,
+				SUM(CASE 
+					WHEN m.home_score = m.away_score 
+					THEN 1 
+					ELSE 0 
+				END) as draws
+			FROM matchup_players mp1
+			INNER JOIN matchup_players mp2 ON mp1.matchup_id = mp2.matchup_id 
+				AND mp1.is_home = mp2.is_home 
+				AND mp1.player_id < mp2.player_id  -- Avoid duplicate pairs and self-pairs
+			INNER JOIN matchups m ON mp1.matchup_id = m.id
+			INNER JOIN players p1 ON mp1.player_id = p1.id
+			INNER JOIN players p2 ON mp2.player_id = p2.id
+			WHERE m.status = 'Finished'
+			GROUP BY p1.id, player1_name, p2.id, player2_name
+			HAVING matches_together >= 2
+		)
+		SELECT 
+			player1_name,
+			player2_name,
+			matches_together,
+			wins,
+			draws,
+			matches_together - wins - draws as losses,
+			ROUND((wins + draws) * 100.0 / matches_together, 1) as win_percentage
+		FROM pairing_stats
+		WHERE (wins + draws) = matches_together  -- Only perfect partnerships (100% win rate)
+		ORDER BY matches_together DESC, player1_name ASC
+	`
+
+	rows, err := h.service.db.QueryContext(ctx, query)
+	if err != nil {
+		log.Printf("Error getting perfect partnerships: %v", err)
+		return []ClubPartnership{}
+	}
+	defer rows.Close()
+
+	var partnerships []ClubPartnership
+	currentRank := 1
+	var previousMatches *int
+
+	for rows.Next() {
+		var player1Name, player2Name string
+		var matchesTogether, wins, draws, losses int
+		var winPercentage float64
+
+		err := rows.Scan(&player1Name, &player2Name, &matchesTogether, &wins, &draws, &losses, &winPercentage)
+		if err != nil {
+			log.Printf("Error scanning pairing: %v", err)
+			continue
+		}
+
+		// Handle ties based on matches together: if different number of matches, update rank
+		if previousMatches != nil && matchesTogether != *previousMatches {
+			currentRank = len(partnerships) + 1
+		}
+
+		partnership := ClubPartnership{
+			Player1Name:     player1Name,
+			Player2Name:     player2Name,
+			MatchesTogether: matchesTogether,
+			WinPercentage:   winPercentage,
+			Wins:            wins,
+			Draws:           draws,
+			Losses:          losses,
+			Rank:            currentRank, // Assign the calculated rank
+		}
+
+		partnerships = append(partnerships, partnership)
+		previousMatches = &matchesTogether
+	}
+
+	return partnerships
 }
 
 func (h *ClubWrappedHandler) calculateClubSeasonHighlights(ctx context.Context, highlights *ClubSeasonHighlights) error {

@@ -64,6 +64,10 @@
     background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%);
 }
 
+.page-5-bg {
+    background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+}
+
 .wrapped-content {
     max-width: 900px;
     width: 90%;
@@ -381,6 +385,69 @@
 .no-data-subtitle {
     font-size: 1rem;
     opacity: 0.7;
+}
+
+/* Pairing cards */
+.pairings-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.pairing-card {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    align-items: center;
+    gap: 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    border-radius: 15px;
+    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.pairing-card:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-4px);
+}
+
+.pairing-rank {
+    width: 45px;
+    height: 45px;
+    background: linear-gradient(45deg, #ffd700, #ffed4e);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: 900;
+    color: #000;
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+}
+
+.pairing-icon {
+    font-size: 1.5rem;
+}
+
+.pairing-details {
+    text-align: left;
+}
+
+.pairing-names {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    color: #ffd700;
+    line-height: 1.2;
+}
+
+.pairing-matches {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    font-weight: 500;
 }
 
 /* Navigation */
@@ -878,6 +945,38 @@
         justify-self: center;
         margin-top: 0.5rem;
         font-size: 1.5rem;
+    }
+    
+    .pairing-card {
+        grid-template-columns: auto 1fr;
+        gap: 0.75rem;
+        padding: 0.75rem;
+    }
+    
+    .pairing-rank {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+    
+    .pairing-names {
+        font-size: 1rem;
+    }
+    
+    .pairing-matches {
+        font-size: 0.8rem;
+    }
+    
+    .pairing-icon {
+        grid-column: 1 / -1;
+        justify-self: center;
+        margin-top: 0.5rem;
+        font-size: 1.2rem;
+    }
+    
+    .pairings-list {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
     }
     
     .wrapped-navigation {

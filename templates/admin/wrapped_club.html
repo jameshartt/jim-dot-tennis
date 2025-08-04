@@ -237,12 +237,47 @@
             </div>
         </div>
 
+        <!-- Page 5: Top Pairings -->
+        <div class="wrapped-page" id="page-5">
+            <div class="page-background page-5-bg">
+                <div class="wrapped-content">
+                    <div class="wrapped-header">
+                        <h1 class="wrapped-title">Perfect Partnerships</h1>
+                        <h2 class="wrapped-subtitle">Undefeated duos (100% win rate, 2+ matches)</h2>
+                    </div>
+                    
+                    {{if .WrappedData.TopPairings}}
+                    <div class="pairings-list">
+                        {{range .WrappedData.TopPairings}}
+                        <div class="pairing-card animate-slide-in delay-{{.Rank}}">
+                            <div class="pairing-rank">{{.Rank}}</div>
+                            <div class="pairing-icon">
+                                {{if eq .Rank 1}}🏆{{else if eq .Rank 2}}🥈{{else if eq .Rank 3}}🥉{{else}}⭐{{end}}
+                            </div>
+                            <div class="pairing-details">
+                                <div class="pairing-names">{{.Player1Name}} & {{.Player2Name}}</div>
+                                <div class="pairing-matches">{{.MatchesTogether}} undefeated matches together</div>
+                            </div>
+                        </div>
+                        {{end}}
+                    </div>
+                    {{else}}
+                    <div class="no-data-message">
+                        <div class="no-data-icon">👥</div>
+                        <div class="no-data-text">No perfect partnerships found</div>
+                        <div class="no-data-subtitle">Need 2+ matches with 100% win rate</div>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+
         <!-- Navigation -->
         <div class="wrapped-navigation">
             <button class="nav-btn prev-btn" onclick="previousPage()" id="prevBtn">❮</button>
             <div class="page-indicator">
                 <span class="current-page" id="currentPageNum">1</span>
-                <span class="total-pages">/ 4</span>
+                <span class="total-pages">/ 5</span>
             </div>
             <button class="nav-btn next-btn" onclick="nextPage()" id="nextBtn">❯</button>
         </div>
@@ -254,7 +289,7 @@
 
     <script>
         let currentPage = 1;
-        const totalPages = 4;
+        const totalPages = 5;
 
         function showPage(pageNum) {
             // Hide all pages
