@@ -62,84 +62,120 @@
                          <!-- Perfect Victories -->
                          {{if gt .WrappedData.FixtureBreakdown.Perfect_8_0 0}}
                          <div class="breakdown-row victory animate-slide-in">
+                            <div class="breakdown-icon-container">
                              <div class="breakdown-icon">🔥</div>
                              <div class="breakdown-score">8-0</div>
-                             <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Perfect_8_0}}</div>
-                             <div class="breakdown-label">Perfect Victories</div>
+                            </div>
+                            <div class="breakdown-count-container">
+                              <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Perfect_8_0}}</div>
+                              <div class="breakdown-label">Perfect Victories</div> 
+                            </div>
                          </div>
                          {{end}}
                          
                          {{if gt .WrappedData.FixtureBreakdown.NearPerfect_7_1 0}}
                          <div class="breakdown-row victory animate-slide-in delay-1">
+                            <div class="breakdown-icon-container">
                              <div class="breakdown-icon">⭐</div>
                              <div class="breakdown-score">7-1</div>
-                             <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.NearPerfect_7_1}}</div>
-                             <div class="breakdown-label">Near Perfect Victories</div>
+                            </div>
+                            <div class="breakdown-count-container">
+                              <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.NearPerfect_7_1}}</div>
+                              <div class="breakdown-label">Near Perfect Victories</div>
+                            </div>
                          </div>
                          {{end}}
                          
                          {{if gt .WrappedData.FixtureBreakdown.Strong_6_2 0}}
                          <div class="breakdown-row victory animate-slide-in delay-2">
+                            <div class="breakdown-icon-container">
                              <div class="breakdown-icon">💪</div>
                              <div class="breakdown-score">6-2</div>
-                             <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Strong_6_2}}</div>
-                             <div class="breakdown-label">Strong Victories</div>
+                            </div>
+                            <div class="breakdown-count-container">
+                              <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Strong_6_2}}</div>
+                              <div class="breakdown-label">Strong Victories</div>
+                            </div>
                          </div>
                          {{end}}
                          
                          {{if gt .WrappedData.FixtureBreakdown.Close_5_3 0}}
                          <div class="breakdown-row victory animate-slide-in delay-3">
+                            <div class="breakdown-icon-container">
                              <div class="breakdown-icon">🎾</div>
                              <div class="breakdown-score">5-3</div>
-                             <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Close_5_3}}</div>
-                             <div class="breakdown-label">Close Victories</div>
+                            </div>
+                            <div class="breakdown-count-container">
+                              <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Close_5_3}}</div>
+                              <div class="breakdown-label">Close Victories</div>
+                            </div>
                          </div>
                          {{end}}
                          
                          <!-- Draws -->
                          {{if gt .WrappedData.FixtureBreakdown.Draw_4_4 0}}
                          <div class="breakdown-row draw animate-slide-in delay-4">
+                            <div class="breakdown-icon-container">
                              <div class="breakdown-icon">🤝</div>
                              <div class="breakdown-score">4-4</div>
-                             <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Draw_4_4}}</div>
-                             <div class="breakdown-label">Perfect Draws</div>
+                            </div>
+                            <div class="breakdown-count-container">
+                              <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Draw_4_4}}</div>
+                              <div class="breakdown-label">Perfect Draws</div>
+                            </div>
                          </div>
                          {{end}}
                          
                          <!-- Defeats -->
                          {{if gt .WrappedData.FixtureBreakdown.CloseDefeat_3_5 0}}
                          <div class="breakdown-row defeat animate-slide-in delay-5">
+                            <div class="breakdown-icon-container">
                              <div class="breakdown-icon">😤</div>
                              <div class="breakdown-score">3-5</div>
-                             <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.CloseDefeat_3_5}}</div>
-                             <div class="breakdown-label">Close Defeats</div>
+                            </div>
+                            <div class="breakdown-count-container">
+                              <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.CloseDefeat_3_5}}</div>
+                              <div class="breakdown-label">Close Defeats</div>
+                            </div>
                          </div>
                          {{end}}
                          
                          {{if gt .WrappedData.FixtureBreakdown.Heavy_2_6 0}}
                          <div class="breakdown-row defeat animate-slide-in delay-6">
+                            <div class="breakdown-icon-container">
                              <div class="breakdown-icon">😞</div>
                              <div class="breakdown-score">2-6</div>
-                             <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Heavy_2_6}}</div>
-                             <div class="breakdown-label">Heavy Defeats</div>
+                            </div>
+                            <div class="breakdown-count-container">
+                              <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Heavy_2_6}}</div>
+                              <div class="breakdown-label">Heavy Defeats</div>
+                            </div>
                          </div>
                          {{end}}
                          
                          {{if gt .WrappedData.FixtureBreakdown.NearWhitewash_1_7 0}}
                          <div class="breakdown-row defeat animate-slide-in delay-7">
+                            <div class="breakdown-icon-container">
                              <div class="breakdown-icon">😰</div>
                              <div class="breakdown-score">1-7</div>
-                             <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.NearWhitewash_1_7}}</div>
-                             <div class="breakdown-label">Near Whitewash</div>
+                            </div>
+                            <div class="breakdown-count-container">
+                              <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.NearWhitewash_1_7}}</div>
+                              <div class="breakdown-label">Near Whitewash</div>
+                            </div>
                          </div>
                          {{end}}
                          
                          {{if gt .WrappedData.FixtureBreakdown.Whitewash_0_8 0}}
                          <div class="breakdown-row defeat animate-slide-in delay-8">
+                            <div class="breakdown-icon-container">
                              <div class="breakdown-icon">💔</div>
                              <div class="breakdown-score">0-8</div>
-                             <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Whitewash_0_8}}</div>
-                             <div class="breakdown-label">Complete Whitewash</div>
+                            </div>
+                            <div class="breakdown-count-container">
+                              <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Whitewash_0_8}}</div>
+                              <div class="breakdown-label">Complete Whitewash</div>
+                            </div>
                          </div>
                          {{end}}
                      </div>
