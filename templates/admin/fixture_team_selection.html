@@ -381,17 +381,7 @@
             opacity: 0.7;
         }
         
-        .btn-warning {
-            /* Warning styling - availability colors preserved */
-        }
-        
-        .btn-locked {
-            /* Locked styling - availability colors preserved */
-        }
-        
-        .btn-unlocked {
-            /* Unlocked styling - availability colors preserved */
-        }
+        /* Removed empty rulesets to satisfy linter */
         
         .availability-legend {
             background: #fff;
@@ -551,6 +541,78 @@
             color: #495057;
         }
         
+        /* Available players header row */
+        .available-players-header-row {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+
+        /* Forced selection toggle (iOS-style switch) */
+        .forced-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .forced-toggle label.text {
+            color: #495057;
+            font-size: 0.9rem;
+            user-select: none;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 46px;
+            height: 26px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .2s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 2px;
+            bottom: 2px;
+            background-color: #fff;
+            transition: .2s;
+            border-radius: 50%;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+
+        .switch input:checked + .slider { background-color: #28a745; }
+        .switch input:focus + .slider { box-shadow: 0 0 1px #28a745; }
+        .switch input:checked + .slider:before { transform: translateX(20px); }
+
+        /* Visual hint when a blocked button is enabled by forced selection */
+        .btn-add-player.forced-enabled {
+            outline: 2px dashed #17a2b8;
+            outline-offset: 2px;
+        }
+
         .drag-placeholder {
             background: #f8f9fa;
             border: 2px dashed #6c757d;
@@ -831,7 +893,7 @@
                         Players Selected: {{$selectedCount}}/8
                     </div>
                     <div class="progress-bar">
-                        <div class="progress-fill" style="width: {{.SelectionPercentage}}%"></div>
+                        <div class="progress-fill" data-percentage="{{.SelectionPercentage}}"></div>
                     </div>
                 </div>
 
@@ -981,7 +1043,16 @@
                 </div>
 
                 <div class="available-players-section">
-                    <h3>🎯 Available Players</h3>
+                    <div class="available-players-header-row">
+                        <h3>🎯 Available Players</h3>
+                        <div class="forced-toggle" title="Allow selecting players locked to a higher team">
+                            <label class="text">Forced selection</label>
+                            <label class="switch">
+                                <input type="checkbox" id="forced-selection-toggle" onchange="toggleForcedSelection()">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
                     
                     <div class="availability-legend">
                         <h5>🎨 Availability Status:</h5>
@@ -1194,15 +1265,11 @@
         </div>
     </main>
 
-    <!-- Configuration from Go template -->
-    <script>
-        window.FIXTURE_ID = {{.FixtureDetail.ID}};
-        {{if .ManagingTeam}}
-        window.MANAGING_TEAM_ID = {{.ManagingTeam.ID}};
-        {{else}}
-        window.MANAGING_TEAM_ID = null;
-        {{end}}
-    </script>
+    <!-- Configuration from Go template (use data attributes to avoid linter issues) -->
+    <div id="js-config" 
+         data-fixture-id="{{.FixtureDetail.ID}}" 
+         data-managing-team-id="{{if .ManagingTeam}}{{.ManagingTeam.ID}}{{else}}0{{end}}">
+    </div>
     
     <script>
         // Global variables
@@ -1215,13 +1282,51 @@
         let longPressTimer = null;
         let isLongPress = false;
         let captainSelectionMode = false;
+        let forcedSelectionEnabled = false;
         
         const LONG_PRESS_DURATION = 50; // Very short delay for mobile responsiveness
         
-        // Configuration
-        const FIXTURE_ID = window.FIXTURE_ID;
-        const MANAGING_TEAM_ID = window.MANAGING_TEAM_ID;
+        // Configuration (set on DOMContentLoaded from data attributes)
+        let FIXTURE_ID = null;
+        let MANAGING_TEAM_ID = null;
         
+        // Forced selection helpers
+        function initializeForcedSelectionToggle() {
+            const toggle = document.getElementById('forced-selection-toggle');
+            if (!toggle) return;
+            toggle.checked = !!forcedSelectionEnabled;
+            toggle.onchange = function() {
+                setForcedSelectionEnabled(toggle.checked);
+            };
+            applyForcedSelectionState();
+        }
+
+        function setForcedSelectionEnabled(enabled) {
+            forcedSelectionEnabled = !!enabled;
+            document.body.classList.toggle('forced-selection-mode', forcedSelectionEnabled);
+            const toggle = document.getElementById('forced-selection-toggle');
+            if (toggle && toggle.checked !== forcedSelectionEnabled) {
+                toggle.checked = forcedSelectionEnabled;
+            }
+            applyForcedSelectionState();
+        }
+
+        function applyForcedSelectionState() {
+            const blockedButtons = document.querySelectorAll('.btn-add-player.btn-blocked');
+            blockedButtons.forEach(btn => {
+                if (forcedSelectionEnabled) {
+                    btn.removeAttribute('disabled');
+                    btn.classList.add('forced-enabled');
+                    if (btn.title && !btn.title.includes('Override')) {
+                        btn.title = btn.title + ' | Override enabled';
+                    }
+                } else {
+                    btn.setAttribute('disabled', '');
+                    btn.classList.remove('forced-enabled');
+                }
+            });
+        }
+
         // Day Captain Selection Functions
         function toggleCaptainSelection() {
             captainSelectionMode = !captainSelectionMode;
@@ -1861,6 +1966,22 @@
         document.addEventListener('DOMContentLoaded', function() {
             setupTouchEvents();
             
+            // Read config from data attributes
+            const cfgEl = document.getElementById('js-config');
+            if (cfgEl) {
+                const fId = parseInt(cfgEl.dataset.fixtureId, 10);
+                FIXTURE_ID = isNaN(fId) ? null : fId;
+                const mtid = parseInt(cfgEl.dataset.managingTeamId, 10);
+                MANAGING_TEAM_ID = isNaN(mtid) || mtid === 0 ? null : mtid;
+            }
+
+            // Set initial progress width from server-provided percentage
+            const progressFillEl = document.querySelector('.progress-fill');
+            if (progressFillEl && progressFillEl.hasAttribute('data-percentage')) {
+                const p = parseInt(progressFillEl.getAttribute('data-percentage') || '0', 10);
+                progressFillEl.style.width = `${p}%`;
+            }
+
             // Update matchup limits on page load
             document.querySelectorAll('.matchup-zone').forEach(updateMatchupLimit);
             
@@ -1874,6 +1995,9 @@
                 console.log('Mobile device detected - using touch-optimized drag and drop');
             }
             
+            // Initialize forced selection toggle
+            initializeForcedSelectionToggle();
+
             console.log('Team selection with drag and drop and day captain selection initialized');
         });
         
@@ -1884,6 +2008,10 @@
                 console.log('HTMX updated team selection container - updating matchup limits');
                 // Update immediately without delay to prevent flicker
                 document.querySelectorAll('.matchup-zone').forEach(updateMatchupLimit);
+                // Recompute progress after swap
+                updateProgress();
+                // Re-bind forced selection toggle and re-apply state
+                initializeForcedSelectionToggle();
             }
         });
     </script>
