@@ -115,6 +115,7 @@ type AvailabilityData struct {
 	Player           PlayerInfo              `json:"player"`
 	Availability     []AvailabilityDay       `json:"availability"`
 	UpcomingFixtures []PlayerUpcomingFixture `json:"upcoming_fixtures"`
+	ClubFixtureDates []string                `json:"club_fixture_dates"`
 }
 
 // PlayerInfo represents basic player information
@@ -179,8 +180,27 @@ func (s *Service) GetPlayerAvailabilityData(playerID string) (*AvailabilityData,
 		upcomingFixtures = []PlayerUpcomingFixture{}
 	}
 
-	// For now, return mock player info since we don't have direct access to player repository
-	// In a real implementation, you'd fetch this data
+	// Determine the player's club to derive club-wide fixture dates
+	clubFixtureDates := []string{}
+	if player, err := s.playerRepository.FindByID(ctx, playerID); err == nil {
+		clubID := player.ClubID
+		// Query fixtures in the same date window that involve this club (home or away)
+		if clubID > 0 {
+			if clubFixtures, err := s.fixtureRepository.FindByClubAndDateRange(ctx, clubID, startDate, endDate); err == nil {
+				// Build a set of distinct dates
+				dateSet := make(map[string]struct{})
+				for _, f := range clubFixtures {
+					dateStr := f.ScheduledDate.Format("2006-01-02")
+					dateSet[dateStr] = struct{}{}
+				}
+				for dateStr := range dateSet {
+					clubFixtureDates = append(clubFixtureDates, dateStr)
+				}
+			}
+		}
+	}
+
+	// For now, return mock player info with real club fixture dates derived above
 	return &AvailabilityData{
 		Player: PlayerInfo{
 			ID:        playerID,
@@ -189,6 +209,7 @@ func (s *Service) GetPlayerAvailabilityData(playerID string) (*AvailabilityData,
 		},
 		Availability:     availabilityDays,
 		UpcomingFixtures: upcomingFixtures,
+		ClubFixtureDates: clubFixtureDates,
 	}, nil
 }
 

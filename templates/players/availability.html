@@ -1483,6 +1483,8 @@
                                                         this.availabilityData.set(avail.date, avail.status);
                     });
                 }
+                // Persist club fixture dates for calendar marking
+                this.clubFixtureDates = new Set((data.club_fixture_dates || []));
                 this.renderCalendar();
                 // Always render fixtures from the response
                 this.renderUpcomingFixtures(data.upcoming_fixtures || []);
@@ -1689,10 +1691,11 @@
             }
             
             isFixtureDay(date) {
-                // Check if this date falls on common fixture days
-                // Tuesday=2, Wednesday=3, Thursday=4
-                const dayOfWeek = date.getDay();
-                return dayOfWeek >= 2 && dayOfWeek <= 4;
+                if (this.clubFixtureDates && this.clubFixtureDates.size > 0) {
+                    const key = this.formatDate(date);
+                    return this.clubFixtureDates.has(key);
+                }
+                return false;
             }
             
             isToday(date) {
