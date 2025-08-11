@@ -148,3 +148,25 @@ docker run --rm -v jim-dot-tennis-data:/data alpine ls -la /data
 # List backup volume contents
 docker run --rm -v jim-dot-tennis-backups:/backups alpine ls -la /backups
 ``` 
+
+## Environment Variables (.env)
+
+You can configure the application using environment variables. For local development, create a `.env` file in the project root (this file is already gitignored) or export the values in your shell.
+
+Example `.env`:
+
+```
+PORT=8080
+DB_TYPE=sqlite3
+DB_PATH=./tennis.db
+WRAPPED_ACCESS_PASSWORD=example
+```
+
+Docker Compose can reference variables using `${VAR}` syntax. The `docker-compose.yml` is set up to read `WRAPPED_ACCESS_PASSWORD` from your environment so you don't commit secrets.
+
+Alternatively, you can export variables for a session:
+
+```
+export WRAPPED_ACCESS_PASSWORD="st.anns.2025"
+./scripts/run.sh
+```

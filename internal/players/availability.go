@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"jim-dot-tennis/internal/auth"
@@ -270,9 +271,13 @@ func (h *AvailabilityHandler) handleWrappedPasswordAuth(w http.ResponseWriter, r
 		return
 	}
 
-	// Simple in-code secret. Replace via build-time env in future if desired.
+	// Read password from environment variable; if unset, use a sensible default.
 	// Intentionally low-friction deterrent, not robust security.
-	const expected = "st-anns-2025"
+	expected := os.Getenv("WRAPPED_ACCESS_PASSWORD")
+	if expected == "" {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
 	if strings.TrimSpace(req.Password) == expected {
 		// Set short-lived access cookie (15 minutes)
 		http.SetCookie(w, &http.Cookie{
