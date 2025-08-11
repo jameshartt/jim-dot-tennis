@@ -166,6 +166,44 @@ type ClubWrappedData struct {
 	TiebreakMasters        []TiebreakMasterAchievement  // New field for tiebreak masters
 	LuckyVenue             *ClubVenueStats
 	SeasonHighlights       ClubSeasonHighlights
+	// Optional per-player section when accessed via player availability
+	Personal *PersonalWrappedData
+}
+
+// PersonalWrappedData: per-player season summary
+type PersonalWrappedData struct {
+	PlayerID                   string
+	PlayerName                 string
+	FixturesPlayed             int
+	MatchesPlayed              int
+	WinPercentage              float64
+	UniquePartners             int
+	ThreeSetMatches            int
+	TiebreakMatches            int
+	MostPlayedDivision         string
+	Divisions                  []DivisionBreakdown
+	BestPartnerName            string
+	BestPartnerMatchesTogether int
+	BestPartnerWinPercentage   float64
+	// Additional requested stats
+	MostCommonMatchupType      string
+	MostCommonMatchupCount     int
+	LongestWinStreak           int
+	LongestLosingStreak        int
+	DecidingSetMatches         int
+	DecidingSetWins            int
+	DecidingSetWinRate         float64
+	BagelsDelivered            int
+	MostFrequentPartnerName    string
+	MostFrequentPartnerMatches int
+	AverageGamesPerSet         float64
+	ComebackWins               int
+}
+
+type DivisionBreakdown struct {
+	Division      string
+	Fixtures      int
+	WinPercentage float64
 }
 
 // HandleWrapped handles the main club-wide season wrapped
@@ -193,6 +231,293 @@ func (h *ClubWrappedHandler) HandleWrapped(w http.ResponseWriter, r *http.Reques
 
 	// Render the wrapped pages
 	h.renderClubWrapped(w, user, wrappedData)
+}
+
+// HandlePublicWrapped renders the club wrapped for non-admins using a simple password gate.
+// Access model:
+// - POST to /my-availability/{token}/wrapped-auth with correct password sets a short-lived cookie
+// - GET /club/wrapped checks cookie and renders wrapped if present
+func (h *ClubWrappedHandler) HandlePublicWrapped(w http.ResponseWriter, r *http.Request) {
+	// Allow only GET
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Check simple access cookie
+	const cookieName = "wrapped_access"
+	cookie, err := r.Cookie(cookieName)
+	if err != nil || cookie.Value != "granted" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Generate wrapped data (same as admin)
+	wrappedData, genErr := h.generateClubWrappedData()
+	if genErr != nil {
+		logAndError(w, "Failed to generate wrapped data", genErr, http.StatusInternalServerError)
+		return
+	}
+
+	// If a player context cookie is present, enrich with personal stats
+	if playerCookie, perr := r.Cookie("wrapped_player_id"); perr == nil && playerCookie.Value != "" {
+		if personal := h.getPersonalWrappedData(r.Context(), playerCookie.Value); personal != nil {
+			wrappedData.Personal = personal
+		}
+	}
+
+	// Render with a minimal user context label for template (no admin user)
+	h.renderClubWrapped(w, map[string]interface{}{"Username": "guest"}, wrappedData)
+}
+
+// getPersonalWrappedData builds a per-player season summary
+func (h *ClubWrappedHandler) getPersonalWrappedData(ctx context.Context, playerID string) *PersonalWrappedData {
+	pd := &PersonalWrappedData{PlayerID: playerID}
+
+	// Player display name
+	_ = h.service.db.QueryRowContext(ctx, `
+        SELECT COALESCE(p.preferred_name, p.first_name || ' ' || p.last_name) as name
+        FROM players p WHERE p.id = ?
+    `, playerID).Scan(&pd.PlayerName)
+
+	// Fixtures played, matches played, wins/draws for win %
+	_ = h.service.db.QueryRowContext(ctx, `
+        WITH player_matchups AS (
+            SELECT m.*, mp.is_home
+            FROM matchup_players mp
+            INNER JOIN matchups m ON mp.matchup_id = m.id
+            WHERE mp.player_id = ? AND m.status = 'Finished'
+        )
+        SELECT 
+            COUNT(DISTINCT fixture_id) as fixtures_played,
+            COUNT(*) as matches_played,
+            ROUND((
+                SUM(CASE WHEN (is_home = 1 AND home_score > away_score) OR (is_home = 0 AND away_score > home_score) THEN 1 ELSE 0 END)
+                + SUM(CASE WHEN home_score = away_score THEN 0.5 ELSE 0 END)
+            ) * 100.0 / COUNT(*), 1) as win_pct
+        FROM player_matchups
+    `, playerID).Scan(&pd.FixturesPlayed, &pd.MatchesPlayed, &pd.WinPercentage)
+
+	// Unique partners
+	_ = h.service.db.QueryRowContext(ctx, `
+        SELECT COUNT(DISTINCT mp2.player_id)
+        FROM matchup_players mp1
+        JOIN matchup_players mp2 ON mp1.matchup_id = mp2.matchup_id AND mp1.is_home = mp2.is_home AND mp1.player_id <> mp2.player_id
+        JOIN matchups m ON mp1.matchup_id = m.id
+        WHERE mp1.player_id = ? AND m.status = 'Finished'
+    `, playerID).Scan(&pd.UniquePartners)
+
+	// Three-set and tiebreak matches
+	_ = h.service.db.QueryRowContext(ctx, `
+        SELECT 
+            SUM(CASE WHEN (m.home_set3 IS NOT NULL OR m.away_set3 IS NOT NULL) THEN 1 ELSE 0 END) AS three_sets,
+            SUM(CASE WHEN (m.home_set3 >= 10 OR m.away_set3 >= 10) THEN 1 ELSE 0 END) AS tiebreaks
+        FROM matchup_players mp
+        JOIN matchups m ON mp.matchup_id = m.id
+        WHERE mp.player_id = ? AND m.status = 'Finished'
+    `, playerID).Scan(&pd.ThreeSetMatches, &pd.TiebreakMatches)
+
+	// Division breakdown and most played division
+	rows, err := h.service.db.QueryContext(ctx, `
+        WITH pm AS (
+            SELECT m.fixture_id, mp.is_home, m.home_score, m.away_score
+            FROM matchup_players mp
+            JOIN matchups m ON mp.matchup_id = m.id
+            WHERE mp.player_id = ? AND m.status = 'Finished'
+        )
+        SELECT d.name as division,
+               COUNT(DISTINCT f.id) as fixtures,
+               ROUND((
+                    SUM(CASE WHEN ((pm.is_home = 1 AND pm.home_score > pm.away_score) OR (pm.is_home = 0 AND pm.away_score > pm.home_score)) THEN 1 ELSE 0 END)
+                    + SUM(CASE WHEN pm.home_score = pm.away_score THEN 0.5 ELSE 0 END)
+               ) * 100.0 / COUNT(*), 1) as win_pct
+        FROM pm
+        JOIN fixtures f ON f.id = pm.fixture_id
+        JOIN divisions d ON d.id = f.division_id
+        GROUP BY d.name
+        ORDER BY fixtures DESC, d.name ASC
+    `, playerID)
+	if err == nil {
+		defer rows.Close()
+		var most string
+		var mostCount int
+		for rows.Next() {
+			var db DivisionBreakdown
+			if err := rows.Scan(&db.Division, &db.Fixtures, &db.WinPercentage); err == nil {
+				pd.Divisions = append(pd.Divisions, db)
+				if db.Fixtures > mostCount {
+					mostCount = db.Fixtures
+					most = db.Division
+				}
+			}
+		}
+		pd.MostPlayedDivision = most
+	}
+
+	// Best partner by win percentage (min 2 matches together)
+	_ = h.service.db.QueryRowContext(ctx, `
+        WITH my_pairs AS (
+            SELECT mp2.player_id as partner_id,
+                   COALESCE(p2.preferred_name, p2.first_name || ' ' || p2.last_name) as partner_name,
+                   COUNT(*) as matches_together,
+                   SUM(CASE WHEN (mp1.is_home = 1 AND m.home_score > m.away_score) OR (mp1.is_home = 0 AND m.away_score > m.home_score) THEN 1 ELSE 0 END) as wins,
+                   SUM(CASE WHEN m.home_score = m.away_score THEN 1 ELSE 0 END) as draws
+            FROM matchup_players mp1
+            JOIN matchup_players mp2 ON mp1.matchup_id = mp2.matchup_id AND mp1.is_home = mp2.is_home AND mp1.player_id <> mp2.player_id
+            JOIN matchups m ON mp1.matchup_id = m.id
+            JOIN players p2 ON p2.id = mp2.player_id
+            WHERE mp1.player_id = ? AND m.status = 'Finished'
+            GROUP BY mp2.player_id, partner_name
+            HAVING COUNT(*) >= 2
+        )
+        SELECT partner_name,
+               matches_together,
+               ROUND((wins + draws) * 100.0 / matches_together, 1) as pct
+        FROM my_pairs
+        ORDER BY pct DESC, matches_together DESC, partner_name ASC
+        LIMIT 1
+    `, playerID).Scan(&pd.BestPartnerName, &pd.BestPartnerMatchesTogether, &pd.BestPartnerWinPercentage)
+
+	// Most frequent partner (by matches together)
+	_ = h.service.db.QueryRowContext(ctx, `
+        WITH my_pairs AS (
+            SELECT mp2.player_id as partner_id,
+                   COALESCE(p2.preferred_name, p2.first_name || ' ' || p2.last_name) as partner_name,
+                   COUNT(*) as matches_together
+            FROM matchup_players mp1
+            JOIN matchup_players mp2 ON mp1.matchup_id = mp2.matchup_id AND mp1.is_home = mp2.is_home AND mp1.player_id <> mp2.player_id
+            JOIN matchups m ON mp1.matchup_id = m.id
+            JOIN players p2 ON p2.id = mp2.player_id
+            WHERE mp1.player_id = ? AND m.status = 'Finished'
+            GROUP BY mp2.player_id, partner_name
+        )
+        SELECT partner_name, matches_together
+        FROM my_pairs
+        ORDER BY matches_together DESC, partner_name ASC
+        LIMIT 1
+    `, playerID).Scan(&pd.MostFrequentPartnerName, &pd.MostFrequentPartnerMatches)
+
+	// Most common matchup type
+	_ = h.service.db.QueryRowContext(ctx, `
+        SELECT m.type as matchup_type, COUNT(*) as cnt
+        FROM matchup_players mp
+        JOIN matchups m ON mp.matchup_id = m.id
+        WHERE mp.player_id = ? AND m.status = 'Finished'
+        GROUP BY m.type
+        ORDER BY cnt DESC, matchup_type ASC
+        LIMIT 1
+    `, playerID).Scan(&pd.MostCommonMatchupType, &pd.MostCommonMatchupCount)
+
+	// Deciding set performance
+	_ = h.service.db.QueryRowContext(ctx, `
+        WITH pm AS (
+            SELECT m.home_set3, m.away_set3, mp.is_home, m.home_score, m.away_score
+            FROM matchup_players mp
+            JOIN matchups m ON mp.matchup_id = m.id
+            WHERE mp.player_id = ? AND m.status = 'Finished'
+        )
+        SELECT 
+            SUM(CASE WHEN (home_set3 IS NOT NULL OR away_set3 IS NOT NULL) THEN 1 ELSE 0 END) as deciding_matches,
+            SUM(CASE WHEN (home_set3 IS NOT NULL OR away_set3 IS NOT NULL) AND ((is_home = 1 AND home_score > away_score) OR (is_home = 0 AND away_score > home_score)) THEN 1 ELSE 0 END) as deciding_wins
+        FROM pm
+    `, playerID).Scan(&pd.DecidingSetMatches, &pd.DecidingSetWins)
+	if pd.DecidingSetMatches > 0 {
+		pd.DecidingSetWinRate = float64(pd.DecidingSetWins) * 100.0 / float64(pd.DecidingSetMatches)
+	}
+
+	// Bagels delivered (6-0 sets won)
+	_ = h.service.db.QueryRowContext(ctx, `
+        SELECT (
+            SUM(CASE WHEN is_home = 1 AND home_set1 = 6 AND away_set1 = 0 THEN 1 ELSE 0 END) +
+            SUM(CASE WHEN is_home = 1 AND home_set2 = 6 AND away_set2 = 0 THEN 1 ELSE 0 END) +
+            SUM(CASE WHEN is_home = 1 AND home_set3 = 6 AND away_set3 = 0 THEN 1 ELSE 0 END) +
+            SUM(CASE WHEN is_home = 0 AND away_set1 = 6 AND home_set1 = 0 THEN 1 ELSE 0 END) +
+            SUM(CASE WHEN is_home = 0 AND away_set2 = 6 AND home_set2 = 0 THEN 1 ELSE 0 END) +
+            SUM(CASE WHEN is_home = 0 AND away_set3 = 6 AND home_set3 = 0 THEN 1 ELSE 0 END)
+        ) as bagels
+        FROM matchup_players mp
+        JOIN matchups m ON mp.matchup_id = m.id
+        WHERE mp.player_id = ? AND m.status = 'Finished'
+    `, playerID).Scan(&pd.BagelsDelivered)
+
+	// Average games per set
+	_ = h.service.db.QueryRowContext(ctx, `
+        WITH s AS (
+            SELECT 
+                (CASE WHEN m.home_set1 IS NOT NULL AND m.away_set1 IS NOT NULL THEN (m.home_set1 + m.away_set1) ELSE 0 END) +
+                (CASE WHEN m.home_set2 IS NOT NULL AND m.away_set2 IS NOT NULL THEN (m.home_set2 + m.away_set2) ELSE 0 END) +
+                (CASE WHEN m.home_set3 IS NOT NULL AND m.away_set3 IS NOT NULL AND (m.home_set3 + m.away_set3) < 10 THEN (m.home_set3 + m.away_set3) ELSE 0 END) AS games,
+                (CASE WHEN m.home_set1 IS NOT NULL AND m.away_set1 IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN m.home_set2 IS NOT NULL AND m.away_set2 IS NOT NULL THEN 1 ELSE 0 END) +
+                (CASE WHEN m.home_set3 IS NOT NULL AND m.away_set3 IS NOT NULL AND (m.home_set3 + m.away_set3) < 10 THEN 1 ELSE 0 END) AS sets
+            FROM matchup_players mp
+            JOIN matchups m ON mp.matchup_id = m.id
+            WHERE mp.player_id = ? AND m.status = 'Finished'
+        )
+        SELECT ROUND(CASE WHEN SUM(sets) > 0 THEN CAST(SUM(games) AS FLOAT) / SUM(sets) ELSE 0 END, 2)
+        FROM s
+    `, playerID).Scan(&pd.AverageGamesPerSet)
+
+	// Comeback wins
+	_ = h.service.db.QueryRowContext(ctx, `
+        SELECT SUM(CASE
+            WHEN ((mp.is_home = 1 AND m.home_set1 < m.away_set1) OR (mp.is_home = 0 AND m.away_set1 < m.home_set1))
+                 AND ((mp.is_home = 1 AND m.home_score > m.away_score) OR (mp.is_home = 0 AND m.away_score > m.home_score))
+            THEN 1 ELSE 0 END)
+        FROM matchup_players mp
+        JOIN matchups m ON mp.matchup_id = m.id
+        WHERE mp.player_id = ? AND m.status = 'Finished' AND m.home_set1 IS NOT NULL AND m.away_set1 IS NOT NULL
+    `, playerID).Scan(&pd.ComebackWins)
+
+	// Streaks
+	pd.LongestWinStreak, pd.LongestLosingStreak = h.computePlayerStreaks(ctx, playerID)
+
+	return pd
+}
+
+// computePlayerStreaks computes longest win and losing streak for a player
+func (h *ClubWrappedHandler) computePlayerStreaks(ctx context.Context, playerID string) (int, int) {
+	rows, err := h.service.db.QueryContext(ctx, `
+        SELECT CASE 
+            WHEN (mp.is_home = 1 AND m.home_score > m.away_score) OR (mp.is_home = 0 AND m.away_score > m.home_score) THEN 1
+            WHEN m.home_score = m.away_score THEN 0
+            ELSE -1
+        END as result
+        FROM matchup_players mp
+        JOIN matchups m ON mp.matchup_id = m.id
+        JOIN fixtures f ON f.id = m.fixture_id
+        WHERE mp.player_id = ? AND m.status = 'Finished'
+        ORDER BY f.scheduled_date ASC, m.id ASC
+    `, playerID)
+	if err != nil {
+		return 0, 0
+	}
+	defer rows.Close()
+	maxW, curW, maxL, curL := 0, 0, 0, 0
+	for rows.Next() {
+		var v int
+		if err := rows.Scan(&v); err != nil {
+			continue
+		}
+		switch v {
+		case 1:
+			curW++
+			if curW > maxW {
+				maxW = curW
+			}
+			curL = 0
+		case -1:
+			curL++
+			if curL > maxL {
+				maxL = curL
+			}
+			curW = 0
+		default:
+			curW = 0
+			curL = 0
+		}
+	}
+	return maxW, maxL
 }
 
 // renderClubWrapped renders the club wrapped pages

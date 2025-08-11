@@ -1356,6 +1356,11 @@
             <p class="availability-instructions">
                 Click on any date to toggle your availability. We recommend updating weekly, but you can set up to 4 weeks ahead.
             </p>
+            <div style="text-align:center; margin-bottom: 16px;">
+                <button type="button" class="btn-quick-action" onclick="showWrappedModal()" style="background:#6f42c1;">
+                    ✨ View Club Season Wrapped
+                </button>
+            </div>
             
             <div class="calendar-container">
                 <div class="calendar-month-header" id="calendar-month-header"></div>
@@ -1446,6 +1451,29 @@
             <div class="modal-actions">
                 <button type="button" class="btn-modal-cancel" onclick="hidePreferredNameModal()">Cancel</button>
                 <button type="button" class="btn-modal-confirm" onclick="requestPreferredName()">Submit Request</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Wrapped Password Modal -->
+    <div id="wrappedModal" class="injury-modal" style="display: none;">
+        <div class="modal-overlay" onclick="hideWrappedModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🔐 Enter Password</h3>
+                <button class="modal-close" onclick="hideWrappedModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>To view the club-wide Season Wrapped, please enter the shared access password.</p>
+                <div class="date-input-group">
+                    <label for="wrappedPassword">Password:</label>
+                    <input type="password" id="wrappedPassword" class="return-date-input" placeholder="Enter password">
+                </div>
+                <p class="injury-note">This light password helps deter bots. Player names are shown inside.</p>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-modal-cancel" onclick="hideWrappedModal()">Cancel</button>
+                <button type="button" class="btn-modal-confirm" onclick="submitWrappedPassword()">Unlock</button>
             </div>
         </div>
     </div>
@@ -1957,6 +1985,45 @@
             setTimeout(() => {
                 input.focus();
             }, 300);
+        }
+
+        // Wrapped modal functions
+        function showWrappedModal() {
+            const modal = document.getElementById('wrappedModal');
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                const input = document.getElementById('wrappedPassword');
+                input.focus();
+            }, 300);
+        }
+        function hideWrappedModal() {
+            const modal = document.getElementById('wrappedModal');
+            modal.style.display = 'none';
+            document.getElementById('wrappedPassword').value = '';
+        }
+        async function submitWrappedPassword() {
+            const pwd = (document.getElementById('wrappedPassword').value || '').trim();
+            if (!pwd) {
+                alert('Please enter the password.');
+                return;
+            }
+            try {
+                const resp = await fetch(`/my-availability/${calendar.authToken}/wrapped-auth`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pwd })
+                });
+                if (resp.ok) {
+                    hideWrappedModal();
+                    // Redirect to the public wrapped page
+                    window.location.href = '/club/wrapped';
+                } else {
+                    const data = await resp.json().catch(() => ({}));
+                    alert(data.error || 'Incorrect password.');
+                }
+            } catch (e) {
+                alert('Error verifying password. Please try again.');
+            }
         }
         
         function hidePreferredNameModal() {

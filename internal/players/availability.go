@@ -62,6 +62,8 @@ func (h *AvailabilityHandler) HandleAvailability(w http.ResponseWriter, r *http.
 		h.handleAvailabilityBatchUpdate(w, r, &player, authToken)
 	case action == "request-preferred-name" && r.Method == http.MethodPost:
 		h.handlePreferredNameRequest(w, r, &player, authToken)
+	case action == "wrapped-auth" && r.Method == http.MethodPost:
+		h.handleWrappedPasswordAuth(w, r)
 	case action == "" && r.Method == http.MethodGet:
 		h.handleAvailabilityGet(w, r, &player, authToken)
 	case action == "" && r.Method == http.MethodPost:
@@ -255,6 +257,50 @@ func (h *AvailabilityHandler) handlePreferredNameRequest(w http.ResponseWriter, 
 		"success": true,
 		"message": fmt.Sprintf("Your preferred name request for '%s' has been submitted for admin approval", preferredName),
 	})
+}
+
+// handleWrappedPasswordAuth validates a shared password and sets a short-lived cookie to view club wrapped
+func (h *AvailabilityHandler) handleWrappedPasswordAuth(w http.ResponseWriter, r *http.Request) {
+	// Expect JSON: { "password": "..." }
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Simple in-code secret. Replace via build-time env in future if desired.
+	// Intentionally low-friction deterrent, not robust security.
+	const expected = "st-anns-2025"
+	if strings.TrimSpace(req.Password) == expected {
+		// Set short-lived access cookie (15 minutes)
+		http.SetCookie(w, &http.Cookie{
+			Name:     "wrapped_access",
+			Value:    "granted",
+			Path:     "/",
+			HttpOnly: true,
+			MaxAge:   15 * 60,
+			SameSite: http.SameSiteLaxMode,
+		})
+		// Also set a non-HttpOnly cookie with player id to personalize wrapped view
+		if player, err := auth.GetPlayerFromContext(r.Context()); err == nil {
+			http.SetCookie(w, &http.Cookie{
+				Name:     "wrapped_player_id",
+				Value:    player.ID,
+				Path:     "/",
+				HttpOnly: false,
+				MaxAge:   15 * 60,
+				SameSite: http.SameSiteLaxMode,
+			})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"success": true})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusUnauthorized)
+	_ = json.NewEncoder(w).Encode(map[string]any{"success": false, "error": "Incorrect password"})
 }
 
 // getTeamName creates a formatted team name from two tennis players

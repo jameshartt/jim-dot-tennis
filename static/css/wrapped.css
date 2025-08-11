@@ -160,6 +160,14 @@
     background-clip: text;
 }
 
+/* Allow text variant inside stat-number to wrap and scale appropriately */
+.stat-number.stat-text {
+    font-size: 2rem;
+    line-height: 1.2;
+    word-break: break-word;
+    white-space: normal;
+}
+
 .stat-label {
     font-size: 1.1rem;
     font-weight: 600;
@@ -627,32 +635,6 @@
 .current-page {
     color: #ffd700;
     font-weight: 800;
-}
-
-/* Footer */
-.wrapped-footer {
-    position: fixed;
-    top: 2rem;
-    left: 2rem;
-    z-index: 1000;
-}
-
-.back-link {
-    color: rgba(255, 255, 255, 0.8);
-    text-decoration: none;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    background: rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(20px);
-    padding: 0.75rem 1.5rem;
-    border-radius: 25px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.back-link:hover {
-    color: white;
-    background: rgba(0, 0, 0, 0.5);
-    transform: translateY(-2px);
 }
 
 /* Global animations */
@@ -1181,14 +1163,6 @@
         width: 40px;
         height: 40px;
         font-size: 1rem;
-    }
-    
-    .wrapped-footer {
-        position: relative;
-        top: auto;
-        left: auto;
-        text-align: center;
-        margin: 1rem 0;
     }
 }
 

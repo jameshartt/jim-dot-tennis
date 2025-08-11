@@ -98,3 +98,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 		authMiddleware.RequireRole("admin")(adminMux),
 	))
 }
+
+// RegisterPublicRoutes registers public-facing admin-related routes (no admin auth)
+func (h *Handler) RegisterPublicRoutes(mux *http.ServeMux) {
+	// Public Season Wrapped route protected by a lightweight access cookie
+	mux.HandleFunc("/club/wrapped", h.clubWrapped.HandlePublicWrapped)
+}

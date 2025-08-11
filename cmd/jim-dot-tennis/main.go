@@ -104,6 +104,9 @@ func main() {
 	// Admin routes (protected)
 	adminHandler.RegisterRoutes(mux, authMiddleware)
 
+	// Public admin-related routes (e.g., club wrapped with lightweight password gate)
+	adminHandler.RegisterPublicRoutes(mux)
+
 	// Players routes (protected)
 	playersHandler.RegisterRoutes(mux, authMiddleware)
 
