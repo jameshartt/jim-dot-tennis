@@ -698,6 +698,10 @@
     <script>
         let currentPage = 1;
         const totalPages = 12;
+        // Fast back navigation detection
+        let lastNavTs = 0;
+        let consecutiveBackFastCount = 0;
+        const fastBackMs = 600; // within 600ms counts as fast back
 
         function showPage(pageNum) {
             // Hide all pages
@@ -726,18 +730,35 @@
             if (currentPage < totalPages) {
                 currentPage++;
                 showPage(currentPage);
+                // reset fast-back state on forward
+                consecutiveBackFastCount = 0;
+                lastNavTs = Date.now();
             }
         }
 
         function previousPage() {
             if (currentPage > 1) {
+                const now = Date.now();
+                if (now - lastNavTs <= fastBackMs) {
+                    consecutiveBackFastCount += 1;
+                } else {
+                    consecutiveBackFastCount = 1;
+                }
+                lastNavTs = now;
+
                 currentPage--;
                 showPage(currentPage);
-                // Heuristic: scroll near bottom of the previous page for context
+
                 const active = document.getElementById(`page-${currentPage}`);
                 if (active) {
-                    const target = Math.max(0, active.scrollHeight - active.clientHeight - 50);
-                    active.scrollTop = target;
+                    if (consecutiveBackFastCount >= 2) {
+                        // Multiple quick back presses: go to top for speed
+                        active.scrollTop = 0;
+                    } else {
+                        // Single back: show bottom context
+                        const target = Math.max(0, active.scrollHeight - active.clientHeight - 50);
+                        active.scrollTop = target;
+                    }
                 }
             }
         }
