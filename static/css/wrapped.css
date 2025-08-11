@@ -3,6 +3,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 /* Core wrapped layout */
+.wrapped-body, html {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
 .wrapped-body {
     margin: 0;
     padding: 0;
@@ -18,6 +23,7 @@
     width: 100%;
     height: 100vh;
     overflow: hidden; /* outer scroll locked; inner pages scroll */
+    overscroll-behavior-x: none;
 }
 
 .wrapped-page {
@@ -33,11 +39,13 @@
     padding: 2rem 0 calc(var(--nav-offset, 120px) + env(safe-area-inset-bottom) + 36px) 0;
     box-sizing: border-box;
     opacity: 0;
-    transform: translateX(100px);
-    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: none; /* prevent offscreen translate causing horizontal overflow */
+    transition: opacity 0.4s ease;
     overflow-y: auto;
+    overflow-x: hidden;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-y; /* disallow horizontal panning */
     background-repeat: no-repeat;
     background-size: cover;
     pointer-events: none; /* only active page should interact */
@@ -46,7 +54,7 @@
 
 .wrapped-page.active {
     opacity: 1;
-    transform: translateX(0);
+    transform: none;
     pointer-events: auto;
     visibility: visible;
 }
@@ -107,6 +115,7 @@
     z-index: 1;
     margin: auto;
     flex-shrink: 0;
+    overflow-x: hidden;
 }
 
 /* Dynamic spacer to ensure content isn't obscured by bottom navigation (uses JS-updated --nav-offset) */

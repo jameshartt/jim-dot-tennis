@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
     <title>St. Ann's Season Wrapped {{.WrappedData.SeasonYear}} - Jim.Tennis Admin</title>
     <link rel="stylesheet" href="/static/css/main.css">
     <link rel="stylesheet" href="/static/css/wrapped.css">
@@ -705,12 +705,12 @@
 
         function showPage(pageNum) {
             // Hide all pages
-            document.querySelectorAll('.wrapped-page').forEach(page => {
-                page.classList.remove('active');
-            });
+            const pages = Array.from(document.querySelectorAll('.wrapped-page'));
+            pages.forEach(page => page.classList.remove('active'));
             
             // Show current page
-            document.getElementById(`page-${pageNum}`).classList.add('active');
+            const current = document.getElementById(`page-${pageNum}`);
+            if (current) current.classList.add('active');
             
             // Update navigation
             document.getElementById('currentPageNum').textContent = pageNum;
