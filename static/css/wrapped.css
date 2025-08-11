@@ -9,7 +9,7 @@
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background: #0a0a0a;
     color: white;
-    overflow-x: hidden;
+    overflow: hidden;
     min-height: 100vh;
 }
 
@@ -17,7 +17,7 @@
     position: relative;
     width: 100%;
     height: 100vh;
-    overflow: auto;
+    overflow: hidden; /* outer scroll locked; inner pages scroll */
 }
 
 .wrapped-page {
@@ -25,22 +25,30 @@
     top: 0;
     left: 0;
     width: 100%;
-    min-height: 100vh;
+    height: 100vh;
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    padding: 2rem 0;
+    /* Leave dynamic space for bottom navigation + safe area (+20px extra buffer) */
+    padding: 2rem 0 calc(var(--nav-offset, 120px) + env(safe-area-inset-bottom) + 36px) 0;
     box-sizing: border-box;
     opacity: 0;
     transform: translateX(100px);
     transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
     overflow-y: auto;
-    background-attachment: fixed;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    background-repeat: no-repeat;
+    background-size: cover;
+    pointer-events: none; /* only active page should interact */
+    visibility: hidden;
 }
 
 .wrapped-page.active {
     opacity: 1;
     transform: translateX(0);
+    pointer-events: auto;
+    visibility: visible;
 }
 
 .wrapped-page#page-1 {
@@ -99,6 +107,19 @@
     z-index: 1;
     margin: auto;
     flex-shrink: 0;
+}
+
+/* Dynamic spacer to ensure content isn't obscured by bottom navigation (uses JS-updated --nav-offset) */
+.wrapped-content::after {
+    content: "";
+    display: block;
+    /* +20px extra buffer */
+    height: calc(var(--nav-offset, 120px) + env(safe-area-inset-bottom) + 36px);
+}
+
+/* Help ensure last element never sits flush against nav */
+.wrapped-content > *:last-child {
+    margin-bottom: 0.75rem;
 }
 
 .wrapped-header {
@@ -591,7 +612,7 @@
 /* Navigation */
 .wrapped-navigation {
     position: fixed;
-    bottom: 2rem;
+    bottom: calc(1.25rem + env(safe-area-inset-bottom));
     left: 50%;
     transform: translateX(-50%);
     display: flex;
@@ -1155,7 +1176,7 @@
     }
     
     .wrapped-navigation {
-        bottom: 1rem;
+        bottom: calc(0.75rem + env(safe-area-inset-bottom));
         padding: 0.75rem 1.5rem;
     }
     

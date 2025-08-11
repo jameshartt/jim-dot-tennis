@@ -714,6 +714,12 @@
             // Update button states
             document.getElementById('prevBtn').style.display = pageNum === 1 ? 'none' : 'block';
             document.getElementById('nextBtn').style.display = pageNum === totalPages ? 'none' : 'block';
+
+            // Scroll the active page to the top each time we change page
+            const active = document.getElementById(`page-${pageNum}`);
+            if (active) {
+                active.scrollTop = 0; // avoid smoothing conflicts across platforms
+            }
         }
 
         function nextPage() {
@@ -727,6 +733,12 @@
             if (currentPage > 1) {
                 currentPage--;
                 showPage(currentPage);
+                // Heuristic: scroll near bottom of the previous page for context
+                const active = document.getElementById(`page-${currentPage}`);
+                if (active) {
+                    const target = Math.max(0, active.scrollHeight - active.clientHeight - 50);
+                    active.scrollTop = target;
+                }
             }
         }
 
@@ -743,6 +755,19 @@
 
         // Initialize
         showPage(1);
+        // Ensure first page starts top
+        const first = document.getElementById('page-1');
+        if (first) first.scrollTop = 0;
+
+        // Measure nav height and expose CSS var to pad page bottoms
+        function updateNavOffset() {
+            const nav = document.querySelector('.wrapped-navigation');
+            const navHeight = nav ? nav.offsetHeight : 0;
+            // Add larger buffer to avoid overlap (accounts for shadows/touch targets)
+            document.documentElement.style.setProperty('--nav-offset', (navHeight + 48) + 'px');
+        }
+        updateNavOffset();
+        window.addEventListener('resize', updateNavOffset);
         
         console.log("St. Ann's Season Wrapped loaded with 13 pages");
     </script>
