@@ -1221,9 +1221,9 @@ func (h *ClubWrappedHandler) getTopWinPercentagePlayers(ctx context.Context) []P
 			continue
 		}
 
-		// Handle ties: if win percentage is different from previous, update rank
+		// Dense ranking: same percentage => same rank, next distinct => rank+1
 		if previousWinPercentage != nil && winPercentage != *previousWinPercentage {
-			currentRank = len(achievements) + 1
+			currentRank++
 		}
 
 		achievement := PlayerAchievement{
@@ -1503,7 +1503,7 @@ func (h *ClubWrappedHandler) getSocialButterflies(ctx context.Context) []SocialB
 			},
 			UniquePartners:    uniquePartners,
 			TotalPartnerships: totalPartnerships,
-			Description:       fmt.Sprintf("%d different partners (%d total partnerships)", uniquePartners, totalPartnerships),
+			Description:       fmt.Sprintf("%d different partners (%d matches)", uniquePartners, totalPartnerships),
 			Rank:              currentRank,
 		}
 
