@@ -1272,7 +1272,70 @@
 </head>
 <body>
     <div class="availability-container">
-        <div class="fantasy-match-card" id="fantasy-match-card" onclick="toggleFantasyMatch()">
+        <div id="wrapped-cta" style="text-align:center; margin-bottom: 16px; display: none;">
+            <button type="button" class="btn-quick-action" onclick="showWrappedModal()" style="background:#6f42c1;">
+                ✨ View Club Season Wrapped
+            </button>
+        </div>
+        <div class="availability-section" id="upcoming-fixtures-section" style="display: none;">
+            <h2 class="section-title">Your Upcoming Fixtures</h2>
+            <div id="upcoming-fixtures-container">
+                <div class="fixtures-loading">Loading your fixture information...</div>
+            </div>
+        </div>
+        
+        <div class="availability-section">
+            <h2 class="section-title">Set Your Availability (Initials: {{printf "%.1s" .Player.FirstName}}.{{printf "%.1s" .Player.LastName}}.)</h2>
+            <p class="availability-instructions">
+                Click on any date to toggle your availability. We recommend updating weekly, but you can set up to 4 weeks ahead.
+            </p>
+            
+            <div class="calendar-container">
+                <div class="calendar-month-header" id="calendar-month-header"></div>
+                <div class="calendar-grid" id="availability-calendar">
+                    <!-- Calendar will be populated by JavaScript -->
+                </div>
+                
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color clear"></div>
+                        <span>Not Set</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color available"></div>
+                        <span>Available</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color if-needed"></div>
+                        <span>If Needed*</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color unavailable"></div>
+                        <span>Unavailable</span>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 10px; font-size: 13px; color: #666; max-width: 100%; word-wrap: break-word; padding: 0 10px;">
+                    *If Needed: Can make it work if team selection is tight, but would prefer not to due to other commitments
+                </div>
+            </div>
+            
+            <div class="availability-actions">
+                <button type="button" class="btn-quick-action" onclick="setWeekAvailability('available', 1)">
+                    Set Next Week Available
+                </button>
+                <button type="button" class="btn-quick-action" onclick="setWeekAvailability('unavailable', 1)">
+                    Set Next Week Unavailable
+                </button>
+                <button type="button" class="btn-quick-action btn-injury" onclick="showInjuryModal()">
+                    🩹 Report Injury
+                </button>
+                <button type="button" class="btn-quick-action" onclick="showPreferredNameModal()" style="background: #6f42c1;">
+                    📝 Request Preferred Name
+                </button>
+            </div>
+        </div>
+                <div class="fantasy-match-card" id="fantasy-match-card" onclick="toggleFantasyMatch()">
             <div class="match-header">
                 <h1 class="match-title">
                     Fantasy Mixed Doubles Match
@@ -1341,70 +1404,6 @@
                     </div>
                 </div>
             </div>
-            </div>
-        </div>
-        
-        <div class="availability-section" id="upcoming-fixtures-section" style="display: none;">
-            <h2 class="section-title">Your Upcoming Fixtures</h2>
-            <div id="upcoming-fixtures-container">
-                <div class="fixtures-loading">Loading your fixture information...</div>
-            </div>
-        </div>
-        
-        <div class="availability-section">
-            <h2 class="section-title">Set Your Availability (Initials: {{printf "%.1s" .Player.FirstName}}.{{printf "%.1s" .Player.LastName}}.)</h2>
-            <p class="availability-instructions">
-                Click on any date to toggle your availability. We recommend updating weekly, but you can set up to 4 weeks ahead.
-            </p>
-            <div style="text-align:center; margin-bottom: 16px;">
-                <button type="button" class="btn-quick-action" onclick="showWrappedModal()" style="background:#6f42c1;">
-                    ✨ View Club Season Wrapped
-                </button>
-            </div>
-            
-            <div class="calendar-container">
-                <div class="calendar-month-header" id="calendar-month-header"></div>
-                <div class="calendar-grid" id="availability-calendar">
-                    <!-- Calendar will be populated by JavaScript -->
-                </div>
-                
-                <div class="legend">
-                    <div class="legend-item">
-                        <div class="legend-color clear"></div>
-                        <span>Not Set</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color available"></div>
-                        <span>Available</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color if-needed"></div>
-                        <span>If Needed*</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color unavailable"></div>
-                        <span>Unavailable</span>
-                    </div>
-                </div>
-                
-                <div style="text-align: center; margin-top: 10px; font-size: 13px; color: #666; max-width: 100%; word-wrap: break-word; padding: 0 10px;">
-                    *If Needed: Can make it work if team selection is tight, but would prefer not to due to other commitments
-                </div>
-            </div>
-            
-            <div class="availability-actions">
-                <button type="button" class="btn-quick-action" onclick="setWeekAvailability('available', 1)">
-                    Set Next Week Available
-                </button>
-                <button type="button" class="btn-quick-action" onclick="setWeekAvailability('unavailable', 1)">
-                    Set Next Week Unavailable
-                </button>
-                <button type="button" class="btn-quick-action btn-injury" onclick="showInjuryModal()">
-                    🩹 Report Injury
-                </button>
-                <button type="button" class="btn-quick-action" onclick="showPreferredNameModal()" style="background: #6f42c1;">
-                    📝 Request Preferred Name
-                </button>
             </div>
         </div>
     </div>
@@ -1868,6 +1867,14 @@
         let calendar;
         document.addEventListener('DOMContentLoaded', function() {
             calendar = new AvailabilityCalendar();
+            // Show Wrapped CTA only when ?unwrapped=true is present in URL
+            try {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('unwrapped') === 'true') {
+                    const wrappedCta = document.getElementById('wrapped-cta');
+                    if (wrappedCta) wrappedCta.style.display = '';
+                }
+            } catch (e) {}
             
             // Check if user has ever visited this page before
             const hasVisitedBefore = localStorage.getItem('fantasy-match-visited') === 'true';
