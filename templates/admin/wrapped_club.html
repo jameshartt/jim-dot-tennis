@@ -755,17 +755,7 @@
                 currentPage--;
                 showPage(currentPage);
 
-                const active = document.getElementById(`page-${currentPage}`);
-                if (active) {
-                    if (consecutiveBackFastCount >= 2) {
-                        // Multiple quick back presses: go to top for speed
-                        active.scrollTop = 0;
-                    } else {
-                        // Single back: show bottom context
-                        const target = Math.max(0, active.scrollHeight - active.clientHeight - 50);
-                        active.scrollTop = target;
-                    }
-                }
+                active.scrollTop = 0;
             }
         }
 

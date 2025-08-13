@@ -29,9 +29,6 @@
     overscroll-behavior-x: none;
 }
 
-/* Only animate the page that becomes active to avoid initial multi-page animations */
-.wrapped-page.active { animation: fadeInUp 0.6s ease-out; }
-
 .wrapped-page {
     position: absolute;
     top: 0;
