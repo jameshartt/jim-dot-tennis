@@ -907,9 +907,9 @@ func (h *ClubWrappedHandler) getClubThreeSetWarriors(ctx context.Context) []Play
 			continue
 		}
 
-		// Handle ties: if percentage is different from previous, update rank
+		// Dense ranking: same percentage => same rank, next distinct => rank+1
 		if previousPercentage != nil && threeSetPercentage != *previousPercentage {
-			currentRank = len(achievements) + 1
+			currentRank++
 		}
 
 		achievement := PlayerAchievement{
@@ -996,9 +996,9 @@ func (h *ClubWrappedHandler) getClubGameGrinders(ctx context.Context) []PlayerAc
 			continue
 		}
 
-		// Handle ties: if average is different from previous, update rank
+		// Dense ranking: same average => same rank, next distinct => rank+1
 		if previousAverage != nil && avgGamesPerSet != *previousAverage {
-			currentRank = len(achievements) + 1
+			currentRank++
 		}
 
 		achievement := PlayerAchievement{
@@ -1316,9 +1316,9 @@ func (h *ClubWrappedHandler) getTopPairings(ctx context.Context) []ClubPartnersh
 			continue
 		}
 
-		// Handle ties based on matches together: if different number of matches, update rank
+		// Dense ranking: same matchesTogether => same rank, next distinct value => rank+1
 		if previousMatches != nil && matchesTogether != *previousMatches {
-			currentRank = len(partnerships) + 1
+			currentRank++
 		}
 
 		partnership := ClubPartnership{
@@ -1342,42 +1342,56 @@ func (h *ClubWrappedHandler) getTopPairings(ctx context.Context) []ClubPartnersh
 func (h *ClubWrappedHandler) getComebackKings(ctx context.Context) []ComebackAchievement {
 	// Page 10: Comeback Kings/Queens - Players who won matches after losing the first set
 	query := `
-		WITH comeback_stats AS (
-			SELECT 
-				p.id,
-				COALESCE(p.preferred_name, p.first_name || ' ' || p.last_name) as name,
-				COUNT(*) as total_matches,
-				SUM(CASE 
-					WHEN (
-						-- Lost first set but won the match
-						((mp.is_home = 1 AND m.home_set1 < m.away_set1) OR (mp.is_home = 0 AND m.away_set1 < m.home_set1))
-						AND
-						((mp.is_home = 1 AND m.home_score > m.away_score) OR (mp.is_home = 0 AND m.away_score > m.home_score))
-					)
-					THEN 1 
-					ELSE 0 
-				END) as comeback_wins
-			FROM matchup_players mp
-			INNER JOIN matchups m ON mp.matchup_id = m.id
-			INNER JOIN players p ON mp.player_id = p.id
-			WHERE m.status = 'Finished'
-				AND m.home_set1 IS NOT NULL 
-				AND m.away_set1 IS NOT NULL
-				AND m.home_score IS NOT NULL
-				AND m.away_score IS NOT NULL
-			GROUP BY p.id, name
-			HAVING total_matches >= 5 AND comeback_wins > 0
-		)
-		SELECT 
-			id,
-			name,
-			total_matches,
-			comeback_wins,
-			ROUND(comeback_wins * 100.0 / total_matches, 1) as comeback_percentage
-		FROM comeback_stats
-		ORDER BY comeback_percentage DESC, comeback_wins DESC
-		LIMIT 10
-	`
+        WITH pm AS (
+            SELECT 
+                p.id AS player_id,
+                COALESCE(p.preferred_name, p.first_name || ' ' || p.last_name) AS name,
+                mp.is_home,
+                m.home_set1, m.away_set1,
+                m.home_set2, m.away_set2,
+                m.home_set3, m.away_set3,
+                m.home_score, m.away_score
+            FROM matchup_players mp
+            INNER JOIN matchups m ON mp.matchup_id = m.id
+            INNER JOIN players p ON mp.player_id = p.id
+            WHERE m.status = 'Finished'
+                AND m.home_set1 IS NOT NULL 
+                AND m.away_set1 IS NOT NULL
+                AND m.home_score IS NOT NULL
+                AND m.away_score IS NOT NULL
+        ), flags AS (
+            SELECT 
+                player_id,
+                name,
+                -- Win after losing the first set (necessarily a 3-set win)
+                CASE 
+                    WHEN ((is_home = 1 AND home_set1 < away_set1) OR (is_home = 0 AND away_set1 < home_set1))
+                     AND ((is_home = 1 AND home_score > away_score) OR (is_home = 0 AND away_score > home_score))
+                    THEN 1 ELSE 0 END AS is_comeback_win,
+                -- Straight-set loss after losing the first set (0-2)
+                CASE 
+                    WHEN ((is_home = 1 AND home_set1 < away_set1) OR (is_home = 0 AND away_set1 < home_set1))
+                     AND ((is_home = 1 AND home_set2 < away_set2) OR (is_home = 0 AND away_set2 < home_set2))
+                     AND (home_set3 IS NULL AND away_set3 IS NULL)
+                    THEN 1 ELSE 0 END AS is_two_set_loss
+            FROM pm
+        )
+        SELECT 
+            player_id AS id,
+            name,
+            SUM(is_comeback_win) + SUM(is_two_set_loss) AS total_opportunities,
+            SUM(is_comeback_win) AS comeback_wins,
+            ROUND(
+                CASE WHEN (SUM(is_comeback_win) + SUM(is_two_set_loss)) > 0 
+                     THEN SUM(is_comeback_win) * 100.0 / (SUM(is_comeback_win) + SUM(is_two_set_loss))
+                     ELSE 0 END, 1
+            ) AS comeback_percentage
+        FROM flags
+        GROUP BY player_id, name
+        HAVING total_opportunities >= 2 AND comeback_wins > 0
+        ORDER BY comeback_percentage DESC, comeback_wins DESC, total_opportunities DESC
+        LIMIT 10
+    `
 
 	rows, err := h.service.db.QueryContext(ctx, query)
 	if err != nil {
@@ -1401,9 +1415,9 @@ func (h *ClubWrappedHandler) getComebackKings(ctx context.Context) []ComebackAch
 			continue
 		}
 
-		// Handle ties: if percentage is different from previous, update rank
+		// Dense ranking: same percentage => same rank, next distinct => rank+1
 		if previousPercentage != nil && comebackPercentage != *previousPercentage {
-			currentRank = len(achievements) + 1
+			currentRank++
 		}
 
 		achievement := ComebackAchievement{
@@ -1476,9 +1490,9 @@ func (h *ClubWrappedHandler) getSocialButterflies(ctx context.Context) []SocialB
 			continue
 		}
 
-		// Handle ties: if unique partners is different from previous, update rank
+		// Dense ranking: same uniquePartners => same rank, next distinct => rank+1
 		if previousPartners != nil && uniquePartners != *previousPartners {
-			currentRank = len(achievements) + 1
+			currentRank++
 		}
 
 		achievement := SocialButterflyAchievement{
