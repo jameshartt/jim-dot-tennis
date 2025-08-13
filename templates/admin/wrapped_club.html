@@ -9,9 +9,15 @@
     <link rel="icon" type="image/png" href="/static/img/favicon.png">
 </head>
 <body class="wrapped-body">
-    <div class="wrapped-container">
+    <div class="wrapped-container loading">
+        <!-- Page 0: Minimal Loading Screen -->
+        <div class="wrapped-page active" id="page-0">
+            <div class="wrapped-content">
+
+            </div>
+        </div>
         <!-- Page 1: Club Journey -->
-        <div class="wrapped-page active" id="page-1">
+            <div class="wrapped-page" id="page-1">
             <div class="wrapped-content">
                 <div class="wrapped-header">
                     <h1 class="wrapped-title gradient-text">{{.WrappedData.ClubName}}</h1>
@@ -685,7 +691,7 @@
         </div>
 
         <!-- Navigation -->
-        <div class="wrapped-navigation">
+        <div class="wrapped-navigation" style="display:none;">
             <button class="nav-btn prev-btn" onclick="previousPage()" id="prevBtn">❮</button>
             <div class="page-indicator">
                 <span class="current-page" id="currentPageNum">1</span>
@@ -696,7 +702,7 @@
     </div>
 
     <script>
-        let currentPage = 1;
+        let currentPage = 0;
         const totalPages = 12;
         // Fast back navigation detection
         let lastNavTs = 0;
@@ -774,11 +780,21 @@
             }
         });
 
-        // Initialize
-        showPage(1);
-        // Ensure first page starts top
-        const first = document.getElementById('page-1');
-        if (first) first.scrollTop = 0;
+        // Defer switching to page 1 until fully loaded
+        window.addEventListener('load', () => {
+            // measure and set nav offset before revealing nav
+            updateNavOffset();
+            const nav = document.querySelector('.wrapped-navigation');
+            if (nav) nav.style.display = 'flex';
+            // switch from loading page (0) to first content page (1)
+            currentPage = 1;
+            showPage(1);
+            const first = document.getElementById('page-1');
+            if (first) first.scrollTop = 0;
+            // remove loading flag from container
+            const container = document.querySelector('.wrapped-container');
+            if (container) container.classList.remove('loading');
+        });
 
         // Measure nav height and expose CSS var to pad page bottoms
         function updateNavOffset() {
