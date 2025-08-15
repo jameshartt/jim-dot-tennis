@@ -1,4 +1,10 @@
-{{if .FixtureDetail.Matchups}}
+{{$hasAssignedPlayers := false}}
+{{range .FixtureDetail.Matchups}}
+    {{if gt (len .Players) 0}}
+        {{$hasAssignedPlayers = true}}
+    {{end}}
+{{end}}
+{{if and .FixtureDetail.Matchups (or (eq .FixtureDetail.Status "Completed") $hasAssignedPlayers)}}
 <div class="glance-matchups">
     {{if eq .FixtureDetail.Status "Completed"}}
     <!-- Completed fixture with scores -->
