@@ -57,7 +57,7 @@ type ClubFixtureBreakdown struct {
 
 // Page 3: Playing Style Players
 type ClubPlayingStyleStats struct {
-	MixedOnlyPlayers  []PlayerSummary // "The purest form of 🎾"
+	MixedOnlyPlayers  []PlayerSummary // "The Purset Form Of 🎾"
 	MensOnlyPlayers   []PlayerSummary // "Manly Men 💪"
 	WomensOnlyPlayers []PlayerSummary // "Fabulous Women ✨"
 }
@@ -177,6 +177,8 @@ type PersonalWrappedData struct {
 	FixturesPlayed             int
 	MatchesPlayed              int
 	WinPercentage              float64
+	HomeWinPercentage          float64
+	AwayWinPercentage          float64
 	UniquePartners             int
 	ThreeSetMatches            int
 	TiebreakMatches            int
@@ -297,6 +299,38 @@ func (h *ClubWrappedHandler) getPersonalWrappedData(ctx context.Context, playerI
             ) * 100.0 / COUNT(*), 1) as win_pct
         FROM player_matchups
     `, playerID).Scan(&pd.FixturesPlayed, &pd.MatchesPlayed, &pd.WinPercentage)
+
+	// Home win percentage (weighted: win=1, draw=0.5)
+	_ = h.service.db.QueryRowContext(ctx, `
+		WITH player_matchups AS (
+			SELECT m.*
+			FROM matchup_players mp
+			INNER JOIN matchups m ON mp.matchup_id = m.id
+			WHERE mp.player_id = ? AND m.status = 'Finished' AND mp.is_home = 1
+		)
+		SELECT CASE 
+			WHEN COUNT(*) > 0 THEN ROUND(((
+				SUM(CASE WHEN home_score > away_score THEN 1 ELSE 0 END)
+				+ SUM(CASE WHEN home_score = away_score THEN 0.5 ELSE 0 END)
+			) * 100.0) / COUNT(*), 1) ELSE 0 END
+		FROM player_matchups
+	`, playerID).Scan(&pd.HomeWinPercentage)
+
+	// Away win percentage (weighted: win=1, draw=0.5)
+	_ = h.service.db.QueryRowContext(ctx, `
+		WITH player_matchups AS (
+			SELECT m.*
+			FROM matchup_players mp
+			INNER JOIN matchups m ON mp.matchup_id = m.id
+			WHERE mp.player_id = ? AND m.status = 'Finished' AND mp.is_home = 0
+		)
+		SELECT CASE 
+			WHEN COUNT(*) > 0 THEN ROUND(((
+				SUM(CASE WHEN away_score > home_score THEN 1 ELSE 0 END)
+				+ SUM(CASE WHEN home_score = away_score THEN 0.5 ELSE 0 END)
+			) * 100.0) / COUNT(*), 1) ELSE 0 END
+		FROM player_matchups
+	`, playerID).Scan(&pd.AwayWinPercentage)
 
 	// Unique partners
 	_ = h.service.db.QueryRowContext(ctx, `
