@@ -57,7 +57,7 @@ type ClubFixtureBreakdown struct {
 
 // Page 3: Playing Style Players
 type ClubPlayingStyleStats struct {
-	MixedOnlyPlayers  []PlayerSummary // "As God intended 😉"
+	MixedOnlyPlayers  []PlayerSummary // "The purest form of 🎾"
 	MensOnlyPlayers   []PlayerSummary // "Manly Men 💪"
 	WomensOnlyPlayers []PlayerSummary // "Fabulous Women ✨"
 }
