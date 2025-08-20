@@ -112,8 +112,11 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 		CanPlayLower:             false,
 	}
 
-	// Rule 1: No player shall be allowed to play in more than one team in any week (by actual calendar week of play)
-	hasPlayedThisWeek, playedTeam, err := s.hasPlayerPlayedInCalendarWeek(ctx, playerID, playingWeek.StartDate, playingWeek.EndDate, fixture.ID)
+	// Compute Monday 00:00 to Saturday 00:00 window for the fixture's week
+	weekStart, weekEndExclusive := s.mondayToSaturdayWindow(fixture.ScheduledDate)
+
+	// Rule 1: No player shall be allowed to play or be scheduled to play in more than one team in the Monday–Friday window
+	hasPlayedThisWeek, playedTeam, err := s.hasPlayerPlayedInCalendarWeek(ctx, playerID, player.ClubID, weekStart, weekEndExclusive, fixture.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -226,25 +229,29 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 	return eligibility, nil
 }
 
-// hasPlayerPlayedInCalendarWeek checks if a player has already played in any fixture during the provided calendar week window
-func (s *TeamEligibilityService) hasPlayerPlayedInCalendarWeek(ctx context.Context, playerID string, weekStart time.Time, weekEnd time.Time, excludeFixtureID uint) (bool, string, error) {
+// hasPlayerPlayedInCalendarWeek checks if a player has already played or is scheduled to play in the Monday–Friday window
+func (s *TeamEligibilityService) hasPlayerPlayedInCalendarWeek(ctx context.Context, playerID string, clubID uint, weekStart time.Time, weekEndExclusive time.Time, excludeFixtureID uint) (bool, string, error) {
 	query := `
-		SELECT DISTINCT t.name
-		FROM matchup_players mp
-		INNER JOIN matchups m ON mp.matchup_id = m.id
-		INNER JOIN fixtures f ON m.fixture_id = f.id
-		INNER JOIN teams t ON (
-			(mp.is_home = 1 AND f.home_team_id = t.id) OR
-			(mp.is_home = 0 AND f.away_team_id = t.id)
-		)
-		WHERE mp.player_id = ?
-		  AND f.scheduled_date >= ? AND f.scheduled_date <= ?
+		SELECT DISTINCT CASE WHEN COALESCE(mp.is_home, fp.is_home) = 1 THEN th.name ELSE ta.name END AS team_name
+		FROM fixtures f
+		INNER JOIN teams th ON th.id = f.home_team_id
+		INNER JOIN teams ta ON ta.id = f.away_team_id
+		LEFT JOIN matchups m ON m.fixture_id = f.id
+		LEFT JOIN matchup_players mp ON mp.matchup_id = m.id AND mp.player_id = ?
+		LEFT JOIN fixture_players fp ON fp.fixture_id = f.id AND fp.player_id = ?
+		WHERE f.scheduled_date >= ? AND f.scheduled_date < ?
 		  AND f.id != ?
+		  AND f.status IN ('Scheduled', 'InProgress', 'Completed')
+		  AND (mp.player_id IS NOT NULL OR fp.player_id IS NOT NULL)
+		  AND (
+		    (COALESCE(mp.is_home, fp.is_home) = 1 AND th.club_id = ?) OR
+		    (COALESCE(mp.is_home, fp.is_home) = 0 AND ta.club_id = ?)
+		  )
 		LIMIT 1
 	`
 
 	var teamName string
-	err := s.service.db.GetContext(ctx, &teamName, query, playerID, weekStart, weekEnd, excludeFixtureID)
+	err := s.service.db.GetContext(ctx, &teamName, query, playerID, playerID, weekStart, weekEndExclusive, excludeFixtureID, clubID, clubID)
 	if err != nil {
 		return false, "", nil
 	}
@@ -359,6 +366,18 @@ func (s *TeamEligibilityService) getSecondHalfStartDate(ctx context.Context, sea
 		return time.Time{}, false, nil
 	}
 	return week10.StartDate, true, nil
+}
+
+// mondayToSaturdayWindow returns Monday 00:00 (inclusive) to Saturday 00:00 (exclusive) for the week of the given date
+func (s *TeamEligibilityService) mondayToSaturdayWindow(date time.Time) (time.Time, time.Time) {
+	// Normalize to same location
+	loc := date.Location()
+	weekday := int(date.Weekday()) // 0=Sunday, 1=Monday, ...
+	// Days since Monday: (weekday + 6) % 7
+	daysSinceMonday := (weekday + 6) % 7
+	monday := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, loc).AddDate(0, 0, -daysSinceMonday)
+	saturday := monday.AddDate(0, 0, 5) // Saturday 00:00 exclusive
+	return monday, saturday
 }
 
 // createPlaceholders creates a string of SQL placeholders for IN clauses
