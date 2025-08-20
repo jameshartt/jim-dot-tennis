@@ -112,8 +112,8 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 		CanPlayLower:             false,
 	}
 
-	// Check if player has already played during this calendar week (by date)
-	hasPlayedThisWeek, playedTeam, err := s.hasPlayerPlayedThisWeek(ctx, playerID, playingWeek.StartDate, playingWeek.EndDate, fixture.ID)
+	// Rule 1: No player shall be allowed to play in more than one team in any week (by actual calendar week of play)
+	hasPlayedThisWeek, playedTeam, err := s.hasPlayerPlayedInCalendarWeek(ctx, playerID, playingWeek.StartDate, playingWeek.EndDate, fixture.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,6 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 	eligibility.PlayedThisWeek = hasPlayedThisWeek
 	eligibility.PlayedThisWeekTeam = playedTeam
 
-	// Rule 1: No player shall be allowed to play in more than one team in any week
 	if hasPlayedThisWeek {
 		eligibility.CanPlay = false
 		return eligibility, nil
@@ -227,15 +226,17 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 	return eligibility, nil
 }
 
-// hasPlayerPlayedThisWeek checks if a player has already played in any fixture during the provided calendar week window
-func (s *TeamEligibilityService) hasPlayerPlayedThisWeek(ctx context.Context, playerID string, weekStart time.Time, weekEnd time.Time, excludeFixtureID uint) (bool, string, error) {
-	// Query for any matchup the player has played during this calendar week
+// hasPlayerPlayedInCalendarWeek checks if a player has already played in any fixture during the provided calendar week window
+func (s *TeamEligibilityService) hasPlayerPlayedInCalendarWeek(ctx context.Context, playerID string, weekStart time.Time, weekEnd time.Time, excludeFixtureID uint) (bool, string, error) {
 	query := `
 		SELECT DISTINCT t.name
 		FROM matchup_players mp
 		INNER JOIN matchups m ON mp.matchup_id = m.id
 		INNER JOIN fixtures f ON m.fixture_id = f.id
-		INNER JOIN teams t ON (f.home_team_id = t.id OR f.away_team_id = t.id)
+		INNER JOIN teams t ON (
+			(mp.is_home = 1 AND f.home_team_id = t.id) OR
+			(mp.is_home = 0 AND f.away_team_id = t.id)
+		)
 		WHERE mp.player_id = ?
 		  AND f.scheduled_date >= ? AND f.scheduled_date <= ?
 		  AND f.id != ?
@@ -245,10 +246,8 @@ func (s *TeamEligibilityService) hasPlayerPlayedThisWeek(ctx context.Context, pl
 	var teamName string
 	err := s.service.db.GetContext(ctx, &teamName, query, playerID, weekStart, weekEnd, excludeFixtureID)
 	if err != nil {
-		// If no rows found, player hasn't played during this week
 		return false, "", nil
 	}
-
 	return true, teamName, nil
 }
 
