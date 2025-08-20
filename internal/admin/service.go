@@ -476,12 +476,15 @@ func (s *Service) GetStAnnsFixtures() (*models.Club, []FixtureWithRelations, err
 		allFixtures = append(allFixtures, fixture)
 	}
 
-	// Filter for upcoming fixtures (scheduled or in progress) and sort by date
+	// Filter for upcoming fixtures (scheduled or in progress) from tomorrow onwards
 	var upcomingFixtures []models.Fixture
 	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	tomorrowStart := todayStart.Add(24 * time.Hour)
 	for _, fixture := range allFixtures {
 		if fixture.Status == models.Scheduled || fixture.Status == models.InProgress {
-			if fixture.ScheduledDate.After(now) || fixture.ScheduledDate.Equal(now.Truncate(24*time.Hour)) {
+			// Upcoming list excludes today's fixtures; those are shown separately
+			if !fixture.ScheduledDate.Before(tomorrowStart) {
 				upcomingFixtures = append(upcomingFixtures, fixture)
 			}
 		}
@@ -561,15 +564,15 @@ func (s *Service) GetStAnnsPastFixtures() (*models.Club, []FixtureWithRelations,
 		allFixtures = append(allFixtures, fixture)
 	}
 
-	// Filter for past fixtures (completed or cancelled) and sort by date
+	// Filter for past fixtures (completed/cancelled/postponed or scheduled/in-progress before today)
 	var pastFixtures []models.Fixture
 	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	for _, fixture := range allFixtures {
 		if fixture.Status == models.Completed || fixture.Status == models.Cancelled || fixture.Status == models.Postponed {
 			pastFixtures = append(pastFixtures, fixture)
 		} else if fixture.Status == models.Scheduled || fixture.Status == models.InProgress {
-			// Also include scheduled/in-progress fixtures that are in the past
-			if fixture.ScheduledDate.Before(now.Truncate(24 * time.Hour)) {
+			if fixture.ScheduledDate.Before(todayStart) {
 				pastFixtures = append(pastFixtures, fixture)
 			}
 		}
@@ -600,6 +603,87 @@ func (s *Service) GetStAnnsPastFixtures() (*models.Club, []FixtureWithRelations,
 
 		// For ascending order, return i < j
 		return divisionI < divisionJ
+	})
+
+	return stAnnsClub, fixturesWithRelations, nil
+}
+
+// GetStAnnsTodaysFixtures retrieves today's fixtures for St. Ann's club with related data
+func (s *Service) GetStAnnsTodaysFixtures() (*models.Club, []FixtureWithRelations, error) {
+	ctx := context.Background()
+
+	// Find St. Ann's club
+	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(clubs) == 0 {
+		return nil, nil, nil // No club found
+	}
+	stAnnsClub := &clubs[0]
+
+	// Get all teams for St. Ann's club
+	teams, err := s.teamRepository.FindByClub(ctx, stAnnsClub.ID)
+	if err != nil {
+		return stAnnsClub, nil, err
+	}
+
+	if len(teams) == 0 {
+		return stAnnsClub, nil, nil // No teams found
+	}
+
+	// Collect fixtures for today across all teams (deduped)
+	var allFixtures []models.Fixture
+	fixtureMap := make(map[uint]models.Fixture)
+
+	for _, team := range teams {
+		teamFixtures, err := s.fixtureRepository.FindByTeam(ctx, team.ID)
+		if err != nil {
+			continue
+		}
+		for _, fixture := range teamFixtures {
+			fixtureMap[fixture.ID] = fixture
+		}
+	}
+
+	for _, fixture := range fixtureMap {
+		allFixtures = append(allFixtures, fixture)
+	}
+
+	// Compute today's boundaries
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	tomorrowStart := todayStart.Add(24 * time.Hour)
+
+	// Filter for today's fixtures
+	var todaysFixtures []models.Fixture
+	for _, fixture := range allFixtures {
+		if fixture.Status == models.Scheduled || fixture.Status == models.InProgress {
+			if !fixture.ScheduledDate.Before(todayStart) && fixture.ScheduledDate.Before(tomorrowStart) {
+				todaysFixtures = append(todaysFixtures, fixture)
+			}
+		}
+	}
+
+	fixturesWithRelations := s.buildFixturesWithRelations(ctx, todaysFixtures, stAnnsClub)
+
+	// Sort by time then division name desc
+	sort.Slice(fixturesWithRelations, func(i, j int) bool {
+		if fixturesWithRelations[i].ScheduledDate.Before(fixturesWithRelations[j].ScheduledDate) {
+			return true
+		}
+		if fixturesWithRelations[i].ScheduledDate.After(fixturesWithRelations[j].ScheduledDate) {
+			return false
+		}
+		divisionI := ""
+		divisionJ := ""
+		if fixturesWithRelations[i].Division != nil {
+			divisionI = fixturesWithRelations[i].Division.Name
+		}
+		if fixturesWithRelations[j].Division != nil {
+			divisionJ = fixturesWithRelations[j].Division.Name
+		}
+		return divisionI > divisionJ
 	})
 
 	return stAnnsClub, fixturesWithRelations, nil

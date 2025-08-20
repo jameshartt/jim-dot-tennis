@@ -424,6 +424,11 @@
         .section-content.hidden {
             display: none;
         }
+
+        /* Extra spacing below Today's Fixtures */
+        .todays-section {
+            margin-bottom: 2rem;
+        }
     </style>
 </head>
 
@@ -451,6 +456,65 @@
                 {{if .Club.Website}}<p><strong>Website:</strong> <a href="{{.Club.Website}}"
                         target="_blank">{{.Club.Website}}</a></p>{{end}}
                 {{if .Club.PhoneNumber}}<p><strong>Phone:</strong> {{.Club.PhoneNumber}}</p>{{end}}
+            </div>
+            {{end}}
+
+            <!-- Today's Fixtures Section (conditionally shown and placed above filters) -->
+            {{if .TodaysFixtures}}
+            <div class="todays-section">
+                <div class="section-header">
+                    <h2>🌞 Today's Fixtures</h2>
+                    <span class="section-count" id="todaysCount">{{len .TodaysFixtures}}</span>
+                </div>
+
+                <div class="table-container">
+                    <table class="fixtures-table">
+                        <thead>
+                            <tr>
+                                <th class="col-date">Time</th>
+                                <th class="col-teams">Teams</th>
+                                <th class="col-venue">Venue</th>
+                                <th>Week</th>
+                                <th>Division</th>
+                            </tr>
+                        </thead>
+                        <tbody id="todaysFixturesBody">
+                            {{range .TodaysFixtures}}
+                            <tr class="status-{{.Status}} fixture-row" data-division="{{if .Division}}{{.Division.Name}}{{else}}Unknown{{end}}"
+                                onclick="window.location.href='{{if .IsDerby}}/admin/fixtures/{{.ID}}?managingTeam={{.DefaultTeamContext.ID}}&teamName={{.DefaultTeamContext.Name}}{{else}}/admin/fixtures/{{.ID}}{{end}}'" style="cursor: pointer;">
+                                <td class="col-date">
+                                    <div class="date-time">
+                                        <small>{{.ScheduledDate.Format "3:04 PM"}}</small>
+                                    </div>
+                                </td>
+                                <td class="col-teams">
+                                    {{if .IsDerby}}
+                                    <span class="derby-indicator">⚽ DERBY:</span>
+                                    <span class="team-name derby-home-team">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                                    <span class="vs-text">vs</span>
+                                    <span class="team-name derby-away-team">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</span>
+                                    <br>
+                                    <small class="team-context managing-home">
+                                        *Managing: {{.DefaultTeamContext.Name}}
+                                    </small>
+                                    {{else}}
+                                    <span class="team-name">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                                    <span class="vs-text">vs</span>
+                                    <span class="team-name">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</span>
+                                    {{end}}
+                                </td>
+                                <td class="col-venue">{{.VenueLocation}}</td>
+                                <td>
+                                    {{if .Week}}Week {{.Week.WeekNumber}}{{else}}TBD{{end}}
+                                </td>
+                                <td>
+                                    {{if .Division}}{{.Division.Name}}{{else}}TBD{{end}}
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
             </div>
             {{end}}
 
@@ -684,11 +748,24 @@
         }
 
         function filterFixtures(selectedDivisions) {
+            const todaysRows = document.querySelectorAll('#todaysFixturesBody .fixture-row');
             const upcomingRows = document.querySelectorAll('#upcomingFixturesBody .fixture-row');
             const pastRows = document.querySelectorAll('#pastFixturesBody .fixture-row');
             
+            let visibleToday = 0;
             let visibleUpcoming = 0;
             let visiblePast = 0;
+
+            // Filter today's fixtures
+            todaysRows.forEach(row => {
+                const division = row.getAttribute('data-division');
+                if (selectedDivisions.length === 0 || selectedDivisions.includes(division)) {
+                    row.style.display = '';
+                    visibleToday++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
 
             // Filter upcoming fixtures
             upcomingRows.forEach(row => {
@@ -713,6 +790,9 @@
             });
 
             // Update counts
+            if (document.getElementById('todaysCount')) {
+                document.getElementById('todaysCount').textContent = visibleToday;
+            }
             document.getElementById('upcomingCount').textContent = visibleUpcoming;
             document.getElementById('pastCount').textContent = visiblePast;
         }
