@@ -60,6 +60,8 @@ func main() {
 	teamRepo := repository.NewTeamRepository(db)
 	clubRepo := repository.NewClubRepository(db)
 	playerRepo := repository.NewPlayerRepository(db)
+	divisionRepo := repository.NewDivisionRepository(db)
+	seasonRepo := repository.NewSeasonRepository(db)
 
 	// Create match card service
 	service := services.NewMatchCardService(
@@ -68,6 +70,8 @@ func main() {
 		teamRepo,
 		clubRepo,
 		playerRepo,
+		divisionRepo,
+		seasonRepo,
 	)
 
 	// Create import configuration

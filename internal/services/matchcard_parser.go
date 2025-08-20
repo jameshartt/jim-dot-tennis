@@ -35,10 +35,11 @@ type MatchupData struct {
 	Type        string // "First mixed", "Second mixed", "Men's", "Ladies'"
 	HomePlayers []string
 	AwayPlayers []string
-	HomeScores  []int // Individual set scores for home team
-	AwayScores  []int // Individual set scores for away team
-	HomeSets    int   // Number of sets won by home team
-	AwaySets    int   // Number of sets won by away team
+	HomeScores  []int  // Individual set scores for home team
+	AwayScores  []int  // Individual set scores for away team
+	HomeSets    int    // Number of sets won by home team
+	AwaySets    int    // Number of sets won by away team
+	ConcededBy  string // "Home" or "Away" if a concession occurred
 }
 
 // MatchCardParser handles parsing HTML responses from BHPLTA
@@ -240,6 +241,19 @@ func (p *MatchCardParser) parseMatchupTable(matchupType string, table *goquery.S
 	if awayRow.Length() > 0 {
 		matchup.AwayPlayers = p.parsePlayerNamesFromHTML(awayRow.Find("td.bhplta-club-scores-player-names"))
 		matchup.AwayScores, matchup.AwaySets = p.parseTeamScores(awayRow)
+	}
+
+	// Detect concessions based on content markers in player cells
+	homeNamesHTML, _ := homeRow.Find("td.bhplta-club-scores-player-names").Html()
+	awayNamesHTML, _ := awayRow.Find("td.bhplta-club-scores-player-names").Html()
+	lh := strings.ToLower(homeNamesHTML)
+	la := strings.ToLower(awayNamesHTML)
+	if strings.Contains(lh, "conceded") || strings.Contains(la, "given to") {
+		// Home cell mentions conceded (by home), or away cell "given to" => home conceded
+		matchup.ConcededBy = "Home"
+	} else if strings.Contains(la, "conceded") || strings.Contains(lh, "given to") {
+		// Away cell mentions conceded (by away), or home cell "given to" => away conceded
+		matchup.ConcededBy = "Away"
 	}
 
 	return matchup

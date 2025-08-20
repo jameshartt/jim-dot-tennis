@@ -253,6 +253,15 @@ const (
 	Defaulted MatchupStatus = "Defaulted" // One team didn't show or couldn't field players
 )
 
+// ConcededBy indicates which side conceded
+type ConcededBy string
+
+const (
+	ConcededNone ConcededBy = ""
+	ConcededHome ConcededBy = "Home"
+	ConcededAway ConcededBy = "Away"
+)
+
 // Matchup represents one of the four matchups in a fixture
 type Matchup struct {
 	ID             uint          `json:"id" db:"id"`
@@ -269,6 +278,7 @@ type Matchup struct {
 	AwaySet3       *int          `json:"away_set3,omitempty" db:"away_set3"` // Away team score in set 3
 	Notes          string        `json:"notes" db:"notes"`
 	ManagingTeamID *uint         `json:"managing_team_id,omitempty" db:"managing_team_id"` // Which team is managing this matchup (for derby matches)
+	ConcededBy     *ConcededBy   `json:"conceded_by,omitempty" db:"conceded_by"`
 	CreatedAt      time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt      time.Time     `json:"updated_at" db:"updated_at"`
 }

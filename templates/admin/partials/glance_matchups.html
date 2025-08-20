@@ -35,15 +35,24 @@
                                 {{if $player1.Player.PreferredName}}{{$player1.Player.PreferredName}}{{else}}{{$player1.Player.FirstName}} {{printf "%.1s" $player1.Player.LastName}}.{{end}}, {{if $player2.Player.PreferredName}}{{$player2.Player.PreferredName}}{{else}}{{$player2.Player.FirstName}} {{printf "%.1s" $player2.Player.LastName}}.{{end}}
                             {{end}}
                         {{else}}
-                            <span class="tbd">TBD</span>
+                            {{if ne .Matchup.Status "Defaulted"}}<span class="tbd">TBD</span>{{end}}
                         {{end}}
                     {{else}}
-                        <span class="tbd">TBD</span>
+                        {{if ne .Matchup.Status "Defaulted"}}<span class="tbd">TBD</span>{{end}}
                     {{end}}
-                    {{/* Add scores on new line below */}}
+                    {{/* Add scores or concession notice */}}
                     {{if eq $.FixtureDetail.Status "Completed"}}
                     <br>
                     <span style="font-weight: 700; color: var(--primary-color); font-size: 0.9rem;">
+                        {{if eq .Matchup.Status "Defaulted"}}
+                            {{if and (eq .Matchup.HomeScore 0) (eq .Matchup.AwayScore 2)}}
+                                Conceded by Home
+                            {{else if and (eq .Matchup.HomeScore 2) (eq .Matchup.AwayScore 0)}}
+                                Conceded by Away
+                            {{else}}
+                                Conceded
+                            {{end}}
+                        {{else}}
                         {{/* Determine score perspective based on St Ann's position */}}
                         {{$showFromStAnnsView := false}}
                         {{if $.IsDerby}}
@@ -55,7 +64,6 @@
                             {{/* For regular away matches, flip the scores */}}
                             {{$showFromStAnnsView = true}}
                         {{end}}
-                        
                         {{if or .Matchup.HomeSet1 .Matchup.AwaySet1}}
                             {{if $showFromStAnnsView}}
                                 [{{if .Matchup.AwaySet1}}{{.Matchup.AwaySet1}}{{else}}0{{end}}-{{if .Matchup.HomeSet1}}{{.Matchup.HomeSet1}}{{else}}0{{end}}{{if or .Matchup.HomeSet2 .Matchup.AwaySet2}}, {{if .Matchup.AwaySet2}}{{.Matchup.AwaySet2}}{{else}}0{{end}}-{{if .Matchup.HomeSet2}}{{.Matchup.HomeSet2}}{{else}}0{{end}}{{end}}{{if or .Matchup.HomeSet3 .Matchup.AwaySet3}}, {{if .Matchup.AwaySet3}}{{.Matchup.AwaySet3}}{{else}}0{{end}}-{{if .Matchup.HomeSet3}}{{.Matchup.HomeSet3}}{{else}}0{{end}}{{end}}]
@@ -68,6 +76,7 @@
                             {{else}}
                                 ({{.Matchup.HomeScore}}-{{.Matchup.AwayScore}})
                             {{end}}
+                        {{end}}
                         {{end}}
                     </span>
                     {{end}}
@@ -116,8 +125,14 @@
                         <td class="matchup-player-cell"></td>
                     {{end}}
                 {{else}}
-                    <td class="matchup-player-cell"><span class="tbd">TBD</span></td>
-                    <td class="matchup-player-cell"></td>
+                    {{/* Defaulted matches should be completed; still guard here if needed */}}
+                    {{if ne .Matchup.Status "Defaulted"}}
+                        <td class="matchup-player-cell"><span class="tbd">TBD</span></td>
+                        <td class="matchup-player-cell"></td>
+                    {{else}}
+                        <td class="matchup-player-cell"></td>
+                        <td class="matchup-player-cell"></td>
+                    {{end}}
                 {{end}}
             </tr>
             {{end}}
@@ -137,5 +152,6 @@
             </tr>
         </tbody>
     </table>
+
 </div>
 {{end}} 

@@ -9,6 +9,7 @@ import (
 	"jim-dot-tennis/internal/repository"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -21,6 +22,8 @@ type MatchCardService struct {
 	teamRepo       repository.TeamRepository
 	clubRepo       repository.ClubRepository
 	playerRepo     repository.PlayerRepository
+	divisionRepo   repository.DivisionRepository
+	seasonRepo     repository.SeasonRepository
 	parser         *MatchCardParser
 	matcher        *PlayerMatcher
 	httpClient     *http.Client
@@ -59,6 +62,8 @@ func NewMatchCardService(
 	teamRepo repository.TeamRepository,
 	clubRepo repository.ClubRepository,
 	playerRepo repository.PlayerRepository,
+	divisionRepo repository.DivisionRepository,
+	seasonRepo repository.SeasonRepository,
 ) *MatchCardService {
 	return &MatchCardService{
 		fixtureRepo:    fixtureRepo,
@@ -66,6 +71,8 @@ func NewMatchCardService(
 		teamRepo:       teamRepo,
 		clubRepo:       clubRepo,
 		playerRepo:     playerRepo,
+		divisionRepo:   divisionRepo,
+		seasonRepo:     seasonRepo,
 		parser:         NewMatchCardParser(),
 		matcher:        NewPlayerMatcher(playerRepo),
 		nonceExtractor: NewNonceExtractor(),
@@ -247,8 +254,12 @@ func (s *MatchCardService) processMatchCard(ctx context.Context, config ImportCo
 
 	if fixture == nil {
 		if config.Verbose {
-			fmt.Printf("No matching fixture found for %s vs %s on %s\n",
-				matchCard.HomeTeam, matchCard.AwayTeam, matchCard.EventDate.Format("2006-01-02"))
+			playedStr := "N/A"
+			if !matchCard.PlayedDate.IsZero() {
+				playedStr = matchCard.PlayedDate.Format("2006-01-02")
+			}
+			fmt.Printf("No matching fixture found for %s vs %s (event: %s, played: %s)\n",
+				matchCard.HomeTeam, matchCard.AwayTeam, matchCard.EventDate.Format("2006-01-02"), playedStr)
 		}
 		return result, nil
 	}
@@ -393,9 +404,21 @@ func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConf
 	// Calculate matchup points based on overall result (win/draw/lose)
 	homePoints, awayPoints := s.calculateMatchupPoints(matchupData.HomeScores, matchupData.AwayScores)
 
+	// Override for concessions: defaulted match with points to non-conceding side
+	var concededBy *models.ConcededBy
+	if strings.EqualFold(matchupData.ConcededBy, "Home") {
+		cb := models.ConcededHome
+		concededBy = &cb
+		homePoints, awayPoints = 0, 2
+	} else if strings.EqualFold(matchupData.ConcededBy, "Away") {
+		cb := models.ConcededAway
+		concededBy = &cb
+		homePoints, awayPoints = 2, 0
+	}
+
 	// Check if matchup already exists
 	existingMatchup, err := s.matchupRepo.FindByFixtureTypeAndTeam(ctx, fixtureID, matchupType, managingTeamID)
-	if err != nil && existingMatchup == nil {
+	if err != nil || existingMatchup == nil {
 		// Create new matchup if it doesn't exist
 		matchup := &models.Matchup{
 			FixtureID:      fixtureID,
@@ -404,6 +427,12 @@ func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConf
 			HomeScore:      homePoints,
 			AwayScore:      awayPoints,
 			ManagingTeamID: &managingTeamID,
+			ConcededBy:     concededBy,
+		}
+
+		// If conceded, mark as Defaulted
+		if concededBy != nil {
+			matchup.Status = models.Defaulted
 		}
 
 		// Set individual set scores
@@ -418,18 +447,23 @@ func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConf
 		existingMatchup = matchup
 
 		if config.Verbose {
-			fmt.Printf("  Created %s matchup for fixture %d - marked as Finished\n", matchupType, fixtureID)
+			fmt.Printf("  Created %s matchup for fixture %d - marked as %s\n", matchupType, fixtureID, matchup.Status)
 		}
-	} else if existingMatchup != nil {
+	} else {
 		// Update existing matchup with scores
 		existingMatchup.HomeScore = homePoints
 		existingMatchup.AwayScore = awayPoints
+		existingMatchup.ConcededBy = concededBy
 
 		// Set individual set scores
 		s.setIndividualSetScores(existingMatchup, matchupData)
 
-		// Update status to Finished since this data comes from a completed match card
-		existingMatchup.Status = models.Finished
+		// Update status to Finished or Defaulted
+		if concededBy != nil {
+			existingMatchup.Status = models.Defaulted
+		} else {
+			existingMatchup.Status = models.Finished
+		}
 
 		if !config.DryRun {
 			if err := s.matchupRepo.Update(ctx, existingMatchup); err != nil {
@@ -739,6 +773,11 @@ func (s *MatchCardService) determineManagingTeamID(ctx context.Context, fixtureI
 
 // findMatchingFixture finds a fixture in our database that matches the match card
 func (s *MatchCardService) findMatchingFixture(ctx context.Context, matchCard MatchCardData) (*models.Fixture, error) {
+	// First attempt: use division + week + team names via repositories
+	if fx := s.findByDivisionWeekUsingRepos(ctx, matchCard); fx != nil {
+		return fx, nil
+	}
+
 	// Helper to search within a date window centered on a date and return the closest matching fixture
 	tryDateWindow := func(center time.Time, days int) (*models.Fixture, error) {
 		startDate := center.AddDate(0, 0, -days)
@@ -790,6 +829,127 @@ func (s *MatchCardService) findMatchingFixture(ctx context.Context, matchCard Ma
 	return nil, nil
 }
 
+// findByDivisionWeekUsingRepos narrows fixtures by division level and week number using repositories
+func (s *MatchCardService) findByDivisionWeekUsingRepos(ctx context.Context, matchCard MatchCardData) *models.Fixture {
+	// Parse division level
+	re := regexp.MustCompile(`(?i)division\s+(\d+)`)
+	m := re.FindStringSubmatch(matchCard.Division)
+	if len(m) != 2 || matchCard.Week == 0 || matchCard.EventDate.IsZero() && matchCard.PlayedDate.IsZero() {
+		return nil
+	}
+	level, err := strconv.Atoi(m[1])
+	if err != nil {
+		return nil
+	}
+
+	// Determine season from year in config via EventDate/PlayedDate year fallback
+	year := matchCard.EventDate.Year()
+	if year == 0 && !matchCard.PlayedDate.IsZero() {
+		year = matchCard.PlayedDate.Year()
+	}
+	if year == 0 {
+		return nil
+	}
+	seasons, err := s.seasonRepo.FindByYear(ctx, year)
+	if err != nil || len(seasons) == 0 {
+		return nil
+	}
+	seasonID := seasons[0].ID
+
+	// Find divisions for this season, filter by level
+	divisions, err := s.divisionRepo.FindBySeason(ctx, seasonID)
+	if err != nil || len(divisions) == 0 {
+		return nil
+	}
+	var divisionIDs []uint
+	for _, d := range divisions {
+		if d.Level == level {
+			divisionIDs = append(divisionIDs, d.ID)
+		}
+	}
+	if len(divisionIDs) == 0 {
+		return nil
+	}
+
+	// Get fixtures by week number for season
+	weekFixtures, err := s.fixtureRepo.FindByWeekNumber(ctx, seasonID, matchCard.Week)
+	if err != nil || len(weekFixtures) == 0 {
+		return nil
+	}
+
+	normalize := func(name string) string {
+		name = strings.ReplaceAll(name, string([]byte{226, 128, 152}), "'")
+		name = strings.ReplaceAll(name, string([]byte{226, 128, 153}), "'")
+		name = strings.ReplaceAll(name, "`", "'")
+		name = strings.ReplaceAll(name, "ʼ", "'")
+		name = strings.ReplaceAll(name, "′", "'")
+		name = strings.ReplaceAll(name, ".", "")
+		name = strings.ReplaceAll(name, "'", "")
+		name = strings.Join(strings.Fields(name), " ")
+		return strings.ToLower(name)
+	}
+	cardHome := normalize(matchCard.HomeTeam)
+	cardAway := normalize(matchCard.AwayTeam)
+
+	var candidates []models.Fixture
+	for _, f := range weekFixtures {
+		// Filter by division level
+		isDivisionMatch := false
+		for _, divID := range divisionIDs {
+			if f.DivisionID == divID {
+				isDivisionMatch = true
+				break
+			}
+		}
+		if !isDivisionMatch {
+			continue
+		}
+
+		hTeam, err1 := s.teamRepo.FindByID(ctx, f.HomeTeamID)
+		if err1 != nil {
+			continue
+		}
+		aTeam, err2 := s.teamRepo.FindByID(ctx, f.AwayTeamID)
+		if err2 != nil {
+			continue
+		}
+		nh := normalize(hTeam.Name)
+		na := normalize(aTeam.Name)
+		if (nh == cardHome && na == cardAway) || (nh == cardAway && na == cardHome) {
+			candidates = append(candidates, f)
+		}
+	}
+
+	if len(candidates) == 1 {
+		f := candidates[0]
+		return &f
+	}
+	if len(candidates) > 1 {
+		// Pick the one nearest the event date
+		center := matchCard.EventDate
+		if center.IsZero() {
+			center = matchCard.PlayedDate
+		}
+		bestIdx := -1
+		bestDelta := time.Duration(0)
+		for i, f := range candidates {
+			delta := center.Sub(f.ScheduledDate)
+			if delta < 0 {
+				delta = -delta
+			}
+			if bestIdx == -1 || delta < bestDelta {
+				bestIdx = i
+				bestDelta = delta
+			}
+		}
+		if bestIdx >= 0 {
+			f := candidates[bestIdx]
+			return &f
+		}
+	}
+	return nil
+}
+
 // fixtureMatchesCard checks if a fixture matches a match card
 func (s *MatchCardService) fixtureMatchesCard(ctx context.Context, fixture models.Fixture, matchCard MatchCardData) bool {
 	// Get home and away teams
@@ -803,7 +963,7 @@ func (s *MatchCardService) fixtureMatchesCard(ctx context.Context, fixture model
 		return false
 	}
 
-	// Normalize team names to handle quote/apostrophe differences from PDF import
+	// Normalize team names to handle quote/apostrophe differences from PDF import and DB
 	normalizeTeamName := func(name string) string {
 		// Replace UTF-8 smart quotes with regular ASCII apostrophe
 		name = strings.ReplaceAll(name, string([]byte{226, 128, 152}), "'") // Replace left single quotation mark (U+2018)
@@ -813,22 +973,29 @@ func (s *MatchCardService) fixtureMatchesCard(ctx context.Context, fixture model
 		name = strings.ReplaceAll(name, "′", "'")                           // Replace prime symbol
 		// Remove periods that might be inconsistent (St. Ann's vs St Ann's)
 		name = strings.ReplaceAll(name, ".", "")
+		// Remove apostrophes to match St Ann's vs St Anns
+		name = strings.ReplaceAll(name, "'", "")
 		// Normalize whitespace
 		name = strings.Join(strings.Fields(name), " ")
 		name = strings.ToLower(name)
 		return name
 	}
 
-	// Match by normalized team names
+	// Match by normalized team names, allowing for potential home/away swap in data sources
 	normalizedHomeCard := normalizeTeamName(matchCard.HomeTeam)
 	normalizedAwayCard := normalizeTeamName(matchCard.AwayTeam)
 	normalizedHomeDB := normalizeTeamName(homeTeam.Name)
 	normalizedAwayDB := normalizeTeamName(awayTeam.Name)
 
-	homeMatch := normalizedHomeCard == normalizedHomeDB
-	awayMatch := normalizedAwayCard == normalizedAwayDB
-
-	return homeMatch && awayMatch
+	// Direct match
+	if normalizedHomeCard == normalizedHomeDB && normalizedAwayCard == normalizedAwayDB {
+		return true
+	}
+	// Allow swapped home/away (sometimes sources differ)
+	if normalizedHomeCard == normalizedAwayDB && normalizedAwayCard == normalizedHomeDB {
+		return true
+	}
+	return false
 }
 
 // formatMatchupResult creates a human-readable string of matchup result for logging
@@ -934,6 +1101,18 @@ func (s *MatchCardService) processMatchupForTeam(ctx context.Context, config Imp
 	// Calculate matchup points based on overall result (win/draw/lose)
 	homePoints, awayPoints := s.calculateMatchupPoints(matchupData.HomeScores, matchupData.AwayScores)
 
+	// Override for concessions: defaulted match with points to non-conceding side
+	var concededBy *models.ConcededBy
+	if strings.EqualFold(matchupData.ConcededBy, "Home") {
+		cb := models.ConcededHome
+		concededBy = &cb
+		homePoints, awayPoints = 0, 2
+	} else if strings.EqualFold(matchupData.ConcededBy, "Away") {
+		cb := models.ConcededAway
+		concededBy = &cb
+		homePoints, awayPoints = 2, 0
+	}
+
 	// Create new matchup (since we cleared existing ones)
 	matchup := &models.Matchup{
 		FixtureID:      fixtureID,
@@ -942,6 +1121,12 @@ func (s *MatchCardService) processMatchupForTeam(ctx context.Context, config Imp
 		HomeScore:      homePoints,
 		AwayScore:      awayPoints,
 		ManagingTeamID: &managingTeamID,
+		ConcededBy:     concededBy,
+	}
+
+	// If conceded, mark as Defaulted
+	if concededBy != nil {
+		matchup.Status = models.Defaulted
 	}
 
 	// Set individual set scores
