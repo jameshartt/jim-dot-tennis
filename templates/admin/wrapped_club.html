@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+    <title>St. Ann's Season Wrapped {{.WrappedData.SeasonYear}} - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/wrapped.css">
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+</head>
+<body class="wrapped-body">
+    <div class="wrapped-container loading">
+        <!-- Page 0: Minimal Loading Screen -->
+        <div class="wrapped-page active" id="page-0">
+            <div class="wrapped-content">
+
+            </div>
+        </div>
+        <!-- Page 1: Club Journey -->
+            <div class="wrapped-page" id="page-1">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title gradient-text">{{.WrappedData.ClubName}}</h1>
+                    <h2 class="wrapped-subtitle">Season {{.WrappedData.SeasonYear}} Wrapped</h2>
+                </div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card animate-fade-in">
+                            <div class="stat-number">{{.WrappedData.OverallStats.TotalMatchups}}</div>
+                            <div class="stat-label">Individual Matchups</div>
+                            <div class="stat-subtitle">Across all divisions</div>
+                        </div>
+                        
+                        <div class="stat-card animate-fade-in delay-1">
+                            <div class="stat-number">{{.WrappedData.OverallStats.TotalFixtures}}</div>
+                            <div class="stat-label">Team Fixtures</div>
+                            <div class="stat-subtitle">Club-wide competition</div>
+                        </div>
+                        
+                        <div class="stat-card animate-fade-in delay-3">
+                            <div class="stat-number">{{.WrappedData.OverallStats.PlayersUsed}}</div>
+                            <div class="stat-label">Players Active</div>
+                            <div class="stat-subtitle">Club participation</div>
+                        </div>
+                    </div>
+                    
+                    {{if .WrappedData.OverallStats.MostActivePlayer.Name}}
+                    <div class="highlight-section animate-bounce-in">
+                        <div class="highlight-icon">🏆</div>
+                        <div class="highlight-title">Most Active Player</div>
+                        <div class="highlight-name">{{.WrappedData.OverallStats.MostActivePlayer.Name}}</div>
+                        <div class="highlight-subtitle">{{.WrappedData.OverallStats.MostActivePlayer.MatchesCount}} matches played</div>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Page 2: Fixture Mastery -->
+        <div class="wrapped-page" id="page-2">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title">Fixture Mastery</h1>
+                    <h2 class="wrapped-subtitle">How St. Ann's performed</h2>
+                </div>
+                    
+                                         <div class="fixture-breakdown">
+                         <!-- Perfect Victories -->
+                         {{if gt .WrappedData.FixtureBreakdown.Perfect_8_0 0}}
+                         <div class="breakdown-row victory animate-slide-in">
+                            <div class="breakdown-icon-container">
+                             <div class="breakdown-icon">🔥</div>
+                             <div class="breakdown-score">8-0</div>
+                            </div>
+                            <div class="breakdown-count-container">
+                              <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Perfect_8_0}}</div>
+                              <div class="breakdown-label">Perfect Victories</div> 
+                            </div>
+                         </div>
+                         {{end}}
+                         
+                         {{if gt .WrappedData.FixtureBreakdown.NearPerfect_7_1 0}}
+                         <div class="breakdown-row victory animate-slide-in delay-1">
+                            <div class="breakdown-icon-container">
+                             <div class="breakdown-icon">⭐</div>
+                             <div class="breakdown-score">7-1</div>
+                            </div>
+                            <div class="breakdown-count-container">
+                              <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.NearPerfect_7_1}}</div>
+                              <div class="breakdown-label">Near Perfect Victories</div>
+                            </div>
+                         </div>
+                         {{end}}
+                         
+                         {{if gt .WrappedData.FixtureBreakdown.Strong_6_2 0}}
+                         <div class="breakdown-row victory animate-slide-in delay-2">
+                            <div class="breakdown-icon-container">
+                             <div class="breakdown-icon">💪</div>
+                             <div class="breakdown-score">6-2</div>
+                            </div>
+                            <div class="breakdown-count-container">
+                              <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Strong_6_2}}</div>
+                              <div class="breakdown-label">Strong Victories</div>
+                            </div>
+                         </div>
+                         {{end}}
+                         
+                         {{if gt .WrappedData.FixtureBreakdown.Close_5_3 0}}
+                         <div class="breakdown-row victory animate-slide-in delay-3">
+                            <div class="breakdown-icon-container">
+                             <div class="breakdown-icon">🎾</div>
+                             <div class="breakdown-score">5-3</div>
+                            </div>
+                            <div class="breakdown-count-container">
+                              <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Close_5_3}}</div>
+                              <div class="breakdown-label">Close Victories</div>
+                            </div>
+                         </div>
+                         {{end}}
+                         
+                         <!-- Draws -->
+                         {{if gt .WrappedData.FixtureBreakdown.Draw_4_4 0}}
+                         <div class="breakdown-row draw animate-slide-in delay-4">
+                            <div class="breakdown-icon-container">
+                             <div class="breakdown-icon">🤝</div>
+                             <div class="breakdown-score">4-4</div>
+                            </div>
+                            <div class="breakdown-count-container">
+                              <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Draw_4_4}}</div>
+                              <div class="breakdown-label">Perfect Draws</div>
+                            </div>
+                         </div>
+                         {{end}}
+                         
+                         <!-- Defeats -->
+                         {{if gt .WrappedData.FixtureBreakdown.CloseDefeat_3_5 0}}
+                         <div class="breakdown-row defeat animate-slide-in delay-5">
+                            <div class="breakdown-icon-container">
+                             <div class="breakdown-icon">😤</div>
+                             <div class="breakdown-score">3-5</div>
+                            </div>
+                            <div class="breakdown-count-container">
+                              <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.CloseDefeat_3_5}}</div>
+                              <div class="breakdown-label">Close Defeats</div>
+                            </div>
+                         </div>
+                         {{end}}
+                         
+                         {{if gt .WrappedData.FixtureBreakdown.Heavy_2_6 0}}
+                         <div class="breakdown-row defeat animate-slide-in delay-6">
+                            <div class="breakdown-icon-container">
+                             <div class="breakdown-icon">😞</div>
+                             <div class="breakdown-score">2-6</div>
+                            </div>
+                            <div class="breakdown-count-container">
+                              <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Heavy_2_6}}</div>
+                              <div class="breakdown-label">Heavy Defeats</div>
+                            </div>
+                         </div>
+                         {{end}}
+                         
+                         {{if gt .WrappedData.FixtureBreakdown.NearWhitewash_1_7 0}}
+                         <div class="breakdown-row defeat animate-slide-in delay-7">
+                            <div class="breakdown-icon-container">
+                             <div class="breakdown-icon">😰</div>
+                             <div class="breakdown-score">1-7</div>
+                            </div>
+                            <div class="breakdown-count-container">
+                              <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.NearWhitewash_1_7}}</div>
+                              <div class="breakdown-label">Near Whitewash</div>
+                            </div>
+                         </div>
+                         {{end}}
+                         
+                         {{if gt .WrappedData.FixtureBreakdown.Whitewash_0_8 0}}
+                         <div class="breakdown-row defeat animate-slide-in delay-8">
+                            <div class="breakdown-icon-container">
+                             <div class="breakdown-icon">💔</div>
+                             <div class="breakdown-score">0-8</div>
+                            </div>
+                            <div class="breakdown-count-container">
+                              <div class="breakdown-count">{{.WrappedData.FixtureBreakdown.Whitewash_0_8}}</div>
+                              <div class="breakdown-label">Complete Whitewash</div>
+                            </div>
+                         </div>
+                         {{end}}
+                     </div>
+                    
+                    <div class="total-fixtures">
+                        Total Fixtures: {{.WrappedData.FixtureBreakdown.TotalFixtures}}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Page 4: Your Season (Personal) -->
+        <div class="wrapped-page" id="page-4">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title">Your Season</h1>
+                    <h2 class="wrapped-subtitle">Personal highlights and stats</h2>
+                </div>
+
+                {{if .WrappedData.Personal}}
+                <div class="stats-grid">
+                    <div class="stat-card animate-fade-in">
+                        <div class="stat-number">{{.WrappedData.Personal.FixturesPlayed}}</div>
+                        <div class="stat-label">Fixtures Played</div>
+                    </div>
+                    <div class="stat-card animate-fade-in delay-1">
+                        <div class="stat-number">{{.WrappedData.Personal.MatchesPlayed}}</div>
+                        <div class="stat-label">Matchups Played</div>
+                    </div>
+                    <div class="stat-card animate-fade-in delay-2">
+                        <div class="stat-number">{{printf "%.1f" .WrappedData.Personal.WinPercentage}}%</div>
+                        <div class="stat-label">Win Percentage</div>
+                    </div>
+                    <div class="stat-card animate-fade-in delay-3">
+                        <div class="stat-number">{{.WrappedData.Personal.UniquePartners}}</div>
+                        <div class="stat-label">Different Partners</div>
+                    </div>
+                    <div class="stat-card animate-fade-in delay-4">
+                        <div class="stat-number stat-text">{{.WrappedData.Personal.MostCommonMatchupType}}</div>
+                        <div class="stat-label">Most Common Matchup</div>
+                    </div>
+                    <div class="stat-card animate-fade-in delay-5">
+                        <div class="stat-number">{{.WrappedData.Personal.LongestWinStreak}}</div>
+                        <div class="stat-label">Longest Win Streak</div>
+                    </div>
+                </div>
+
+                <div class="achievements-list" style="margin-top: 20px;">
+                    <div class="achievement-card animate-slide-in">
+                        <div class="achievement-rank-wrapper">
+                            <div class="achievement-icon">🏆</div>
+                        </div>
+                        <div class="achievement-details">
+                            <div class="achievement-name">Best Partner</div>
+                            <div class="achievement-value">{{if .WrappedData.Personal.BestPartnerName}}{{.WrappedData.Personal.BestPartnerName}}{{else}}No qualifying partner found{{end}}</div>
+                            {{if .WrappedData.Personal.BestPartnerName}}
+                            <div class="achievement-subtitle">{{.WrappedData.Personal.BestPartnerMatchesTogether}} matches • {{printf "%.1f" .WrappedData.Personal.BestPartnerWinPercentage}}% win rate</div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="achievement-card animate-slide-in delay-1">
+                        <div class="achievement-rank-wrapper">
+                            <div class="achievement-icon">📊</div>
+                        </div>
+                        <div class="achievement-details">
+                            <div class="achievement-name">Most Played Division</div>
+                            <div class="achievement-value">{{if .WrappedData.Personal.MostPlayedDivision}}{{.WrappedData.Personal.MostPlayedDivision}}{{else}}Various{{end}}</div>
+                        </div>
+                    </div>
+
+                    <div class="achievement-card animate-slide-in delay-2">
+                        <div class="achievement-rank-wrapper">
+                            <div class="achievement-icon">⏱️</div>
+                        </div>
+                        <div class="achievement-details">
+                            <div class="achievement-name">Deciding Set Matches</div>
+                            <div class="achievement-value">{{.WrappedData.Personal.DecidingSetMatches}} matches • {{printf "%.1f" .WrappedData.Personal.DecidingSetWinRate}}% won</div>
+                        </div>
+                    </div>
+
+                    <div class="achievement-card animate-slide-in delay-3">
+                        <div class="achievement-rank-wrapper">
+                            <div class="achievement-icon">🎯</div>
+                        </div>
+                        <div class="achievement-details">
+                            <div class="achievement-name">Bagels Delivered</div>
+                            <div class="achievement-value">{{.WrappedData.Personal.BagelsDelivered}}</div>
+                        </div>
+                    </div>
+
+                    <div class="achievement-card animate-slide-in delay-4">
+                        <div class="achievement-rank-wrapper">
+                            <div class="achievement-icon">🤝</div>
+                        </div>
+                        <div class="achievement-details">
+                            <div class="achievement-name">Most Frequent Partner</div>
+                            <div class="achievement-value">{{if .WrappedData.Personal.MostFrequentPartnerName}}{{.WrappedData.Personal.MostFrequentPartnerName}}{{else}}N/A{{end}}</div>
+                            {{if .WrappedData.Personal.MostFrequentPartnerName}}
+                            <div class="achievement-subtitle">{{.WrappedData.Personal.MostFrequentPartnerMatches}} matches together</div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="achievement-card animate-slide-in delay-5">
+                        <div class="achievement-rank-wrapper">
+                            <div class="achievement-icon">📈</div>
+                        </div>
+                        <div class="achievement-details">
+                            <div class="achievement-name">Average Games per Set</div>
+                            <div class="achievement-value">{{printf "%.2f" .WrappedData.Personal.AverageGamesPerSet}}</div>
+                        </div>
+                    </div>
+
+                    <div class="achievement-card animate-slide-in delay-6">
+                        <div class="achievement-rank-wrapper">
+                            <div class="achievement-icon">🔄</div>
+                        </div>
+                        <div class="achievement-details">
+                            <div class="achievement-name">Comeback Wins</div>
+                            <div class="achievement-value">{{.WrappedData.Personal.ComebackWins}}</div>
+                        </div>
+                    </div>
+                    <div class="achievement-card animate-slide-in delay-7">
+                        <div class="achievement-rank-wrapper">
+                            <div class="achievement-icon">🏠</div>
+                        </div>
+                        <div class="achievement-details">
+                            <div class="achievement-name">Home Win Percentage</div>
+                            <div class="achievement-value">{{printf "%.1f" .WrappedData.Personal.HomeWinPercentage}}%</div>
+                        </div>
+                    </div>
+                    <div class="achievement-card animate-slide-in delay-8">
+                        <div class="achievement-rank-wrapper">
+                            <div class="achievement-icon">✈️</div>
+                        </div>
+                        <div class="achievement-details">
+                            <div class="achievement-name">Away Win Percentage</div>
+                            <div class="achievement-value">{{printf "%.1f" .WrappedData.Personal.AwayWinPercentage}}%</div>
+                        </div>
+                    </div>
+                </div>
+
+                {{if .WrappedData.Personal.Divisions}}
+                <div class="venues-list" style="margin-top: 25px;">
+                    {{range .WrappedData.Personal.Divisions}}
+                    <div class="venue-card animate-slide-in">
+                        <div class="venue-details">
+                            <div class="venue-name">{{.Division}}</div>
+                            <div class="venue-stats">
+                                <span class="venue-percentage">{{printf "%.1f" .WinPercentage}}% success</span>
+                                <span class="venue-record">{{.Fixtures}} fixtures</span>
+                            </div>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{end}}
+                {{else}}
+                <div class="no-data-message">
+                    <div class="no-data-icon">🙋</div>
+                    <div class="no-data-text">No personal data available</div>
+                    <div class="no-data-subtitle">Open from your availability link to personalize</div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Page 5: Playing Style Personalities -->
+        <div class="wrapped-page" id="page-5">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title">Playing Style Personalities</h1>
+                    <h2 class="wrapped-subtitle">How our players roll</h2>
+                </div>
+                    
+                    {{if .WrappedData.PlayingStylePlayers.MixedOnlyPlayers}}
+                    <div class="personality-section animate-fade-in">
+                        <div class="personality-title">Mixed Doubles Heroes 🦸‍♂️🦸‍♀️</div>
+                        <div class="personality-subtitle">Mixed Doubles Only</div>
+                        <div class="personality-players">
+                            {{range .WrappedData.PlayingStylePlayers.MixedOnlyPlayers}}
+                            <div class="personality-player">{{.Name}}</div>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+                    
+                    {{if .WrappedData.PlayingStylePlayers.MensOnlyPlayers}}
+                    <div class="personality-section animate-fade-in delay-1">
+                        <div class="personality-title">Manly Men 💪</div>
+                        <div class="personality-subtitle">Men's Matches Only</div>
+                        <div class="personality-players">
+                            {{range .WrappedData.PlayingStylePlayers.MensOnlyPlayers}}
+                            <div class="personality-player">{{.Name}}</div>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+                    
+                    {{if .WrappedData.PlayingStylePlayers.WomensOnlyPlayers}}
+                    <div class="personality-section animate-fade-in delay-2">
+                        <div class="personality-title">Fabulous Women ✨</div>
+                        <div class="personality-subtitle">Women's Matches Only</div>
+                        <div class="personality-players">
+                            {{range .WrappedData.PlayingStylePlayers.WomensOnlyPlayers}}
+                            <div class="personality-player">{{.Name}}</div>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Page 6: Top Win Percentage Players -->
+        <div class="wrapped-page" id="page-6">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title">Win Rate Champions</h1>
+                    <h2 class="wrapped-subtitle">Top performing players (9+ fixtures)</h2>
+                </div>
+                    
+                    {{if .WrappedData.TopWinPercentage}}
+                    <div class="achievements-list">
+                        {{range .WrappedData.TopWinPercentage}}
+                        <div class="achievement-card animate-slide-in delay-{{.Rank}}">
+                            <div class="achievement-rank-wrapper">
+                                <div class="achievement-rank">{{.Rank}}</div>
+                                <div class="achievement-icon">
+                                    {{if eq .Rank 1}}🏆{{else if eq .Rank 2}}🥈{{else if eq .Rank 3}}🥉{{else}}⭐{{end}}
+                                </div>
+                            </div>
+                           <div class="achievement-details">
+                                <div class="achievement-name">{{.PlayerSummary.Name}}</div>
+                                <div class="achievement-value">{{.Description}}</div>
+                                <div class="achievement-subtitle">{{.PlayerSummary.MatchesCount}} fixtures played</div>
+                            </div>
+                        </div>
+                        {{end}}
+                    </div>
+                    {{else}}
+                    <div class="no-data-message">
+                        <div class="no-data-icon">📊</div>
+                        <div class="no-data-text">No qualifying players found</div>
+                        <div class="no-data-subtitle">Players need 9+ fixtures to qualify</div>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Page 7: Top Pairings -->
+        <div class="wrapped-page" id="page-7">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title">Perfect Partnerships</h1>
+                    <h2 class="wrapped-subtitle">Undefeated duos (100% win rate, 2+ matches)</h2>
+                </div>
+                    
+                    {{if .WrappedData.TopPairings}}
+                    <div class="pairings-list">
+                        {{range .WrappedData.TopPairings}}
+                        <div class="pairing-card animate-slide-in delay-{{.Rank}}">
+                            <div class="pairing-rank-wrapper">
+                                <div class="pairing-rank">{{.Rank}}</div>
+                                <div class="pairing-icon">
+                                    {{if eq .Rank 1}}🏆{{else if eq .Rank 2}}🥈{{else if eq .Rank 3}}🥉{{else}}⭐{{end}}
+                                </div>
+                            </div>
+                            <div class="pairing-details">
+                                <div class="pairing-names">{{.Player1Name}} & {{.Player2Name}}</div>
+                                <div class="pairing-matches">{{.MatchesTogether}} undefeated matches together</div>
+                            </div>
+                        </div>
+                        {{end}}
+                    </div>
+                    {{else}}
+                    <div class="no-data-message">
+                        <div class="no-data-icon">👥</div>
+                        <div class="no-data-text">No perfect partnerships found</div>
+                        <div class="no-data-subtitle">Need 2+ matches with 100% win rate</div>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Page 8: Best Away Venues -->
+        <div class="wrapped-page" id="page-8">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title">Lucky Away Grounds</h1>
+                    <h2 class="wrapped-subtitle">Best away venues (2+ fixtures)</h2>
+                </div>
+                
+                {{if .WrappedData.BestAwayVenues}}
+                <div class="venues-list">
+                    {{range .WrappedData.BestAwayVenues}}
+                    <div class="venue-card animate-slide-in delay-{{.Rank}}">
+                        <div class="venue-rank-wrapper">
+                            <div class="venue-rank">{{.Rank}}</div>
+                            <div class="venue-icon">
+                                {{if eq .Rank 1}}🏆{{else if eq .Rank 2}}🥈{{else if eq .Rank 3}}🥉{{else}}⭐{{end}}
+                            </div>
+                        </div>
+                        <div class="venue-details">
+                            <div class="venue-name">{{.VenueName}}</div>
+                            <div class="venue-stats">
+                                <span class="venue-percentage">{{printf "%.1f" .WinPercentage}}% success rate</span>
+                                <span class="venue-record">{{.Wins}}W-{{.Draws}}D-{{.Losses}}L</span>
+                            </div>
+                            <div class="venue-matches">{{.MatchesPlayed}} away fixtures</div>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{else}}
+                <div class="no-data-message">
+                    <div class="no-data-icon">🏟️</div>
+                    <div class="no-data-text">No away venues found</div>
+                    <div class="no-data-subtitle">Need 2+ away fixtures to qualify</div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Page 9: Three Set Warriors -->
+        <div class="wrapped-page" id="page-9">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title">Three Set Warriors</h1>
+                    <h2 class="wrapped-subtitle">Masters of the marathon match (5+ matches)</h2>
+                </div>
+                
+                {{if .WrappedData.ThreeSetWarriors}}
+                <div class="achievements-list">
+                    {{range .WrappedData.ThreeSetWarriors}}
+                    <div class="achievement-card animate-slide-in delay-{{.Rank}}">
+                        <div class="achievement-rank-wrapper">
+                            <div class="achievement-rank">{{.Rank}}</div>
+                            <div class="achievement-icon">
+                                {{if eq .Rank 1}}🏆{{else if eq .Rank 2}}🥈{{else if eq .Rank 3}}🥉{{else}}⭐{{end}}
+                            </div>
+                        </div>
+                        <div class="achievement-details">
+                            <div class="achievement-name">{{.PlayerSummary.Name}}</div>
+                            <div class="achievement-value">{{.Description}}</div>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{else}}
+                <div class="no-data-message">
+                    <div class="no-data-icon">🎾</div>
+                    <div class="no-data-text">No three set warriors found</div>
+                    <div class="no-data-subtitle">Need 5+ matches to qualify</div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Page 10: Game Grinders -->
+        <div class="wrapped-page" id="page-10">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title">Game Grinders</h1>
+                    <h2 class="wrapped-subtitle">Highest average games per set (5+ matches, champ tie breaks ignored)</h2>
+                </div>
+                
+                {{if .WrappedData.GameGrinders}}
+                <div class="achievements-list">
+                    {{range .WrappedData.GameGrinders}}
+                    <div class="achievement-card animate-slide-in delay-{{.Rank}}">
+                        <div class="achievement-rank-wrapper">
+                            <div class="achievement-rank">{{.Rank}}</div>
+                            <div class="achievement-icon">
+                                {{if eq .Rank 1}}🏆{{else if eq .Rank 2}}🥈{{else if eq .Rank 3}}🥉{{else}}⭐{{end}}
+                            </div>
+                        </div>
+                        <div class="achievement-details">
+                            <div class="achievement-name">{{.PlayerSummary.Name}}</div>
+                            <div class="achievement-value">{{.Description}}</div>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{else}}
+                <div class="no-data-message">
+                    <div class="no-data-icon">🎯</div>
+                    <div class="no-data-text">No game grinders found</div>
+                    <div class="no-data-subtitle">Need 5+ matches and 10+ sets</div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Page 3: Availability Engagement -->
+        <div class="wrapped-page" id="page-3">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title">Availability Engagement</h1>
+                    <h2 class="wrapped-subtitle">How well players used the availability system</h2>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card animate-fade-in">
+                        <div class="stat-number">{{.WrappedData.AvailabilityEngagement.PlayersSetAvailability}}</div>
+                        <div class="stat-label">Players Set Availability</div>
+                        <div class="stat-subtitle">Used the system at least once</div>
+                    </div>
+                    
+                    <div class="stat-card animate-fade-in delay-1">
+                        <div class="stat-number">{{.WrappedData.AvailabilityEngagement.PlayersWhoPlayed}}</div>
+                        <div class="stat-label">Players Who Played</div>
+                        <div class="stat-subtitle">Participated in matches</div>
+                    </div>
+                    
+                    <div class="stat-card animate-fade-in delay-2">
+                        <div class="stat-number">{{printf "%.1f" .WrappedData.AvailabilityEngagement.AvailabilityActivePlayerPercentage}}%</div>
+                        <div class="stat-label">Active Player Adoption</div>
+                        <div class="stat-subtitle">Of players who played</div>
+                    </div>
+                    
+                    <div class="stat-card animate-fade-in delay-3">
+                        <div class="stat-number">{{.WrappedData.AvailabilityEngagement.TotalAvailabilityUpdates}}</div>
+                        <div class="stat-label">Total Updates</div>
+                        <div class="stat-subtitle">Availability changes made</div>
+                    </div>
+                </div>
+                
+                {{if gt .WrappedData.AvailabilityEngagement.AvailabilityActivePlayerPercentage 75.0}}
+                <div class="highlight-section animate-bounce-in">
+                    <div class="highlight-icon">📅</div>
+                    <div class="highlight-title">Excellent Engagement!</div>
+                    <div class="highlight-name">{{printf "%.1f" .WrappedData.AvailabilityEngagement.AvailabilityActivePlayerPercentage}}% adoption rate</div>
+                    <div class="highlight-subtitle">Most active players used the availability system</div>
+                </div>
+                {{else if gt .WrappedData.AvailabilityEngagement.AvailabilityActivePlayerPercentage 50.0}}
+                <div class="highlight-section animate-bounce-in">
+                    <div class="highlight-icon">📊</div>
+                    <div class="highlight-title">Good Adoption</div>
+                    <div class="highlight-name">{{printf "%.1f" .WrappedData.AvailabilityEngagement.AvailabilityActivePlayerPercentage}}% adoption rate</div>
+                    <div class="highlight-subtitle">Over half of active players engaged</div>
+                </div>
+                {{else if gt .WrappedData.AvailabilityEngagement.AvailabilityActivePlayerPercentage 0.0}}
+                <div class="highlight-section animate-bounce-in">
+                    <div class="highlight-icon">📋</div>
+                    <div class="highlight-title">Room for Growth</div>
+                    <div class="highlight-name">{{printf "%.1f" .WrappedData.AvailabilityEngagement.AvailabilityActivePlayerPercentage}}% adoption rate</div>
+                    <div class="highlight-subtitle">Opportunity to improve system usage</div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Page 11: Comeback Kings/Queens -->
+        <div class="wrapped-page" id="page-11">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title">Comeback Kings & Queens</h1>
+                    <h2 class="wrapped-subtitle">Masters of resilience (5+ matches)</h2>
+                </div>
+                    
+                {{if .WrappedData.ComebackKings}}
+                <div class="achievements-list">
+                    {{range .WrappedData.ComebackKings}}
+                    <div class="achievement-card animate-slide-in delay-{{.Rank}}">
+                        <div class="achievement-rank-wrapper">
+                            <div class="achievement-rank">{{.Rank}}</div>
+                            <div class="achievement-icon">
+                                {{if eq .Rank 1}}👑{{else if eq .Rank 2}}🥈{{else if eq .Rank 3}}🥉{{else}}💪{{end}}
+                            </div>
+                        </div>
+                        <div class="achievement-details">
+                            <div class="achievement-name">{{.PlayerSummary.Name}}</div>
+                            <div class="achievement-value">{{.Description}}</div>
+                            <div class="achievement-subtitle">Won after losing first set</div>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{else}}
+                <div class="no-data-message">
+                    <div class="no-data-icon">👑</div>
+                    <div class="no-data-text">No comeback kings found</div>
+                    <div class="no-data-subtitle">Need 5+ matches with comeback wins</div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Page 12: Social Butterflies -->
+        <div class="wrapped-page" id="page-12">
+            <div class="wrapped-content">
+                <div class="wrapped-header">
+                    <h1 class="wrapped-title">Social Butterflies</h1>
+                    <h2 class="wrapped-subtitle">Players with the most different partners (5+ partnerships)</h2>
+                </div>
+                    
+                {{if .WrappedData.SocialButterflies}}
+                <div class="achievements-list">
+                    {{range .WrappedData.SocialButterflies}}
+                    <div class="achievement-card animate-slide-in delay-{{.Rank}}">
+                        <div class="achievement-rank-wrapper">
+                            <div class="achievement-rank">{{.Rank}}</div>
+                            <div class="achievement-icon">
+                                {{if eq .Rank 1}}🦋{{else if eq .Rank 2}}🥈{{else if eq .Rank 3}}🥉{{else}}🤝{{end}}
+                            </div>
+                        </div>
+                        <div class="achievement-details">
+                            <div class="achievement-name">{{.PlayerSummary.Name}}</div>
+                            <div class="achievement-value">{{.Description}}</div>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{else}}
+                <div class="no-data-message">
+                    <div class="no-data-icon">🦋</div>
+                    <div class="no-data-text">No social butterflies found</div>
+                    <div class="no-data-subtitle">Need 5+ partnerships to qualify</div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="wrapped-navigation" style="display:none;">
+            <button class="nav-btn prev-btn" onclick="previousPage()" id="prevBtn">❮</button>
+            <div class="page-indicator">
+                <span class="current-page" id="currentPageNum">1</span>
+                <span class="total-pages">/ 12</span>
+            </div>
+            <button class="nav-btn next-btn" onclick="nextPage()" id="nextBtn">❯</button>
+        </div>
+        <!-- Auto-advance indicator (desktop only) -->
+        <div id="autoAdvanceBanner" style="display:none; position:fixed; left:50%; transform:translateX(-50%); bottom: calc(var(--nav-offset, 80px) + 8px); background: rgba(0,0,0,0.75); color:#fff; padding:8px 12px; border-radius:16px; font-size:14px; z-index:1000; box-shadow:0 2px 8px rgba(0,0,0,0.3);">
+            🤖 Auto-advance in <span id="autoAdvanceCountdown">3</span>s
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 0;
+        const totalPages = 12;
+        // Auto-advance (desktop party mode)
+        const isDesktop = (window.matchMedia && window.matchMedia('(pointer: fine)').matches) && !('ontouchstart' in window);
+        const inactivityDelayMs = 17000; // show countdown after 17s
+        const countdownSeconds = 3; // then 3s visible countdown
+        let autoTimeoutId = null;
+        let countdownId = null;
+        let countdownRemaining = countdownSeconds;
+
+        function clearAutoTimers() {
+            if (autoTimeoutId) { clearTimeout(autoTimeoutId); autoTimeoutId = null; }
+            if (countdownId) { clearInterval(countdownId); countdownId = null; }
+        }
+
+        function hideAutoBanner() {
+            const banner = document.getElementById('autoAdvanceBanner');
+            if (banner) banner.style.display = 'none';
+        }
+
+        function scheduleAutoAdvance() {
+            if (!isDesktop) return;
+            if (currentPage >= totalPages) return; // don't advance past last page
+            clearAutoTimers();
+            hideAutoBanner();
+            autoTimeoutId = setTimeout(startAutoAdvanceCountdown, inactivityDelayMs);
+        }
+
+        function startAutoAdvanceCountdown() {
+            const banner = document.getElementById('autoAdvanceBanner');
+            const counter = document.getElementById('autoAdvanceCountdown');
+            if (!banner || !counter) return;
+            countdownRemaining = countdownSeconds;
+            counter.textContent = String(countdownRemaining);
+            banner.style.display = 'block';
+            countdownId = setInterval(() => {
+                countdownRemaining -= 1;
+                if (countdownRemaining <= 0) {
+                    clearAutoTimers();
+                    banner.style.display = 'none';
+                    nextPage();
+                    scheduleAutoAdvance();
+                } else {
+                    counter.textContent = String(countdownRemaining);
+                }
+            }, 1000);
+        }
+
+        function resetAutoAdvance() {
+            if (!isDesktop) return;
+            clearAutoTimers();
+            hideAutoBanner();
+            scheduleAutoAdvance();
+        }
+        // Fast back navigation detection
+        let lastNavTs = 0;
+        let consecutiveBackFastCount = 0;
+        const fastBackMs = 600; // within 600ms counts as fast back
+
+        function showPage(pageNum) {
+            // Hide all pages
+            const pages = Array.from(document.querySelectorAll('.wrapped-page'));
+            pages.forEach(page => page.classList.remove('active'));
+            
+            // Show current page
+            const current = document.getElementById(`page-${pageNum}`);
+            if (current) current.classList.add('active');
+            
+            // Update navigation
+            document.getElementById('currentPageNum').textContent = pageNum;
+            
+            // Update button states
+            document.getElementById('prevBtn').style.display = pageNum === 1 ? 'none' : 'block';
+            document.getElementById('nextBtn').style.display = pageNum === totalPages ? 'none' : 'block';
+
+            // Scroll the active page to the top each time we change page
+            const active = document.getElementById(`page-${pageNum}`);
+            if (active) {
+                active.scrollTop = 0; // avoid smoothing conflicts across platforms
+            }
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                showPage(currentPage);
+                // reset fast-back state on forward
+                consecutiveBackFastCount = 0;
+                lastNavTs = Date.now();
+                resetAutoAdvance();
+            }
+        }
+
+        function previousPage() {
+            if (currentPage > 1) {
+                const now = Date.now();
+                if (now - lastNavTs <= fastBackMs) {
+                    consecutiveBackFastCount += 1;
+                } else {
+                    consecutiveBackFastCount = 1;
+                }
+                lastNavTs = now;
+
+                currentPage--;
+                showPage(currentPage);
+
+                active.scrollTop = 0;
+                resetAutoAdvance();
+            }
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                e.preventDefault();
+                nextPage();
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                previousPage();
+            }
+            // Any key is activity
+            resetAutoAdvance();
+        });
+
+        // Mouse/touch activity resets auto-advance
+        ['mousemove', 'click', 'wheel', 'touchstart'].forEach(evt => {
+            window.addEventListener(evt, resetAutoAdvance, { passive: true });
+        });
+
+        // Defer switching to page 1 until fully loaded
+        window.addEventListener('load', () => {
+            // measure and set nav offset before revealing nav
+            updateNavOffset();
+            const nav = document.querySelector('.wrapped-navigation');
+            if (nav) nav.style.display = 'flex';
+            // switch from loading page (0) to first content page (1)
+            currentPage = 1;
+            showPage(1);
+            const first = document.getElementById('page-1');
+            if (first) first.scrollTop = 0;
+            // remove loading flag from container
+            const container = document.querySelector('.wrapped-container');
+            if (container) container.classList.remove('loading');
+            // Start auto-advance schedule on desktop
+            scheduleAutoAdvance();
+        });
+
+        // Measure nav height and expose CSS var to pad page bottoms
+        function updateNavOffset() {
+            const nav = document.querySelector('.wrapped-navigation');
+            const navHeight = nav ? nav.offsetHeight : 0;
+            // Add larger buffer to avoid overlap (accounts for shadows/touch targets)
+            document.documentElement.style.setProperty('--nav-offset', (navHeight + 48) + 'px');
+        }
+        updateNavOffset();
+        window.addEventListener('resize', updateNavOffset);
+        
+        console.log("St. Ann's Season Wrapped loaded with 13 pages");
+    </script>
+</body>
+</html> 

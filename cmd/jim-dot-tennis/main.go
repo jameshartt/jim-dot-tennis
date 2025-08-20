@@ -104,6 +104,9 @@ func main() {
 	// Admin routes (protected)
 	adminHandler.RegisterRoutes(mux, authMiddleware)
 
+	// Public admin-related routes (e.g., club wrapped with lightweight password gate)
+	adminHandler.RegisterPublicRoutes(mux)
+
 	// Players routes (protected)
 	playersHandler.RegisterRoutes(mux, authMiddleware)
 
@@ -134,10 +137,17 @@ func main() {
 		http.StripPrefix("/static/", fs).ServeHTTP(w, r)
 	}))
 
-	// Start server
+	// Start server with proper timeouts
 	port := getPort()
+	server := &http.Server{
+		Addr:         ":" + port,
+		Handler:      mux,
+		ReadTimeout:  30 * time.Second,  // Generous for mobile
+		WriteTimeout: 30 * time.Second,  // Generous for mobile
+		IdleTimeout:  120 * time.Second, // Keep connections alive
+	}
 	log.Printf("Server started at http://localhost:%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, mux))
+	log.Fatal(server.ListenAndServe())
 }
 
 // getProjectRoot returns the project root directory

@@ -17,6 +17,7 @@ services:
       - PORT=8080
       - DB_TYPE=sqlite3
       - DB_PATH=/app/data/tennis.db
+      - WRAPPED_ACCESS_PASSWORD=${WRAPPED_ACCESS_PASSWORD}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
       interval: 30s

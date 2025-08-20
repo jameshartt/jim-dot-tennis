@@ -25,6 +25,8 @@ type FixtureRepository interface {
 	FindByAwayTeam(ctx context.Context, teamID uint) ([]models.Fixture, error)
 	FindByStatus(ctx context.Context, status models.FixtureStatus) ([]models.Fixture, error)
 	FindByDateRange(ctx context.Context, startDate, endDate time.Time) ([]models.Fixture, error)
+	// Club-scoped queries
+	FindByClubAndDateRange(ctx context.Context, clubID uint, startDate, endDate time.Time) ([]models.Fixture, error)
 	FindByDayCaptain(ctx context.Context, dayCaptainID string) ([]models.Fixture, error)
 
 	// Week-related queries
@@ -255,6 +257,24 @@ func (r *fixtureRepository) FindByDateRange(ctx context.Context, startDate, endD
 		WHERE scheduled_date >= ? AND scheduled_date <= ?
 		ORDER BY scheduled_date ASC
 	`, startDate, endDate)
+	return fixtures, err
+}
+
+// FindByClubAndDateRange retrieves fixtures within a date range where either home or away team belongs to the given club
+func (r *fixtureRepository) FindByClubAndDateRange(ctx context.Context, clubID uint, startDate, endDate time.Time) ([]models.Fixture, error) {
+	var fixtures []models.Fixture
+	err := r.db.SelectContext(ctx, &fixtures, `
+        SELECT f.id, f.home_team_id, f.away_team_id, f.division_id, f.season_id, f.week_id,
+               f.scheduled_date, f.venue_location, f.status, f.completed_date, f.day_captain_id,
+               f.external_match_card_id, f.notes, f.created_at, f.updated_at
+        FROM fixtures f
+        INNER JOIN teams th ON th.id = f.home_team_id
+        INNER JOIN teams ta ON ta.id = f.away_team_id
+        WHERE (th.club_id = ? OR ta.club_id = ?)
+          AND f.scheduled_date >= ? AND f.scheduled_date <= ?
+          AND f.status IN (?, ?)
+        ORDER BY f.scheduled_date ASC
+    `, clubID, clubID, startDate, endDate, string(models.Scheduled), string(models.InProgress))
 	return fixtures, err
 }
 

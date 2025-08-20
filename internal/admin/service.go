@@ -2592,7 +2592,25 @@ func (s *Service) AddPlayerToMatchup(matchupID uint, playerID string, fixtureID 
 // RemovePlayerFromMatchup removes a single player from a matchup
 func (s *Service) RemovePlayerFromMatchup(matchupID uint, playerID string) error {
 	ctx := context.Background()
-	return s.matchupRepository.RemovePlayer(ctx, matchupID, playerID)
+
+	// Remove the player from the matchup
+	if err := s.matchupRepository.RemovePlayer(ctx, matchupID, playerID); err != nil {
+		return err
+	}
+
+	// If no players remain in this matchup, delete the matchup to keep the UI clean
+	remainingPlayers, err := s.matchupRepository.FindPlayersInMatchup(ctx, matchupID)
+	if err != nil {
+		return err
+	}
+
+	if len(remainingPlayers) == 0 {
+		if err := s.matchupRepository.Delete(ctx, matchupID); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // CreatePlayer creates a new player
@@ -2732,7 +2750,7 @@ func (s *Service) UpdateFixtureSchedule(fixtureID uint, newScheduledDate time.Ti
 	var previousDates []time.Time
 
 	// Parse existing previous dates from JSON
-	if currentFixture.PreviousDates != nil && len(currentFixture.PreviousDates) > 0 {
+	if len(currentFixture.PreviousDates) > 0 {
 		// Note: PreviousDates is already a []time.Time slice from the model
 		previousDates = currentFixture.PreviousDates
 	}

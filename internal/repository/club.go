@@ -197,7 +197,7 @@ func (r *clubRepository) FindWithPlayersAndTeams(ctx context.Context, id uint) (
 	// Get associated players
 	var players []models.Player
 	err = r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, club_id, created_at, updated_at
+		SELECT id, first_name, last_name, preferred_name, gender, club_id, fantasy_match_id, created_at, updated_at
 		FROM players
 		WHERE club_id = ?
 		ORDER BY last_name ASC, first_name ASC
@@ -262,7 +262,7 @@ func (r *clubRepository) CountTeams(ctx context.Context, id uint) (int, error) {
 func (r *clubRepository) GetPlayersByClub(ctx context.Context, clubID uint) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, club_id, created_at, updated_at
+		SELECT id, first_name, last_name, preferred_name, gender, club_id, fantasy_match_id, created_at, updated_at
 		FROM players 
 		WHERE club_id = ?
 		ORDER BY last_name ASC, first_name ASC
@@ -274,7 +274,7 @@ func (r *clubRepository) GetPlayersByClub(ctx context.Context, clubID uint) ([]m
 func (r *clubRepository) GetAllPlayersWithClubs(ctx context.Context) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, club_id, created_at, updated_at
+		SELECT id, first_name, last_name, preferred_name, gender, club_id, fantasy_match_id, created_at, updated_at
 		FROM players 
 		ORDER BY last_name ASC, first_name ASC
 	`)

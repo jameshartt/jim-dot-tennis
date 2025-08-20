@@ -44,15 +44,18 @@
             font-weight: 600;
             color: #333;
         }
-        .form-group input[type="text"] {
+        .form-group input[type="text"],
+        .form-group select {
             width: 100%;
             padding: 0.75rem;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 1rem;
             box-sizing: border-box;
+            background: white;
         }
-        .form-group input[type="text"]:focus {
+        .form-group input[type="text"]:focus,
+        .form-group select:focus {
             outline: none;
             border-color: var(--primary-color);
             box-shadow: 0 0 0 2px rgba(76, 124, 78, 0.2);
@@ -141,6 +144,19 @@
                            placeholder="Enter player's last name">
                 </div>
 
+                <div class="form-group">
+                    <label for="gender">Gender <span class="required">*</span></label>
+                    <select id="gender" name="gender" required>
+                        <option value="">Select Gender</option>
+                        <option value="Men">Men</option>
+                        <option value="Women">Women</option>
+                        <option value="Unknown">Unknown</option>
+                    </select>
+                    <div class="form-help">
+                        Select "Unknown" if the player's gender cannot be determined from their match history.
+                    </div>
+                </div>
+
                 <div class="form-actions">
                     <a href="/admin/players" class="btn btn-secondary">Cancel</a>
                     <button type="submit" class="btn btn-primary">Create Player</button>
@@ -159,10 +175,11 @@
         document.querySelector('form').addEventListener('submit', function(e) {
             const firstName = document.getElementById('first_name').value.trim();
             const lastName = document.getElementById('last_name').value.trim();
+            const gender = document.getElementById('gender').value;
             
-            if (!firstName || !lastName) {
+            if (!firstName || !lastName || !gender) {
                 e.preventDefault();
-                alert('Please enter both first name and last name.');
+                alert('Please fill in all required fields: first name, last name, and gender.');
                 return false;
             }
         });

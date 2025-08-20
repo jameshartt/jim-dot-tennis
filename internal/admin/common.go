@@ -43,6 +43,33 @@ func parseTemplate(templateDir, templatePath string) (*template.Template, error)
 		"currentYear": func() int {
 			return time.Now().Year()
 		},
+		"add": func(a, b int) int {
+			return a + b
+		},
+		"formatPoints": func(points float64) string {
+			// If it's a whole number, show as integer
+			if points == float64(int(points)) {
+				return fmt.Sprintf("%.0f", points)
+			}
+			// Otherwise show one decimal place
+			return fmt.Sprintf("%.1f", points)
+		},
+		"until": func(n int) []int {
+			result := make([]int, n)
+			for i := 0; i < n; i++ {
+				result[i] = i
+			}
+			return result
+		},
+		"lt": func(a, b int) bool {
+			return a < b
+		},
+		"le": func(a, b int) bool {
+			return a <= b
+		},
+		"ge": func(a, b int) bool {
+			return a >= b
+		},
 	}
 
 	// Parse template with function map
