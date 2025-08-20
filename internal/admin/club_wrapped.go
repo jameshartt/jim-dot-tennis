@@ -164,6 +164,7 @@ type ClubWrappedData struct {
 	ComebackKings          []ComebackAchievement        // New field for comeback achievements
 	SocialButterflies      []SocialButterflyAchievement // New field for social butterflies
 	TiebreakMasters        []TiebreakMasterAchievement  // New field for tiebreak masters
+	DominatingWinners      []PlayerAchievement          // New field for dominating wins (fewest games per set in wins)
 	LuckyVenue             *ClubVenueStats
 	SeasonHighlights       ClubSeasonHighlights
 	// Optional per-player section when accessed via player availability
@@ -606,6 +607,7 @@ func (h *ClubWrappedHandler) generateClubWrappedData() (*ClubWrappedData, error)
 	wrappedData.ComebackKings = h.getComebackKings(ctx)                       // New method call for comeback achievements
 	wrappedData.SocialButterflies = h.getSocialButterflies(ctx)               // New method call for social butterflies
 	wrappedData.TiebreakMasters = h.getTiebreakMasters(ctx)                   // New method call for tiebreak masters
+	wrappedData.DominatingWinners = h.getDominatingWinners(ctx)               // New method call for dominating wins
 	wrappedData.LuckyVenue = h.getClubLuckyVenue(ctx)
 
 	if err := h.calculateClubSeasonHighlights(ctx, &wrappedData.SeasonHighlights); err != nil {
@@ -1625,6 +1627,89 @@ func (h *ClubWrappedHandler) getTiebreakMasters(ctx context.Context) []TiebreakM
 
 		achievements = append(achievements, achievement)
 		previousWinRate = &tiebreakWinRate
+	}
+
+	return achievements
+}
+
+// getDominatingWinners finds players who dominate their wins: among players with at least 5 wins,
+// compute the lowest average games per set considering only their won matches (championship tiebreaks excluded).
+func (h *ClubWrappedHandler) getDominatingWinners(ctx context.Context) []PlayerAchievement {
+	query := `
+		WITH player_straight_wins AS (
+			SELECT 
+				p.id AS player_id,
+				COALESCE(p.preferred_name, p.first_name || ' ' || p.last_name) AS name,
+				COUNT(*) AS wins,
+				-- Count sets from straight-set wins only (set 1 and set 2)
+				SUM(
+					CASE WHEN m.home_set1 IS NOT NULL AND m.away_set1 IS NOT NULL THEN 1 ELSE 0 END +
+					CASE WHEN m.home_set2 IS NOT NULL AND m.away_set2 IS NOT NULL THEN 1 ELSE 0 END
+				) AS total_sets,
+				-- Sum games from the first two sets only
+				SUM(
+					COALESCE(m.home_set1, 0) + COALESCE(m.away_set1, 0) +
+					COALESCE(m.home_set2, 0) + COALESCE(m.away_set2, 0)
+				) AS total_games
+			FROM matchup_players mp
+			INNER JOIN matchups m ON mp.matchup_id = m.id
+			INNER JOIN players p ON mp.player_id = p.id
+			WHERE m.status = 'Finished'
+				AND ((mp.is_home = 1 AND m.home_score > m.away_score) OR (mp.is_home = 0 AND m.away_score > m.home_score))
+				AND m.home_set3 IS NULL AND m.away_set3 IS NULL -- straight-set matches only
+			GROUP BY p.id, name
+			HAVING wins >= 5 AND total_sets > 0
+		)
+		SELECT 
+			player_id,
+			name,
+			wins,
+			total_sets,
+			total_games,
+			ROUND(CAST(total_games AS FLOAT) / total_sets, 2) AS avg_games_per_set
+		FROM player_straight_wins
+		ORDER BY avg_games_per_set ASC, wins DESC, total_games ASC
+		LIMIT 10
+	`
+
+	rows, err := h.service.db.QueryContext(ctx, query)
+	if err != nil {
+		log.Printf("Error getting dominating winners: %v", err)
+		return []PlayerAchievement{}
+	}
+	defer rows.Close()
+
+	var achievements []PlayerAchievement
+	currentRank := 1
+	var previousAverage *float64
+
+	for rows.Next() {
+		var playerID, playerName string
+		var wins, totalSets, totalGames int
+		var avgGamesPerSet float64
+
+		if err := rows.Scan(&playerID, &playerName, &wins, &totalSets, &totalGames, &avgGamesPerSet); err != nil {
+			log.Printf("Error scanning dominating winner: %v", err)
+			continue
+		}
+
+		// Dense ranking ascending by average games per set
+		if previousAverage != nil && avgGamesPerSet != *previousAverage {
+			currentRank++
+		}
+
+		achievements = append(achievements, PlayerAchievement{
+			PlayerSummary: PlayerSummary{
+				ID:           playerID,
+				Name:         playerName,
+				MatchesCount: wins,
+			},
+			Value:       avgGamesPerSet,
+			Description: fmt.Sprintf("%d straight-set wins • %.2f games per set", wins, avgGamesPerSet),
+			Rank:        currentRank,
+		})
+
+		previousAverage = &avgGamesPerSet
 	}
 
 	return achievements
