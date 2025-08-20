@@ -804,6 +804,9 @@
             if (active) {
                 active.scrollTop = 0; // avoid smoothing conflicts across platforms
             }
+
+            // Recompute nav offset in case nav height/layout changed (mobile wrap/orientation)
+            requestAnimationFrame(() => updateNavOffset());
         }
 
         function nextPage() {
@@ -829,8 +832,6 @@
 
                 currentPage--;
                 showPage(currentPage);
-
-                active.scrollTop = 0;
                 resetAutoAdvance();
             }
         }
@@ -855,10 +856,18 @@
 
         // Defer switching to page 1 until fully loaded
         window.addEventListener('load', () => {
-            // measure and set nav offset before revealing nav
-            updateNavOffset();
+            // reveal navigation first so we can measure its true height
             const nav = document.querySelector('.wrapped-navigation');
             if (nav) nav.style.display = 'flex';
+            // measure and set nav offset AFTER nav is visible
+            requestAnimationFrame(() => {
+                updateNavOffset();
+                // observe future nav size changes (button show/hide, font changes)
+                if (window.ResizeObserver && nav) {
+                    const ro = new ResizeObserver(() => updateNavOffset());
+                    ro.observe(nav);
+                }
+            });
             // switch from loading page (0) to first content page (1)
             currentPage = 1;
             showPage(1);
@@ -880,6 +889,14 @@
         }
         updateNavOffset();
         window.addEventListener('resize', updateNavOffset);
+        // Handle mobile browser UI show/hide and orientation changes
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', updateNavOffset);
+        }
+        window.addEventListener('orientationchange', () => {
+            // give the browser a tick to settle layout
+            setTimeout(updateNavOffset, 150);
+        });
         
         console.log("St. Ann's Season Wrapped loaded with 13 pages");
     </script>
