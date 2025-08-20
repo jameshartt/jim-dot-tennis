@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"jim-dot-tennis/internal/models"
 )
@@ -69,16 +70,23 @@ func (s *TeamEligibilityService) GetTeamRanking(ctx context.Context, clubID uint
 
 // GetPlayerEligibilityForTeam checks if a player is eligible to play for a specific team
 func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context, playerID string, teamID uint, fixtureID uint) (*PlayerEligibilityInfo, error) {
-	// Get the fixture to determine the week and season
+	// Get the fixture to determine the scheduled date and season
 	fixture, err := s.service.fixtureRepository.FindByID(ctx, fixtureID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get the week to check if we're in second half of season (Week 10+)
-	week, err := s.service.weekRepository.FindByID(ctx, fixture.WeekID)
+	// Determine the playing calendar week by date to handle reschedules properly
+	playingWeek, err := s.findWeekForDate(ctx, fixture.SeasonID, fixture.ScheduledDate)
 	if err != nil {
 		return nil, err
+	}
+	if playingWeek == nil {
+		// Fallback to the stored week if date lookup fails
+		playingWeek, err = s.service.weekRepository.FindByID(ctx, fixture.WeekID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Get the player
@@ -104,8 +112,11 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 		CanPlayLower:             false,
 	}
 
-	// Check if player has already played this week
-	hasPlayedThisWeek, playedTeam, err := s.hasPlayerPlayedThisWeek(ctx, playerID, week.ID)
+	// Compute Monday 00:00 to Saturday 00:00 window for the fixture's week
+	weekStart, weekEndExclusive := s.mondayToSaturdayWindow(fixture.ScheduledDate)
+
+	// Rule 1: No player shall be allowed to play or be scheduled to play in more than one team in the Monday–Friday window
+	hasPlayedThisWeek, playedTeam, err := s.hasPlayerPlayedInCalendarWeek(ctx, playerID, player.ClubID, weekStart, weekEndExclusive, fixture.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -113,14 +124,21 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 	eligibility.PlayedThisWeek = hasPlayedThisWeek
 	eligibility.PlayedThisWeekTeam = playedTeam
 
-	// Rule 1: No player shall be allowed to play in more than one team in any week
 	if hasPlayedThisWeek {
 		eligibility.CanPlay = false
 		return eligibility, nil
 	}
 
-	// Rule 2 only applies from Week 10 onwards (second half of season)
-	if week.WeekNumber >= 10 {
+	// Rule 2 applies starting in the second half of the season
+	secondHalfStart, hasSecondHalf, err := s.getSecondHalfStartDate(ctx, fixture.SeasonID)
+	if err != nil {
+		return nil, err
+	}
+
+	isSecondHalfByDate := hasSecondHalf && (fixture.ScheduledDate.Equal(secondHalfStart) || fixture.ScheduledDate.After(secondHalfStart))
+	isSecondHalfByWeek := playingWeek.WeekNumber >= 10
+
+	if isSecondHalfByDate || isSecondHalfByWeek {
 		// Get team rankings to determine which teams are "higher"
 		rankings, err := s.GetTeamRanking(ctx, targetTeam.ClubID, fixture.SeasonID)
 		if err != nil {
@@ -136,8 +154,14 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 		isTopTeam := targetTeamRank == 1
 		eligibility.IsTopTeam = isTopTeam
 
-		// Count matches played in higher teams during second half of season
-		higherTeamMatches, lockedTeam, err := s.countHigherTeamMatches(ctx, playerID, targetTeamRank, rankings, fixture.SeasonID)
+		// Count matches played in higher teams during second half up to this fixture date (by scheduled date)
+		startDate := secondHalfStart
+		if !hasSecondHalf {
+			startDate = playingWeek.StartDate
+		}
+		endDate := fixture.ScheduledDate
+
+		higherTeamMatches, lockedTeam, err := s.countHigherTeamMatchesInDateRange(ctx, playerID, targetTeamRank, rankings, fixture.SeasonID, startDate, endDate)
 		if err != nil {
 			return nil, err
 		}
@@ -152,8 +176,8 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 
 		// For top team, no restrictions on higher team play since there are no higher teams
 		if isTopTeam {
-			// For top team, count matches played in this team to show lock-in progress
-			currentTeamMatches, err := s.countCurrentTeamMatches(ctx, playerID, teamID, fixture.SeasonID)
+			// For top team, count matches in this team up to this fixture date
+			currentTeamMatches, err := s.countCurrentTeamMatchesInDateRange(ctx, playerID, teamID, fixture.SeasonID, startDate, endDate)
 			if err != nil {
 				return nil, err
 			}
@@ -163,7 +187,7 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 			eligibility.CanPlayLower = true // Top team can always play lower teams
 		} else {
 			// For non-top teams, count matches in current team AND higher teams
-			currentTeamMatches, err := s.countCurrentTeamMatches(ctx, playerID, teamID, fixture.SeasonID)
+			currentTeamMatches, err := s.countCurrentTeamMatchesInDateRange(ctx, playerID, teamID, fixture.SeasonID, startDate, endDate)
 			if err != nil {
 				return nil, err
 			}
@@ -198,39 +222,44 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 			}
 		}
 	} else {
-		// Before Week 10, no restrictions apply
+		// Before the second half, no restrictions apply
 		eligibility.CanPlayLower = true
 	}
 
 	return eligibility, nil
 }
 
-// hasPlayerPlayedThisWeek checks if a player has already played in any fixture this week
-func (s *TeamEligibilityService) hasPlayerPlayedThisWeek(ctx context.Context, playerID string, weekID uint) (bool, string, error) {
-	// Query for any matchup players in fixtures for this week
+// hasPlayerPlayedInCalendarWeek checks if a player has already played or is scheduled to play in the Monday–Friday window
+func (s *TeamEligibilityService) hasPlayerPlayedInCalendarWeek(ctx context.Context, playerID string, clubID uint, weekStart time.Time, weekEndExclusive time.Time, excludeFixtureID uint) (bool, string, error) {
 	query := `
-		SELECT DISTINCT t.name
-		FROM matchup_players mp
-		INNER JOIN matchups m ON mp.matchup_id = m.id
-		INNER JOIN fixtures f ON m.fixture_id = f.id
-		INNER JOIN teams t ON (f.home_team_id = t.id OR f.away_team_id = t.id)
-		WHERE mp.player_id = ? AND f.week_id = ?
+		SELECT DISTINCT CASE WHEN COALESCE(mp.is_home, fp.is_home) = 1 THEN th.name ELSE ta.name END AS team_name
+		FROM fixtures f
+		INNER JOIN teams th ON th.id = f.home_team_id
+		INNER JOIN teams ta ON ta.id = f.away_team_id
+		LEFT JOIN matchups m ON m.fixture_id = f.id
+		LEFT JOIN matchup_players mp ON mp.matchup_id = m.id AND mp.player_id = ?
+		LEFT JOIN fixture_players fp ON fp.fixture_id = f.id AND fp.player_id = ?
+		WHERE f.scheduled_date >= ? AND f.scheduled_date < ?
+		  AND f.id != ?
+		  AND f.status IN ('Scheduled', 'InProgress', 'Completed')
+		  AND (mp.player_id IS NOT NULL OR fp.player_id IS NOT NULL)
+		  AND (
+		    (COALESCE(mp.is_home, fp.is_home) = 1 AND th.club_id = ?) OR
+		    (COALESCE(mp.is_home, fp.is_home) = 0 AND ta.club_id = ?)
+		  )
 		LIMIT 1
 	`
 
 	var teamName string
-	err := s.service.db.GetContext(ctx, &teamName, query, playerID, weekID)
+	err := s.service.db.GetContext(ctx, &teamName, query, playerID, playerID, weekStart, weekEndExclusive, excludeFixtureID, clubID, clubID)
 	if err != nil {
-		// If no rows found, player hasn't played this week
 		return false, "", nil
 	}
-
 	return true, teamName, nil
 }
 
-// countHigherTeamMatches counts how many matches a player has played in higher-ranked teams
-// during the second half of the season (from Week 10 onwards)
-func (s *TeamEligibilityService) countHigherTeamMatches(ctx context.Context, playerID string, targetTeamRank int, rankings []TeamRank, seasonID uint) (int, string, error) {
+// countHigherTeamMatchesInDateRange counts how many matches a player has played in higher-ranked teams within a date window
+func (s *TeamEligibilityService) countHigherTeamMatchesInDateRange(ctx context.Context, playerID string, targetTeamRank int, rankings []TeamRank, seasonID uint, startDate time.Time, endDate time.Time) (int, string, error) {
 	// Get all teams ranked higher than the target team
 	var higherTeamIDs []uint
 	var higherTeamNames []string
@@ -245,7 +274,7 @@ func (s *TeamEligibilityService) countHigherTeamMatches(ctx context.Context, pla
 		return 0, "", nil // No higher teams
 	}
 
-	// Build the query to count matches in higher teams from Week 10 onwards
+	// Build the query to count matches in higher teams within the date range
 	// Get the name of the St. Ann's team the player was actually playing FOR
 	query := `
 		SELECT COUNT(DISTINCT m.id),
@@ -253,21 +282,20 @@ func (s *TeamEligibilityService) countHigherTeamMatches(ctx context.Context, pla
 		FROM matchup_players mp
 		INNER JOIN matchups m ON mp.matchup_id = m.id
 		INNER JOIN fixtures f ON m.fixture_id = f.id
-		INNER JOIN weeks w ON f.week_id = w.id
 		INNER JOIN teams t ON (
 			(mp.is_home = 1 AND f.home_team_id = t.id) OR
 			(mp.is_home = 0 AND f.away_team_id = t.id)
 		)
 		WHERE mp.player_id = ?
-		  AND w.week_number >= 10
-		  AND w.season_id = ?
+		  AND f.season_id = ?
+		  AND f.scheduled_date >= ? AND f.scheduled_date <= ?
 		  AND t.id IN (` + s.createPlaceholders(len(higherTeamIDs)) + `)
 	`
 
 	// Build args slice
 	args := make([]interface{}, 0)
-	// Player ID and season ID
-	args = append(args, playerID, seasonID)
+	// Player ID, season ID, and date window
+	args = append(args, playerID, seasonID, startDate, endDate)
 	// Team IDs for WHERE clause to filter higher teams
 	for _, teamID := range higherTeamIDs {
 		args = append(args, teamID)
@@ -290,30 +318,66 @@ func (s *TeamEligibilityService) countHigherTeamMatches(ctx context.Context, pla
 	return count, lockedTeam, nil
 }
 
-// countCurrentTeamMatches counts how many matches a player has played in the current team
-func (s *TeamEligibilityService) countCurrentTeamMatches(ctx context.Context, playerID string, teamID uint, seasonID uint) (int, error) {
+// countCurrentTeamMatchesInDateRange counts matches for the specific team within a date window
+func (s *TeamEligibilityService) countCurrentTeamMatchesInDateRange(ctx context.Context, playerID string, teamID uint, seasonID uint, startDate time.Time, endDate time.Time) (int, error) {
 	query := `
 		SELECT COUNT(DISTINCT m.id)
 		FROM matchup_players mp
 		INNER JOIN matchups m ON mp.matchup_id = m.id
 		INNER JOIN fixtures f ON m.fixture_id = f.id
-		INNER JOIN weeks w ON f.week_id = w.id
 		WHERE mp.player_id = ? 
-		  AND w.week_number >= 10 
-		  AND w.season_id = ?
+		  AND f.season_id = ?
+		  AND f.scheduled_date >= ? AND f.scheduled_date <= ?
 		  AND (
-		    (f.home_team_id = ? AND mp.is_home = 1) OR
-		    (f.away_team_id = ? AND mp.is_home = 0)
+			(f.home_team_id = ? AND mp.is_home = 1) OR
+			(f.away_team_id = ? AND mp.is_home = 0)
 		  )
 	`
 
 	var count int
-	err := s.service.db.GetContext(ctx, &count, query, playerID, seasonID, teamID, teamID)
+	err := s.service.db.GetContext(ctx, &count, query, playerID, seasonID, startDate, endDate, teamID, teamID)
 	if err != nil {
 		return 0, err
 	}
 
 	return count, nil
+}
+
+// findWeekForDate finds the week record that contains the given date for a season
+func (s *TeamEligibilityService) findWeekForDate(ctx context.Context, seasonID uint, date time.Time) (*models.Week, error) {
+	weeks, err := s.service.weekRepository.FindBySeason(ctx, seasonID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range weeks {
+		w := weeks[i]
+		if (date.Equal(w.StartDate) || date.After(w.StartDate)) && (date.Equal(w.EndDate) || date.Before(w.EndDate)) {
+			return &w, nil
+		}
+	}
+	return nil, nil
+}
+
+// getSecondHalfStartDate returns the start date of Week 10 (second half) if present
+func (s *TeamEligibilityService) getSecondHalfStartDate(ctx context.Context, seasonID uint) (time.Time, bool, error) {
+	week10, err := s.service.weekRepository.FindByWeekNumber(ctx, seasonID, 10)
+	if err != nil {
+		// If not found, return false flag; upstream will fallback
+		return time.Time{}, false, nil
+	}
+	return week10.StartDate, true, nil
+}
+
+// mondayToSaturdayWindow returns Monday 00:00 (inclusive) to Saturday 00:00 (exclusive) for the week of the given date
+func (s *TeamEligibilityService) mondayToSaturdayWindow(date time.Time) (time.Time, time.Time) {
+	// Normalize to same location
+	loc := date.Location()
+	weekday := int(date.Weekday()) // 0=Sunday, 1=Monday, ...
+	// Days since Monday: (weekday + 6) % 7
+	daysSinceMonday := (weekday + 6) % 7
+	monday := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, loc).AddDate(0, 0, -daysSinceMonday)
+	saturday := monday.AddDate(0, 0, 5) // Saturday 00:00 exclusive
+	return monday, saturday
 }
 
 // createPlaceholders creates a string of SQL placeholders for IN clauses

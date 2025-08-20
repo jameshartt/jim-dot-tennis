@@ -92,6 +92,13 @@ func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Get today's fixtures (separate bucket)
+	_, todaysFixtures, err := h.service.GetStAnnsTodaysFixtures()
+	if err != nil {
+		logAndError(w, "Failed to load today's fixtures", err, http.StatusInternalServerError)
+		return
+	}
+
 	// Get St. Ann's past fixtures with related data
 	_, pastFixtures, err := h.service.GetStAnnsPastFixtures()
 	if err != nil {
@@ -120,6 +127,7 @@ func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Reque
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
 		"User":             user,
 		"Club":             club,
+		"TodaysFixtures":   todaysFixtures,
 		"UpcomingFixtures": upcomingFixtures,
 		"PastFixtures":     pastFixtures,
 		"Divisions":        divisions,
