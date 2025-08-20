@@ -45,6 +45,15 @@ type PlayerRepository interface {
 	FindActivePlayersInSeason(ctx context.Context, seasonID uint) ([]models.Player, error)
 	FindInactivePlayersInSeason(ctx context.Context, seasonID uint) ([]models.Player, error)
 
+	// Appearances
+	FindPlayersWhoPlayedForClubInSeason(ctx context.Context, clubID uint, seasonID uint) ([]models.Player, error)
+	FindPlayersWhoPlayedForTeamInSeason(ctx context.Context, teamID uint, seasonID uint) ([]models.Player, error)
+	FindPlayersWhoPlayedForClubDivisionInSeason(ctx context.Context, clubID uint, divisionID uint, seasonID uint) ([]models.Player, error)
+
+	// Appearance counts
+	CountPlayerAppearancesForTeamInSeason(ctx context.Context, playerID string, teamID uint, seasonID uint) (int, error)
+	CountPlayerAppearancesForClubDivisionInSeason(ctx context.Context, playerID string, clubID uint, divisionID uint, seasonID uint) (int, error)
+
 	// Fantasy match queries
 	FindByFantasyMatchID(ctx context.Context, fantasyMatchID uint) (*models.Player, error)
 
@@ -356,6 +365,88 @@ func (r *playerRepository) FindInactivePlayersInSeason(ctx context.Context, seas
 		ORDER BY p.last_name ASC, p.first_name ASC
 	`, seasonID)
 	return players, err
+}
+
+// FindPlayersWhoPlayedForClubInSeason retrieves distinct players who appeared in any matchup
+// for fixtures in the given season where the home or away team belongs to the specified club.
+func (r *playerRepository) FindPlayersWhoPlayedForClubInSeason(ctx context.Context, clubID uint, seasonID uint) ([]models.Player, error) {
+	var players []models.Player
+	err := r.db.SelectContext(ctx, &players, `
+		SELECT DISTINCT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy, p.club_id, p.fantasy_match_id, p.created_at, p.updated_at
+		FROM players p
+		INNER JOIN matchup_players mp ON mp.player_id = p.id
+		INNER JOIN matchups m ON m.id = mp.matchup_id
+		INNER JOIN fixtures f ON f.id = m.fixture_id
+		INNER JOIN teams th ON th.id = f.home_team_id
+		INNER JOIN teams ta ON ta.id = f.away_team_id
+		WHERE f.season_id = ? AND p.club_id = ? AND (th.club_id = ? OR ta.club_id = ?)
+		ORDER BY p.last_name ASC, p.first_name ASC
+	`, seasonID, clubID, clubID, clubID)
+	return players, err
+}
+
+// FindPlayersWhoPlayedForTeamInSeason retrieves distinct players who appeared in any matchup
+// for fixtures in the given season where the specified team was home or away.
+func (r *playerRepository) FindPlayersWhoPlayedForTeamInSeason(ctx context.Context, teamID uint, seasonID uint) ([]models.Player, error) {
+	var players []models.Player
+	err := r.db.SelectContext(ctx, &players, `
+		SELECT DISTINCT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy, p.club_id, p.fantasy_match_id, p.created_at, p.updated_at
+		FROM players p
+		INNER JOIN matchup_players mp ON mp.player_id = p.id
+		INNER JOIN matchups m ON m.id = mp.matchup_id
+		INNER JOIN fixtures f ON f.id = m.fixture_id
+		WHERE f.season_id = ? AND (f.home_team_id = ? OR f.away_team_id = ?)
+		ORDER BY p.last_name ASC, p.first_name ASC
+	`, seasonID, teamID, teamID)
+	return players, err
+}
+
+// FindPlayersWhoPlayedForClubDivisionInSeason retrieves distinct players who appeared in any matchup
+// in fixtures for the given season and division where either team belongs to the specified club.
+func (r *playerRepository) FindPlayersWhoPlayedForClubDivisionInSeason(ctx context.Context, clubID uint, divisionID uint, seasonID uint) ([]models.Player, error) {
+	var players []models.Player
+	err := r.db.SelectContext(ctx, &players, `
+		SELECT DISTINCT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy, p.club_id, p.fantasy_match_id, p.created_at, p.updated_at
+		FROM players p
+		INNER JOIN matchup_players mp ON mp.player_id = p.id
+		INNER JOIN matchups m ON m.id = mp.matchup_id
+		INNER JOIN fixtures f ON f.id = m.fixture_id
+		INNER JOIN teams th ON th.id = f.home_team_id
+		INNER JOIN teams ta ON ta.id = f.away_team_id
+		WHERE f.season_id = ? AND f.division_id = ? AND (th.club_id = ? OR ta.club_id = ?)
+		ORDER BY p.last_name ASC, p.first_name ASC
+	`, seasonID, divisionID, clubID, clubID)
+	return players, err
+}
+
+// CountPlayerAppearancesForTeamInSeason counts the number of matchup appearances for a player
+// in fixtures where the given team is home or away in the given season.
+func (r *playerRepository) CountPlayerAppearancesForTeamInSeason(ctx context.Context, playerID string, teamID uint, seasonID uint) (int, error) {
+	var count int
+	err := r.db.GetContext(ctx, &count, `
+		SELECT COUNT(*)
+		FROM matchup_players mp
+		INNER JOIN matchups m ON m.id = mp.matchup_id
+		INNER JOIN fixtures f ON f.id = m.fixture_id
+		WHERE mp.player_id = ? AND f.season_id = ? AND (f.home_team_id = ? OR f.away_team_id = ?)
+	`, playerID, seasonID, teamID, teamID)
+	return count, err
+}
+
+// CountPlayerAppearancesForClubDivisionInSeason counts the number of matchup appearances for a player
+// in fixtures for the given division and season where either team belongs to the specified club.
+func (r *playerRepository) CountPlayerAppearancesForClubDivisionInSeason(ctx context.Context, playerID string, clubID uint, divisionID uint, seasonID uint) (int, error) {
+	var count int
+	err := r.db.GetContext(ctx, &count, `
+		SELECT COUNT(*)
+		FROM matchup_players mp
+		INNER JOIN matchups m ON m.id = mp.matchup_id
+		INNER JOIN fixtures f ON f.id = m.fixture_id
+		INNER JOIN teams th ON th.id = f.home_team_id
+		INNER JOIN teams ta ON ta.id = f.away_team_id
+		WHERE mp.player_id = ? AND f.season_id = ? AND f.division_id = ? AND (th.club_id = ? OR ta.club_id = ?)
+	`, playerID, seasonID, divisionID, clubID, clubID)
+	return count, err
 }
 
 // CountByClub returns the number of players in a club

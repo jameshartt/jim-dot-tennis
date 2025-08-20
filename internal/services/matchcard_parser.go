@@ -40,6 +40,7 @@ type MatchupData struct {
 	HomeSets    int    // Number of sets won by home team
 	AwaySets    int    // Number of sets won by away team
 	ConcededBy  string // "Home" or "Away" if a concession occurred
+	Halved      bool   // Match halved (not played)
 }
 
 // MatchCardParser handles parsing HTML responses from BHPLTA
@@ -254,6 +255,14 @@ func (p *MatchCardParser) parseMatchupTable(matchupType string, table *goquery.S
 	} else if strings.Contains(la, "conceded") || strings.Contains(lh, "given to") {
 		// Away cell mentions conceded (by away), or home cell "given to" => away conceded
 		matchup.ConcededBy = "Away"
+	}
+
+	// Detect "Match Halved" note after the table
+	if table.Parent().Find("p.archive_early_finish").Length() > 0 {
+		text := strings.TrimSpace(table.Parent().Find("p.archive_early_finish").Text())
+		if strings.Contains(strings.ToLower(text), "match halved") {
+			matchup.Halved = true
+		}
 	}
 
 	return matchup

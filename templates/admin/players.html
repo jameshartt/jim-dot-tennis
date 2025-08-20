@@ -251,20 +251,84 @@
         </div>
 
         <div class="filter-controls">
-            <label for="search">Search:</label>
-            <input type="text" id="search" name="q" placeholder="Search players..." 
-                   value="{{.SearchQuery}}"
-                   hx-get="/admin/players/filter"
-                   hx-target="#players-tbody"
-                   hx-trigger="keyup changed delay:300ms">
+            <div>
+                <label for="search">Search:</label>
+                <input type="text" id="search" name="q" placeholder="Search players..." 
+                       value="{{.SearchQuery}}"
+                       hx-get="/admin/players/filter"
+                       hx-target="#players-table"
+                       hx-swap="outerHTML"
+                       hx-trigger="keyup changed delay:300ms"
+                       hx-include="#filter-status,#filter-team,#filter-division">
+            </div>
+            <div>
+                <label for="filter-status">Filter:</label>
+                <select id="filter-status" name="status"
+                        hx-get="/admin/players/filter"
+                        hx-target="#players-table"
+                        hx-swap="outerHTML"
+                        hx-trigger="change"
+                        hx-include="#search,#filter-team,#filter-division">
+                    <option value="all" {{if eq .ActiveFilter "all"}}selected{{end}}>All players</option>
+                    <option value="stanns_played" {{if eq .ActiveFilter "stanns_played"}}selected{{end}}>Played for St Ann's this season</option>
+                </select>
+            </div>
+            <div>
+                <label>Teams:</label>
+                <div id="filter-team" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                    {{if .Teams}}
+                        {{range .Teams}}
+                            <label style="display:flex; align-items:center; gap:0.25rem;">
+                                <input type="checkbox" name="team_id" value="{{.Team.ID}}"
+                                       {{range $.SelectedTeamIDs}}{{if eq . $.Team.ID}}checked{{end}}{{end}}
+                                       hx-get="/admin/players/filter"
+                                       hx-target="#players-table"
+                                       hx-swap="outerHTML"
+                                       hx-trigger="change"
+                                       hx-include="#search,#filter-status,#filter-team,#filter-division" />
+                                <span>{{.Team.Name}}</span>
+                            </label>
+                        {{end}}
+                    {{end}}
+                </div>
+            </div>
+            <div>
+                <label>Divisions:</label>
+                <div id="filter-division" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                    {{if .Divisions}}
+                        {{range .Divisions}}
+                            <label style="display:flex; align-items:center; gap:0.25rem;">
+                                <input type="checkbox" name="division_id" value="{{.ID}}"
+                                       {{range $.SelectedDivisionIDs}}{{if eq . $.ID}}checked{{end}}{{end}}
+                                       hx-get="/admin/players/filter"
+                                       hx-target="#players-table"
+                                       hx-swap="outerHTML"
+                                       hx-trigger="change"
+                                       hx-include="#search,#filter-status,#filter-team,#filter-division" />
+                                <span>{{.Name}}</span>
+                            </label>
+                        {{end}}
+                    {{end}}
+                </div>
+            </div>
         </div>
 
-        <table class="players-table">
+        <table id="players-table" class="players-table">
             <thead>
                 <tr>
                     <th class="col-name">Name</th>
                     <th class="col-gender">Gender</th>
                     <th class="col-availability">Availability Set For Next Week</th>
+                    {{if .SelectedTeamIDs}}
+                        {{range .SelectedTeamIDs}}
+                            <th class="col-availability">Team {{.}} Appearances</th>
+                        {{end}}
+                    {{end}}
+                    {{if .SelectedDivisionIDs}}
+                        {{range .SelectedDivisionIDs}}
+                            <th class="col-availability">Division {{.}} Appearances</th>
+                        {{end}}
+                    {{end}}
                     <th class="col-action">Action</th>
                 </tr>
             </thead>
@@ -285,6 +349,20 @@
                                 ❌
                             {{end}}
                         </td>
+                        {{/* Per-team appearance counts */}}
+                        {{if $.SelectedTeamIDs}}
+                            {{ $p := . }}
+                            {{range $id := $.SelectedTeamIDs}}
+                                <td class="col-availability">{{index $p.TeamAppearanceCounts $id}}</td>
+                            {{end}}
+                        {{end}}
+                        {{/* Per-division appearance counts */}}
+                        {{if $.SelectedDivisionIDs}}
+                            {{ $p := . }}
+                            {{range $did := $.SelectedDivisionIDs}}
+                                <td class="col-availability">{{index $p.DivisionAppearanceCounts $did}}</td>
+                            {{end}}
+                        {{end}}
                         <td class="col-action">
                             {{if .HasAvailabilityURL}}
                                 <button class="btn-copy-url" onclick="copyAvailabilityURL('{{.Player.ID}}', this)">

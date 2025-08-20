@@ -76,6 +76,7 @@ func (h *PlayersHandler) handlePlayersGet(w http.ResponseWriter, r *http.Request
 	// Get filter parameters from URL query
 	query := r.URL.Query().Get("q")             // search query
 	activeFilter := r.URL.Query().Get("status") // "all", "active", "inactive"
+	// Note: team_id and division_id are currently not handled in service; will be wired later
 
 	// Default to showing all players if no filter specified
 	if activeFilter == "" {
@@ -83,11 +84,29 @@ func (h *PlayersHandler) handlePlayersGet(w http.ResponseWriter, r *http.Request
 	}
 
 	// Get filtered players with availability information from the service
-	playersWithAvail, err := h.service.GetFilteredPlayersWithAvailability(query, activeFilter, 1) // Using season 1 for now
+	// Parse team/division filters for service call (multi-select)
+	var teamIDs []uint
+	var divisionIDs []uint
+	for _, v := range r.URL.Query()["team_id"] {
+		if n, err := strconv.ParseUint(v, 10, 32); err == nil {
+			teamIDs = append(teamIDs, uint(n))
+		}
+	}
+	for _, v := range r.URL.Query()["division_id"] {
+		if n, err := strconv.ParseUint(v, 10, 32); err == nil {
+			divisionIDs = append(divisionIDs, uint(n))
+		}
+	}
+
+	playersWithAvail, err := h.service.GetFilteredPlayersWithAvailability(query, activeFilter, 1, teamIDs, divisionIDs)
 	if err != nil {
 		logAndError(w, "Failed to load players", err, http.StatusInternalServerError)
 		return
 	}
+
+	// Load St Ann's teams and all divisions for filter dropdowns
+	_, stAnnsTeams, _ := h.service.GetStAnnsTeams()
+	divisions, _ := h.service.GetAllDivisions()
 
 	// Load the players template
 	tmpl, err := parseTemplate(h.templateDir, "admin/players.html")
@@ -101,10 +120,14 @@ func (h *PlayersHandler) handlePlayersGet(w http.ResponseWriter, r *http.Request
 
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
-		"User":         user,
-		"Players":      playersWithAvail,
-		"SearchQuery":  query,
-		"ActiveFilter": activeFilter,
+		"User":                user,
+		"Players":             playersWithAvail,
+		"SearchQuery":         query,
+		"ActiveFilter":        activeFilter,
+		"Teams":               stAnnsTeams,
+		"Divisions":           divisions,
+		"SelectedTeamIDs":     teamIDs,
+		"SelectedDivisionIDs": divisionIDs,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -511,7 +534,8 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 
 	// Get filter parameters from URL query
 	query := r.URL.Query().Get("q")             // search query
-	activeFilter := r.URL.Query().Get("status") // "all", "active", "inactive"
+	activeFilter := r.URL.Query().Get("status") // filter key
+	// Note: team_id and division_id are currently not handled in service; will be wired later
 
 	// Default to showing all players if no filter specified
 	if activeFilter == "" {
@@ -519,33 +543,82 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Get filtered players with availability information from the service
-	playersWithAvail, err := h.service.GetFilteredPlayersWithAvailability(query, activeFilter, 1) // Using season 1 for now
+	// Parse team/division filters for service call (multi-select)
+	var teamIDs []uint
+	var divisionIDs []uint
+	for _, v := range r.URL.Query()["team_id"] {
+		if n, err := strconv.ParseUint(v, 10, 32); err == nil {
+			teamIDs = append(teamIDs, uint(n))
+		}
+	}
+	for _, v := range r.URL.Query()["division_id"] {
+		if n, err := strconv.ParseUint(v, 10, 32); err == nil {
+			divisionIDs = append(divisionIDs, uint(n))
+		}
+	}
+
+	playersWithAvail, err := h.service.GetFilteredPlayersWithAvailability(query, activeFilter, 1, teamIDs, divisionIDs)
 	if err != nil {
 		logAndError(w, "Failed to load players", err, http.StatusInternalServerError)
 		return
 	}
 
-	// Return just the table body for HTMX to replace
+	// We now return the FULL table (thead + tbody) so headers can change with dynamic columns
 	w.Header().Set("Content-Type", "text/html")
 
-	// Generate table rows HTML
-	if len(playersWithAvail) > 0 {
-		for _, playerWithAvail := range playersWithAvail {
-			// No more active/inactive distinction - all players get the same styling
-			activeClass := "player-active"
+	// Build helper maps for header labels
+	teamNameByID := make(map[uint]string)
+	if _, teams, err := h.service.GetStAnnsTeams(); err == nil {
+		for _, twr := range teams {
+			teamNameByID[twr.Team.ID] = twr.Team.Name
+		}
+	}
+	divisionNameByID := make(map[uint]string)
+	if divs, err := h.service.GetAllDivisions(); err == nil {
+		for _, d := range divs {
+			divisionNameByID[d.ID] = d.Name
+		}
+	}
 
-			// Format availability status
+	// Start table and header
+	w.Write([]byte(`<table id="players-table" class="players-table">`))
+	w.Write([]byte(`<thead><tr>`))
+	w.Write([]byte(`<th class="col-name">Name</th>`))
+	w.Write([]byte(`<th class="col-gender">Gender</th>`))
+	w.Write([]byte(`<th class="col-availability">Availability Set For Next Week</th>`))
+	// Dynamic team columns
+	for _, tID := range teamIDs {
+		label := teamNameByID[tID]
+		if label == "" {
+			label = fmt.Sprintf("Team %d", tID)
+		}
+		w.Write([]byte(fmt.Sprintf(`<th class="col-availability">%s Appearances</th>`, label)))
+	}
+	// Dynamic division columns
+	for _, dID := range divisionIDs {
+		label := divisionNameByID[dID]
+		if label == "" {
+			label = fmt.Sprintf("Division %d", dID)
+		}
+		w.Write([]byte(fmt.Sprintf(`<th class="col-availability">%s Appearances</th>`, label)))
+	}
+	w.Write([]byte(`<th class="col-action">Action</th>`))
+	w.Write([]byte(`</tr></thead>`))
+
+	// Body
+	w.Write([]byte(`<tbody id="players-tbody">`))
+	if len(playersWithAvail) > 0 {
+		for _, p := range playersWithAvail {
+			activeClass := "player-active"
 			availStatusIcon := "❌"
-			if playerWithAvail.HasSetNextWeekAvail {
+			if p.HasSetNextWeekAvail {
 				availStatusIcon = "✅"
 			}
-
-			// Format action button
 			actionButton := ""
-			if playerWithAvail.HasAvailabilityURL {
-				actionButton = fmt.Sprintf(`<button class="btn-copy-url" onclick="copyAvailabilityURL('%s', this)">📋 Copy</button>`, playerWithAvail.Player.ID)
+			if p.HasAvailabilityURL {
+				actionButton = fmt.Sprintf(`<button class="btn-copy-url" onclick="copyAvailabilityURL('%s', this)">📋 Copy</button>`, p.Player.ID)
 			} else {
-				actionButton = fmt.Sprintf(`<button class="btn-generate-url" onclick="generateAvailabilityURL('%s', this)">🔗 Generate</button>`, playerWithAvail.Player.ID)
+				actionButton = fmt.Sprintf(`<button class="btn-generate-url" onclick="generateAvailabilityURL('%s', this)">🔗 Generate</button>`, p.Player.ID)
 			}
 
 			w.Write([]byte(fmt.Sprintf(`
@@ -553,29 +626,40 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 					<td class="col-name">
 						<a href="/admin/players/%s/edit" class="row-link">%s %s</a>
 					</td>
-					<td class="col-gender">
-						%s
-					</td>
-					<td class="col-availability">
-						%s
-					</td>
-					<td class="col-action">
-						%s
-					</td>
-				</tr>
-			`, playerWithAvail.Player.ID, playerWithAvail.Player.FirstName, playerWithAvail.Player.LastName, activeClass,
-				playerWithAvail.Player.ID, playerWithAvail.Player.FirstName, playerWithAvail.Player.LastName,
-				playerWithAvail.Player.Gender, availStatusIcon, actionButton)))
+					<td class="col-gender">%s</td>
+					<td class="col-availability">%s</td>
+			`, p.Player.ID, p.Player.FirstName, p.Player.LastName, activeClass,
+				p.Player.ID, p.Player.FirstName, p.Player.LastName,
+				p.Player.Gender, availStatusIcon)))
+
+			// Team count cells in same order as headers
+			for _, tID := range teamIDs {
+				count := 0
+				if p.TeamAppearanceCounts != nil {
+					if c, ok := p.TeamAppearanceCounts[tID]; ok {
+						count = c
+					}
+				}
+				w.Write([]byte(fmt.Sprintf(`<td class="col-availability">%d</td>`, count)))
+			}
+			// Division count cells
+			for _, dID := range divisionIDs {
+				count := 0
+				if p.DivisionAppearanceCounts != nil {
+					if c, ok := p.DivisionAppearanceCounts[dID]; ok {
+						count = c
+					}
+				}
+				w.Write([]byte(fmt.Sprintf(`<td class="col-availability">%d</td>`, count)))
+			}
+
+			w.Write([]byte(fmt.Sprintf(`<td class="col-action">%s</td></tr>`, actionButton)))
 		}
 	} else {
-		w.Write([]byte(`
-			<tr>
-				<td colspan="4" style="text-align: center; padding: 2rem;">
-					No players found matching your criteria.
-				</td>
-			</tr>
-		`))
+		colspan := 4 + len(teamIDs) + len(divisionIDs)
+		w.Write([]byte(fmt.Sprintf(`<tr><td colspan="%d" style="text-align: center; padding: 2rem;">No players found matching your criteria.</td></tr>`, colspan)))
 	}
+	w.Write([]byte(`</tbody></table>`))
 }
 
 // handleGenerateAvailabilityURL handles POST requests to generate availability URLs

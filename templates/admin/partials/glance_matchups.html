@@ -35,12 +35,14 @@
                                 {{if $player1.Player.PreferredName}}{{$player1.Player.PreferredName}}{{else}}{{$player1.Player.FirstName}} {{printf "%.1s" $player1.Player.LastName}}.{{end}}, {{if $player2.Player.PreferredName}}{{$player2.Player.PreferredName}}{{else}}{{$player2.Player.FirstName}} {{printf "%.1s" $player2.Player.LastName}}.{{end}}
                             {{end}}
                         {{else}}
-                            {{if ne .Matchup.Status "Defaulted"}}<span class="tbd">TBD</span>{{end}}
+                            {{/* Suppress TBD for defaulted or halved */}}
+                            {{if and (ne .Matchup.Status "Defaulted") (not (and (eq .Matchup.HomeScore 1) (eq .Matchup.AwayScore 1)))}}<span class="tbd">TBD</span>{{end}}
                         {{end}}
                     {{else}}
-                        {{if ne .Matchup.Status "Defaulted"}}<span class="tbd">TBD</span>{{end}}
+                        {{/* Suppress TBD for defaulted or halved */}}
+                        {{if and (ne .Matchup.Status "Defaulted") (not (and (eq .Matchup.HomeScore 1) (eq .Matchup.AwayScore 1)))}}<span class="tbd">TBD</span>{{end}}
                     {{end}}
-                    {{/* Add scores or concession notice */}}
+                    {{/* Add scores or concession/halved notice */}}
                     {{if eq $.FixtureDetail.Status "Completed"}}
                     <br>
                     <span style="font-weight: 700; color: var(--primary-color); font-size: 0.9rem;">
@@ -52,6 +54,8 @@
                             {{else}}
                                 Conceded
                             {{end}}
+                        {{else if and (eq .Matchup.HomeScore 1) (eq .Matchup.AwayScore 1)}}
+                            Match Halved
                         {{else}}
                         {{/* Determine score perspective based on St Ann's position */}}
                         {{$showFromStAnnsView := false}}
@@ -121,12 +125,18 @@
                             {{end}}
                         </td>
                     {{else}}
-                        <td class="matchup-player-cell"><span class="tbd">TBD</span></td>
-                        <td class="matchup-player-cell"></td>
+                        {{/* Suppress TBD for defaulted or halved */}}
+                        {{if and (ne .Matchup.Status "Defaulted") (not (and (eq .Matchup.HomeScore 1) (eq .Matchup.AwayScore 1)))}}
+                            <td class="matchup-player-cell"><span class="tbd">TBD</span></td>
+                            <td class="matchup-player-cell"></td>
+                        {{else}}
+                            <td class="matchup-player-cell"></td>
+                            <td class="matchup-player-cell"></td>
+                        {{end}}
                     {{end}}
                 {{else}}
-                    {{/* Defaulted matches should be completed; still guard here if needed */}}
-                    {{if ne .Matchup.Status "Defaulted"}}
+                    {{/* Suppress TBD for defaulted or halved */}}
+                    {{if and (ne .Matchup.Status "Defaulted") (not (and (eq .Matchup.HomeScore 1) (eq .Matchup.AwayScore 1)))}}
                         <td class="matchup-player-cell"><span class="tbd">TBD</span></td>
                         <td class="matchup-player-cell"></td>
                     {{else}}
