@@ -739,19 +739,51 @@ func (s *MatchCardService) determineManagingTeamID(ctx context.Context, fixtureI
 
 // findMatchingFixture finds a fixture in our database that matches the match card
 func (s *MatchCardService) findMatchingFixture(ctx context.Context, matchCard MatchCardData) (*models.Fixture, error) {
-	// Get fixtures for the event date (with some tolerance)
-	startDate := matchCard.EventDate.AddDate(0, 0, -1) // Day before
-	endDate := matchCard.EventDate.AddDate(0, 0, 1)    // Day after
+	// Helper to search within a date window centered on a date and return the closest matching fixture
+	tryDateWindow := func(center time.Time, days int) (*models.Fixture, error) {
+		startDate := center.AddDate(0, 0, -days)
+		endDate := center.AddDate(0, 0, days)
 
-	fixtures, err := s.fixtureRepo.FindByDateRange(ctx, startDate, endDate)
-	if err != nil {
-		return nil, err
+		fixtures, err := s.fixtureRepo.FindByDateRange(ctx, startDate, endDate)
+		if err != nil {
+			return nil, err
+		}
+
+		var bestMatch *models.Fixture
+		var bestDelta time.Duration
+
+		for _, fixture := range fixtures {
+			if s.fixtureMatchesCard(ctx, fixture, matchCard) {
+				// Prefer the fixture whose scheduled date is closest to the center date
+				delta := center.Sub(fixture.ScheduledDate)
+				if delta < 0 {
+					delta = -delta
+				}
+				if bestMatch == nil || delta < bestDelta {
+					f := fixture // capture copy
+					bestMatch = &f
+					bestDelta = delta
+				}
+			}
+		}
+
+		return bestMatch, nil
 	}
 
-	// Try to match by team names
-	for _, fixture := range fixtures {
-		if s.fixtureMatchesCard(ctx, fixture, matchCard) {
-			return &fixture, nil
+	// Prefer matching by played date for rescheduled fixtures
+	if !matchCard.PlayedDate.IsZero() {
+		if fixture, err := tryDateWindow(matchCard.PlayedDate, 14); err == nil && fixture != nil {
+			return fixture, nil
+		}
+	}
+
+	// Fallback to event date with a wider tolerance
+	if !matchCard.EventDate.IsZero() {
+		if fixture, err := tryDateWindow(matchCard.EventDate, 14); err == nil && fixture != nil {
+			return fixture, nil
+		}
+		if fixture, err := tryDateWindow(matchCard.EventDate, 30); err == nil && fixture != nil {
+			return fixture, nil
 		}
 	}
 
