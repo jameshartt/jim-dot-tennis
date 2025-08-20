@@ -148,68 +148,7 @@
     background: #c82333;
 }
 
-/* Forced selection toggle */
-.forced-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-}
-
-.forced-toggle label.text {
-    color: #495057;
-    font-size: 0.9rem;
-    user-select: none;
-}
-
-.switch {
-    position: relative;
-    display: inline-block;
-    width: 46px;
-    height: 26px;
-}
-
-.switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #ccc;
-    transition: .2s;
-    border-radius: 34px;
-}
-
-.slider:before {
-    position: absolute;
-    content: "";
-    height: 22px;
-    width: 22px;
-    left: 2px;
-    bottom: 2px;
-    background-color: #fff;
-    transition: .2s;
-    border-radius: 50%;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-}
-
-.switch input:checked + .slider { background-color: #28a745; }
-.switch input:focus + .slider { box-shadow: 0 0 1px #28a745; }
-.switch input:checked + .slider:before { transform: translateX(20px); }
-
-/* Visual hint when a blocked button is enabled by forced selection */
-.btn-add-player.forced-enabled {
-    outline: 2px dashed #17a2b8;
-    outline-offset: 2px;
-}
+ 
 .player-card.captain-selectable {
     cursor: pointer;
     border: 2px solid #17a2b8;
@@ -448,13 +387,6 @@
     <div class="available-players-section">
         <div class="available-players-header-row">
             <h3>🎯 Available Players</h3>
-            <div class="forced-toggle" title="Allow selecting players locked to a higher team">
-                <label class="text">Forced selection</label>
-                <label class="switch">
-                    <input type="checkbox" id="forced-selection-toggle" onchange="toggleForcedSelection()">
-                    <span class="slider"></span>
-                </label>
-            </div>
         </div>
         <div class="availability-legend">
             <h5>🎨 Availability Status:</h5>
