@@ -717,11 +717,67 @@
             </div>
             <button class="nav-btn next-btn" onclick="nextPage()" id="nextBtn">❯</button>
         </div>
+        <!-- Auto-advance indicator (desktop only) -->
+        <div id="autoAdvanceBanner" style="display:none; position:fixed; left:50%; transform:translateX(-50%); bottom: calc(var(--nav-offset, 80px) + 8px); background: rgba(0,0,0,0.75); color:#fff; padding:8px 12px; border-radius:16px; font-size:14px; z-index:1000; box-shadow:0 2px 8px rgba(0,0,0,0.3);">
+            🤖 Auto-advance in <span id="autoAdvanceCountdown">3</span>s
+        </div>
     </div>
 
     <script>
         let currentPage = 0;
         const totalPages = 12;
+        // Auto-advance (desktop party mode)
+        const isDesktop = (window.matchMedia && window.matchMedia('(pointer: fine)').matches) && !('ontouchstart' in window);
+        const inactivityDelayMs = 17000; // show countdown after 17s
+        const countdownSeconds = 3; // then 3s visible countdown
+        let autoTimeoutId = null;
+        let countdownId = null;
+        let countdownRemaining = countdownSeconds;
+
+        function clearAutoTimers() {
+            if (autoTimeoutId) { clearTimeout(autoTimeoutId); autoTimeoutId = null; }
+            if (countdownId) { clearInterval(countdownId); countdownId = null; }
+        }
+
+        function hideAutoBanner() {
+            const banner = document.getElementById('autoAdvanceBanner');
+            if (banner) banner.style.display = 'none';
+        }
+
+        function scheduleAutoAdvance() {
+            if (!isDesktop) return;
+            if (currentPage >= totalPages) return; // don't advance past last page
+            clearAutoTimers();
+            hideAutoBanner();
+            autoTimeoutId = setTimeout(startAutoAdvanceCountdown, inactivityDelayMs);
+        }
+
+        function startAutoAdvanceCountdown() {
+            const banner = document.getElementById('autoAdvanceBanner');
+            const counter = document.getElementById('autoAdvanceCountdown');
+            if (!banner || !counter) return;
+            countdownRemaining = countdownSeconds;
+            counter.textContent = String(countdownRemaining);
+            banner.style.display = 'block';
+            countdownId = setInterval(() => {
+                countdownRemaining -= 1;
+                if (countdownRemaining <= 0) {
+                    clearAutoTimers();
+                    banner.style.display = 'none';
+                    nextPage();
+                    scheduleAutoAdvance();
+                } else {
+                    counter.textContent = String(countdownRemaining);
+                }
+            }, 1000);
+        }
+
+        function resetAutoAdvance() {
+            if (!isDesktop) return;
+            clearAutoTimers();
+            hideAutoBanner();
+            scheduleAutoAdvance();
+        }
         // Fast back navigation detection
         let lastNavTs = 0;
         let consecutiveBackFastCount = 0;
@@ -757,6 +813,7 @@
                 // reset fast-back state on forward
                 consecutiveBackFastCount = 0;
                 lastNavTs = Date.now();
+                resetAutoAdvance();
             }
         }
 
@@ -774,6 +831,7 @@
                 showPage(currentPage);
 
                 active.scrollTop = 0;
+                resetAutoAdvance();
             }
         }
 
@@ -786,6 +844,13 @@
                 e.preventDefault();
                 previousPage();
             }
+            // Any key is activity
+            resetAutoAdvance();
+        });
+
+        // Mouse/touch activity resets auto-advance
+        ['mousemove', 'click', 'wheel', 'touchstart'].forEach(evt => {
+            window.addEventListener(evt, resetAutoAdvance, { passive: true });
         });
 
         // Defer switching to page 1 until fully loaded
@@ -802,6 +867,8 @@
             // remove loading flag from container
             const container = document.querySelector('.wrapped-container');
             if (container) container.classList.remove('loading');
+            // Start auto-advance schedule on desktop
+            scheduleAutoAdvance();
         });
 
         // Measure nav height and expose CSS var to pad page bottoms
