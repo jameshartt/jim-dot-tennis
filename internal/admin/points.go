@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"jim-dot-tennis/internal/models"
 )
@@ -69,6 +70,12 @@ func (h *PointsHandler) HandlePointsTable(w http.ResponseWriter, r *http.Request
 		currentWeek = 1 // Default fallback
 	}
 
+	// Build rescheduled fixtures header for this week if applicable
+	rescheduledHeader, err := h.getRescheduledWeekHeader()
+	if err != nil {
+		log.Printf("Warning: Failed to build rescheduled fixtures header: %v", err)
+	}
+
 	// Load the points table template
 	tmpl, err := parseTemplate(h.templateDir, "admin/points_table.html")
 	if err != nil {
@@ -80,10 +87,11 @@ func (h *PointsHandler) HandlePointsTable(w http.ResponseWriter, r *http.Request
 
 	// Execute template with data
 	templateData := map[string]interface{}{
-		"User":         user,
-		"MenPlayers":   menPlayers,
-		"WomenPlayers": womenPlayers,
-		"CurrentWeek":  currentWeek,
+		"User":              user,
+		"MenPlayers":        menPlayers,
+		"WomenPlayers":      womenPlayers,
+		"CurrentWeek":       currentWeek,
+		"RescheduledHeader": rescheduledHeader,
 	}
 
 	if err := renderTemplate(w, tmpl, templateData); err != nil {
@@ -410,4 +418,119 @@ func (h *PointsHandler) getCurrentWeekNumber() (int, error) {
 	}
 
 	return weekNumber, nil
+}
+
+// getRescheduledWeekHeader checks the most recent week of completed fixtures by completed date.
+// If all fixtures completed in that window are rescheduled (completed outside their scheduled week),
+// it returns a descriptive header listing those fixtures. Otherwise returns an empty string.
+func (h *PointsHandler) getRescheduledWeekHeader() (string, error) {
+	ctx := context.Background()
+
+	// Find the most recent completed date
+	var latestCompleted time.Time
+	err := h.service.db.GetContext(ctx, &latestCompleted, `
+		SELECT completed_date
+		FROM fixtures
+		WHERE status = 'Completed' AND completed_date IS NOT NULL
+		ORDER BY completed_date DESC
+		LIMIT 1
+	`)
+	if err != nil {
+		// No rows or other error – treat as no header
+		return "", nil
+	}
+	if latestCompleted.IsZero() {
+		return "", nil
+	}
+
+	// Determine the start (Sunday) and end (Saturday) of that week in UTC
+	completedUTC := latestCompleted.UTC()
+	weekStart := completedUTC.AddDate(0, 0, -int(completedUTC.Weekday()))
+	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, time.UTC)
+	weekEnd := weekStart.AddDate(0, 0, 6)
+	weekEnd = time.Date(weekEnd.Year(), weekEnd.Month(), weekEnd.Day(), 23, 59, 59, int(time.Second-time.Nanosecond), time.UTC)
+
+	// Fetch completed fixtures in that completed window, including their scheduled week numbers
+	rows, err := h.service.db.QueryContext(ctx, `
+		SELECT f.id, f.home_team_id, f.away_team_id, f.completed_date, w.week_number
+		FROM fixtures f
+		INNER JOIN weeks w ON w.id = f.week_id
+		WHERE f.status = 'Completed'
+		  AND f.completed_date IS NOT NULL
+		  AND f.completed_date >= ? AND f.completed_date <= ?
+		ORDER BY f.completed_date ASC
+	`, weekStart, weekEnd)
+	if err != nil {
+		return "", fmt.Errorf("failed to query completed fixtures in window: %w", err)
+	}
+	defer rows.Close()
+
+	type fixtureRow struct {
+		ID               uint
+		HomeTeamID       uint
+		AwayTeamID       uint
+		CompletedDate    time.Time
+		ScheduledWeekNum int
+	}
+
+	var fixturesInWindow []fixtureRow
+	for rows.Next() {
+		var r fixtureRow
+		if err := rows.Scan(&r.ID, &r.HomeTeamID, &r.AwayTeamID, &r.CompletedDate, &r.ScheduledWeekNum); err != nil {
+			return "", fmt.Errorf("failed to scan fixture: %w", err)
+		}
+		fixturesInWindow = append(fixturesInWindow, r)
+	}
+
+	if len(fixturesInWindow) == 0 {
+		return "", nil
+	}
+
+	// Helper to find the week that contains a date
+	getWeekNumberForDate := func(ts time.Time) (int, bool) {
+		var num int
+		err := h.service.db.GetContext(ctx, &num, `
+			SELECT week_number FROM weeks WHERE start_date <= ? AND end_date >= ? LIMIT 1
+		`, ts, ts)
+		if err != nil {
+			return 0, false
+		}
+		return num, true
+	}
+
+	// Determine if every completed fixture in this window is rescheduled
+	allRescheduled := true
+	for _, f := range fixturesInWindow {
+		if completedWeekNum, ok := getWeekNumberForDate(f.CompletedDate); ok {
+			if completedWeekNum == f.ScheduledWeekNum {
+				allRescheduled = false
+				break
+			}
+		} else {
+			// No enclosing week found (post-season) => still rescheduled
+			continue
+		}
+	}
+
+	if !allRescheduled {
+		return "", nil
+	}
+
+	// Build descriptive header for these rescheduled fixtures
+	var parts []string
+	for _, f := range fixturesInWindow {
+		homeTeam, _ := h.service.teamRepository.FindByID(ctx, f.HomeTeamID)
+		awayTeam, _ := h.service.teamRepository.FindByID(ctx, f.AwayTeamID)
+		homeName := fmt.Sprintf("Team %d", f.HomeTeamID)
+		awayName := fmt.Sprintf("Team %d", f.AwayTeamID)
+		if homeTeam != nil && homeTeam.Name != "" {
+			homeName = homeTeam.Name
+		}
+		if awayTeam != nil && awayTeam.Name != "" {
+			awayName = awayTeam.Name
+		}
+		parts = append(parts, fmt.Sprintf("%s vs %s (Week %d)", homeName, awayName, f.ScheduledWeekNum))
+	}
+
+	return "Rescheduled fixtures played this week: " + strings.Join(parts, "; "), nil
 }
