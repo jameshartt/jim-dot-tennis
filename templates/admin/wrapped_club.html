@@ -836,6 +836,11 @@
             document.getElementById('prevBtn').style.display = pageNum === 1 ? 'none' : 'block';
             document.getElementById('nextBtn').style.display = pageNum === totalPages ? 'none' : 'block';
 
+            // Ensure the outer viewport is pinned to the top to avoid double-scroll
+            if (window.scrollY !== 0) {
+                window.scrollTo(0, 0);
+            }
+
             // Scroll the active page to the top each time we change page
             const active = document.getElementById(`page-${pageNum}`);
             if (active) {
@@ -902,6 +907,17 @@
         // Mouse/touch activity resets auto-advance
         ['mousemove', 'click', 'wheel', 'touchstart'].forEach(evt => {
             window.addEventListener(evt, resetAutoAdvance, { passive: true });
+        });
+
+        // Prevent the navigation bar from initiating scroll drags on mobile
+        window.addEventListener('load', () => {
+            const nav = document.querySelector('.wrapped-navigation');
+            if (nav) {
+                // Block touchmove within nav to avoid conflicting scroll context
+                nav.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                }, { passive: false });
+            }
         });
 
         // Defer switching to page 1 until fully loaded

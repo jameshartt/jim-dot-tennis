@@ -10,8 +10,10 @@
 /* Core wrapped layout */
 .wrapped-body, html {
     width: 100%;
+    height: 100%;
     max-width: 100%;
-    overflow-x: hidden;
+    overflow: hidden;
+    overscroll-behavior: none;
 }
 .wrapped-body {
     margin: 0;
@@ -20,7 +22,13 @@
     background: #0a0a0a;
     color: white;
     overflow: hidden;
-    min-height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100dvh;
 }
 
 /* Quick CSS-only preload overlay to mask initial layout/animation jitter */
@@ -29,7 +37,8 @@
 .wrapped-container {
     position: relative;
     width: 100%;
-    height: 100vh;
+    height: 100%;
+    min-height: 100%;
     overflow: hidden; /* outer scroll locked; inner pages scroll */
     overscroll-behavior-x: none;
 }
@@ -39,7 +48,7 @@
     top: 0;
     left: 0;
     width: 100%;
-    height: 100vh;
+    height: 100%;
     display: flex;
     align-items: flex-start;
     justify-content: center;
@@ -645,6 +654,12 @@
     padding: 1rem 2rem;
     border: 1px solid rgba(255, 255, 255, 0.2);
     z-index: 1000;
+    /* Prevent nav from initiating scroll/overscroll on mobile */
+    touch-action: none;
+    overscroll-behavior: contain;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
 }
 
 .nav-btn {
@@ -661,6 +676,10 @@
     cursor: pointer;
     transition: all 0.3s ease;
     border: 1px solid rgba(255, 255, 255, 0.3);
+    /* Allow taps/clicks but not gesture panning */
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .nav-btn:hover {
@@ -672,6 +691,12 @@
     color: white;
     font-weight: 600;
     font-size: 1rem;
+    /* Make indicator inert for gestures */
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    cursor: default;
 }
 
 .current-page {
