@@ -197,7 +197,7 @@ type CompletedMatchupWithPlayers struct {
 
 // getCompletedMatchupsWithPlayers retrieves all completed matchups with player information
 func (h *PointsHandler) getCompletedMatchupsWithPlayers(ctx context.Context) ([]CompletedMatchupWithPlayers, error) {
-	// Get all completed matchups
+	// Get all completed matchups that are not *halved* matchups
 	query := `
 		SELECT m.id, m.fixture_id, m.type, m.status, m.home_score, m.away_score,
 		       m.home_set1, m.away_set1, m.home_set2, m.away_set2, m.home_set3, m.away_set3,
@@ -205,6 +205,15 @@ func (h *PointsHandler) getCompletedMatchupsWithPlayers(ctx context.Context) ([]
 		FROM matchups m
 		INNER JOIN fixtures f ON m.fixture_id = f.id
 		WHERE m.status = 'Finished' AND f.status = 'Completed'
+		  AND f.id NOT IN (
+		    SELECT f2.id
+		    FROM fixtures f2
+		    INNER JOIN matchups m2 ON m2.fixture_id = f2.id
+		    WHERE f2.status = 'Completed'
+		    GROUP BY f2.id
+		    HAVING COUNT(*) > 0
+		       AND SUM(CASE WHEN m2.home_score = 1 AND m2.away_score = 1 THEN 1 ELSE 0 END) = COUNT(*)
+		  )
 		ORDER BY m.created_at ASC
 	`
 
@@ -458,6 +467,15 @@ func (h *PointsHandler) getRescheduledWeekHeader() (string, error) {
 		WHERE f.status = 'Completed'
 		  AND f.completed_date IS NOT NULL
 		  AND f.completed_date >= ? AND f.completed_date <= ?
+		  AND f.id NOT IN (
+		    SELECT f2.id
+		    FROM fixtures f2
+		    INNER JOIN matchups m2 ON m2.fixture_id = f2.id
+		    WHERE f2.status = 'Completed'
+		    GROUP BY f2.id
+		    HAVING COUNT(*) > 0
+		       AND SUM(CASE WHEN m2.home_score = 1 AND m2.away_score = 1 THEN 1 ELSE 0 END) = COUNT(*)
+		  )
 		ORDER BY f.completed_date ASC
 	`, weekStart, weekEnd)
 	if err != nil {
