@@ -164,7 +164,7 @@ type ClubWrappedData struct {
 	ComebackKings          []ComebackAchievement        // New field for comeback achievements
 	SocialButterflies      []SocialButterflyAchievement // New field for social butterflies
 	TiebreakMasters        []TiebreakMasterAchievement  // New field for tiebreak masters
-	DominatingWinners      []PlayerAchievement          // New field for dominating wins (fewest games per set in wins)
+	DominatingWinners      []PlayerAchievement          // New field for dominating wins (Fewest games per set in straight set wins)
 	LuckyVenue             *ClubVenueStats
 	SeasonHighlights       ClubSeasonHighlights
 	// Optional per-player section when accessed via player availability
