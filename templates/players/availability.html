@@ -1272,7 +1272,7 @@
 </head>
 <body>
     <div class="availability-container">
-        <div id="wrapped-cta" style="text-align:center; margin-bottom: 16px; display: none;">
+        <div id="wrapped-cta" style="text-align:center; margin-bottom: 16px;">
             <button type="button" class="btn-quick-action" onclick="showWrappedModal()" style="background:#6f42c1;">
                 ✨ View Club Season Wrapped
             </button>
@@ -1867,14 +1867,6 @@
         let calendar;
         document.addEventListener('DOMContentLoaded', function() {
             calendar = new AvailabilityCalendar();
-            // Show Wrapped CTA only when ?unwrapped=true is present in URL
-            try {
-                const params = new URLSearchParams(window.location.search);
-                if (params.get('wrapped') === 'true') {
-                    const wrappedCta = document.getElementById('wrapped-cta');
-                    if (wrappedCta) wrappedCta.style.display = '';
-                }
-            } catch (e) {}
             
             // Check if user has ever visited this page before
             const hasVisitedBefore = localStorage.getItem('fantasy-match-visited') === 'true';
