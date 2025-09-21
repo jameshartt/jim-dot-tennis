@@ -86,21 +86,21 @@ func (h *FixturesHandler) HandleFixtures(w http.ResponseWriter, r *http.Request)
 // handleFixturesGet handles GET requests for fixture management
 func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Request, user *models.User) {
 	// Get St. Ann's upcoming fixtures with related data
-	club, upcomingFixtures, err := h.service.GetStAnnsFixtures()
+	club, upcomingFixtures, err := h.service.GetManagingClubsFixtures()
 	if err != nil {
 		logAndError(w, "Failed to load upcoming fixtures", err, http.StatusInternalServerError)
 		return
 	}
 
 	// Get today's fixtures (separate bucket)
-	_, todaysFixtures, err := h.service.GetStAnnsTodaysFixtures()
+	_, todaysFixtures, err := h.service.GetManagingClubsTodaysFixtures()
 	if err != nil {
 		logAndError(w, "Failed to load today's fixtures", err, http.StatusInternalServerError)
 		return
 	}
 
 	// Get St. Ann's past fixtures with related data
-	_, pastFixtures, err := h.service.GetStAnnsPastFixtures()
+	_, pastFixtures, err := h.service.GetManagingClubsPastFixtures()
 	if err != nil {
 		logAndError(w, "Failed to load past fixtures", err, http.StatusInternalServerError)
 		return
@@ -207,30 +207,29 @@ func (h *FixturesHandler) handleFixtureDetailGet(w http.ResponseWriter, r *http.
 	}
 
 	// Determine derby status and managing team information
-	var isStAnnsHome bool
-	var isStAnnsAway bool
+	var isManagingClubHome bool
+	var isManagingClubAway bool
 	var isDerby bool
 	var managingTeam *models.Team
 
-	// Get fixture details to determine St Ann's position
+	// Get fixture details to determine managing club position
 	if detail, ok := fixtureDetail.(*FixtureDetail); ok {
-		// Find St Ann's club ID
-		stAnnsClubs, err := h.service.GetClubsByName("St Ann")
-		if err == nil && len(stAnnsClubs) > 0 {
-			stAnnsClubID := stAnnsClubs[0].ID
+		// Get managing club ID
+		if managingClub, err := h.service.GetManagingClub(r.Context()); err == nil && managingClub != nil {
+			managingClubID := managingClub.ID
 
-			// Check if home team is St Ann's
-			if detail.HomeTeam != nil && detail.HomeTeam.ClubID == stAnnsClubID {
-				isStAnnsHome = true
+			// Check if home team is managing club
+			if detail.HomeTeam != nil && detail.HomeTeam.ClubID == managingClubID {
+				isManagingClubHome = true
 			}
 
-			// Check if away team is St Ann's
-			if detail.AwayTeam != nil && detail.AwayTeam.ClubID == stAnnsClubID {
-				isStAnnsAway = true
+			// Check if away team is managing club
+			if detail.AwayTeam != nil && detail.AwayTeam.ClubID == managingClubID {
+				isManagingClubAway = true
 			}
 
-			// Determine if it's a derby match (both teams are St Ann's)
-			if isStAnnsHome && isStAnnsAway {
+			// Determine if it's a derby match (both teams are managing club)
+			if isManagingClubHome && isManagingClubAway {
 				isDerby = true
 			}
 		}
@@ -289,14 +288,14 @@ func (h *FixturesHandler) handleFixtureDetailGet(w http.ResponseWriter, r *http.
 
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
-		"User":              user,
-		"FixtureDetail":     fixtureDetail,
-		"AvailablePlayers":  availablePlayers,
-		"NavigationContext": navigationContext,
-		"IsStAnnsHome":      isStAnnsHome,
-		"IsStAnnsAway":      isStAnnsAway,
-		"IsDerby":           isDerby,
-		"ManagingTeam":      managingTeam,
+		"User":                 user,
+		"FixtureDetail":        fixtureDetail,
+		"AvailablePlayers":     availablePlayers,
+		"NavigationContext":    navigationContext,
+		"isManagingClubAtHome": isManagingClubHome,
+		"isManagingClubAway":   isManagingClubAway,
+		"IsDerby":              isDerby,
+		"ManagingTeam":         managingTeam,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -446,8 +445,8 @@ func (h *FixturesHandler) handleClearFixturePlayers(w http.ResponseWriter, r *ht
 // handleUpdateMatchup handles updating matchup player assignments for St Ann's players
 func (h *FixturesHandler) handleUpdateMatchup(w http.ResponseWriter, r *http.Request, fixtureID uint) {
 	matchupType := models.MatchupType(r.FormValue("matchup_type"))
-	stAnnsPlayer1ID := r.FormValue("stanns_player_1")
-	stAnnsPlayer2ID := r.FormValue("stanns_player_2")
+	player1ID := r.FormValue("player_1")
+	player2ID := r.FormValue("player_2")
 
 	// Validate matchup type
 	if matchupType == "" {
@@ -464,7 +463,7 @@ func (h *FixturesHandler) handleUpdateMatchup(w http.ResponseWriter, r *http.Req
 
 	// Update the St Ann's players for this matchup
 	// We determine if St Ann's is home or away and assign accordingly
-	err = h.service.UpdateStAnnsMatchupPlayers(matchup.ID, fixtureID, stAnnsPlayer1ID, stAnnsPlayer2ID)
+	err = h.service.UpdateManagingClubsMatchupPlayers(matchup.ID, fixtureID, player1ID, player2ID)
 	if err != nil {
 		logAndError(w, "Failed to update matchup players", err, http.StatusInternalServerError)
 		return
@@ -492,7 +491,7 @@ func (h *FixturesHandler) handlePlayerSelection(w http.ResponseWriter, r *http.R
 	}
 
 	// Get available players for this fixture
-	teamPlayers, allStAnnPlayers, err := h.service.GetAvailablePlayersForFixture(fixtureID)
+	teamPlayers, allClubPlayers, err := h.service.GetAvailablePlayersForFixture(fixtureID)
 	if err != nil {
 		logAndError(w, "Failed to load available players", err, http.StatusInternalServerError)
 		return
@@ -519,15 +518,15 @@ func (h *FixturesHandler) handlePlayerSelection(w http.ResponseWriter, r *http.R
 		}
 	}
 
-	var availableStAnnPlayers []models.Player
-	for _, player := range allStAnnPlayers {
+	var availableClubPlayers []models.Player
+	for _, player := range allClubPlayers {
 		if !selectedMap[player.ID] {
-			availableStAnnPlayers = append(availableStAnnPlayers, player)
+			availableClubPlayers = append(availableClubPlayers, player)
 		}
 	}
 
-	// Determine if St Ann's is home or away
-	isStAnnsHome := h.service.IsStAnnsHomeInFixture(fixtureID)
+	// Determine if managing club is home or away
+	isManagingClubAtHome := h.service.IsManagingClubHomeInFixture(fixtureID)
 
 	// Render inline player selection template
 	w.Header().Set("Content-Type", "text/html")
@@ -535,9 +534,9 @@ func (h *FixturesHandler) handlePlayerSelection(w http.ResponseWriter, r *http.R
 		<div class="player-selection-form">
 			<h4>Add Players to Selection</h4>
 			
-			` + renderPlayerGroup("Team Players", availableTeamPlayers, fixtureID, isStAnnsHome) + `
+			` + renderPlayerGroup("Team Players", availableTeamPlayers, fixtureID, isManagingClubAtHome) + `
 			
-			` + renderPlayerGroup("All St Ann Players", availableStAnnPlayers, fixtureID, isStAnnsHome) + `
+            ` + renderPlayerGroup("All Managing Club Players", availableClubPlayers, fixtureID, isManagingClubAtHome) + `
 		</div>
 	`))
 }
@@ -642,7 +641,7 @@ func (h *FixturesHandler) handleTeamSelectionGet(w http.ResponseWriter, r *http.
 		}
 	}
 
-	teamPlayers, allStAnnPlayers, err := h.service.GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID, managingTeamIDForEligibility)
+	teamPlayers, allClubPlayers, err := h.service.GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID, managingTeamIDForEligibility)
 	if err != nil {
 		logAndError(w, "Failed to load available players", err, http.StatusInternalServerError)
 		return
@@ -662,10 +661,10 @@ func (h *FixturesHandler) handleTeamSelectionGet(w http.ResponseWriter, r *http.
 		}
 	}
 
-	var availableStAnnPlayers []PlayerWithEligibility
-	for _, player := range allStAnnPlayers {
+	var availableClubPlayers []PlayerWithEligibility
+	for _, player := range allClubPlayers {
 		if !selectedMap[player.Player.ID] {
-			availableStAnnPlayers = append(availableStAnnPlayers, player)
+			availableClubPlayers = append(availableClubPlayers, player)
 		}
 	}
 
@@ -690,7 +689,7 @@ func (h *FixturesHandler) handleTeamSelectionGet(w http.ResponseWriter, r *http.
 	templateData := map[string]interface{}{
 		"FixtureDetail":       fixtureDetail,
 		"TeamPlayers":         availableTeamPlayers,
-		"AllStAnnPlayers":     availableStAnnPlayers,
+		"AllStAnnPlayers":     availableClubPlayers,
 		"SelectionPercentage": selectionPercentage,
 	}
 
@@ -929,7 +928,7 @@ func (h *FixturesHandler) renderTeamSelectionContainer(w http.ResponseWriter, r 
 		}
 	}
 
-	teamPlayers, allStAnnPlayers, err := h.service.GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID, managingTeamIDForEligibility)
+	teamPlayers, allClubPlayers, err := h.service.GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID, managingTeamIDForEligibility)
 	if err != nil {
 		logAndError(w, "Failed to load available players", err, http.StatusInternalServerError)
 		return
@@ -955,7 +954,7 @@ func (h *FixturesHandler) renderTeamSelectionContainer(w http.ResponseWriter, r 
 	}
 
 	var availableStAnnPlayers []PlayerWithEligibility
-	for _, player := range allStAnnPlayers {
+	for _, player := range allClubPlayers {
 		if !selectedMap[player.Player.ID] {
 			availableStAnnPlayers = append(availableStAnnPlayers, player)
 		}
@@ -1110,7 +1109,7 @@ func (h *FixturesHandler) handleWeekOverview(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Get next week's fixtures organized by division
-	fixturesByDivision, err := h.service.GetStAnnsNextWeekFixturesByDivision()
+	fixturesByDivision, err := h.service.GetManagingClubsNextWeekFixturesByDivision()
 	if err != nil {
 		logAndError(w, "Failed to load next week's fixtures", err, http.StatusInternalServerError)
 		return

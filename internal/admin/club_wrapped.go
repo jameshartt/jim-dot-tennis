@@ -755,20 +755,18 @@ func (h *ClubWrappedHandler) calculateClubFixtureBreakdown(ctx context.Context, 
 		log.Printf("Fixture %d: %s (%.1f) vs %s (%.1f)", fixtureID, homeClub, homeTotal, awayClub, awayTotal)
 
 		// Check if St. Ann's is involved (try different variations)
-		isStAnnsHome := strings.Contains(strings.ToLower(homeClub), "st ann") ||
-			strings.Contains(strings.ToLower(homeClub), "saint ann")
-		isStAnnsAway := strings.Contains(strings.ToLower(awayClub), "st ann") ||
-			strings.Contains(strings.ToLower(awayClub), "saint ann")
+		isManagingClubAtHome := strings.Contains(strings.ToLower(homeClub), "st ann")
+		isManagingClubAway := strings.Contains(strings.ToLower(awayClub), "st ann")
 
-		if !isStAnnsHome && !isStAnnsAway {
-			continue // Not a St. Ann's fixture
+		if !isManagingClubAtHome && !isManagingClubAway {
+			continue // Not a managing club fixture
 		}
 
 		breakdown.TotalFixtures++
 
 		// Determine our score vs their score
 		var ourScore, theirScore float64
-		if isStAnnsHome {
+		if isManagingClubAtHome {
 			ourScore = homeTotal
 			theirScore = awayTotal
 		} else {

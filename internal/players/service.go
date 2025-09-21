@@ -416,21 +416,21 @@ func (s *Service) determinePlayerTeamContext(ctx context.Context, playerID strin
 	if err == nil {
 		for _, fp := range allFixturePlayers {
 			if fp.PlayerID == playerID {
-				// Determine which teams are St Ann's first - this is the source of truth
-				stAnnsClubs, clubErr := s.clubRepository.FindByNameLike(ctx, "St Ann")
-				if clubErr == nil && len(stAnnsClubs) > 0 {
-					stAnnsClubID := stAnnsClubs[0].ID
+				// Determine managing club
+				managingClub, clubErr := s.clubRepository.GetManagingClub(ctx)
+				if clubErr == nil && managingClub != nil {
+					managingClubID := managingClub.ID
 
 					homeTeam, homeErr := s.teamRepository.FindByID(ctx, homeTeamID)
 					awayTeam, awayErr := s.teamRepository.FindByID(ctx, awayTeamID)
 
 					if homeErr == nil && awayErr == nil {
-						isHomeStAnns := homeTeam.ClubID == stAnnsClubID
-						isAwayStAnns := awayTeam.ClubID == stAnnsClubID
-						isDerby := isHomeStAnns && isAwayStAnns
+						isHomeManaging := homeTeam.ClubID == managingClubID
+						isAwayManaging := awayTeam.ClubID == managingClubID
+						isDerby := isHomeManaging && isAwayManaging
 
 						if isDerby {
-							// For derby matches, use ManagingTeamID to determine which St Ann's team
+							// For derby matches, use ManagingTeamID to determine which managing-club team
 							if fp.ManagingTeamID != nil {
 								if *fp.ManagingTeamID == homeTeamID {
 									return homeTeamID, true, false
@@ -439,10 +439,10 @@ func (s *Service) determinePlayerTeamContext(ctx context.Context, playerID strin
 								}
 							}
 						} else {
-							// For regular matches, always assign player to St Ann's team (ignore ManagingTeamID)
-							if isHomeStAnns {
+							// For regular matches, always assign player to managing-club team (ignore ManagingTeamID)
+							if isHomeManaging {
 								return homeTeamID, true, false
-							} else if isAwayStAnns {
+							} else if isAwayManaging {
 								return awayTeamID, false, true
 							}
 						}

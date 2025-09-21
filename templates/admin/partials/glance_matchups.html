@@ -58,24 +58,24 @@
                             Match Halved
                         {{else}}
                         {{/* Determine score perspective based on St Ann's position */}}
-                        {{$showFromStAnnsView := false}}
+                        {{$showFromManagingClubsView := false}}
                         {{if $.IsDerby}}
                             {{/* For derby matches, check if managing team is away */}}
                             {{if and $.ManagingTeam (eq $.ManagingTeam.ID $.FixtureDetail.AwayTeam.ID)}}
-                                {{$showFromStAnnsView = true}}
+                                {{$showFromManagingClubsView = true}}
                             {{end}}
-                        {{else if $.IsStAnnsAway}}
+                        {{else if $.IsManagingClubAway}}
                             {{/* For regular away matches, flip the scores */}}
-                            {{$showFromStAnnsView = true}}
+                            {{$showFromManagingClubsView = true}}
                         {{end}}
                         {{if or .Matchup.HomeSet1 .Matchup.AwaySet1}}
-                            {{if $showFromStAnnsView}}
+                            {{if $showFromManagingClubsView}}
                                 [{{if .Matchup.AwaySet1}}{{.Matchup.AwaySet1}}{{else}}0{{end}}-{{if .Matchup.HomeSet1}}{{.Matchup.HomeSet1}}{{else}}0{{end}}{{if or .Matchup.HomeSet2 .Matchup.AwaySet2}}, {{if .Matchup.AwaySet2}}{{.Matchup.AwaySet2}}{{else}}0{{end}}-{{if .Matchup.HomeSet2}}{{.Matchup.HomeSet2}}{{else}}0{{end}}{{end}}{{if or .Matchup.HomeSet3 .Matchup.AwaySet3}}, {{if .Matchup.AwaySet3}}{{.Matchup.AwaySet3}}{{else}}0{{end}}-{{if .Matchup.HomeSet3}}{{.Matchup.HomeSet3}}{{else}}0{{end}}{{end}}]
                             {{else}}
                                 [{{if .Matchup.HomeSet1}}{{.Matchup.HomeSet1}}{{else}}0{{end}}-{{if .Matchup.AwaySet1}}{{.Matchup.AwaySet1}}{{else}}0{{end}}{{if or .Matchup.HomeSet2 .Matchup.AwaySet2}}, {{if .Matchup.HomeSet2}}{{.Matchup.HomeSet2}}{{else}}0{{end}}-{{if .Matchup.AwaySet2}}{{.Matchup.AwaySet2}}{{else}}0{{end}}{{end}}{{if or .Matchup.HomeSet3 .Matchup.AwaySet3}}, {{if .Matchup.HomeSet3}}{{.Matchup.HomeSet3}}{{else}}0{{end}}-{{if .Matchup.AwaySet3}}{{.Matchup.AwaySet3}}{{else}}0{{end}}{{end}}]
                             {{end}}
                         {{else}}
-                            {{if $showFromStAnnsView}}
+                            {{if $showFromManagingClubsView}}
                                 ({{.Matchup.AwayScore}}-{{.Matchup.HomeScore}})
                             {{else}}
                                 ({{.Matchup.HomeScore}}-{{.Matchup.AwayScore}})

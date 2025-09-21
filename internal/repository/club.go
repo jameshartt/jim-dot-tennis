@@ -4,6 +4,8 @@ import (
 	"context"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
+	"os"
+	"strconv"
 	"time"
 )
 
@@ -29,6 +31,9 @@ type ClubRepository interface {
 	// New queries
 	GetPlayersByClub(ctx context.Context, clubID uint) ([]models.Player, error)
 	GetAllPlayersWithClubs(ctx context.Context) ([]models.Player, error)
+
+	// Managing club helpers
+	GetManagingClub(ctx context.Context) (*models.Club, error)
 }
 
 // clubRepository implements ClubRepository
@@ -41,6 +46,23 @@ func NewClubRepository(db *database.DB) ClubRepository {
 	return &clubRepository{
 		db: db,
 	}
+}
+
+// Managing club configuration
+// MANAGING_CLUB_ID can be overridden via environment variable MANAGING_CLUB_ID
+// Defaults to 7 for St. Ann's deployments
+var MANAGING_CLUB_ID uint = func() uint {
+	if v := getenv("MANAGING_CLUB_ID"); v != "" {
+		if id, err := strconv.Atoi(v); err == nil && id > 0 {
+			return uint(id)
+		}
+	}
+	return 7
+}()
+
+// getenv is a tiny wrapper to allow testing without importing os in many places
+func getenv(key string) string {
+	return os.Getenv(key)
 }
 
 // FindAll retrieves all clubs ordered by name
@@ -279,4 +301,9 @@ func (r *clubRepository) GetAllPlayersWithClubs(ctx context.Context) ([]models.P
 		ORDER BY last_name ASC, first_name ASC
 	`)
 	return players, err
+}
+
+// GetManagingClub returns the configured managing club for this deployment
+func (r *clubRepository) GetManagingClub(ctx context.Context) (*models.Club, error) {
+	return r.FindByID(ctx, MANAGING_CLUB_ID)
 }

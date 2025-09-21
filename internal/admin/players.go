@@ -104,8 +104,8 @@ func (h *PlayersHandler) handlePlayersGet(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Load St Ann's teams and all divisions for filter dropdowns
-	_, stAnnsTeams, _ := h.service.GetStAnnsTeams()
+	// Load managing club teams and all divisions for filter dropdowns
+	_, managingClubTeams, _ := h.service.GetManagingClubsTeams()
 	divisions, _ := h.service.GetAllDivisions()
 
 	// Load the players template
@@ -124,7 +124,7 @@ func (h *PlayersHandler) handlePlayersGet(w http.ResponseWriter, r *http.Request
 		"Players":             playersWithAvail,
 		"SearchQuery":         query,
 		"ActiveFilter":        activeFilter,
-		"Teams":               stAnnsTeams,
+		"Teams":               managingClubTeams,
 		"Divisions":           divisions,
 		"SelectedTeamIDs":     teamIDs,
 		"SelectedDivisionIDs": divisionIDs,
@@ -205,26 +205,22 @@ func (h *PlayersHandler) handlePlayerNewPost(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Get St. Ann's club ID automatically
-	stAnnsClubs, err := h.service.GetClubsByName("St Ann")
-	if err != nil {
-		logAndError(w, "Failed to find St. Ann's club", err, http.StatusInternalServerError)
+	// Get managing club ID automatically
+	managingClub, err := h.service.GetManagingClub(r.Context())
+	if err != nil || managingClub == nil {
+		logAndError(w, "Failed to find managing club", err, http.StatusInternalServerError)
 		return
 	}
-	if len(stAnnsClubs) == 0 {
-		logAndError(w, "St. Ann's club not found", fmt.Errorf("club not found"), http.StatusInternalServerError)
-		return
-	}
-	stAnnsClubID := stAnnsClubs[0].ID
+	managingClubID := managingClub.ID
 
-	// Create new player with generated UUID and auto-assigned to St. Ann's
+	// Create new player with generated UUID and auto-assigned to managing club
 	player := &models.Player{
 		ID:               uuid.New().String(),
 		FirstName:        firstName,
 		LastName:         lastName,
 		Gender:           models.PlayerGender(gender),
 		ReportingPrivacy: models.PlayerReportingVisible, // Default to visible
-		ClubID:           stAnnsClubID,                  // Auto-assign to St. Ann's instead of 0
+		ClubID:           managingClubID,                // Auto-assign to managing club instead of 0
 	}
 
 	// Create the player
@@ -233,7 +229,7 @@ func (h *PlayersHandler) handlePlayerNewPost(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	log.Printf("Successfully created new player: %s %s (ID: %s, Club: St. Ann's)", firstName, lastName, player.ID)
+	log.Printf("Successfully created new player: %s %s (ID: %s, ClubID: %d)", firstName, lastName, player.ID, managingClubID)
 
 	// Redirect to the player edit page to allow setting additional details
 	http.Redirect(w, r, fmt.Sprintf("/admin/players/%s/edit", player.ID), http.StatusSeeOther)
@@ -568,7 +564,7 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 
 	// Build helper maps for header labels
 	teamNameByID := make(map[uint]string)
-	if _, teams, err := h.service.GetStAnnsTeams(); err == nil {
+	if _, teams, err := h.service.GetManagingClubsTeams(); err == nil {
 		for _, twr := range teams {
 			teamNameByID[twr.Team.ID] = twr.Team.Name
 		}

@@ -571,12 +571,12 @@ func (h *PointsHandler) isActiveSeasonCompleted() (bool, error) {
 		return false, fmt.Errorf("failed to get active season: %w", err)
 	}
 
-	// Find St Ann's club (we aggregate only this club's fixtures)
-	clubs, err := h.service.clubRepository.FindByNameLike(ctx, "St Ann")
-	if err != nil || len(clubs) == 0 {
-		return false, fmt.Errorf("failed to find St Ann's club: %w", err)
+	// Get managing club (we aggregate only this club's fixtures)
+	managingClub, err := h.service.clubRepository.GetManagingClub(ctx)
+	if err != nil || managingClub == nil {
+		return false, fmt.Errorf("failed to find managing club: %w", err)
 	}
-	clubID := clubs[0].ID
+	clubID := managingClub.ID
 
 	// Count total fixtures in season where either team is St Ann's (distinct for derbies)
 	var total int

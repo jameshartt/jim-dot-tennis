@@ -264,7 +264,7 @@ func (s *MatchCardService) processMatchCard(ctx context.Context, config ImportCo
 		return result, nil
 	}
 
-	// Check if this is a derby match (both teams are St. Ann's)
+	// Check if this is a derby match (both teams are from the managing club)
 	isDerby, homeTeamID, awayTeamID, err := s.isDerbyMatch(ctx, fixture.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine if derby match: %w", err)
@@ -753,15 +753,12 @@ func (s *MatchCardService) determineManagingTeamID(ctx context.Context, fixtureI
 		return 0, err
 	}
 
-	// Find the St Ann's club ID
-	stAnnsClubs, err := s.clubRepo.FindByNameLike(ctx, "St Ann")
+	// Find the managing club ID
+	managingClub, err := s.clubRepo.GetManagingClub(ctx)
 	if err != nil {
 		return 0, err
 	}
-	if len(stAnnsClubs) == 0 {
-		return 0, fmt.Errorf("St Ann's club not found")
-	}
-	stAnnsClubID := stAnnsClubs[0].ID
+	managingClubID := managingClub.ID
 
 	// Get home and away teams
 	homeTeam, err := s.teamRepo.FindByID(ctx, fixture.HomeTeamID)
@@ -774,13 +771,13 @@ func (s *MatchCardService) determineManagingTeamID(ctx context.Context, fixtureI
 		return 0, err
 	}
 
-	// Check which team is St Ann's - prefer home team if both are St Ann's
-	if homeTeam.ClubID == stAnnsClubID {
+	// Check which team belongs to the managing club - prefer home team if both do
+	if homeTeam.ClubID == managingClubID {
 		return homeTeam.ID, nil
-	} else if awayTeam.ClubID == stAnnsClubID {
+	} else if awayTeam.ClubID == managingClubID {
 		return awayTeam.ID, nil
 	} else {
-		return 0, fmt.Errorf("no St Ann's team found in this fixture")
+		return 0, fmt.Errorf("no managing club team found in this fixture")
 	}
 }
 
@@ -1030,15 +1027,12 @@ func (s *MatchCardService) isDerbyMatch(ctx context.Context, fixtureID uint) (bo
 		return false, 0, 0, err
 	}
 
-	// Find the St Ann's club ID
-	stAnnsClubs, err := s.clubRepo.FindByNameLike(ctx, "St Ann")
+	// Find the managing club ID
+	managingClub, err := s.clubRepo.GetManagingClub(ctx)
 	if err != nil {
 		return false, 0, 0, err
 	}
-	if len(stAnnsClubs) == 0 {
-		return false, 0, 0, fmt.Errorf("St Ann's club not found")
-	}
-	stAnnsClubID := stAnnsClubs[0].ID
+	managingClubID := managingClub.ID
 
 	// Get home and away teams
 	homeTeam, err := s.teamRepo.FindByID(ctx, fixture.HomeTeamID)
@@ -1051,10 +1045,10 @@ func (s *MatchCardService) isDerbyMatch(ctx context.Context, fixtureID uint) (bo
 		return false, 0, 0, err
 	}
 
-	// Check if both teams are St Ann's
-	isHomeStAnns := homeTeam.ClubID == stAnnsClubID
-	isAwayStAnns := awayTeam.ClubID == stAnnsClubID
-	isDerby := isHomeStAnns && isAwayStAnns
+	// Check if both teams are from the managing club
+	isHomeManaging := homeTeam.ClubID == managingClubID
+	isAwayManaging := awayTeam.ClubID == managingClubID
+	isDerby := isHomeManaging && isAwayManaging
 
 	return isDerby, homeTeam.ID, awayTeam.ID, nil
 }
