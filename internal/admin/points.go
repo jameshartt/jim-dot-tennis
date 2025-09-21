@@ -76,6 +76,13 @@ func (h *PointsHandler) HandlePointsTable(w http.ResponseWriter, r *http.Request
 		log.Printf("Warning: Failed to build rescheduled fixtures header: %v", err)
 	}
 
+	// Determine if season has fully completed (all fixtures completed)
+	isEndOfSeason, err := h.isActiveSeasonCompleted()
+	if err != nil {
+		log.Printf("Warning: Failed to determine end-of-season status: %v", err)
+		isEndOfSeason = false
+	}
+
 	// Load the points table template
 	tmpl, err := parseTemplate(h.templateDir, "admin/points_table.html")
 	if err != nil {
@@ -92,6 +99,7 @@ func (h *PointsHandler) HandlePointsTable(w http.ResponseWriter, r *http.Request
 		"WomenPlayers":      womenPlayers,
 		"CurrentWeek":       currentWeek,
 		"RescheduledHeader": rescheduledHeader,
+		"IsEndOfSeason":     isEndOfSeason,
 	}
 
 	if err := renderTemplate(w, tmpl, templateData); err != nil {
@@ -551,4 +559,53 @@ func (h *PointsHandler) getRescheduledWeekHeader() (string, error) {
 	}
 
 	return "Rescheduled fixtures played this week: " + strings.Join(parts, "; "), nil
+}
+
+// isActiveSeasonCompleted returns true if all fixtures for the active season are completed
+func (h *PointsHandler) isActiveSeasonCompleted() (bool, error) {
+	ctx := context.Background()
+
+	// Get active season
+	season, err := h.service.seasonRepository.FindActive(ctx)
+	if err != nil || season == nil {
+		return false, fmt.Errorf("failed to get active season: %w", err)
+	}
+
+	// Find St Ann's club (we aggregate only this club's fixtures)
+	clubs, err := h.service.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil || len(clubs) == 0 {
+		return false, fmt.Errorf("failed to find St Ann's club: %w", err)
+	}
+	clubID := clubs[0].ID
+
+	// Count total fixtures in season where either team is St Ann's (distinct for derbies)
+	var total int
+	err = h.service.db.GetContext(ctx, &total, `
+        SELECT COUNT(DISTINCT f.id)
+        FROM fixtures f
+        INNER JOIN teams th ON th.id = f.home_team_id
+        INNER JOIN teams ta ON ta.id = f.away_team_id
+        WHERE f.season_id = ? AND (th.club_id = ? OR ta.club_id = ?)
+    `, season.ID, clubID, clubID)
+	if err != nil {
+		return false, fmt.Errorf("failed to count St Ann's fixtures in season: %w", err)
+	}
+	if total == 0 {
+		return false, nil
+	}
+
+	// Count completed fixtures for St Ann's in this season
+	var completed int
+	err = h.service.db.GetContext(ctx, &completed, `
+        SELECT COUNT(DISTINCT f.id)
+        FROM fixtures f
+        INNER JOIN teams th ON th.id = f.home_team_id
+        INNER JOIN teams ta ON ta.id = f.away_team_id
+        WHERE f.season_id = ? AND (th.club_id = ? OR ta.club_id = ?) AND f.status = 'Completed'
+    `, season.ID, clubID, clubID)
+	if err != nil {
+		return false, fmt.Errorf("failed to count completed St Ann's fixtures: %w", err)
+	}
+
+	return completed == total, nil
 }
