@@ -12,14 +12,16 @@
   }
 
   # Tournament admin interface (TMX)
-  handle_path /tournaments/* {
+  handle /tournaments* {
+    uri strip_prefix /tournaments
     root * /srv/tournaments
     try_files {path} /index.html
     file_server
   }
 
   # Public tournament viewer
-  handle_path /public/* {
+  handle /public* {
+    uri strip_prefix /public
     root * /srv/public
     try_files {path} /index.html
     file_server

@@ -55,6 +55,7 @@ services:
       - courthive-data:/app/data
       - courthive-cache:/app/cache
     environment:
+      - NODE_ENV=production
       - APP_STORAGE=fileSystem
       - APP_NAME=Competition Factory Server
       - APP_MODE=production
@@ -74,7 +75,7 @@ services:
     networks:
       - tennis-network
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8383/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8383/"]
       interval: 30s
       timeout: 10s
       retries: 3
