@@ -4,10 +4,41 @@
 
 This document provides a comprehensive, step-by-step plan to deploy the CourtHive tournament management system alongside the existing jim-dot-tennis application on a single DigitalOcean droplet. The deployment will integrate three CourtHive TypeScript/Node.js components with the existing Go-based calendar and team management system.
 
+**Status:** Phase 1 completed and tested locally on 2026-01-18
+
+---
+
+## Implementation Status
+
+### Phase 1: COMPLETED ✅ (2026-01-18)
+
+Phase 1 (Local Development Environment) has been successfully completed with all services running and verified. See **[Implementation Notes](#implementation-notes)** section below for details on actual implementation vs original plan, including errors encountered and solutions.
+
+**Key Deliverables:**
+- ✅ jim-dot-tennis routes updated from `/admin` to `/admin/league`
+- ✅ competition-factory-server Dockerized and running
+- ✅ TMX admin frontend built and accessible at `/tournaments`
+- ✅ courthive-public built and accessible at `/public`
+- ✅ Docker Compose configuration created (`docker-compose.courthive.yml`)
+- ✅ Caddy reverse proxy configured (`Caddyfile.courthive`)
+- ✅ All services healthy and endpoints tested
+- ✅ Documentation created (`COURTHIVE_SETUP.md`)
+
+**Git Branches:**
+- jim-dot-tennis: `courthive-integration` branch (3 commits)
+- competition-factory-server: `docker-integration` branch (1 commit)
+- TMX: main branch (no code changes, dist/ built)
+- courthive-public: main branch (no code changes, dist/ built)
+
+### Phase 2-5: Pending
+
+Phases 2-5 (deployment to production) are ready to proceed pending decision to deploy.
+
 ---
 
 ## Table of Contents
 
+0. [Implementation Notes](#implementation-notes) **← Phase 1 Actual Implementation Details**
 1. [Current State Analysis](#current-state-analysis)
 2. [CourtHive Components Overview](#courthive-components-overview)
 3. [Architecture Design](#architecture-design)
@@ -20,6 +51,389 @@ This document provides a comprehensive, step-by-step plan to deploy the CourtHiv
 10. [Testing & Validation](#testing-validation)
 11. [Rollback Strategy](#rollback-strategy)
 12. [Future Considerations](#future-considerations)
+
+---
+
+## Implementation Notes
+
+**This section documents the actual Phase 1 implementation completed on 2026-01-18.**
+
+### Overview
+
+Phase 1 was successfully completed with all services running locally. The implementation followed the plan outlined in Section 5 with some important modifications and lessons learned.
+
+### Key Differences from Original Plan
+
+#### 1. Environment Variable Configuration
+
+**Original Plan:** Suggested using `VITE_API_URL` and `VITE_SOCKET_URL` for both frontends.
+
+**Actual Implementation:**
+- **TMX (.env.production):**
+  ```bash
+  SERVER=https://jim.tennis/api/courthive
+  ENVIRONMENT=production
+  BASE_URL=tournaments
+  ```
+
+- **courthive-public (.env.production):**
+  ```bash
+  VITE_SERVER=https://jim.tennis/api/courthive
+  ENVIRONMENT=production
+  BASE_URL=public
+  ```
+
+**Reason:** The actual vite.config.ts files in each project expected different environment variable names. We read the actual config files to determine the correct variables.
+
+**Critical Addition:** `BASE_URL` was not in the original plan but was essential for correct asset path generation in the built frontends. Without this, assets were referenced as `./assets/` which failed after being served from `/tournaments` and `/public` routes.
+
+#### 2. Dockerfile for competition-factory-server
+
+**Original Plan:** Used `--prod` flag for production dependencies only.
+
+**Actual Implementation:**
+```dockerfile
+# Production stage
+FROM node:24-alpine
+
+RUN corepack enable && corepack prepare pnpm@latest --activate && \
+    apk add --no-cache curl
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml ./
+COPY pnpm-workspace.yaml ./
+
+# Install ALL dependencies, not just production
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+COPY --from=builder /app/build ./build
+
+RUN mkdir -p /app/data /app/cache && chown -R node:node /app
+
+USER node
+EXPOSE 8383
+
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD curl -f http://localhost:8383/ || exit 1
+
+CMD ["node", "build/main.js"]
+```
+
+**Changes:**
+1. **Dependencies:** Used `pnpm install --frozen-lockfile --ignore-scripts` instead of `--prod` because the `compression` module was needed at runtime but was in devDependencies
+2. **Health Check:** Changed from `wget` to `curl` because curl worked more reliably in testing
+3. **Curl Installation:** Added `apk add --no-cache curl` for health checks
+4. **Build Output:** Used `build/` directory instead of `dist/` (actual build output location)
+
+#### 3. docker-compose.courthive.yml Modifications
+
+**Critical Addition:** `NODE_ENV=production` environment variable was required for courthive-server validation checks:
+
+```yaml
+courthive-server:
+  environment:
+    - NODE_ENV=production  # REQUIRED - server validation checks this
+    - JWT_SECRET=${COURTHIVE_JWT_SECRET}
+    # ... other vars
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:8383/"]  # Changed from wget
+```
+
+**Volume Mounts:** Changed from `../TMX/dist` to absolute paths relative to docker-compose location:
+```yaml
+caddy:
+  volumes:
+    - ./Caddyfile.courthive:/etc/caddy/Caddyfile
+    - ../TMX/dist:/srv/tournaments
+    - ../courthive-public/dist:/srv/public
+```
+
+#### 4. Caddyfile Configuration
+
+**Original Plan:** Used `uri strip_prefix` with `handle` directive.
+
+**Actual Implementation:** Used `handle_path` for SPA routes:
+
+```caddyfile
+:80 {
+  # API endpoints - strip prefix as planned
+  handle /api/courthive/* {
+    uri strip_prefix /api/courthive
+    reverse_proxy courthive-server:8383
+  }
+
+  # SPA routes - use handle_path instead of handle + strip_prefix
+  handle_path /tournaments* {
+    root * /srv/tournaments
+    try_files {path} /index.html
+    file_server
+  }
+
+  handle_path /public* {
+    root * /srv/public
+    try_files {path} /index.html
+    file_server
+  }
+
+  # ... rest of config
+}
+```
+
+**Reason:** `handle_path` automatically strips the path prefix for the `root` directive, preventing double-stripping issues with SPA assets.
+
+**Local Testing:** Configuration starts with `:80` for local testing. Production section is commented out and can be enabled by uncommenting the `jim.tennis { import :80 }` block.
+
+#### 5. Landing Page (index.html)
+
+**Original Plan:** No changes to landing page.
+
+**Actual Implementation:** Complete redesign of `templates/index.html`:
+
+**Issue:** Original index.html used Go template inheritance with `{{define "content"}}` blocks that conflicted with login.html template blocks, causing the admin login page to appear on the homepage.
+
+**Solution:** Made index.html standalone without using layout template inheritance:
+
+```html
+{{define "index.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Jim.Tennis - Tournament Management</title>
+    <!-- ... full head section ... -->
+</head>
+<body>
+    <!-- Clean landing page with link to /public tournaments -->
+    <h1 style="font-size: 3rem;">🎾 Jim.Tennis</h1>
+    <a href="/public" class="btn btn-primary">View Public Tournaments →</a>
+</body>
+</html>
+{{end}}
+```
+
+#### 6. Environment File Security
+
+**Original Plan:** Create .env files and commit to git.
+
+**Actual Implementation:** Created comprehensive `COURTHIVE_SETUP.md` documentation instead of committing .env files.
+
+**Reason:** Security best practice - never commit secrets to git. The COURTHIVE_SETUP.md documents all required .env files with placeholders and instructions for generating secrets.
+
+**Location:** `/home/jameshartt/Development/Tennis/jim-dot-tennis/COURTHIVE_SETUP.md`
+
+### Errors Encountered and Solutions
+
+#### Error 1: Module 'compression' Not Found
+
+**Symptom:** courthive-server container failed to start with error: `Cannot find module 'compression'`
+
+**Root Cause:** Using `pnpm install --prod` in Dockerfile only installed production dependencies, but `compression` was listed in devDependencies yet needed at runtime.
+
+**Solution:** Changed Dockerfile to use `pnpm install --frozen-lockfile --ignore-scripts` to install all dependencies.
+
+**Files Modified:** `competition-factory-server/Dockerfile`
+
+#### Error 2: Health Check Failures - Missing NODE_ENV
+
+**Symptom:** courthive-server health checks continuously failed even though server was running.
+
+**Root Cause:** The server's environment validation required `NODE_ENV` to be set, but it wasn't in the docker-compose environment variables.
+
+**Solution:** Added `NODE_ENV=production` to docker-compose.courthive.yml environment section.
+
+**Files Modified:** `docker-compose.courthive.yml`
+
+#### Error 3: Health Check Command Not Working
+
+**Symptom:** Health checks using `wget` returned "connection refused" but `curl` worked.
+
+**Root Cause:** Initial health check used Node.js HTTP request and then `wget`, but the container didn't have `wget` installed and the Node approach was unreliable.
+
+**Solution:**
+1. Installed `curl` in Dockerfile: `apk add --no-cache curl`
+2. Changed health check to: `CMD curl -f http://localhost:8383/ || exit 1`
+
+**Files Modified:** `competition-factory-server/Dockerfile`, `docker-compose.courthive.yml`
+
+#### Error 4: Frontend Assets Not Loading (Blank Pages)
+
+**Symptom:** Navigating to `/tournaments` and `/public` showed blank HTML pages with no assets loaded. Browser console showed 404 errors for CSS/JS files.
+
+**Root Cause:** Vite builds were using relative asset paths (`./assets/file.js`). When served from `/tournaments`, the browser looked for assets at `/assets/file.js` instead of `/tournaments/assets/file.js`.
+
+**Solution:** Added `BASE_URL` environment variable to .env files and rebuilt frontends:
+- TMX: `BASE_URL=tournaments`
+- courthive-public: `BASE_URL=public`
+
+This made Vite generate absolute paths like `/tournaments/assets/file.js`.
+
+**Additional Fix:** Changed Caddyfile from `handle /tournaments/* { uri strip_prefix }` to `handle_path /tournaments*` to properly serve the SPA.
+
+**Files Modified:** `TMX/.env.production`, `courthive-public/.env.production`, `Caddyfile.courthive`
+
+#### Error 5: Homepage Showing Admin Login
+
+**Symptom:** Visiting `http://localhost/` showed the admin login page instead of the landing page.
+
+**Root Cause:** Go template block naming conflict. Both `templates/index.html` and `templates/login.html` defined blocks named "head" and "content" within the shared layout. The login template was overriding the index template.
+
+**Solution:** Made `templates/index.html` completely standalone without using template inheritance. Removed `{{define "content"}}` blocks and created a full HTML document with `{{define "index.html"}}`.
+
+**Files Modified:** `templates/index.html`
+
+#### Error 6: Git Operations in Wrong Directory
+
+**Symptom:** Git commands failed because they were executed in the parent `Tennis/` directory which isn't a git repository.
+
+**Root Cause:** Initial commands like `git checkout -b docker-integration` were run from the wrong directory.
+
+**Solution:** Always `cd` into the specific repository directory before running git commands:
+```bash
+cd /home/jameshartt/Development/Tennis/competition-factory-server
+git checkout -b docker-integration
+```
+
+**Affected Repositories:** competition-factory-server
+
+#### Error 7: Wrong Environment Variable Names
+
+**Symptom:** Frontend builds completed but weren't using correct API endpoints.
+
+**Root Cause:** Initially used `VITE_API_URL` and `VITE_SOCKET_URL` for all frontends based on common Vite conventions.
+
+**Solution:** Read actual `vite.config.ts` files to determine correct variable names:
+- TMX expects: `SERVER`, `ENVIRONMENT`, `BASE_URL`
+- courthive-public expects: `VITE_SERVER`, `ENVIRONMENT`, `BASE_URL`
+
+**Files Modified:** All .env.production and .env.local files
+
+### Actual File Structure Created
+
+```
+jim-dot-tennis/
+├── .env                              # NOT in git
+├── docker-compose.courthive.yml      # NEW - orchestration
+├── Caddyfile.courthive              # NEW - reverse proxy config
+├── COURTHIVE_SETUP.md               # NEW - environment documentation
+├── templates/index.html              # MODIFIED - standalone landing page
+├── internal/admin/
+│   ├── handler.go                    # MODIFIED - routes to /admin/league
+│   ├── teams.go                      # MODIFIED - route updates
+│   ├── fixtures.go                   # MODIFIED - route updates
+│   ├── players.go                    # MODIFIED - route updates
+│   └── ...                           # All admin files updated
+└── cmd/jim-dot-tennis/main.go       # MODIFIED - auth redirect path
+
+competition-factory-server/
+├── .env                              # NOT in git
+├── Dockerfile                        # NEW
+└── [existing files]
+
+TMX/
+├── .env.production                   # NOT in git
+├── .env.local                        # NOT in git
+└── dist/                             # BUILT output
+
+courthive-public/
+├── .env.production                   # NOT in git
+├── .env.local                        # NOT in git
+└── dist/                             # BUILT output
+```
+
+### Build Commands Used
+
+```bash
+# Install Node versions with nvm
+nvm install 24
+nvm install 20
+
+# Build TMX (requires Node 24)
+cd /home/jameshartt/Development/Tennis/TMX
+nvm use 24
+pnpm install
+pnpm build
+
+# Build courthive-public (requires Node 20)
+cd /home/jameshartt/Development/Tennis/courthive-public
+nvm use 20
+pnpm install
+pnpm build
+
+# Start all services
+cd /home/jameshartt/Development/Tennis/jim-dot-tennis
+docker compose -f docker-compose.courthive.yml up -d
+
+# Verify health
+docker compose -f docker-compose.courthive.yml ps
+```
+
+### Testing Results
+
+All endpoints tested successfully on 2026-01-18:
+
+```bash
+# Jim-dot-tennis home
+curl -I http://localhost/
+# ✅ 200 OK - Landing page with link to /public
+
+# League admin (redirects to login)
+curl -I http://localhost/admin/league
+# ✅ 302 Found - Redirects to login
+
+# TMX admin interface
+curl -I http://localhost/tournaments
+# ✅ 200 OK - TMX loads with assets
+
+# Public tournament viewer
+curl -I http://localhost/public
+# ✅ 200 OK - Public viewer loads
+
+# CourtHive API
+curl http://localhost/api/courthive/
+# ✅ 200 OK - API responds
+
+# WebSocket endpoint
+curl -I http://localhost/socket.io/
+# ✅ 400 Bad Request - Expected (needs upgrade headers)
+```
+
+**Docker Health Checks:**
+- ✅ jim-dot-tennis: healthy
+- ✅ courthive-redis: healthy
+- ✅ courthive-server: healthy
+- ✅ tennis-caddy: running
+- ✅ jim-dot-tennis-backup: running
+
+### Lessons Learned
+
+1. **Always read actual config files** instead of assuming standard conventions (e.g., environment variable names)
+
+2. **BASE_URL is critical for SPAs** served from subdirectories - this wasn't in the original plan but was essential
+
+3. **Health checks need proper tools** - ensure curl/wget are installed in containers that use them
+
+4. **Environment validation matters** - NODE_ENV was required by the application even though not documented
+
+5. **Template inheritance can cause conflicts** - standalone templates are sometimes simpler than shared layouts
+
+6. **Never commit .env files** - use documentation with placeholders instead
+
+7. **Docker Compose depends_on with conditions** - Using `depends_on: service_name: condition: service_healthy` ensures proper startup order
+
+8. **Vite asset paths** - Using relative paths breaks when served from subdirectories; always set BASE_URL
+
+9. **Testing locally first is essential** - Caught all issues before they would have affected production
+
+10. **Git branch strategy** - Keep infrastructure changes (Dockerfile) in separate branches per repository
+
+### References
+
+For complete environment setup instructions, see: `COURTHIVE_SETUP.md`
+
+For actual working configurations:
+- Docker orchestration: `docker-compose.courthive.yml`
+- Reverse proxy: `Caddyfile.courthive`
+- Dockerfile: `../competition-factory-server/Dockerfile`
 
 ---
 
@@ -207,9 +621,13 @@ Static File Serving (via Caddy/Nginx):
 
 ## 5. Step-by-Step Implementation Plan
 
-### Phase 1: Prepare Local Development Environment
+### Phase 1: Prepare Local Development Environment ✅ COMPLETED (2026-01-18)
 
 **Objective:** Get all four applications running locally with the new routing structure
+
+**Status:** ✅ COMPLETED - See [Implementation Notes](#implementation-notes) for actual implementation details, errors encountered, and solutions.
+
+**What Was Actually Implemented:** The steps below represent the original plan. For what actually happened, including all errors and fixes, see the Implementation Notes section at the top of this document.
 
 #### Step 1.1: Update jim-dot-tennis Routes (1-2 hours)
 
@@ -1601,18 +2019,17 @@ If you decide to pursue unified authentication:
 
 ## Appendix A: Environment Variables Reference
 
+**Note:** These are the ACTUAL environment variables used in the implementation. See `COURTHIVE_SETUP.md` for complete setup instructions.
+
 ### jim-dot-tennis (.env)
 ```bash
-# Application
-PORT=8080
-DB_TYPE=sqlite3
-DB_PATH=/app/data/tennis.db
-
 # Authentication
 WRAPPED_ACCESS_PASSWORD=your-secure-password
 
-# JWT (if implementing shared auth)
-JWT_SECRET=shared-secret-with-courthive
+# CourtHive JWT Secret (must match competition-factory-server)
+COURTHIVE_JWT_SECRET=<generate-with-openssl-rand-base64-48>
+
+# Note: PORT, DB_TYPE, DB_PATH are set in docker-compose.yml
 ```
 
 ### competition-factory-server (.env)
@@ -1620,19 +2037,19 @@ JWT_SECRET=shared-secret-with-courthive
 # Application
 APP_STORAGE=fileSystem
 APP_NAME=Competition Factory Server
-APP_MODE=production
+APP_MODE=development
 APP_PORT=8383
 
-# JWT Authentication
-JWT_SECRET=shared-secret-with-jim-tennis
+# JWT Authentication (must match jim-dot-tennis COURTHIVE_JWT_SECRET)
+JWT_SECRET=<same-as-jim-dot-tennis-COURTHIVE_JWT_SECRET>
 JWT_VALIDITY=2h
 
 # Cache
-TRACKER_CACHE=/app/cache
+TRACKER_CACHE=cache
 
 # Redis
 REDIS_TTL=28800000
-REDIS_HOST=redis
+REDIS_HOST=localhost  # Use 'redis' in Docker
 REDIS_USERNAME=
 REDIS_PASSWORD=
 REDIS_PORT=6379
@@ -1649,16 +2066,56 @@ MAILGUN_HOST=api.eu.mailgun.net
 MAILGUN_DOMAIN=
 ```
 
+### docker-compose.courthive.yml Environment
+
+**Important:** NODE_ENV=production is REQUIRED for courthive-server in Docker:
+
+```yaml
+courthive-server:
+  environment:
+    - NODE_ENV=production  # REQUIRED
+    - APP_STORAGE=fileSystem
+    - APP_MODE=production
+    - JWT_SECRET=${COURTHIVE_JWT_SECRET}
+    - REDIS_HOST=redis  # Docker service name
+    # ... other vars
+```
+
 ### TMX (.env.production)
 ```bash
-VITE_API_URL=https://jim.tennis/api/courthive
-VITE_SOCKET_URL=https://jim.tennis
+# ACTUAL variables (not VITE_API_URL as originally planned)
+SERVER=https://jim.tennis/api/courthive
+ENVIRONMENT=production
+BASE_URL=tournaments  # CRITICAL - required for asset paths
+```
+
+### TMX (.env.local) - for local testing
+```bash
+SERVER=http://localhost/api/courthive
+ENVIRONMENT=development
+BASE_URL=tournaments
 ```
 
 ### courthive-public (.env.production)
 ```bash
-VITE_API_URL=https://jim.tennis/api/courthive
+# Uses VITE_SERVER (different from TMX!)
+VITE_SERVER=https://jim.tennis/api/courthive
+ENVIRONMENT=production
+BASE_URL=public  # CRITICAL - required for asset paths
 ```
+
+### courthive-public (.env.local) - for local testing
+```bash
+VITE_SERVER=http://localhost/api/courthive
+ENVIRONMENT=development
+BASE_URL=public
+```
+
+**Key Differences from Original Plan:**
+1. TMX uses `SERVER` not `VITE_API_URL`
+2. courthive-public uses `VITE_SERVER` not `VITE_API_URL`
+3. `BASE_URL` is required for both frontends (not in original plan)
+4. `NODE_ENV=production` required in docker-compose for courthive-server
 
 ---
 
@@ -1738,6 +2195,41 @@ echo | openssl s_client -connect jim.tennis:443 2>/dev/null | openssl x509 -text
 
 ## Appendix D: Troubleshooting Guide
 
+**Note:** This section has been updated with actual issues encountered during Phase 1 implementation.
+
+### Issue: Module not found errors in courthive-server
+
+**Symptoms:** Container fails to start with `Cannot find module 'compression'` or similar errors
+
+**Root Cause:** Using `pnpm install --prod` skips devDependencies, but some packages listed as dev are needed at runtime
+
+**Solutions:**
+1. Update Dockerfile to use: `pnpm install --frozen-lockfile --ignore-scripts`
+2. Rebuild container: `docker-compose up -d --build courthive-server`
+3. Check logs for other missing modules: `docker-compose logs courthive-server`
+
+**Actual Fix Applied:** Changed Dockerfile from `--prod` to `--frozen-lockfile` to install all dependencies.
+
+### Issue: Health checks continuously fail
+
+**Symptoms:** Container shows as "unhealthy" even though application appears to be running
+
+**Root Causes:**
+1. **Missing NODE_ENV:** courthive-server requires NODE_ENV environment variable
+2. **Health check tool not installed:** `wget` not available in Alpine containers
+3. **Wrong health check command:** Node.js HTTP check unreliable
+
+**Solutions:**
+1. Add `NODE_ENV=production` to docker-compose environment variables
+2. Install curl in Dockerfile: `RUN apk add --no-cache curl`
+3. Use simple curl check: `CMD curl -f http://localhost:8383/ || exit 1`
+
+**Verification:**
+```bash
+docker-compose ps  # Should show "healthy"
+docker-compose exec courthive-server curl http://localhost:8383/
+```
+
 ### Issue: Services won't start
 
 **Symptoms:** `docker-compose up` fails or services show as unhealthy
@@ -1751,17 +2243,47 @@ echo | openssl s_client -connect jim.tennis:443 2>/dev/null | openssl x509 -text
 
 ### Issue: Cannot access frontend applications
 
-**Symptoms:** 404 errors on /tournaments or /public
+**Symptoms:** 404 errors on /tournaments or /public, or blank pages with missing assets
+
+**Root Causes:**
+1. **Frontend not built:** dist/ folders don't exist or are empty
+2. **BASE_URL not set:** Vite builds using relative asset paths that break when served from subdirectories
+3. **Wrong Caddyfile directive:** Using `handle` + `uri strip_prefix` instead of `handle_path`
 
 **Solutions:**
+
+**For 404 errors:**
 1. Verify frontend builds exist:
    ```bash
    docker-compose exec caddy ls -la /srv/tournaments
    docker-compose exec caddy ls -la /srv/public
    ```
-2. Check Caddyfile configuration
+2. If missing, rebuild frontends:
+   ```bash
+   cd /path/to/TMX && pnpm build
+   cd /path/to/courthive-public && pnpm build
+   ```
 3. Restart Caddy: `docker-compose restart caddy`
-4. Check Caddy logs: `docker-compose logs caddy`
+
+**For blank pages with asset errors (CRITICAL):**
+1. Check browser console - if you see 404s for `/assets/` instead of `/tournaments/assets/`, BASE_URL is missing
+2. Add BASE_URL to .env files:
+   - TMX: `BASE_URL=tournaments`
+   - courthive-public: `BASE_URL=public`
+3. Rebuild frontends: `pnpm build`
+4. Restart Caddy: `docker-compose restart caddy`
+
+**Caddyfile configuration:**
+Use `handle_path` for SPAs, not `handle` + `uri strip_prefix`:
+```caddyfile
+handle_path /tournaments* {
+  root * /srv/tournaments
+  try_files {path} /index.html
+  file_server
+}
+```
+
+**Actual Issue Encountered:** Frontends built without BASE_URL showed blank pages. Adding BASE_URL and using handle_path fixed it.
 
 ### Issue: API requests fail
 
@@ -1783,6 +2305,36 @@ echo | openssl s_client -connect jim.tennis:443 2>/dev/null | openssl x509 -text
 2. Check browser console for WebSocket errors
 3. Test WebSocket endpoint: `curl -i -N -H "Connection: Upgrade" -H "Upgrade: websocket" https://jim.tennis/socket.io/`
 4. Review courthive-server logs for WebSocket connections
+
+### Issue: Homepage showing wrong content (admin login instead of landing page)
+
+**Symptoms:** Visiting root URL shows admin login page instead of the intended landing page
+
+**Root Cause:** Go template block naming conflict. Multiple templates defining blocks with the same names ("head", "content") in the shared layout cause one template to override another.
+
+**Solution:** Make the landing page template (index.html) standalone:
+1. Remove template inheritance - don't use `{{define "content"}}` blocks
+2. Create complete HTML document with `{{define "index.html"}}` as the root block
+3. Include full `<html>`, `<head>`, and `<body>` tags
+4. Don't use the shared layout template
+
+**Example:**
+```html
+{{define "index.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Your Site</title>
+    <!-- ... full head ... -->
+</head>
+<body>
+    <!-- ... page content ... -->
+</body>
+</html>
+{{end}}
+```
+
+**Actual Issue Encountered:** index.html and login.html both defined "content" blocks, causing login to override homepage.
 
 ### Issue: Tournament data doesn't persist
 
