@@ -307,6 +307,56 @@ git checkout -b docker-integration
 
 **Files Modified:** All .env.production and .env.local files
 
+#### Error 8: Production User Seeding Required
+
+**Symptom:** Cannot login with test user `axel@castle.com` in production, getting 401 Unauthorized.
+
+**Root Cause:** The test user is only available when `APP_MODE=development`. The code in `users.service.ts` shows:
+
+```typescript
+async findOne(email: string) {
+  const mode = this.configService.get('APP')?.mode;
+  const devModeTestUser = mode === 'development' && (await this.testUsers.find((user) => user.email === email));
+  if (devModeTestUser) return devModeTestUser;
+  return await netLevel.get(BASE_USER, { key: email });
+}
+```
+
+**Solution:** Create a production-safe admin user seeding script.
+
+**Created:** `/home/jameshartt/Development/Tennis/competition-factory-server/seed-admin.js`
+
+The script includes multiple security layers:
+1. **File permissions:** 700 (owner-only access)
+2. **In .gitignore:** Won't be committed to repository
+3. **Interactive confirmation:** Requires typing "yes" to proceed
+4. **Database credentials required:** Must know DB_USER and DB_PASS
+5. **Container-only access:** Can only run from inside Docker container or with direct server access
+6. **Duplicate prevention:** Checks if user already exists before creating
+7. **Password validation:** Minimum 8 characters required
+
+**Usage:**
+
+```bash
+# Copy script to container
+docker cp seed-admin.js courthive-server:/app/
+
+# Run interactively
+docker exec -it courthive-server node /app/seed-admin.js user@example.com 'SecurePassword123'
+
+# Or with environment variables
+docker exec -it courthive-server sh -c "ADMIN_EMAIL=user@example.com ADMIN_PASSWORD='SecurePassword123' node /app/seed-admin.js"
+```
+
+**Important Notes:**
+- Uses `bcryptjs` (not `bcrypt`) - the version in package.json
+- Uses `@gridspace/net-level-client` which automatically handles JSON serialization
+- Must pass object to `db.put()`, NOT `JSON.stringify(object)`
+- Requires `net-level-server` to be running on port 3838
+- Creates user with all roles: SUPER_ADMIN, ADMIN, DEVELOPER, CLIENT, SCORE
+
+**Files Modified:** Created `competition-factory-server/seed-admin.js`, updated `competition-factory-server/.gitignore`
+
 ### Actual File Structure Created
 
 ```
@@ -327,6 +377,7 @@ jim-dot-tennis/
 competition-factory-server/
 ├── .env                              # NOT in git
 ├── Dockerfile                        # NEW
+├── seed-admin.js                     # NEW - production user seeding (NOT in git)
 └── [existing files]
 
 TMX/
@@ -425,6 +476,14 @@ curl -I http://localhost/socket.io/
 9. **Testing locally first is essential** - Caught all issues before they would have affected production
 
 10. **Git branch strategy** - Keep infrastructure changes (Dockerfile) in separate branches per repository
+
+11. **Production requires initial user seeding** - The test user (axel@castle.com) only works in development mode; production needs a proper admin user creation script
+
+12. **LevelDB is required for authentication** - Even with fileSystem storage, user/provider management requires net-level-server running on port 3838
+
+13. **@gridspace/net-level-client handles JSON automatically** - When storing objects, use the object directly, not JSON.stringify()
+
+14. **bcryptjs vs bcrypt** - The project uses bcryptjs (pure JS), not native bcrypt
 
 ### References
 
@@ -1285,18 +1344,84 @@ nslookup jim.tennis
 
 ### Phase 5: Post-Deployment Configuration (1-2 hours)
 
-#### Step 5.1: Setup CourtHive Admin User
+#### Step 5.1: Seed Production Admin User
 
-1. **Access https://jim.tennis/tournaments**
-2. **Login with test user: axel@castle.com / castle**
-3. **Create provider and admin user**
-4. **Test tournament creation**
-5. **Verify data persists across container restarts:**
+**CRITICAL:** The test user (`axel@castle.com`) only works when `APP_MODE=development`. For production, you must create an admin user using the seed script.
+
+1. **Ensure seed-admin.js is in the competition-factory-server directory:**
+
+   The script should already exist at `/home/jameshartt/Development/Tennis/competition-factory-server/seed-admin.js`. If deploying fresh, create it from the template in the Implementation Notes section above.
+
+2. **Copy seed script to production server:**
+   ```bash
+   # From local machine
+   scp /path/to/competition-factory-server/seed-admin.js root@144.126.228.64:/tmp/
+   ```
+
+3. **Copy script into the running container:**
    ```bash
    ssh root@144.126.228.64
-   docker-compose restart courthive-server
-   # Check if tournament data is still available
+   docker cp /tmp/seed-admin.js courthive-server:/app/
+   rm /tmp/seed-admin.js  # Clean up
    ```
+
+4. **Create the admin user:**
+   ```bash
+   # Interactive method (recommended)
+   docker exec -it courthive-server node /app/seed-admin.js admin@yourdomain.com 'YourSecurePassword123'
+
+   # You will be prompted:
+   # ⚠️  WARNING: This will create a SUPER_ADMIN user with full system access.
+   # Email: admin@yourdomain.com
+   # Are you sure you want to continue? (yes/no): yes
+   ```
+
+   **Expected output:**
+   ```
+   === CourtHive Admin User Creation ===
+   ⚠️  This script requires LevelDB access (DB_USER, DB_PASS)
+
+   Connecting to LevelDB...
+   Checking if user already exists...
+   Hashing password...
+   Creating user: admin@yourdomain.com
+   ✅ Admin user created successfully!
+   Email: admin@yourdomain.com
+   Roles: SUPER_ADMIN, ADMIN, DEVELOPER, CLIENT, SCORE
+   ```
+
+5. **Test login:**
+   ```bash
+   curl -X POST https://jim.tennis/api/courthive/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"email":"admin@yourdomain.com","password":"YourSecurePassword123"}'
+
+   # Should return: {"token":"eyJhbGc..."}
+   ```
+
+6. **Access TMX interface:**
+   - Navigate to https://jim.tennis/tournaments
+   - Login with your new admin credentials
+   - You should now have access to create tournaments
+
+7. **Create a provider (required for tournament persistence):**
+   - Click user icon in top right → "Create Provider"
+   - Fill in provider details (organization name, abbreviation, etc.)
+   - This associates tournaments with your organization
+
+8. **Test tournament creation and persistence:**
+   - Create a test tournament
+   - Restart the container:
+     ```bash
+     docker-compose restart courthive-server
+     ```
+   - Refresh the page - tournament should still exist
+
+**Security Notes:**
+- The seed script requires knowledge of DB_USER and DB_PASS (from docker-compose environment)
+- Can only be run from inside the container or with direct server access
+- Script includes interactive confirmation to prevent accidents
+- Remove seed-admin.js from container after use: `docker exec courthive-server rm /app/seed-admin.js`
 
 #### Step 5.2: Setup Monitoring
 
@@ -2359,6 +2484,77 @@ handle_path /tournaments* {
 3. Verify DNS is correctly pointing to server: `dig jim.tennis`
 4. Ensure ports 80 and 443 are accessible from internet
 5. Check Let's Encrypt rate limits
+
+### Issue: Cannot login - test user not working in production
+
+**Symptoms:** Login with `axel@castle.com` / `castle` returns 401 Unauthorized
+
+**Root Cause:** Test user only exists when `APP_MODE=development`. In production mode, the test user array is not checked.
+
+**Solution:** Use the seed-admin.js script to create a production admin user. See Phase 5, Step 5.1 for complete instructions.
+
+### Issue: Seed script fails with "Cannot find module 'bcrypt'"
+
+**Symptoms:**
+```
+Error: Cannot find module 'bcrypt'
+```
+
+**Root Cause:** The project uses `bcryptjs` (pure JavaScript implementation), not the native `bcrypt` module.
+
+**Solution:** Update seed script to use `require('bcryptjs')` instead of `require('bcrypt')`.
+
+### Issue: User created but login fails with bcrypt error
+
+**Symptoms:**
+```
+Error: Illegal arguments: string, undefined
+    at bcryptjs compare
+```
+
+**Root Cause:** User was stored as JSON string instead of object. The @gridspace/net-level-client expects objects and handles JSON serialization automatically.
+
+**Solution:**
+1. Use `db.put(email, userObject)` NOT `db.put(email, JSON.stringify(userObject))`
+2. Delete the incorrectly formatted user:
+   ```bash
+   docker exec courthive-server node -e "
+   const nl = require('@gridspace/net-level-client');
+   (async () => {
+     const db = new nl();
+     await db.open('localhost', 3838);
+     await db.auth('admin', 'adminpass');
+     await db.use('user', {create: true});
+     await db.del('user@example.com');
+     process.exit(0);
+   })();
+   "
+   ```
+3. Recreate user with corrected seed script
+
+### Issue: Seed script cannot connect to LevelDB
+
+**Symptoms:**
+```
+Error: Could not connect to user in 1000 ms
+```
+
+**Root Cause:** `net-level-server` is not running on port 3838.
+
+**Solution:**
+1. Check if net-level-server is running in courthive-server container:
+   ```bash
+   docker exec courthive-server ps aux | grep net-level
+   ```
+2. Verify docker-compose.courthive.yml has the correct command:
+   ```yaml
+   command: sh -c "npx net-level-server & node build/main.js"
+   ```
+3. Check the logs for net-level-server startup:
+   ```bash
+   docker logs courthive-server | grep "net-level"
+   # Should see: 'starting net-level on port 3838 serving "data"'
+   ```
 
 ---
 
