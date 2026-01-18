@@ -60,7 +60,24 @@ Phases 2-5 (deployment to production) are ready to proceed pending decision to d
 
 ### Overview
 
-Phase 1 was successfully completed with all services running locally. The implementation followed the plan outlined in Section 5 with some important modifications and lessons learned.
+Phase 1 was successfully completed with all services running locally and fully operational. The implementation followed the plan outlined in Section 5 with some important modifications and lessons learned.
+
+**Additional Work Beyond Phase 1 Plan:**
+
+After completing the initial Phase 1 implementation, additional debugging and fixes were required to achieve full end-to-end functionality:
+
+1. **User Registration Flow** (Errors 9-11): Fixed password validation, form validation, and role name mismatches to enable user registration via invite codes
+2. **Data Persistence** (Error 12): Fixed Redis connection to enable server-side tournament storage and invite code management
+3. **TMX Frontend Fixes**: Updated password validator and registration modal to work with password managers and modern security practices
+
+**Final Result (2026-01-18):**
+- ✅ All services running and healthy
+- ✅ Admin user created with correct roles (`superadmin`, `admin`, `developer`, `client`, `score`)
+- ✅ Provider created successfully
+- ✅ User registration working via invite codes
+- ✅ Tournaments persisting to server storage (LevelDB)
+- ✅ TMX frontend communicating with API (no local storage usage)
+- ✅ Full authentication and authorization working
 
 ### Key Differences from Original Plan
 
@@ -353,16 +370,191 @@ docker exec -it courthive-server sh -c "ADMIN_EMAIL=user@example.com ADMIN_PASSW
 - Uses `@gridspace/net-level-client` which automatically handles JSON serialization
 - Must pass object to `db.put()`, NOT `JSON.stringify(object)`
 - Requires `net-level-server` to be running on port 3838
-- Creates user with all roles: SUPER_ADMIN, ADMIN, DEVELOPER, CLIENT, SCORE
+- Creates user with all roles: `superadmin`, `admin`, `developer`, `client`, `score` (lowercase - see Error 11)
+- Permission: `devMode` (camelCase - see Error 11)
 
 **Files Modified:** Created `competition-factory-server/seed-admin.js`, updated `competition-factory-server/.gitignore`
+
+#### Error 9: TMX Password Validator Too Restrictive
+
+**Symptom:** Registration form shows "Must contain upper/lower, number, and special character" error even when using a valid password from password manager.
+
+**Root Cause:** The password validator in `TMX/src/components/validators/passwordValidator.ts` had an overly restrictive regex:
+
+```typescript
+const reg = /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?\d)(?=.*?[#?!@$%^&*-]).{8,12}$/;
+```
+
+**Issues:**
+- Maximum 12 characters (`.{8,12}$`) - rejects longer, more secure passwords
+- Only accepts specific special characters: `#?!@$%^&*-`
+- Most password managers generate 16+ character passwords
+- Rejects many valid special characters like `_`, `+`, `=`, etc.
+
+**Solution:** Updated regex to accept any special character and remove max length:
+
+```typescript
+const reg = /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?\d)(?=.*?[^A-Za-z0-9]).{8,}$/;
+```
+
+**New Requirements:**
+- Minimum 8 characters (no maximum)
+- At least one uppercase letter
+- At least one lowercase letter
+- At least one number
+- At least one special character (any non-alphanumeric: `[^A-Za-z0-9]`)
+
+**Files Modified:** `TMX/src/components/validators/passwordValidator.ts`
+
+#### Error 10: Registration Form Validation Not Triggering
+
+**Symptom:** After fixing password validation, the Register button still won't enable even when all fields are valid.
+
+**Root Cause:** The `enableSubmit` function was only configured to trigger when typing in the `passwordConfirm` field. It wasn't triggered for First name, Last name, or Password fields.
+
+In `TMX/src/components/modals/registrationModal.ts`:
+
+```typescript
+const relationships = [
+  {
+    onInput: enableSubmit,
+    control: 'passwordConfirm',  // Only this field triggers validation!
+  },
+];
+```
+
+**Solution:** Added all fields to the relationships array:
+
+```typescript
+const relationships = [
+  { onInput: enableSubmit, control: 'givenName' },
+  { onInput: enableSubmit, control: 'lastName' },
+  { onInput: enableSubmit, control: 'password' },
+  { onInput: enableSubmit, control: 'passwordConfirm' },
+];
+```
+
+**Files Modified:** `TMX/src/components/modals/registrationModal.ts`
+
+#### Error 11: Role Name Mismatch in seed-admin.js
+
+**Symptom:** After creating admin user with `seed-admin.js`, user can login successfully but TMX doesn't show "Create provider" option in user menu.
+
+**Root Cause:** The `seed-admin.js` script used incorrect role constant values. It used uppercase with underscores (e.g., `SUPER_ADMIN`) instead of lowercase (e.g., `superadmin`).
+
+**seed-admin.js (incorrect):**
+```javascript
+const SUPER_ADMIN = 'SUPER_ADMIN';
+const ADMIN = 'ADMIN';
+const DEVELOPER = 'DEVELOPER';
+const CLIENT = 'CLIENT';
+const SCORE = 'SCORE';
+const DEV_MODE = 'DEV_MODE';
+```
+
+**Server expects (from `src/common/constants/roles.ts`):**
+```typescript
+export const SUPER_ADMIN = 'superadmin';
+export const DEVELOPER = 'developer';
+export const CLIENT = 'client';
+export const SCORE = 'score';
+export const ADMIN = 'admin';
+```
+
+**TMX checks (from `TMX/src/constants/tmxConstants.ts`):**
+```typescript
+export const SUPER_ADMIN = 'superadmin';
+```
+
+**Impact:** User was created with role `'SUPER_ADMIN'` but TMX checks for `'superadmin'`, so the "Create provider" menu option never appeared.
+
+**Solution:** Updated `seed-admin.js` to use correct lowercase role values:
+
+```javascript
+const SUPER_ADMIN = 'superadmin';
+const ADMIN = 'admin';
+const DEVELOPER = 'developer';
+const CLIENT = 'client';
+const SCORE = 'score';
+const DEV_MODE = 'devMode';
+```
+
+**Verification:** After recreating the user, JWT token payload shows correct roles:
+```json
+{
+  "roles": ["superadmin", "admin", "developer", "client", "score"],
+  "permissions": ["devMode"]
+}
+```
+
+**Files Modified:** `competition-factory-server/seed-admin.js`
+
+#### Error 12: Redis Connection Issue - REDIS_URL Not Set
+
+**Symptom:**
+- Invite codes created successfully (shown in server logs)
+- Registration returns "Invalid invitation code" error
+- Redis appears empty (`redis-cli KEYS "*"` returns nothing)
+
+**Root Cause:** The cache module in `src/modules/cache/cache.module.ts` builds Redis URL from config:
+
+```typescript
+const url = redisConfig?.url || 'redis://127.0.0.1:6379';
+```
+
+It checks for `redisConfig.url` first, but our `docker-compose.courthive.yml` only set individual components:
+
+```yaml
+- REDIS_HOST=redis
+- REDIS_PORT=6379
+- REDIS_USERNAME=
+- REDIS_PASSWORD=
+# REDIS_URL was MISSING
+```
+
+**Result:** Server tried to connect to `redis://127.0.0.1:6379` (localhost) instead of `redis://redis:6379` (the Docker service), causing all cache operations to silently fail.
+
+**Solution:** Added `REDIS_URL` to docker-compose environment:
+
+```yaml
+environment:
+  - REDIS_URL=redis://redis:6379
+  - REDIS_TTL=28800000
+  - REDIS_HOST=redis
+  - REDIS_PORT=6379
+```
+
+**Why both?** The server has two Redis clients:
+- NestJS cache module uses `REDIS_URL`
+- Some services may use individual host/port values
+
+**Important:** Changes to docker-compose environment require recreating the container, not just restarting:
+
+```bash
+# Wrong - doesn't pick up new env vars
+docker compose -f docker-compose.courthive.yml restart courthive-server
+
+# Correct - recreates container with new env vars
+docker compose -f docker-compose.courthive.yml up -d courthive-server
+```
+
+**Verification:**
+```bash
+# Check env vars in container
+docker exec courthive-server printenv | grep REDIS
+
+# Should show:
+# REDIS_URL=redis://redis:6379
+```
+
+**Files Modified:** `docker-compose.courthive.yml`
 
 ### Actual File Structure Created
 
 ```
 jim-dot-tennis/
 ├── .env                              # NOT in git
-├── docker-compose.courthive.yml      # NEW - orchestration
+├── docker-compose.courthive.yml      # NEW - orchestration (includes REDIS_URL - see Error 12)
 ├── Caddyfile.courthive              # NEW - reverse proxy config
 ├── COURTHIVE_SETUP.md               # NEW - environment documentation
 ├── templates/index.html              # MODIFIED - standalone landing page
@@ -383,6 +575,10 @@ competition-factory-server/
 TMX/
 ├── .env.production                   # NOT in git
 ├── .env.local                        # NOT in git
+├── src/components/validators/
+│   └── passwordValidator.ts          # MODIFIED - removed 12-char max, accept all special chars
+├── src/components/modals/
+│   └── registrationModal.ts          # MODIFIED - validation triggers on all fields
 └── dist/                             # BUILT output
 
 courthive-public/
@@ -484,6 +680,22 @@ curl -I http://localhost/socket.io/
 13. **@gridspace/net-level-client handles JSON automatically** - When storing objects, use the object directly, not JSON.stringify()
 
 14. **bcryptjs vs bcrypt** - The project uses bcryptjs (pure JS), not native bcrypt
+
+15. **Frontend password validators can be overly restrictive** - Always check regex patterns in password validators. The 12-character maximum in TMX prevented secure password manager-generated passwords from working. Modern best practice is minimum length without maximum.
+
+16. **Form validation relationships must cover all fields** - When using form validation that enables/disables submit buttons, ensure the validation function is triggered on ALL relevant input fields, not just one.
+
+17. **Role/permission constants must match exactly** - When creating seed scripts or admin tools, always import constants from the actual source code rather than hardcoding them. Case sensitivity matters: `'SUPER_ADMIN'` ≠ `'superadmin'`.
+
+18. **Docker Compose environment variables require container recreation** - Simply restarting a container with `docker compose restart` won't pick up new environment variables. Always use `docker compose up -d <service>` to recreate the container with updated env vars.
+
+19. **Redis URL takes precedence over host/port** - When using cache modules like NestJS's `@nestjs/cache-manager` with Keyv + Redis, the `REDIS_URL` environment variable is checked first. If present, it's used instead of building a URL from `REDIS_HOST` and `REDIS_PORT`.
+
+20. **Data persistence layers** - CourtHive uses Redis for temporary data (invite codes, cache) and LevelDB for persistent data (tournaments, users, providers). Understanding which service handles what is critical for troubleshooting.
+
+21. **TMX requires provider association for server persistence** - Tournaments without a `parentOrganisation.organisationId` (provider) are only saved locally to IndexedDB. The provider association is what triggers server-side persistence via API calls.
+
+22. **Environment variable injection in Vite builds** - For TMX, environment variables must be explicitly passed during the build process: `SERVER="..." ENVIRONMENT="..." BASE_URL="..." pnpm build`. The vite-plugin-environment injects these at build time, not runtime.
 
 ### References
 

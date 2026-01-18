@@ -51,6 +51,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    ports:
+      - "4040:4040"  # LevelDB web interface
     volumes:
       - courthive-data:/app/data
       - courthive-cache:/app/cache
@@ -63,6 +65,7 @@ services:
       - JWT_SECRET=${COURTHIVE_JWT_SECRET}
       - JWT_VALIDITY=2h
       - TRACKER_CACHE=/app/cache
+      - REDIS_URL=redis://redis:6379
       - REDIS_TTL=28800000
       - REDIS_HOST=redis
       - REDIS_USERNAME=
@@ -72,6 +75,7 @@ services:
       - DB_PORT=3838
       - DB_USER=admin
       - DB_PASS=adminpass
+    command: sh -c "npx net-level-server & node build/main.js"
     networks:
       - tennis-network
     healthcheck:
