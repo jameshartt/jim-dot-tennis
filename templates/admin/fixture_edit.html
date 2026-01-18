@@ -13,15 +13,15 @@
     <header class="admin-header">
         <div class="container">
             <div class="breadcrumb">
-                <a href="/admin">Admin Dashboard</a> &gt; 
+                <a href="/admin/league">Admin Dashboard</a> &gt; 
                 {{if and .NavigationContext (eq .NavigationContext.from "team")}}
-                    <a href="/admin/teams">Teams</a> &gt; 
-                    <a href="/admin/teams/{{.NavigationContext.teamId}}">{{.NavigationContext.teamName}}</a> &gt; 
-                    <a href="/admin/fixtures/{{.FixtureDetail.ID}}">Fixture Detail</a> &gt; 
+                    <a href="/admin/league/teams">Teams</a> &gt; 
+                    <a href="/admin/league/teams/{{.NavigationContext.teamId}}">{{.NavigationContext.teamName}}</a> &gt; 
+                    <a href="/admin/league/fixtures/{{.FixtureDetail.ID}}">Fixture Detail</a> &gt; 
                     Edit Fixture
                 {{else}}
-                    <a href="/admin/fixtures">Fixtures</a> &gt; 
-                    <a href="/admin/fixtures/{{.FixtureDetail.ID}}">Fixture Detail</a> &gt; 
+                    <a href="/admin/league/fixtures">Fixtures</a> &gt; 
+                    <a href="/admin/league/fixtures/{{.FixtureDetail.ID}}">Fixture Detail</a> &gt; 
                     Edit Fixture
                 {{end}}
             </div>
@@ -32,7 +32,7 @@
         <div class="container">
             <div class="action-bar">
                 <h2>Edit Fixture</h2>
-                <a href="/admin/fixtures/{{.FixtureDetail.ID}}" class="btn-back">← Back to Fixture Detail</a>
+                <a href="/admin/league/fixtures/{{.FixtureDetail.ID}}" class="btn-back">← Back to Fixture Detail</a>
             </div>
 
             <div class="fixture-detail">
@@ -67,7 +67,7 @@
                     <div class="detail-section">
                         <h3>📅 Schedule Information</h3>
                         
-                        <form method="POST" action="/admin/fixtures/{{.FixtureDetail.ID}}/edit" class="fixture-edit-form">
+                        <form method="POST" action="/admin/league/fixtures/{{.FixtureDetail.ID}}/edit" class="fixture-edit-form">
                             <div class="form-group">
                                 <label for="scheduled_date">New Scheduled Date:</label>
                                 <input type="datetime-local" 
@@ -95,7 +95,7 @@
 
                             <div class="form-actions">
                                 <button type="submit" class="btn-primary">💾 Save Changes</button>
-                                <a href="/admin/fixtures/{{.FixtureDetail.ID}}" class="btn-secondary">Cancel</a>
+                                <a href="/admin/league/fixtures/{{.FixtureDetail.ID}}" class="btn-secondary">Cancel</a>
                             </div>
                         </form>
                     </div>

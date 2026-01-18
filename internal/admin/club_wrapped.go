@@ -562,7 +562,7 @@ func (h *ClubWrappedHandler) renderClubWrapped(w http.ResponseWriter, user inter
 	if err != nil {
 		log.Printf("Error parsing club wrapped template: %v", err)
 		renderFallbackHTML(w, "Season Wrapped", "St. Ann's Season Wrapped",
-			"Season wrapped coming soon", "/admin/dashboard")
+			"Season wrapped coming soon", "/admin/league/dashboard")
 		return
 	}
 

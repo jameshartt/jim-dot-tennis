@@ -289,7 +289,7 @@
     <header class="admin-header">
         <div class="container">
             <div class="breadcrumb">
-                <a href="/admin">Admin</a> / Match Card Import
+                <a href="/admin/league">Admin</a> / Match Card Import
             </div>
             <h1>🎾 Match Card Importation</h1>
             <p class="text-muted">Import completed match results from BHPLTA using automatic n-once extraction</p>
@@ -306,7 +306,7 @@
                                 <h3>Import Parameters</h3>
                             </div>
                             <div class="card-body">
-                                <form id="import-form" hx-post="/admin/match-card-import" hx-target="#import-results" hx-swap="innerHTML">
+                                <form id="import-form" hx-post="/admin/league/match-card-import" hx-target="#import-results" hx-swap="innerHTML">
                                     <div class="form-group">
                                         <label for="week">Week</label>
                                         <select class="form-control" id="week" name="week" required>

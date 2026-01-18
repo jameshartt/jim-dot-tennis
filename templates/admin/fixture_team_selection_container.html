@@ -434,7 +434,7 @@
             <div class="player-buttons">
                 {{range .TeamPlayers}}
                 <form method="post" style="display: inline;"
-                      hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
+                      hx-post="/admin/league/fixtures/{{$.FixtureDetail.ID}}/team-selection"
                       hx-target=".team-selection-container"
                       hx-swap="outerHTML">
                     <input type="hidden" name="action" value="add_player">
@@ -518,7 +518,7 @@
             <div class="player-buttons">
                 {{range .AllStAnnPlayers}}
                 <form method="post" style="display: inline;"
-                      hx-post="/admin/fixtures/{{$.FixtureDetail.ID}}/team-selection"
+                      hx-post="/admin/league/fixtures/{{$.FixtureDetail.ID}}/team-selection"
                       hx-target=".team-selection-container"
                       hx-swap="outerHTML">
                     <input type="hidden" name="action" value="add_player">

@@ -45,5 +45,5 @@ func (h *SessionsHandler) handleSessionsGet(w http.ResponseWriter, r *http.Reque
 	// TODO: Implement sessions view
 	// For now, render a simple placeholder page
 	renderFallbackHTML(w, "Admin - Sessions", "Session Management",
-		"Sessions management page - coming soon", "/admin")
+		"Sessions management page - coming soon", "/admin/league")
 }

@@ -71,7 +71,7 @@ func main() {
 
 	// Set up auth handlers
 	templateDir := filepath.Join(projectRoot, "templates")
-	authHandler := auth.NewHandler(authService, templateDir, "/admin")
+	authHandler := auth.NewHandler(authService, templateDir, "/admin/league")
 
 	// Set up admin handlers
 	adminHandler := admin.New(db, templateDir)

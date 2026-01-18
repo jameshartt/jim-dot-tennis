@@ -47,7 +47,7 @@ func (h *UsersHandler) handleUsersGet(w http.ResponseWriter, r *http.Request, us
 	// TODO: Implement users view
 	// For now, render a simple placeholder page
 	renderFallbackHTML(w, "Admin - Users", "User Management",
-		"User management page - coming soon", "/admin")
+		"User management page - coming soon", "/admin/league")
 }
 
 // handleUsersPost handles POST requests for user management

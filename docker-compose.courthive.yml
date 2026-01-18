@@ -1,0 +1,151 @@
+version: '3.8'
+
+services:
+  # Existing jim-dot-tennis app
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jim-dot-tennis
+    restart: unless-stopped
+    volumes:
+      - tennis-data:/app/data
+      - ./templates:/app/templates
+      - ./static:/app/static
+    environment:
+      - PORT=8080
+      - DB_TYPE=sqlite3
+      - DB_PATH=/app/data/tennis.db
+      - WRAPPED_ACCESS_PASSWORD=${WRAPPED_ACCESS_PASSWORD}
+    networks:
+      - tennis-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis for CourtHive
+  redis:
+    image: redis:7-alpine
+    container_name: courthive-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - tennis-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # CourtHive API Server
+  courthive-server:
+    build:
+      context: ../competition-factory-server
+      dockerfile: Dockerfile
+    container_name: courthive-server
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - courthive-data:/app/data
+      - courthive-cache:/app/cache
+    environment:
+      - APP_STORAGE=fileSystem
+      - APP_NAME=Competition Factory Server
+      - APP_MODE=production
+      - APP_PORT=8383
+      - JWT_SECRET=${COURTHIVE_JWT_SECRET}
+      - JWT_VALIDITY=2h
+      - TRACKER_CACHE=/app/cache
+      - REDIS_TTL=28800000
+      - REDIS_HOST=redis
+      - REDIS_USERNAME=
+      - REDIS_PASSWORD=
+      - REDIS_PORT=6379
+      - DB_HOST=localhost
+      - DB_PORT=3838
+      - DB_USER=admin
+      - DB_PASS=adminpass
+    networks:
+      - tennis-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8383/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Caddy reverse proxy with SSL
+  caddy:
+    image: caddy:2-alpine
+    container_name: tennis-caddy
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+      courthive-server:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile.courthive:/etc/caddy/Caddyfile
+      - ../TMX/dist:/srv/tournaments
+      - ../courthive-public/dist:/srv/public
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - tennis-network
+
+  # Backup service for jim-dot-tennis database
+  backup:
+    image: alpine:latest
+    container_name: jim-dot-tennis-backup
+    restart: unless-stopped
+    volumes:
+      - tennis-data:/data:ro
+      - tennis-backups:/backups
+    depends_on:
+      - app
+    environment:
+      - BACKUP_INTERVAL=86400
+      - BACKUP_RETENTION=30
+    command: >
+      sh -c '
+        apk add --no-cache sqlite tzdata &&
+        while true; do
+          DATE=$$(date +%Y-%m-%d-%H%M%S) &&
+          echo "Creating backup at $${DATE}" &&
+          mkdir -p /backups &&
+          sqlite3 /data/tennis.db ".backup /backups/tennis-$${DATE}.db" &&
+          echo "Backup completed" &&
+          find /backups -name "tennis-*.db" -type f -mtime +$${BACKUP_RETENTION} -delete &&
+          sleep $${BACKUP_INTERVAL};
+        done
+      '
+    networks:
+      - tennis-network
+
+networks:
+  tennis-network:
+    driver: bridge
+
+volumes:
+  tennis-data:
+    name: jim-dot-tennis-data
+  tennis-backups:
+    name: jim-dot-tennis-backups
+  redis-data:
+    name: courthive-redis-data
+  courthive-data:
+    name: courthive-data
+  courthive-cache:
+    name: courthive-cache
+  caddy-data:
+    name: caddy-data
+  caddy-config:
+    name: caddy-config

@@ -239,7 +239,7 @@
     <div class="admin-header">
         <div class="container">
             <div class="breadcrumb">
-                <a href="/admin/dashboard">Admin Dashboard</a> &gt; Player Management
+                <a href="/admin/league/dashboard">Admin Dashboard</a> &gt; Player Management
             </div>
         </div>
     </div>
@@ -247,7 +247,7 @@
     <div class="container admin-content">
         <div class="action-bar">
             <h2>All Players</h2>
-            <a href="/admin/players/new" class="btn-add">+ Add New Player</a>
+            <a href="/admin/league/players/new" class="btn-add">+ Add New Player</a>
         </div>
 
         <div class="filter-controls">
@@ -255,7 +255,7 @@
                 <label for="search">Search:</label>
                 <input type="text" id="search" name="q" placeholder="Search players..." 
                        value="{{.SearchQuery}}"
-                       hx-get="/admin/players/filter"
+                       hx-get="/admin/league/players/filter"
                        hx-target="#players-table"
                        hx-swap="outerHTML"
                        hx-trigger="keyup changed delay:300ms"
@@ -264,7 +264,7 @@
             <div>
                 <label for="filter-status">Filter:</label>
                 <select id="filter-status" name="status"
-                        hx-get="/admin/players/filter"
+                        hx-get="/admin/league/players/filter"
                         hx-target="#players-table"
                         hx-swap="outerHTML"
                         hx-trigger="change"
@@ -281,7 +281,7 @@
                             <label style="display:flex; align-items:center; gap:0.25rem;">
                                 <input type="checkbox" name="team_id" value="{{.Team.ID}}"
                                        {{range $.SelectedTeamIDs}}{{if eq . $.Team.ID}}checked{{end}}{{end}}
-                                       hx-get="/admin/players/filter"
+                                       hx-get="/admin/league/players/filter"
                                        hx-target="#players-table"
                                        hx-swap="outerHTML"
                                        hx-trigger="change"
@@ -300,7 +300,7 @@
                             <label style="display:flex; align-items:center; gap:0.25rem;">
                                 <input type="checkbox" name="division_id" value="{{.ID}}"
                                        {{range $.SelectedDivisionIDs}}{{if eq . $.ID}}checked{{end}}{{end}}
-                                       hx-get="/admin/players/filter"
+                                       hx-get="/admin/league/players/filter"
                                        hx-target="#players-table"
                                        hx-swap="outerHTML"
                                        hx-trigger="change"
@@ -337,7 +337,7 @@
                     {{range .Players}}
                     <tr data-player-id="{{.Player.ID}}" data-player-name="{{.Player.FirstName}} {{.Player.LastName}}" class="player-active">
                         <td class="col-name">
-                            <a href="/admin/players/{{.Player.ID}}/edit" class="row-link">{{.Player.FirstName}} {{.Player.LastName}}</a>
+                            <a href="/admin/league/players/{{.Player.ID}}/edit" class="row-link">{{.Player.FirstName}} {{.Player.LastName}}</a>
                         </td>
                         <td class="col-gender">
                             {{.Player.Gender}}
@@ -379,7 +379,7 @@
                 {{else}}
                     <tr>
                         <td colspan="4" style="text-align: center; padding: 2rem;">
-                            No players found. <a href="/admin/players/new">Add the first player</a>
+                            No players found. <a href="/admin/league/players/new">Add the first player</a>
                         </td>
                     </tr>
                 {{end}}

@@ -88,7 +88,7 @@ func (h *PointsHandler) HandlePointsTable(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		log.Printf("Error parsing points table template: %v", err)
 		renderFallbackHTML(w, "Points Table", "Points Table",
-			"Points table coming soon", "/admin/dashboard")
+			"Points table coming soon", "/admin/league/dashboard")
 		return
 	}
 

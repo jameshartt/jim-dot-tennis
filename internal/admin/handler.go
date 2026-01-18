@@ -50,51 +50,51 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux := http.NewServeMux()
 
 	// Dashboard route with full path
-	adminMux.HandleFunc("/admin/dashboard", h.dashboard.HandleDashboard)
-	adminMux.HandleFunc("/admin/dashboard/", h.dashboard.HandleDashboard)
+	adminMux.HandleFunc("/admin/league/dashboard", h.dashboard.HandleDashboard)
+	adminMux.HandleFunc("/admin/league/dashboard/", h.dashboard.HandleDashboard)
 
 	// Admin area routes with full paths
-	adminMux.HandleFunc("/admin/players", h.players.HandlePlayers)
-	adminMux.HandleFunc("/admin/players/", h.players.HandlePlayers)
-	adminMux.HandleFunc("/admin/players/filter", h.players.HandlePlayersFilter)
-	adminMux.HandleFunc("/admin/fixtures", h.fixtures.HandleFixtures)
-	adminMux.HandleFunc("/admin/fixtures/", h.fixtures.HandleFixtures)
-	adminMux.HandleFunc("/admin/fixtures/week-overview", h.fixtures.HandleFixtures)
-	adminMux.HandleFunc("/admin/users", h.users.HandleUsers)
-	adminMux.HandleFunc("/admin/users/", h.users.HandleUsers)
-	adminMux.HandleFunc("/admin/sessions", h.sessions.HandleSessions)
-	adminMux.HandleFunc("/admin/sessions/", h.sessions.HandleSessions)
-	adminMux.HandleFunc("/admin/teams", h.teams.HandleTeams)
-	adminMux.HandleFunc("/admin/teams/", h.teams.HandleTeams)
+	adminMux.HandleFunc("/admin/league/players", h.players.HandlePlayers)
+	adminMux.HandleFunc("/admin/league/players/", h.players.HandlePlayers)
+	adminMux.HandleFunc("/admin/league/players/filter", h.players.HandlePlayersFilter)
+	adminMux.HandleFunc("/admin/league/fixtures", h.fixtures.HandleFixtures)
+	adminMux.HandleFunc("/admin/league/fixtures/", h.fixtures.HandleFixtures)
+	adminMux.HandleFunc("/admin/league/fixtures/week-overview", h.fixtures.HandleFixtures)
+	adminMux.HandleFunc("/admin/league/users", h.users.HandleUsers)
+	adminMux.HandleFunc("/admin/league/users/", h.users.HandleUsers)
+	adminMux.HandleFunc("/admin/league/sessions", h.sessions.HandleSessions)
+	adminMux.HandleFunc("/admin/league/sessions/", h.sessions.HandleSessions)
+	adminMux.HandleFunc("/admin/league/teams", h.teams.HandleTeams)
+	adminMux.HandleFunc("/admin/league/teams/", h.teams.HandleTeams)
 
 	// Match card import routes
-	adminMux.HandleFunc("/admin/match-card-import", h.matchCardImport.HandleMatchCardImportation)
-	adminMux.HandleFunc("/admin/match-card-import/", h.matchCardImport.HandleMatchCardImportation)
+	adminMux.HandleFunc("/admin/league/match-card-import", h.matchCardImport.HandleMatchCardImportation)
+	adminMux.HandleFunc("/admin/league/match-card-import/", h.matchCardImport.HandleMatchCardImportation)
 
 	// Points table route
-	adminMux.HandleFunc("/admin/points-table", h.points.HandlePointsTable)
-	adminMux.HandleFunc("/admin/points-table/", h.points.HandlePointsTable)
+	adminMux.HandleFunc("/admin/league/points-table", h.points.HandlePointsTable)
+	adminMux.HandleFunc("/admin/league/points-table/", h.points.HandlePointsTable)
 
 	// Season wrapped routes
-	adminMux.HandleFunc("/admin/wrapped", h.clubWrapped.HandleWrapped)
-	adminMux.HandleFunc("/admin/wrapped/", h.clubWrapped.HandleWrapped)
+	adminMux.HandleFunc("/admin/league/wrapped", h.clubWrapped.HandleWrapped)
+	adminMux.HandleFunc("/admin/league/wrapped/", h.clubWrapped.HandleWrapped)
 
 	// Preferred name approval routes
-	adminMux.HandleFunc("/admin/preferred-names", h.service.HandlePreferredNameApprovals)
-	adminMux.HandleFunc("/admin/preferred-names/", h.service.HandlePreferredNameApprovals)
-	adminMux.HandleFunc("/admin/preferred-names/history", h.service.HandlePreferredNameHistory)
-	adminMux.HandleFunc("/admin/preferred-names/approve/", h.service.HandleApprovePreferredName)
-	adminMux.HandleFunc("/admin/preferred-names/reject/", h.service.HandleRejectPreferredName)
+	adminMux.HandleFunc("/admin/league/preferred-names", h.service.HandlePreferredNameApprovals)
+	adminMux.HandleFunc("/admin/league/preferred-names/", h.service.HandlePreferredNameApprovals)
+	adminMux.HandleFunc("/admin/league/preferred-names/history", h.service.HandlePreferredNameHistory)
+	adminMux.HandleFunc("/admin/league/preferred-names/approve/", h.service.HandleApprovePreferredName)
+	adminMux.HandleFunc("/admin/league/preferred-names/reject/", h.service.HandleRejectPreferredName)
 
 	// Register admin routes with authentication middleware
-	mux.Handle("/admin", authMiddleware.RequireAuth(
+	mux.Handle("/admin/league", authMiddleware.RequireAuth(
 		authMiddleware.RequireRole("admin")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Redirect /admin to /admin/dashboard
-			log.Printf("Redirecting to /admin/dashboard")
-			http.Redirect(w, r, "/admin/dashboard", http.StatusFound)
+			// Redirect /admin/league to /admin/league/dashboard
+			log.Printf("Redirecting to /admin/league/dashboard")
+			http.Redirect(w, r, "/admin/league/dashboard", http.StatusFound)
 		})),
 	))
-	mux.Handle("/admin/", authMiddleware.RequireAuth(
+	mux.Handle("/admin/league/", authMiddleware.RequireAuth(
 		authMiddleware.RequireRole("admin")(adminMux),
 	))
 }
