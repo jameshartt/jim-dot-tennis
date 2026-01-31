@@ -1,0 +1,64 @@
+{
+  "id": "WI-002",
+  "title": "Add general availability preferences",
+  "description": "Allow players to set general availability preferences (e.g., 'I'm generally unavailable on Thursdays' or 'I'm available all season'). This reduces the need for weekly updates and provides captains with better default information.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "L",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 3: Player Availability Management",
+  "acceptance_criteria": [
+    "Database table/fields added for general availability preferences",
+    "UI for players to set general availability (e.g., day-of-week preferences)",
+    "Option to set 'default available' or 'default unavailable' for the season",
+    "General preferences pre-fill the availability calendar but can be overridden",
+    "Captains can see if availability is from general preference or specific update",
+    "Migration script created for schema changes"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "migrations/014_add_general_availability_preferences.up.sql",
+      "migrations/014_add_general_availability_preferences.down.sql",
+      "templates/players/availability_preferences.html",
+      "internal/players/preferences.go"
+    ],
+    "files_to_modify": [
+      "internal/models/availability.go",
+      "internal/repository/availability.go",
+      "internal/players/handler.go"
+    ],
+    "schema_changes": {
+      "new_table": "player_availability_preferences",
+      "columns": [
+        "id (primary key)",
+        "player_id (foreign key)",
+        "day_of_week (0-6, nullable for season-wide)",
+        "default_status (available/unavailable)",
+        "effective_from (date)",
+        "effective_to (date, nullable)",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "routes_to_add": [
+      "GET /players/availability/preferences",
+      "POST /players/availability/preferences",
+      "DELETE /players/availability/preferences/:id"
+    ]
+  },
+  "testing_requirements": [
+    "Test setting day-of-week preferences",
+    "Test season-wide default preferences",
+    "Verify preferences pre-fill availability calendar",
+    "Test that specific updates override general preferences",
+    "Verify migration up and down work correctly"
+  ],
+  "context": {
+    "user_story": "As a player, I want to set my general availability so I don't have to update it every week if my schedule is consistent",
+    "related_docs": [
+      "docs/user_experience_requirements.md",
+      "docs/technical_implementation_plan.md"
+    ]
+  }
+}

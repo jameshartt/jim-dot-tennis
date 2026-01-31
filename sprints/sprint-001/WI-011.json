@@ -1,0 +1,57 @@
+{
+  "id": "WI-011",
+  "title": "Create fixture details and listing page",
+  "description": "Build a user-friendly fixture listing and details page that shows upcoming fixtures, past results, and fixture information. This serves both players and captains who need to see match schedules.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 5: Fixture Result Management",
+  "acceptance_criteria": [
+    "Fixture listing page shows upcoming and past fixtures",
+    "Filter fixtures by week, division, team",
+    "Fixture details page shows full match information",
+    "Display home/away teams, venue, date/time",
+    "Show selected players (if captain) or player's own selection status",
+    "Show match results if completed",
+    "Mobile-responsive design",
+    "Shareable links to specific fixtures"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/fixtures/list.html",
+      "templates/fixtures/details.html",
+      "internal/fixtures/handler.go",
+      "internal/fixtures/service.go"
+    ],
+    "files_to_modify": [
+      "cmd/jim-dot-tennis/main.go (add fixture routes)"
+    ],
+    "routes_to_add": [
+      "GET /fixtures (listing)",
+      "GET /fixtures/:id (details)",
+      "GET /fixtures/week/:week (filter by week)"
+    ],
+    "query_logic": [
+      "Join fixtures with teams, divisions, venues",
+      "Include fixture_players if user is captain of the team",
+      "Filter based on query parameters",
+      "Order by date ascending for upcoming, descending for past"
+    ]
+  },
+  "testing_requirements": [
+    "Test fixture listing shows correct fixtures",
+    "Test filtering by week and division",
+    "Test fixture details page loads correctly",
+    "Verify captains see selected players",
+    "Verify regular players see only their selection status",
+    "Test mobile responsiveness"
+  ],
+  "context": {
+    "user_story": "As a player or captain, I want to see a list of fixtures and click for details so I can plan my schedule and see match information",
+    "related_docs": [
+      "docs/user_experience_requirements.md"
+    ]
+  }
+}

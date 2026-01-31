@@ -1,0 +1,56 @@
+{
+  "id": "WI-009",
+  "title": "Implement PWA installation prompt flow",
+  "description": "Add UI to prompt users to install the app as a PWA on their home screen. This improves engagement and makes the app feel more native, especially important for push notifications on iOS.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 4: PWA and Push Notifications",
+  "acceptance_criteria": [
+    "Installation prompt appears after user has used app 2-3 times",
+    "Prompt uses beforeinstallprompt event on Chrome/Edge",
+    "Custom prompt for iOS Safari with instructions",
+    "User can dismiss prompt and it doesn't re-appear for 7 days",
+    "Installation status tracked (installed via PWA or not)",
+    "Prompt is mobile-friendly and non-intrusive"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "static/js/pwa-install.js",
+      "templates/components/pwa_install_prompt.html"
+    ],
+    "files_to_modify": [
+      "templates/layout.html",
+      "static/manifest.json (verify completeness)"
+    ],
+    "client_side_logic": [
+      "Listen for beforeinstallprompt event",
+      "Store prompt event for later use",
+      "Show custom UI after user engagement threshold",
+      "Trigger prompt.prompt() on user click",
+      "Detect iOS and show iOS-specific instructions",
+      "Use localStorage to track dismissals and installation"
+    ],
+    "manifest_requirements": [
+      "Verify manifest.json has all required fields",
+      "Icons for different sizes (192x192, 512x512)",
+      "start_url, display: standalone",
+      "Theme and background colors"
+    ]
+  },
+  "testing_requirements": [
+    "Test installation flow on Android Chrome",
+    "Test custom prompt on iOS Safari",
+    "Verify dismissal tracking works",
+    "Test that prompt doesn't show again after installation",
+    "Verify manifest.json is valid"
+  ],
+  "context": {
+    "user_story": "As a mobile user, I want to install the app on my home screen so I can access it quickly and receive push notifications reliably",
+    "related_docs": [
+      "docs/technical_implementation_plan.md"
+    ]
+  }
+}

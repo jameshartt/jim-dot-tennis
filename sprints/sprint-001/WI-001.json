@@ -1,0 +1,52 @@
+{
+  "id": "WI-001",
+  "title": "Implement player profile view page",
+  "description": "Create a player profile page that displays player information, their team assignments, availability history, and upcoming fixtures. This provides players with a central dashboard to see their status.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 3: Player Availability Management",
+  "acceptance_criteria": [
+    "Player profile page accessible at /players/profile or /my-profile",
+    "Displays player name, club affiliation, and teams",
+    "Shows upcoming fixtures player is eligible for",
+    "Shows availability status for each upcoming fixture",
+    "Shows historical availability patterns",
+    "Mobile-responsive layout",
+    "Uses existing auth middleware for player access"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/players/profile.html",
+      "internal/players/profile.go"
+    ],
+    "files_to_modify": [
+      "internal/players/handler.go"
+    ],
+    "repositories_needed": [
+      "PlayerRepository",
+      "AvailabilityRepository",
+      "TeamRepository",
+      "FixtureRepository"
+    ],
+    "routes_to_add": [
+      "GET /players/profile",
+      "GET /my-profile (redirect to /players/profile)"
+    ]
+  },
+  "testing_requirements": [
+    "Verify profile loads for authenticated players",
+    "Test with players in multiple teams",
+    "Test with players with no availability history",
+    "Verify mobile responsiveness"
+  ],
+  "context": {
+    "user_story": "As a player, I want to see my profile with my teams and upcoming fixtures so I can quickly understand my commitments",
+    "related_docs": [
+      "docs/user_experience_requirements.md",
+      "docs/project_overview.md"
+    ]
+  }
+}

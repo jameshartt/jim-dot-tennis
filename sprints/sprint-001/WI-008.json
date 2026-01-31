@@ -1,0 +1,59 @@
+{
+  "id": "WI-008",
+  "title": "Build captain selection overview dashboard",
+  "description": "Create a dashboard for captains to see team selection status across all divisions. Division 1 captains pick first, then Division 2 can see Division 1 selections, etc. This enables the hierarchical selection process.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 2: Captain Selection Tools",
+  "acceptance_criteria": [
+    "Dashboard shows upcoming fixtures for captain's division",
+    "Shows which players have been selected by 'higher' divisions",
+    "Shows which players are available but not yet selected",
+    "Division 1 captains see all available players",
+    "Division 2+ captains see available players excluding those selected by higher divisions",
+    "Visual indicators for selection status (selected by D1, selected by D2, available, unavailable)",
+    "Real-time or near-real-time updates when selections change",
+    "Mobile-responsive layout"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/admin/selection_overview.html",
+      "internal/admin/selection_overview.go"
+    ],
+    "files_to_modify": [
+      "internal/admin/handler.go",
+      "internal/admin/service.go"
+    ],
+    "query_logic": [
+      "For a given week and captain's team, determine division rank",
+      "Get all players in club eligible for division",
+      "Check fixture_players for selections in higher-ranked divisions",
+      "Return availability status with selection info"
+    ],
+    "routes_to_add": [
+      "GET /admin/league/selection-overview",
+      "GET /admin/league/selection-overview/:week"
+    ],
+    "htmx_usage": [
+      "Use HTMX polling or SSE for real-time selection updates",
+      "hx-get with hx-trigger='every 30s' for simple polling"
+    ]
+  },
+  "testing_requirements": [
+    "Test Division 1 captain sees all available players",
+    "Test Division 2 captain sees D1 selections greyed out",
+    "Test Division 3 captain sees D1 and D2 selections",
+    "Verify real-time updates when other captains make selections",
+    "Test mobile responsiveness"
+  ],
+  "context": {
+    "user_story": "As a Division 2 captain, I want to see which players Division 1 has selected so I can choose from the remaining available players",
+    "related_docs": [
+      "docs/user_experience_requirements.md",
+      "docs/project_overview.md"
+    ]
+  }
+}

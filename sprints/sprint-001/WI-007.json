@@ -1,0 +1,52 @@
+{
+  "id": "WI-007",
+  "title": "Create availability reminder notification system",
+  "description": "Implement automated notifications to remind players to update their availability before deadlines. This ensures captains have up-to-date information for team selection.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-005"],
+  "phase": "Phase 4: PWA and Push Notifications",
+  "acceptance_criteria": [
+    "Background job runs daily to check for upcoming fixtures without player availability",
+    "Sends reminders 7 days and 3 days before fixture",
+    "Only sends to players who haven't updated availability for that specific fixture",
+    "Reminder includes fixture details and deep link to availability form",
+    "Players can configure reminder preferences (e.g., opt-out, custom timing)",
+    "Job logs execution and notifications sent"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "internal/jobs/availability_reminder.go",
+      "cmd/jobs/main.go"
+    ],
+    "files_to_modify": [
+      "cmd/jim-dot-tennis/main.go (add job scheduler)"
+    ],
+    "job_logic": [
+      "Query fixtures in next 7 days without player availability",
+      "For each fixture, get list of eligible players",
+      "Filter out players who already updated availability",
+      "Send notification to remaining players",
+      "Track last reminder sent to prevent duplicates"
+    ],
+    "scheduler_options": [
+      "Use time.Ticker for simple daily cron",
+      "Or integrate github.com/robfig/cron for more flexibility"
+    ]
+  },
+  "testing_requirements": [
+    "Test job identifies correct players needing reminders",
+    "Test notification sent at correct intervals",
+    "Test players who update availability stop receiving reminders",
+    "Verify job runs on schedule"
+  ],
+  "context": {
+    "user_story": "As a captain, I want players to be reminded to update availability so I have current information when selecting teams",
+    "related_docs": [
+      "docs/user_experience_requirements.md",
+      "docs/project_overview.md"
+    ]
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "id": "WI-006",
+  "title": "Add selection confirmation notifications",
+  "description": "When captains select players for fixtures, automatically send push notifications to selected players informing them of their selection and fixture details.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "S",
+  "parallelisable": false,
+  "dependencies": ["WI-005"],
+  "phase": "Phase 2: Captain Selection Tools",
+  "acceptance_criteria": [
+    "When captain adds player to fixture, notification sent to player",
+    "Notification includes fixture details (date, time, opponent, venue)",
+    "Notification includes deep link back to fixture details page",
+    "When captain removes player from fixture, notification sent",
+    "Notification only sent if player has push notifications enabled",
+    "Fallback: email notification if push not available (future enhancement noted)"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/admin/fixtures.go",
+      "internal/admin/service.go"
+    ],
+    "integration_points": [
+      "Hook into existing fixture player assignment logic",
+      "Call notification service after successful player assignment",
+      "Use notification templates from WI-005"
+    ],
+    "notification_content": {
+      "title": "You've been selected!",
+      "body": "You're playing for {team} vs {opponent} on {date}",
+      "data": {
+        "type": "selection",
+        "fixtureId": "123",
+        "url": "/fixtures/{id}"
+      }
+    }
+  },
+  "testing_requirements": [
+    "Test notification sent when player added to fixture",
+    "Test notification sent when player removed from fixture",
+    "Verify notification content is correct",
+    "Test that no notification sent if player doesn't have subscription"
+  ],
+  "context": {
+    "user_story": "As a player, I want to be notified when I'm selected for a match so I know immediately and can plan accordingly",
+    "related_docs": [
+      "docs/user_experience_requirements.md",
+      "docs/project_overview.md"
+    ]
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "id": "WI-012",
+  "title": "Add WhatsApp sharing for fixture details",
+  "description": "Implement one-tap WhatsApp sharing of fixture details, selected teams, and availability status. This integrates with existing communication workflows and makes it easy to share match information.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": ["WI-011"],
+  "phase": "Phase 5: Fixture Result Management",
+  "acceptance_criteria": [
+    "Share button on fixture details page",
+    "Share button on fixture listing page",
+    "Generates formatted text message with fixture info",
+    "Opens WhatsApp with pre-filled message",
+    "Works on mobile and desktop",
+    "Different message templates for captains (includes full team) vs players",
+    "Includes deep link back to fixture page"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "templates/fixtures/details.html",
+      "templates/fixtures/list.html"
+    ],
+    "files_to_create": [
+      "static/js/whatsapp-share.js",
+      "internal/fixtures/whatsapp_formatter.go"
+    ],
+    "whatsapp_url_format": [
+      "whatsapp://send?text={encoded_message} (mobile)",
+      "https://web.whatsapp.com/send?text={encoded_message} (desktop)"
+    ],
+    "message_template": [
+      "Fixture: {home_team} vs {away_team}",
+      "Date: {date} at {time}",
+      "Venue: {venue}",
+      "Selected team: {player_names}",
+      "View details: {deep_link}"
+    ],
+    "implementation_approach": [
+      "Server-side endpoint to generate formatted message",
+      "Client-side button to trigger share",
+      "Detect mobile vs desktop for correct WhatsApp URL"
+    ]
+  },
+  "testing_requirements": [
+    "Test share on mobile opens WhatsApp app",
+    "Test share on desktop opens WhatsApp Web",
+    "Verify message formatting is correct",
+    "Test captain template includes full team",
+    "Test player template includes personal status",
+    "Verify deep link works"
+  ],
+  "context": {
+    "user_story": "As a captain, I want to share team selection via WhatsApp so I can quickly inform my team about upcoming matches",
+    "related_docs": [
+      "docs/user_experience_requirements.md",
+      "docs/project_overview.md"
+    ]
+  }
+}

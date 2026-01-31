@@ -1,0 +1,55 @@
+{
+  "id": "WI-004",
+  "title": "Build push notification subscription flow",
+  "description": "Implement the client-side flow for users to subscribe to push notifications. This includes requesting permission, subscribing to the push service, and sending subscription info to the server.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 4: PWA and Push Notifications",
+  "acceptance_criteria": [
+    "Browser prompts user for notification permission on first visit or when clicking 'Enable Notifications'",
+    "Service worker registers push subscription with browser",
+    "Subscription details (endpoint, keys) sent to server and stored in database",
+    "User can unsubscribe from notifications",
+    "Subscription status visible in user settings/profile",
+    "Works on Chrome, Firefox, Safari (iOS 16.4+)"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "static/js/push-notifications.js"
+    ],
+    "files_to_modify": [
+      "static/service-worker.js",
+      "templates/layout.html",
+      "internal/webpush/handlers.go"
+    ],
+    "client_side_logic": [
+      "Check if notifications are supported",
+      "Request notification permission",
+      "Subscribe to push manager using VAPID public key",
+      "Send subscription to /api/push/subscribe endpoint",
+      "Handle subscription errors gracefully"
+    ],
+    "existing_endpoints": [
+      "POST /api/push/subscribe (already exists in webpush/handlers.go)",
+      "POST /api/push/unsubscribe (already exists)"
+    ]
+  },
+  "testing_requirements": [
+    "Test subscription flow on desktop Chrome",
+    "Test subscription flow on mobile Safari",
+    "Test unsubscribe flow",
+    "Verify subscription persists in database",
+    "Test permission denial handling"
+  ],
+  "context": {
+    "user_story": "As a user, I want to enable push notifications so I can receive timely updates about availability deadlines and team selection",
+    "related_docs": [
+      "docs/user_experience_requirements.md",
+      "docs/technical_implementation_plan.md"
+    ],
+    "existing_code": "Push subscription handlers already exist in internal/webpush/handlers.go, need to wire up client-side"
+  }
+}

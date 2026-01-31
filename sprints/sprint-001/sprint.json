@@ -1,0 +1,35 @@
+{
+  "sprint": {
+    "id": "sprint-001",
+    "name": "Player Experience & Notifications MVP",
+    "goal": "Complete core player availability features and implement push notification system to enable MVP launch",
+    "start_date": "2026-02-03",
+    "end_date": "2026-02-17",
+    "duration_weeks": 2,
+    "focus_areas": [
+      "Player availability management",
+      "Push notification pipeline",
+      "PWA capabilities",
+      "Captain selection improvements"
+    ],
+    "phases_addressed": [
+      "Phase 3: Player Availability Management",
+      "Phase 4: PWA and Push Notifications",
+      "Phase 2: Captain Selection Tools"
+    ],
+    "work_items": [
+      "WI-001",
+      "WI-002",
+      "WI-003",
+      "WI-004",
+      "WI-005",
+      "WI-006",
+      "WI-007",
+      "WI-008",
+      "WI-009",
+      "WI-010",
+      "WI-011",
+      "WI-012"
+    ]
+  }
+}

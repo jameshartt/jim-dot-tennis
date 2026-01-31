@@ -1,0 +1,52 @@
+{
+  "id": "WI-005",
+  "title": "Implement push notification sending service",
+  "description": "Build server-side service to send push notifications to subscribed users. This includes notification templating, targeting specific users or groups, and handling send failures.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-004"],
+  "phase": "Phase 4: PWA and Push Notifications",
+  "acceptance_criteria": [
+    "Service can send push notification to individual user by player ID or user ID",
+    "Service can send push notification to groups (e.g., all team captains, all Division 1 players)",
+    "Notification templates for common events (availability reminder, team selection, fixture reminder)",
+    "Failed subscriptions are removed from database (410 Gone responses)",
+    "Notification history/log for debugging",
+    "Rate limiting to prevent spam"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/webpush/webpush.go"
+    ],
+    "files_to_create": [
+      "internal/webpush/notification_service.go",
+      "internal/webpush/notification_templates.go"
+    ],
+    "new_methods": [
+      "SendToPlayer(playerID, title, body, data)",
+      "SendToTeam(teamID, title, body, data)",
+      "SendToRole(role, title, body, data)",
+      "SendAvailabilityReminder(playerID, fixtureID)",
+      "SendSelectionNotification(playerID, fixtureID, selected bool)"
+    ],
+    "libraries": [
+      "github.com/SherClockHolmes/webpush-go (already in go.mod)"
+    ]
+  },
+  "testing_requirements": [
+    "Test sending to individual user",
+    "Test sending to multiple users",
+    "Verify failed subscription cleanup",
+    "Test notification templates render correctly",
+    "Verify rate limiting works"
+  ],
+  "context": {
+    "user_story": "As a system, I need to send push notifications to users based on events so they stay informed about availability deadlines and selections",
+    "related_docs": [
+      "docs/technical_implementation_plan.md"
+    ],
+    "existing_code": "Basic VAPID key generation exists in internal/webpush/webpush.go, need to build on top"
+  }
+}

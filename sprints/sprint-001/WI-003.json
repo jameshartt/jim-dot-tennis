@@ -1,0 +1,47 @@
+{
+  "id": "WI-003",
+  "title": "Implement availability exception handling",
+  "description": "Add ability for players to set exceptions to their general availability (e.g., 'I'm usually available on Tuesdays but not available on March 15'). This provides flexibility while maintaining general patterns.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-002"],
+  "phase": "Phase 3: Player Availability Management",
+  "acceptance_criteria": [
+    "Players can mark specific dates as exceptions to general availability",
+    "UI clearly shows which dates are exceptions vs. general preferences",
+    "Exceptions take priority over general availability preferences",
+    "Players can remove exceptions",
+    "Exception status is visible to captains when viewing availability"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/models/availability.go",
+      "internal/repository/availability.go",
+      "internal/players/availability.go",
+      "templates/players/availability_form.html"
+    ],
+    "logic_changes": [
+      "Availability calculation must check: specific date > exception > general preference > default",
+      "Add 'is_exception' flag to player_availability table or use existing fields",
+      "Update availability display logic to show exception indicators"
+    ],
+    "routes_to_modify": [
+      "POST /players/availability (handle exception flag)",
+      "GET /players/availability (return exception status)"
+    ]
+  },
+  "testing_requirements": [
+    "Test setting exception on a date with general availability",
+    "Verify exception takes priority in captain views",
+    "Test removing exceptions",
+    "Verify exception indicators display correctly"
+  ],
+  "context": {
+    "user_story": "As a player with regular availability, I want to mark exceptions for specific dates so I can handle one-off conflicts without changing my general pattern",
+    "related_docs": [
+      "docs/user_experience_requirements.md"
+    ]
+  }
+}

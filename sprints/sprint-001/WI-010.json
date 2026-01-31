@@ -1,0 +1,55 @@
+{
+  "id": "WI-010",
+  "title": "Add offline availability update with background sync",
+  "description": "Enable players to submit availability updates while offline, which are automatically synced when connection is restored. This handles poor network conditions at tennis clubs.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 4: PWA and Push Notifications",
+  "acceptance_criteria": [
+    "Availability form submissions queue in service worker when offline",
+    "Background Sync API syncs queued updates when online",
+    "User sees visual feedback that update is pending sync",
+    "User sees confirmation when sync completes",
+    "Failed syncs retry up to 3 times",
+    "User can view queued updates before they sync",
+    "Fallback for browsers without Background Sync API"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "static/service-worker.js",
+      "static/js/availability.js (create if doesn't exist)"
+    ],
+    "service_worker_logic": [
+      "Intercept fetch requests to availability update endpoint",
+      "When offline, store request in IndexedDB",
+      "Register sync event with tag 'availability-sync'",
+      "On sync event, replay stored requests",
+      "Remove from IndexedDB on successful sync"
+    ],
+    "client_side_logic": [
+      "Show 'pending sync' indicator when offline submission detected",
+      "Listen for sync success/failure messages from service worker",
+      "Update UI when sync completes"
+    ],
+    "fallback": [
+      "For browsers without Background Sync, use periodic checks when online"
+    ]
+  },
+  "testing_requirements": [
+    "Test offline form submission queues update",
+    "Test sync occurs when connection restored",
+    "Test multiple queued updates sync in order",
+    "Test sync failure retry logic",
+    "Verify fallback works in Safari"
+  ],
+  "context": {
+    "user_story": "As a player at the tennis club with spotty WiFi, I want to update my availability even when offline so I don't forget and can do it whenever convenient",
+    "related_docs": [
+      "docs/technical_implementation_plan.md",
+      "docs/user_experience_requirements.md"
+    ]
+  }
+}
