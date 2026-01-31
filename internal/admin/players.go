@@ -104,9 +104,21 @@ func (h *PlayersHandler) handlePlayersGet(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Load St Ann's teams and all divisions for filter dropdowns
-	_, stAnnsTeams, _ := h.service.GetStAnnsTeams()
-	divisions, _ := h.service.GetAllDivisions()
+	// Load St Ann's teams and divisions for the active season filter dropdowns
+	var stAnnsTeams []TeamWithRelations
+	var divisions []models.Division
+	if activeSeason, err := h.service.GetActiveSeason(); err == nil && activeSeason != nil {
+		_, allTeams, _ := h.service.GetStAnnsTeams()
+		for _, t := range allTeams {
+			if t.Team.SeasonID == activeSeason.ID {
+				stAnnsTeams = append(stAnnsTeams, t)
+			}
+		}
+		divisions, _ = h.service.GetDivisionsBySeason(activeSeason.ID)
+	} else {
+		_, stAnnsTeams, _ = h.service.GetStAnnsTeams()
+		divisions, _ = h.service.GetAllDivisions()
+	}
 
 	// Load the players template
 	tmpl, err := parseTemplate(h.templateDir, "admin/players.html")
@@ -566,17 +578,33 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 	// We now return the FULL table (thead + tbody) so headers can change with dynamic columns
 	w.Header().Set("Content-Type", "text/html")
 
-	// Build helper maps for header labels
+	// Build helper maps for header labels (filtered to active season)
 	teamNameByID := make(map[uint]string)
 	if _, teams, err := h.service.GetStAnnsTeams(); err == nil {
-		for _, twr := range teams {
-			teamNameByID[twr.Team.ID] = twr.Team.Name
+		if activeSeason, sErr := h.service.GetActiveSeason(); sErr == nil && activeSeason != nil {
+			for _, twr := range teams {
+				if twr.Team.SeasonID == activeSeason.ID {
+					teamNameByID[twr.Team.ID] = twr.Team.Name
+				}
+			}
+		} else {
+			for _, twr := range teams {
+				teamNameByID[twr.Team.ID] = twr.Team.Name
+			}
 		}
 	}
 	divisionNameByID := make(map[uint]string)
-	if divs, err := h.service.GetAllDivisions(); err == nil {
-		for _, d := range divs {
-			divisionNameByID[d.ID] = d.Name
+	if activeSeason, sErr := h.service.GetActiveSeason(); sErr == nil && activeSeason != nil {
+		if divs, err := h.service.GetDivisionsBySeason(activeSeason.ID); err == nil {
+			for _, d := range divs {
+				divisionNameByID[d.ID] = d.Name
+			}
+		}
+	} else {
+		if divs, err := h.service.GetAllDivisions(); err == nil {
+			for _, d := range divs {
+				divisionNameByID[d.ID] = d.Name
+			}
 		}
 	}
 
