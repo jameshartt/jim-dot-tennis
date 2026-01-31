@@ -211,201 +211,6 @@
             margin-bottom: 20px;
         }
 
-        .general-availability-container {
-            margin-top: 20px;
-        }
-
-        .general-availability-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 15px;
-            max-width: 900px;
-            margin: 0 auto;
-        }
-
-        .general-day-card {
-            background: white;
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            transition: box-shadow 0.2s ease;
-        }
-
-        .general-day-card:hover {
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        .general-day-name {
-            font-size: 16px;
-            font-weight: 600;
-            color: #2c5530;
-            margin-bottom: 10px;
-        }
-
-        .general-status-buttons {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .general-status-btn {
-            flex: 1;
-            min-width: 60px;
-            padding: 8px 12px;
-            border: 2px solid #ddd;
-            background: white;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .general-status-btn:hover {
-            border-color: #4a7c59;
-        }
-
-        .general-status-btn.active {
-            font-weight: 600;
-        }
-
-        .general-status-btn.available.active {
-            background: #d4edda;
-            border-color: #4a7c59;
-            color: #155724;
-        }
-
-        .general-status-btn.if-needed.active {
-            background: #fff3cd;
-            border-color: #ffc107;
-            color: #856404;
-        }
-
-        .general-status-btn.unavailable.active {
-            background: #f8d7da;
-            border-color: #dc3545;
-            color: #721c24;
-        }
-
-        .general-status-btn.clear.active {
-            background: #e9ecef;
-            border-color: #6c757d;
-            color: #495057;
-        }
-
-        .exceptions-container {
-            margin-top: 20px;
-        }
-
-        .exception-form-container {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .btn-add-exception {
-            background: #4a7c59;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        }
-
-        .btn-add-exception:hover {
-            background: #3d6849;
-        }
-
-        .exceptions-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .exception-card {
-            background: white;
-            border-radius: 8px;
-            padding: 16px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: box-shadow 0.2s ease;
-        }
-
-        .exception-card:hover {
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        .exception-info {
-            flex: 1;
-        }
-
-        .exception-dates {
-            font-size: 16px;
-            font-weight: 600;
-            color: #2c5530;
-            margin-bottom: 4px;
-        }
-
-        .exception-status {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 600;
-            margin-right: 8px;
-        }
-
-        .exception-status.available {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .exception-status.if-needed {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .exception-status.unavailable {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .exception-reason {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .exception-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .btn-delete-exception {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            font-size: 13px;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        }
-
-        .btn-delete-exception:hover {
-            background: #c82333;
-        }
-
-        .no-exceptions {
-            text-align: center;
-            padding: 30px;
-            color: #666;
-            font-style: italic;
-        }
-        
         .section-title {
             font-size: 20px;
             font-weight: bold;
@@ -828,11 +633,12 @@
             background: white;
             border-radius: 12px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            width: 90%;
+            width: calc(100% - 40px);
             max-width: 450px;
             position: relative;
             z-index: 1001;
             animation: modalSlideIn 0.3s ease-out;
+            margin: 0 auto;
         }
         
         @keyframes modalSlideIn {
@@ -900,7 +706,7 @@
         }
         
         .date-input-group {
-            margin: 20px 0;
+            margin: 15px 0;
         }
         
         .date-input-group label {
@@ -912,11 +718,16 @@
         
         .return-date-input {
             width: 100%;
+            max-width: 100%;
             padding: 12px 15px;
             border: 2px solid #e9ecef;
             border-radius: 8px;
             font-size: 16px;
             transition: border-color 0.2s ease;
+            box-sizing: border-box;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
         }
         
         .return-date-input:focus {
@@ -1042,15 +853,15 @@
             .calendar-day {
                 min-height: 50px;
             }
-            
+
             .day-number {
                 font-size: 14px;
             }
-            
+
             .day-type {
                 font-size: 9px;
             }
-            
+
             .legend {
                 gap: 15px;
             }
@@ -1068,20 +879,23 @@
                 width: 100%;
                 max-width: 300px;
             }
-            
+
             .modal-content {
-                width: 95%;
-                margin: 20px;
+                width: calc(100% - 30px);
             }
-            
+
             .modal-header {
                 padding: 15px 20px 0;
             }
             
             .modal-body {
-                padding: 0 20px 15px;
+                padding: 0 15px 15px;
             }
-            
+
+            .date-input-group {
+                margin: 12px 0;
+            }
+
             .modal-actions {
                 padding: 15px 20px 20px;
                 flex-direction: column;
@@ -1204,11 +1018,11 @@
             .calendar-day {
                 min-height: 45px;
             }
-            
+
             .day-number {
                 font-size: 13px;
             }
-            
+
             .legend {
                 gap: 12px;
                 padding: 12px;
@@ -1265,11 +1079,11 @@
                 min-height: 30px;
                 font-size: 10px;
             }
-            
+
             .day-number {
                 font-size: 11px;
             }
-            
+
             .legend {
                 gap: 8px;
                 padding: 8px;
@@ -1376,15 +1190,15 @@
             .calendar-day {
                 min-height: 40px;
             }
-            
+
             .day-number {
                 font-size: 12px;
             }
-            
+
             .day-type {
                 font-size: 8px;
             }
-            
+
             .calendar-day.fixture-day::after {
                 font-size: 8px;
                 top: 1px;
@@ -1426,20 +1240,27 @@
                 font-size: 14px;
                 margin: 0 10px;
             }
-            
+
             .modal-content {
-                width: 98%;
-                margin: 10px;
+                width: calc(100% - 20px);
             }
-            
+
+            .modal-header {
+                padding: 10px 10px 0;
+            }
+
             .modal-header h3 {
-                font-size: 18px;
+                font-size: 17px;
             }
-            
+
             .modal-body {
-                padding: 0 15px 12px;
+                padding: 0 10px 10px;
             }
-            
+
+            .date-input-group {
+                margin: 8px 0;
+            }
+
             .modal-body p {
                 font-size: 14px;
             }
@@ -1449,10 +1270,16 @@
             }
             
             .return-date-input {
-                padding: 10px 12px;
+                padding: 6px 8px;
                 font-size: 14px;
+                border-width: 1px;
             }
-            
+
+            .date-input-group label {
+                font-size: 13px;
+                margin-bottom: 6px;
+            }
+
             .modal-actions {
                 padding: 12px 15px 15px;
             }
@@ -1476,43 +1303,6 @@
             <h2 class="section-title">Your Upcoming Fixtures</h2>
             <div id="upcoming-fixtures-container">
                 <div class="fixtures-loading">Loading your fixture information...</div>
-            </div>
-        </div>
-
-        <div class="availability-section">
-            <h2 class="section-title">General Availability Preferences</h2>
-            <p class="availability-instructions">
-                Set your default availability by day of the week. These preferences serve as defaults that can be overridden by specific dates below.
-            </p>
-
-            <div class="general-availability-container">
-                <div class="general-availability-grid" id="general-availability-grid">
-                    <!-- Loading state -->
-                    <div id="general-availability-loading" style="text-align: center; padding: 20px; color: #666;">
-                        Loading preferences...
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="availability-section">
-            <h2 class="section-title">Availability Exceptions</h2>
-            <p class="availability-instructions">
-                Set date range exceptions for special circumstances (e.g., vacation, injury). These override both general preferences and single-day availability.
-            </p>
-
-            <div class="exceptions-container">
-                <div class="exception-form-container">
-                    <button type="button" class="btn-add-exception" onclick="showExceptionModal()">
-                        + Add Exception
-                    </button>
-                </div>
-
-                <div id="exceptions-list" class="exceptions-list">
-                    <div style="text-align: center; padding: 20px; color: #666;">
-                        Loading exceptions...
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -1559,14 +1349,15 @@
                 <button type="button" class="btn-quick-action" onclick="setWeekAvailability('unavailable', 1)">
                     Set Next Week Unavailable
                 </button>
-                <button type="button" class="btn-quick-action btn-injury" onclick="showInjuryModal()">
-                    🩹 Report Injury
+                <button type="button" class="btn-quick-action" onclick="showExceptionModal()" style="background: #4a7c59;">
+                    📅 Mark Time Away
                 </button>
                 <button type="button" class="btn-quick-action" onclick="showPreferredNameModal()" style="background: #6f42c1;">
                     📝 Request Preferred Name
                 </button>
             </div>
         </div>
+
                 <div class="fantasy-match-card" id="fantasy-match-card" onclick="toggleFantasyMatch()">
             <div class="match-header">
                 <h1 class="match-title">
@@ -1639,30 +1430,7 @@
             </div>
         </div>
     </div>
-    
-    <!-- Injury Modal -->
-    <div id="injuryModal" class="injury-modal" style="display: none;">
-        <div class="modal-overlay" onclick="hideInjuryModal()"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>🩹 Report Injury</h3>
-                <button class="modal-close" onclick="hideInjuryModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p>Sorry to hear you're injured! When do you expect to be ready to play again?</p>
-                <div class="date-input-group">
-                    <label for="returnDate">Expected return date:</label>
-                    <input type="date" id="returnDate" class="return-date-input">
-                </div>
-                <p class="injury-note">We'll mark you as unavailable until then. You can always update this later if your recovery time changes.</p>
-            </div>
-            <div class="modal-actions">
-                <button type="button" class="btn-modal-cancel" onclick="hideInjuryModal()">Cancel</button>
-                <button type="button" class="btn-modal-confirm" onclick="reportInjury()">Mark as Injured</button>
-            </div>
-        </div>
-    </div>
-    
+
     <!-- Preferred Name Modal -->
     <div id="preferredNameModal" class="injury-modal" style="display: none;">
         <div class="modal-overlay" onclick="hidePreferredNameModal()"></div>
@@ -1714,7 +1482,7 @@
         <div class="modal-overlay" onclick="hideExceptionModal()"></div>
         <div class="modal-content">
             <div class="modal-header">
-                <h3>📅 Add Availability Exception</h3>
+                <h3>📅 Mark Time Away</h3>
                 <button class="modal-close" onclick="hideExceptionModal()">&times;</button>
             </div>
             <div class="modal-body">
@@ -1743,7 +1511,7 @@
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn-modal-cancel" onclick="hideExceptionModal()">Cancel</button>
-                <button type="button" class="btn-modal-confirm" onclick="createException()">Add Exception</button>
+                <button type="button" class="btn-modal-confirm" onclick="createException()">Mark Away</button>
             </div>
         </div>
     </div>
@@ -1761,8 +1529,6 @@
                 this.loadAvailabilityData();
                 this.renderCalendar();
                 this.loadUpcomingFixtures();
-                this.loadGeneralAvailability();
-                this.loadExceptions();
             }
             
             async loadAvailabilityData() {
@@ -2089,214 +1855,6 @@
                     console.error('Error batch updating availability:', error);
                 }
             }
-            
-            async setInjuryPeriod(returnDate) {
-                const today = new Date();
-                const endDate = new Date(returnDate);
-                const updates = [];
-                
-                // Mark all days from today until return date as unavailable
-                const currentDate = new Date(today);
-                while (currentDate < endDate) {
-                    const dateStr = this.formatDate(currentDate);
-                    updates.push({ date: dateStr, status: 'unavailable' });
-                    currentDate.setDate(currentDate.getDate() + 1);
-                }
-                
-                try {
-                    const response = await fetch(`/my-availability/${this.authToken}/batch-update`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ 
-                            updates: updates,
-                            reason: 'injury',
-                            returnDate: returnDate 
-                        })
-                    });
-                    
-                    if (response.ok) {
-                        updates.forEach(update => {
-                            this.availabilityData.set(update.date, update.status);
-                            this.updateDayDisplay(update.date, update.status);
-                        });
-                        
-                        // Show success message
-                        const returnDateFormatted = new Date(returnDate).toLocaleDateString();
-                        alert(`✅ Injury reported successfully!\n\nMarked as unavailable until ${returnDateFormatted}.\n\nHope you heal up quickly! You can always adjust this if your recovery time changes.`);
-                    } else {
-                        console.error('Failed to report injury');
-                        alert('❌ Failed to report injury. Please try again.');
-                    }
-                } catch (error) {
-                    console.error('Error reporting injury:', error);
-                    alert('❌ Error reporting injury. Please check your connection and try again.');
-                }
-            }
-
-            async loadGeneralAvailability() {
-                try {
-                    const response = await fetch(`/my-availability/${this.authToken}/general-availability`, {
-                        method: 'GET',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        }
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        this.renderGeneralAvailability(data.preferences || []);
-                    } else {
-                        console.error('Failed to load general availability');
-                        this.renderGeneralAvailability([]);
-                    }
-                } catch (error) {
-                    console.error('Error loading general availability:', error);
-                    this.renderGeneralAvailability([]);
-                }
-            }
-
-            renderGeneralAvailability(preferences) {
-                const container = document.getElementById('general-availability-grid');
-                if (!container) return;
-
-                const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-                // Create a map of existing preferences
-                const prefMap = new Map();
-                preferences.forEach(pref => {
-                    prefMap.set(pref.day_of_week, pref.status);
-                });
-
-                let html = '';
-                daysOfWeek.forEach(day => {
-                    const currentStatus = prefMap.get(day) || 'Unknown';
-
-                    html += `
-                        <div class="general-day-card">
-                            <div class="general-day-name">${day}</div>
-                            <div class="general-status-buttons">
-                                <button
-                                    class="general-status-btn available ${currentStatus === 'Available' ? 'active' : ''}"
-                                    onclick="calendar.updateGeneralAvailability('${day}', 'available')"
-                                    title="Usually available on ${day}s">
-                                    Available
-                                </button>
-                                <button
-                                    class="general-status-btn if-needed ${currentStatus === 'IfNeeded' ? 'active' : ''}"
-                                    onclick="calendar.updateGeneralAvailability('${day}', 'if-needed')"
-                                    title="Can play if needed on ${day}s">
-                                    If Needed
-                                </button>
-                                <button
-                                    class="general-status-btn unavailable ${currentStatus === 'Unavailable' ? 'active' : ''}"
-                                    onclick="calendar.updateGeneralAvailability('${day}', 'unavailable')"
-                                    title="Usually unavailable on ${day}s">
-                                    Unavailable
-                                </button>
-                                <button
-                                    class="general-status-btn clear ${currentStatus === 'Unknown' ? 'active' : ''}"
-                                    onclick="calendar.updateGeneralAvailability('${day}', 'clear')"
-                                    title="Clear preference for ${day}s">
-                                    Clear
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                });
-
-                container.innerHTML = html;
-            }
-
-            async updateGeneralAvailability(dayOfWeek, status) {
-                try {
-                    const response = await fetch(`/my-availability/${this.authToken}/general-availability`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            day_of_week: dayOfWeek,
-                            status: status,
-                            notes: ''
-                        })
-                    });
-
-                    if (response.ok) {
-                        // Reload to update UI
-                        this.loadGeneralAvailability();
-                    } else {
-                        console.error('Failed to update general availability');
-                        alert('❌ Failed to update preference. Please try again.');
-                    }
-                } catch (error) {
-                    console.error('Error updating general availability:', error);
-                    alert('❌ Error updating preference. Please check your connection and try again.');
-                }
-            }
-
-            async loadExceptions() {
-                try {
-                    const response = await fetch(`/my-availability/${this.authToken}/exceptions`, {
-                        method: 'GET',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        }
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        this.renderExceptions(data.exceptions || []);
-                    } else {
-                        console.error('Failed to load exceptions');
-                        this.renderExceptions([]);
-                    }
-                } catch (error) {
-                    console.error('Error loading exceptions:', error);
-                    this.renderExceptions([]);
-                }
-            }
-
-            renderExceptions(exceptions) {
-                const container = document.getElementById('exceptions-list');
-                if (!container) return;
-
-                if (exceptions.length === 0) {
-                    container.innerHTML = '<div class="no-exceptions">No active exceptions. Click "Add Exception" to create one.</div>';
-                    return;
-                }
-
-                let html = '';
-                exceptions.forEach(exc => {
-                    const startDate = new Date(exc.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-                    const endDate = new Date(exc.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-                    const statusClass = exc.status.toLowerCase().replace('ifneeded', 'if-needed');
-                    const statusText = exc.status === 'IfNeeded' ? 'If Needed' : exc.status;
-
-                    html += `
-                        <div class="exception-card">
-                            <div class="exception-info">
-                                <div class="exception-dates">${startDate} - ${endDate}</div>
-                                <div>
-                                    <span class="exception-status ${statusClass}">${statusText}</span>
-                                    ${exc.reason ? `<span class="exception-reason">${exc.reason}</span>` : ''}
-                                </div>
-                            </div>
-                            <div class="exception-actions">
-                                <button
-                                    class="btn-delete-exception"
-                                    onclick="calendar.deleteException('${exc.start_date}', '${exc.end_date}')"
-                                    title="Delete this exception">
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                });
-
-                container.innerHTML = html;
-            }
 
             async createException(startDate, endDate, status, reason) {
                 try {
@@ -2314,8 +1872,7 @@
                     });
 
                     if (response.ok) {
-                        // Reload exceptions and calendar
-                        this.loadExceptions();
+                        // Reload calendar to show the new exception
                         this.loadAvailabilityData();
                         return true;
                     } else {
@@ -2347,8 +1904,7 @@
                     });
 
                     if (response.ok) {
-                        // Reload exceptions and calendar
-                        this.loadExceptions();
+                        // Reload calendar to show the change
                         this.loadAvailabilityData();
                     } else {
                         console.error('Failed to delete exception');
@@ -2403,68 +1959,14 @@
                 calendar.setWeekAvailability(status, weekOffset);
             }
         }
-        
-        // Injury modal functions
-        function showInjuryModal() {
-            const modal = document.getElementById('injuryModal');
-            const returnDateInput = document.getElementById('returnDate');
-            
-            // Set minimum date to tomorrow
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            returnDateInput.min = tomorrow.toISOString().split('T')[0];
-            
-            // Set default to 2 weeks from now
-            const twoWeeksFromNow = new Date();
-            twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
-            returnDateInput.value = twoWeeksFromNow.toISOString().split('T')[0];
-            
-            modal.style.display = 'flex';
-            
-            // Focus on the date input after animation
-            setTimeout(() => {
-                returnDateInput.focus();
-            }, 300);
-        }
-        
-        function hideInjuryModal() {
-            const modal = document.getElementById('injuryModal');
-            modal.style.display = 'none';
-            
-            // Clear the input
-            document.getElementById('returnDate').value = '';
-        }
-        
-        async function reportInjury() {
-            const returnDateInput = document.getElementById('returnDate');
-            const returnDate = returnDateInput.value;
-            
-            if (!returnDate) {
-                alert('Please select an expected return date.');
-                return;
-            }
-            
-            const today = new Date();
-            const returnDateObj = new Date(returnDate);
-            
-            if (returnDateObj <= today) {
-                alert('Return date must be in the future.');
-                return;
-            }
-            
-            if (calendar) {
-                await calendar.setInjuryPeriod(returnDate);
-                hideInjuryModal();
-            }
-        }
-        
+
         // Close modal with Escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
-                const injuryModal = document.getElementById('injuryModal');
+                const exceptionModal = document.getElementById('exceptionModal');
                 const preferredNameModal = document.getElementById('preferredNameModal');
-                if (injuryModal.style.display === 'flex') {
-                    hideInjuryModal();
+                if (exceptionModal && exceptionModal.style.display === 'flex') {
+                    hideExceptionModal();
                 } else if (preferredNameModal.style.display === 'flex') {
                     hidePreferredNameModal();
                 }

@@ -127,21 +127,24 @@ This sprint addresses critical gaps for MVP launch:
   - Displays player info, teams, upcoming fixtures, and availability stats
   - Accessible via `/my-profile/{token}` URL pattern
 
-- **WI-002**: General availability preferences ✅ (2026-01-31)
-  - Added service methods: `GetPlayerGeneralAvailability`, `UpdatePlayerGeneralAvailability`
-  - Added handler endpoints: GET/POST `/my-availability/{token}/general-availability`
-  - Updated availability template with day-of-week preference UI
-  - Players can set default availability status (Available/Unavailable/If Needed) per day of week
-  - Preferences stored in `player_general_availability` table
+- **WI-002**: General availability preferences ✅ ~~REMOVED~~ (2026-01-31)
+  - Initially implemented with day-of-week preference UI
+  - **Decision (2026-01-31)**: Removed from UI after implementation
+  - **Rationale**: General preferences would cause confusion and discourage weekly updates. Users should actively manage their availability week-by-week based on actual commitments rather than relying on automated patterns.
+  - Backend service methods and endpoints remain but are not exposed in UI
+  - Feature may be revisited in future if needed
 
 - **WI-003**: Availability exception handling ✅ (2026-01-31)
   - Added service methods: `GetPlayerAvailabilityExceptions`, `CreateAvailabilityException`, `DeleteAvailabilityException`
   - Added handler endpoints: GET/POST/DELETE `/my-availability/{token}/exceptions`
-  - Updated availability template with exception management UI
-  - Added modal for creating date range exceptions (start date, end date, status, reason)
-  - Added exception list display with delete functionality
+  - Modal for creating date range exceptions (start date, end date, status, reason)
   - Exceptions override both general preferences and single-day availability
   - Data stored in `player_availability_exceptions` table
+  - **UI Refinements**:
+    - Removed exceptions list display (calendar provides visual feedback)
+    - Renamed from "Add Exception" to "Mark Time Away" for clarity
+    - Removed "Report Injury" button (duplicated exception functionality)
+    - Streamlined modal to fit mobile screens properly
 
 ### In Progress
 
