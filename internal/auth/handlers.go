@@ -134,14 +134,20 @@ func (h *Handler) LoginHandler() http.HandlerFunc {
 			// Ensure cookie is actually set before redirecting
 			log.Printf("Session cookie set with value: %s, expires: %v", session.ID, session.ExpiresAt)
 
-			// Use a direct response to debug
-			if h.redirectPath == "" {
+			// Check for redirect parameter from URL
+			redirectTo := r.URL.Query().Get("redirect")
+			if redirectTo == "" {
+				redirectTo = h.redirectPath
+			}
+			if redirectTo == "" {
 				log.Printf("WARNING: redirectPath is empty, defaulting to /admin")
-				h.redirectPath = "/admin"
+				redirectTo = "/admin"
 			}
 
+			log.Printf("Login successful for user: %s, redirecting to: %s", username, redirectTo)
+
 			// Explicitly set appropriate headers for redirect
-			w.Header().Set("Location", h.redirectPath)
+			w.Header().Set("Location", redirectTo)
 			w.WriteHeader(http.StatusSeeOther)
 			return
 		}

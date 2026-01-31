@@ -48,7 +48,9 @@ func (m *Middleware) RequireAuth(next http.Handler) http.Handler {
 		cookie, err := r.Cookie(m.service.config.CookieName)
 		if err != nil {
 			log.Printf("No session cookie found: %v", err)
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			// Redirect to login with the original URL as a redirect parameter
+			loginURL := "/login?redirect=" + r.URL.Path
+			http.Redirect(w, r, loginURL, http.StatusSeeOther)
 			return
 		}
 		log.Printf("Found session cookie: %s", cookie.Value)
@@ -60,7 +62,9 @@ func (m *Middleware) RequireAuth(next http.Handler) http.Handler {
 
 			// Clear cookie if session is invalid or expired
 			m.service.ClearSessionCookie(w)
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			// Redirect to login with the original URL as a redirect parameter
+			loginURL := "/login?redirect=" + r.URL.Path
+			http.Redirect(w, r, loginURL, http.StatusSeeOther)
 			return
 		}
 		log.Printf("Session validated: %s (User ID: %d, Role: %s)", session.ID, session.UserID, session.Role)
