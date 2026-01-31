@@ -1104,7 +1104,7 @@ func (s *Service) getSeasonByID(ctx context.Context, seasonID uint) (*models.Sea
 	return s.seasonRepository.FindByID(ctx, seasonID)
 }
 
-// getStAnnsTeamCount gets the count of teams for St. Ann's club
+// getStAnnsTeamCount gets the count of teams for St. Ann's club in the active season
 func (s *Service) getStAnnsTeamCount(ctx context.Context) (int, error) {
 	// Find St. Ann's club
 	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
@@ -1116,8 +1116,17 @@ func (s *Service) getStAnnsTeamCount(ctx context.Context) (int, error) {
 	}
 	stAnnsClub := &clubs[0]
 
-	// Get all teams for St. Ann's club
-	teams, err := s.teamRepository.FindByClub(ctx, stAnnsClub.ID)
+	// Get the active season
+	activeSeason, err := s.seasonRepository.FindActive(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if activeSeason == nil {
+		return 0, nil // No active season
+	}
+
+	// Get teams for St. Ann's club in the active season
+	teams, err := s.teamRepository.FindByClubAndSeason(ctx, stAnnsClub.ID, activeSeason.ID)
 	if err != nil {
 		return 0, err
 	}
