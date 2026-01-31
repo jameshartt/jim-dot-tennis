@@ -205,11 +205,11 @@ func (m *Middleware) RequireFantasyTokenAuth(next http.Handler) http.Handler {
 }
 
 // extractFantasyTokenFromPath extracts the fantasy auth token from URL paths
-// Expected format: /my-availability/Sabalenka_Djokovic_Gauff_Sinner
+// Expected format: /my-availability/Sabalenka_Djokovic_Gauff_Sinner or /my-profile/Sabalenka_Djokovic_Gauff_Sinner
 func extractFantasyTokenFromPath(path string) string {
 	parts := strings.Split(path, "/")
 	for i, part := range parts {
-		if part == "my-availability" && i+1 < len(parts) {
+		if (part == "my-availability" || part == "my-profile") && i+1 < len(parts) {
 			return parts[i+1]
 		}
 	}

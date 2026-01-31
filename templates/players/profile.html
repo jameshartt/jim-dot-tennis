@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - Jim Dot Tennis</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #e8f5e8 0%, #f8f9fa 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .profile-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .header-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .player-name {
+            font-size: 32px;
+            font-weight: 700;
+            color: #2c5530;
+            margin-bottom: 10px;
+        }
+
+        .player-details {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .club-name {
+            font-size: 18px;
+            color: #4a7c59;
+            font-weight: 600;
+        }
+
+        .section-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #2c5530;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #e8f5e8;
+            padding-bottom: 10px;
+        }
+
+        .teams-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 10px;
+        }
+
+        .team-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e8f5e8 100%);
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid #e8f5e8;
+            border-left: 5px solid #4a7c59;
+            transition: all 0.3s ease;
+        }
+
+        .team-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            border-left-color: #2c5530;
+        }
+
+        .team-name {
+            font-size: 20px;
+            font-weight: 700;
+            color: #2c5530;
+            margin-bottom: 8px;
+        }
+
+        .team-division {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .team-info {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 6px;
+        }
+
+        .team-info strong {
+            color: #2c5530;
+        }
+
+        .captain-badge {
+            display: inline-block;
+            background: #4a7c59;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .fixtures-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .fixtures-table th {
+            background: #e8f5e8;
+            color: #2c5530;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .fixtures-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e8f5e8;
+            font-size: 14px;
+        }
+
+        .fixtures-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .fixture-date {
+            color: #555;
+            font-weight: 600;
+        }
+
+        .fixture-division {
+            color: #4a7c59;
+            font-weight: 600;
+        }
+
+        .fixture-teams {
+            color: #333;
+        }
+
+        .home-badge {
+            background: #4a7c59;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 6px;
+        }
+
+        .away-badge {
+            background: #888;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 6px;
+        }
+
+        .derby-badge {
+            background: #ff9800;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-box {
+            background: linear-gradient(135deg, #e8f5e8 0%, #f8f9fa 100%);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            border: 2px solid #e8f5e8;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #2c5530;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .availability-percent {
+            font-size: 48px;
+            font-weight: 700;
+            color: #4a7c59;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+            font-style: italic;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 10px;
+            color: #4a7c59;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s ease;
+        }
+
+        .back-link:hover {
+            color: #2c5530;
+            text-decoration: underline;
+        }
+
+        .collapsible-section {
+            margin-top: 20px;
+        }
+
+        .collapsible-header {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .collapsible-header:hover {
+            opacity: 0.8;
+        }
+
+        .collapse-icon {
+            font-size: 18px;
+            transition: transform 0.3s ease;
+        }
+
+        .collapse-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .collapsible-content {
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .collapsible-content.collapsed {
+            max-height: 0;
+        }
+
+        .collapsible-content.expanded {
+            max-height: 2000px;
+        }
+
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .player-name {
+                font-size: 26px;
+            }
+
+            .section-card {
+                padding: 20px;
+            }
+
+            .teams-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .fixtures-table {
+                font-size: 13px;
+            }
+
+            .fixtures-table th,
+            .fixtures-table td {
+                padding: 8px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .player-name {
+                font-size: 22px;
+            }
+
+            .section-title {
+                font-size: 18px;
+            }
+
+            .fixtures-table th,
+            .fixtures-table td {
+                padding: 6px;
+                font-size: 12px;
+            }
+
+            .stat-value {
+                font-size: 24px;
+            }
+
+            .availability-percent {
+                font-size: 36px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="profile-container">
+        <!-- Player Header -->
+        <div class="header-card">
+            <h1 class="player-name">
+                {{ if .Player.PreferredName }}
+                    {{ .Player.PreferredName }}
+                {{ else }}
+                    {{ .Player.FirstName }} {{ .Player.LastName }}
+                {{ end }}
+            </h1>
+            {{ if .Player.PreferredName }}
+                <div class="player-details">{{ .Player.FirstName }} {{ .Player.LastName }}</div>
+            {{ end }}
+            {{ if .Club }}
+                <div class="club-name">{{ .Club.Name }}</div>
+            {{ end }}
+            <a href="/my-availability/{{ .AuthToken }}" class="back-link">← Back to Availability</a>
+        </div>
+
+        <!-- Current Season Teams -->
+        {{ if .CurrentTeams }}
+        <div class="section-card">
+            <h2 class="section-title">Current Season Teams</h2>
+            <div class="teams-grid">
+                {{ range .CurrentTeams }}
+                <div class="team-card">
+                    <div class="team-name">{{ .Team.Name }}</div>
+                    {{ if .Division }}
+                        <div class="team-division">{{ .Division.Name }}</div>
+                    {{ end }}
+                    {{ if .CaptainNames }}
+                        <div class="team-info">
+                            <strong>Captain{{ if gt (len .CaptainNames) 1 }}s{{ end }}:</strong>
+                            {{ range $index, $captain := .CaptainNames }}
+                                {{ if $index }}, {{ end }}{{ $captain }}
+                            {{ end }}
+                        </div>
+                    {{ end }}
+                    <div class="team-info"><strong>Roster:</strong> {{ .RosterCount }} players</div>
+                    {{ if .IsPlayerCaptain }}
+                        <span class="captain-badge">Team Captain</span>
+                    {{ end }}
+                </div>
+                {{ end }}
+            </div>
+        </div>
+        {{ end }}
+
+        <!-- Upcoming Fixtures -->
+        {{ if .UpcomingFixtures }}
+        <div class="section-card">
+            <h2 class="section-title">Upcoming Fixtures</h2>
+            <table class="fixtures-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Division</th>
+                        <th>Match</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .UpcomingFixtures }}
+                    <tr>
+                        <td class="fixture-date">{{ formatDate .ScheduledDate }}</td>
+                        <td class="fixture-division">{{ .Division }}</td>
+                        <td class="fixture-teams">
+                            {{ if .IsHome }}
+                                <span class="home-badge">HOME</span>
+                            {{ else if .IsAway }}
+                                <span class="away-badge">AWAY</span>
+                            {{ end }}
+                            {{ .MyTeam }} vs {{ .OpponentTeam }}
+                            {{ if .IsDerby }}
+                                <span class="derby-badge">DERBY</span>
+                            {{ end }}
+                        </td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+        {{ end }}
+
+        <!-- Availability Statistics -->
+        <div class="section-card">
+            <h2 class="section-title">Availability Summary (Last 28 Days)</h2>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="availability-percent">{{ printf "%.0f" .AvailStats.AvailabilityPercent }}%</div>
+                    <div class="stat-label">Available</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">{{ .AvailStats.TotalAvailable }}</div>
+                    <div class="stat-label">Days Available</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">{{ .AvailStats.TotalIfNeeded }}</div>
+                    <div class="stat-label">If Needed</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">{{ .AvailStats.TotalUnavailable }}</div>
+                    <div class="stat-label">Unavailable</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historical Teams (Collapsible) -->
+        {{ if .HistoricalTeams }}
+        <div class="section-card">
+            <div class="collapsible-section">
+                <div class="collapsible-header" onclick="toggleHistoricalTeams()">
+                    <span class="collapse-icon" id="historical-icon">▼</span>
+                    <h2 class="section-title" style="margin: 0;">Historical Teams</h2>
+                </div>
+                <div class="collapsible-content expanded" id="historical-content" style="margin-top: 20px;">
+                    <div class="teams-grid">
+                        {{ range .HistoricalTeams }}
+                        <div class="team-card">
+                            <div class="team-name">{{ .Team.Name }}</div>
+                            {{ if .Division }}
+                                <div class="team-division">{{ .Division.Name }}</div>
+                            {{ end }}
+                            {{ if .Season }}
+                                <div class="team-info"><strong>Season:</strong> {{ .Season.Name }}</div>
+                            {{ end }}
+                        </div>
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{ end }}
+    </div>
+
+    <script>
+        function toggleHistoricalTeams() {
+            const content = document.getElementById('historical-content');
+            const icon = document.getElementById('historical-icon');
+
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                content.classList.add('collapsed');
+                icon.classList.add('collapsed');
+            } else {
+                content.classList.remove('collapsed');
+                content.classList.add('expanded');
+                icon.classList.remove('collapsed');
+            }
+        }
+    </script>
+</body>
+</html>

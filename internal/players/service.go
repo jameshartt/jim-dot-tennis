@@ -42,6 +42,35 @@ func NewService(db *database.DB) *Service {
 	}
 }
 
+// PlayerProfileData aggregates all profile information
+type PlayerProfileData struct {
+	Player             models.Player
+	Club               *models.Club
+	CurrentSeasonTeams []TeamWithDetails
+	HistoricalTeams    []TeamWithDetails
+	UpcomingFixtures   []PlayerUpcomingFixture
+	AvailabilityStats  AvailabilityStats
+}
+
+// TeamWithDetails contains team info with captain and roster count
+type TeamWithDetails struct {
+	Team            models.Team
+	Division        *models.Division
+	Season          *models.Season
+	CaptainNames    []string
+	RosterCount     int
+	IsPlayerCaptain bool
+}
+
+// AvailabilityStats summarizes player availability patterns
+type AvailabilityStats struct {
+	TotalAvailable      int
+	TotalUnavailable    int
+	TotalIfNeeded       int
+	AvailabilityPercent float64
+	Last28Days          []AvailabilityDay
+}
+
 // GetFantasyMatchByToken retrieves a fantasy mixed doubles match by its auth token
 func (s *Service) GetFantasyMatchByToken(authToken string) (*FantasyMatchDetail, error) {
 	ctx := context.Background()
@@ -478,4 +507,176 @@ func (s *Service) determinePlayerTeamContext(ctx context.Context, playerID strin
 		}
 	}
 	return 0, false, false
+}
+
+// GetPlayerProfileData retrieves complete profile data for a player
+func (s *Service) GetPlayerProfileData(playerID string) (*PlayerProfileData, error) {
+	ctx := context.Background()
+
+	// Load player
+	player, err := s.playerRepository.FindByID(ctx, playerID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find player: %w", err)
+	}
+
+	// Load club details
+	var club *models.Club
+	if player.ClubID > 0 {
+		clubData, err := s.clubRepository.FindByID(ctx, player.ClubID)
+		if err == nil {
+			club = clubData
+		}
+	}
+
+	// Get active season
+	activeSeason, err := s.seasonRepository.FindActive(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find active season: %w", err)
+	}
+
+	// Load current season teams (returns PlayerTeam records)
+	currentPlayerTeams, err := s.playerRepository.FindTeamsForPlayer(ctx, playerID, activeSeason.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find current teams: %w", err)
+	}
+
+	// Load all historical teams (returns PlayerTeam records)
+	allPlayerTeams, err := s.playerRepository.FindAllTeamsForPlayer(ctx, playerID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find all teams: %w", err)
+	}
+
+	// Build current team details
+	currentTeamDetails := []TeamWithDetails{}
+	currentTeamIDs := make(map[uint]bool)
+	for _, playerTeam := range currentPlayerTeams {
+		currentTeamIDs[playerTeam.TeamID] = true
+		// Fetch the actual Team using TeamID
+		team, err := s.teamRepository.FindByID(ctx, playerTeam.TeamID)
+		if err != nil {
+			continue
+		}
+		details, err := s.buildTeamDetails(ctx, *team, playerID, activeSeason.ID)
+		if err == nil {
+			currentTeamDetails = append(currentTeamDetails, details)
+		}
+	}
+
+	// Build historical team details (exclude current teams)
+	historicalTeamDetails := []TeamWithDetails{}
+	for _, playerTeam := range allPlayerTeams {
+		if !currentTeamIDs[playerTeam.TeamID] {
+			// Fetch the actual Team using TeamID
+			team, err := s.teamRepository.FindByID(ctx, playerTeam.TeamID)
+			if err != nil {
+				continue
+			}
+			details, err := s.buildTeamDetails(ctx, *team, playerID, playerTeam.SeasonID)
+			if err == nil {
+				historicalTeamDetails = append(historicalTeamDetails, details)
+			}
+		}
+	}
+
+	// Get upcoming fixtures
+	upcomingFixtures, err := s.GetPlayerUpcomingFixtures(playerID)
+	if err != nil {
+		// Log but don't fail
+		fmt.Printf("Error loading upcoming fixtures for player %s: %v\n", playerID, err)
+		upcomingFixtures = []PlayerUpcomingFixture{}
+	}
+
+	// Get availability data and calculate stats
+	availabilityData, err := s.GetPlayerAvailabilityData(playerID)
+	if err != nil {
+		// Log but don't fail
+		fmt.Printf("Error loading availability data for player %s: %v\n", playerID, err)
+		availabilityData = &AvailabilityData{Availability: []AvailabilityDay{}}
+	}
+
+	// Calculate availability statistics
+	stats := s.calculateAvailabilityStats(availabilityData.Availability)
+
+	return &PlayerProfileData{
+		Player:             *player,
+		Club:               club,
+		CurrentSeasonTeams: currentTeamDetails,
+		HistoricalTeams:    historicalTeamDetails,
+		UpcomingFixtures:   upcomingFixtures,
+		AvailabilityStats:  stats,
+	}, nil
+}
+
+// buildTeamDetails builds detailed team information including captains and roster
+func (s *Service) buildTeamDetails(ctx context.Context, team models.Team, playerID string, seasonID uint) (TeamWithDetails, error) {
+	details := TeamWithDetails{
+		Team: team,
+	}
+
+	// Load division
+	if team.DivisionID > 0 {
+		division, err := s.divisionRepository.FindByID(ctx, team.DivisionID)
+		if err == nil {
+			details.Division = division
+		}
+	}
+
+	// Load season if provided
+	if seasonID > 0 {
+		season, err := s.seasonRepository.FindByID(ctx, seasonID)
+		if err == nil {
+			details.Season = season
+		}
+	}
+
+	// Load captains
+	captains, err := s.teamRepository.FindCaptainsInTeam(ctx, team.ID, seasonID)
+	if err == nil {
+		for _, captain := range captains {
+			// Fetch player details for the captain
+			captainPlayer, err := s.playerRepository.FindByID(ctx, captain.PlayerID)
+			if err != nil {
+				continue
+			}
+			captainName := captainPlayer.FirstName + " " + captainPlayer.LastName
+			details.CaptainNames = append(details.CaptainNames, captainName)
+			if captain.PlayerID == playerID {
+				details.IsPlayerCaptain = true
+			}
+		}
+	}
+
+	// Count roster
+	roster, err := s.teamRepository.FindPlayersInTeam(ctx, team.ID, seasonID)
+	if err == nil {
+		details.RosterCount = len(roster)
+	}
+
+	return details, nil
+}
+
+// calculateAvailabilityStats calculates statistics from availability data
+func (s *Service) calculateAvailabilityStats(availability []AvailabilityDay) AvailabilityStats {
+	stats := AvailabilityStats{
+		Last28Days: availability,
+	}
+
+	for _, day := range availability {
+		switch day.Status {
+		case models.Available:
+			stats.TotalAvailable++
+		case models.Unavailable:
+			stats.TotalUnavailable++
+		case models.IfNeeded:
+			stats.TotalIfNeeded++
+		}
+	}
+
+	// Calculate percentage (available + if-needed as "potentially available")
+	total := stats.TotalAvailable + stats.TotalUnavailable + stats.TotalIfNeeded
+	if total > 0 {
+		stats.AvailabilityPercent = float64(stats.TotalAvailable+stats.TotalIfNeeded) / float64(total) * 100
+	}
+
+	return stats
 }

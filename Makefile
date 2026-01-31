@@ -1,7 +1,7 @@
 .PHONY: build run stop clean backup logs restart build-local run-local local
 
 # Docker compose command
-DOCKER_COMPOSE = docker-compose
+DOCKER_COMPOSE = docker compose
 
 # Project name
 PROJECT = jim-dot-tennis

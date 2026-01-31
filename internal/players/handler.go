@@ -14,6 +14,7 @@ type Handler struct {
 
 	// Sub-handlers for different domains
 	availability *AvailabilityHandler
+	profile      *ProfileHandler
 }
 
 // New creates a new players handler
@@ -24,6 +25,7 @@ func New(db *database.DB, templateDir string) *Handler {
 		service:      service,
 		templateDir:  templateDir,
 		availability: NewAvailabilityHandler(service, templateDir),
+		profile:      NewProfileHandler(service, templateDir),
 	}
 }
 
@@ -33,5 +35,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	// The auth token is embedded in the URL path: /my-availability/Sabalenka_Djokovic_Gauff_Sinner
 	mux.Handle("/my-availability/", authMiddleware.RequireFantasyTokenAuth(
 		http.HandlerFunc(h.availability.HandleAvailability),
+	))
+
+	// Player profile routes with token-based authentication
+	// The auth token is embedded in the URL path: /my-profile/Sabalenka_Djokovic_Gauff_Sinner
+	mux.Handle("/my-profile/", authMiddleware.RequireFantasyTokenAuth(
+		http.HandlerFunc(h.profile.HandleProfile),
 	))
 }
