@@ -23,6 +23,7 @@ type Handler struct {
 	matchCardImport *MatchCardImportationHandler
 	points          *PointsHandler
 	clubWrapped     *ClubWrappedHandler
+	seasons         *SeasonsHandler
 }
 
 // New creates a new admin handler
@@ -41,6 +42,7 @@ func New(db *database.DB, templateDir string) *Handler {
 		matchCardImport: NewMatchCardImportationHandler(service, templateDir),
 		points:          NewPointsHandler(service, templateDir),
 		clubWrapped:     NewClubWrappedHandler(service, templateDir),
+		seasons:         NewSeasonsHandler(service, templateDir),
 	}
 }
 
@@ -78,6 +80,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	// Season wrapped routes
 	adminMux.HandleFunc("/admin/league/wrapped", h.clubWrapped.HandleWrapped)
 	adminMux.HandleFunc("/admin/league/wrapped/", h.clubWrapped.HandleWrapped)
+
+	// Season management routes
+	adminMux.HandleFunc("/admin/league/seasons", h.seasons.HandleSeasons)
+	adminMux.HandleFunc("/admin/league/seasons/", h.seasons.HandleSeasons)
+	adminMux.HandleFunc("/admin/league/seasons/set-active", h.seasons.HandleSetActiveSeason)
 
 	// Preferred name approval routes
 	adminMux.HandleFunc("/admin/league/preferred-names", h.service.HandlePreferredNameApprovals)

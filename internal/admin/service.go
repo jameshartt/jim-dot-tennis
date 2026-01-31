@@ -2959,3 +2959,74 @@ func (s *Service) UpdateFixtureSchedule(fixtureID uint, newScheduledDate time.Ti
 
 	return nil
 }
+
+// Season management methods
+
+// GetAllSeasons retrieves all seasons ordered by year descending
+func (s *Service) GetAllSeasons() ([]models.Season, error) {
+	ctx := context.Background()
+	return s.seasonRepository.FindAll(ctx)
+}
+
+// GetActiveSeason retrieves the currently active season
+func (s *Service) GetActiveSeason() (*models.Season, error) {
+	ctx := context.Background()
+	return s.seasonRepository.FindActive(ctx)
+}
+
+// CreateSeason creates a new season
+func (s *Service) CreateSeason(season *models.Season) error {
+	ctx := context.Background()
+	return s.seasonRepository.Create(ctx, season)
+}
+
+// SetActiveSeason sets a season as active and deactivates all others
+func (s *Service) SetActiveSeason(seasonID uint) error {
+	ctx := context.Background()
+	
+	// Deactivate all seasons first
+	seasons, err := s.seasonRepository.FindAll(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get all seasons: %w", err)
+	}
+	
+	for _, season := range seasons {
+		if season.IsActive {
+			season.IsActive = false
+			if err := s.seasonRepository.Update(ctx, &season); err != nil {
+				return fmt.Errorf("failed to deactivate season %d: %w", season.ID, err)
+			}
+		}
+	}
+	
+	// Activate the specified season
+	season, err := s.seasonRepository.FindByID(ctx, seasonID)
+	if err != nil {
+		return fmt.Errorf("failed to find season %d: %w", seasonID, err)
+	}
+	
+	season.IsActive = true
+	if err := s.seasonRepository.Update(ctx, season); err != nil {
+		return fmt.Errorf("failed to activate season %d: %w", seasonID, err)
+	}
+	
+	return nil
+}
+
+// CreateFixture creates a new fixture
+func (s *Service) CreateFixture(fixture *models.Fixture) error {
+	ctx := context.Background()
+	return s.fixtureRepository.Create(ctx, fixture)
+}
+
+// GetAllWeeks retrieves all weeks
+func (s *Service) GetAllWeeks() ([]models.Week, error) {
+	ctx := context.Background()
+	return s.weekRepository.FindAll(ctx)
+}
+
+// GetAllTeams retrieves all teams
+func (s *Service) GetAllTeams() ([]models.Team, error) {
+	ctx := context.Background()
+	return s.teamRepository.FindAll(ctx)
+}

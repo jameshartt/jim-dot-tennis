@@ -113,6 +113,26 @@ func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Get data for fixture creation form
+	seasons, err := h.service.GetAllSeasons()
+	if err != nil {
+		// Log but don't fail - just won't show create form
+		log.Printf("Failed to load seasons for create form: %v", err)
+		seasons = []models.Season{}
+	}
+
+	weeks, err := h.service.GetAllWeeks()
+	if err != nil {
+		log.Printf("Failed to load weeks for create form: %v", err)
+		weeks = []models.Week{}
+	}
+
+	teams, err := h.service.GetAllTeams()
+	if err != nil {
+		log.Printf("Failed to load teams for create form: %v", err)
+		teams = []models.Team{}
+	}
+
 	// Load the fixtures template
 	tmpl, err := parseTemplate(h.templateDir, "admin/fixtures.html")
 	if err != nil {
@@ -131,6 +151,9 @@ func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Reque
 		"UpcomingFixtures": upcomingFixtures,
 		"PastFixtures":     pastFixtures,
 		"Divisions":        divisions,
+		"Seasons":          seasons,
+		"Weeks":            weeks,
+		"Teams":            teams,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -138,8 +161,80 @@ func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Reque
 
 // handleFixturesPost handles POST requests for fixture management
 func (h *FixturesHandler) handleFixturesPost(w http.ResponseWriter, r *http.Request, user *models.User) {
-	// TODO: Implement fixture creation/update/delete
-	http.Error(w, "Fixture operations not yet implemented", http.StatusNotImplemented)
+	// Handle fixture creation
+	action := r.FormValue("action")
+
+	if action == "create" {
+		h.handleCreateFixture(w, r)
+		return
+	}
+
+	http.Error(w, "Unknown action", http.StatusBadRequest)
+}
+
+// handleCreateFixture handles creating a new fixture
+func (h *FixturesHandler) handleCreateFixture(w http.ResponseWriter, r *http.Request) {
+	seasonIDStr := r.FormValue("season_id")
+	weekIDStr := r.FormValue("week_id")
+	homeTeamIDStr := r.FormValue("home_team_id")
+	awayTeamIDStr := r.FormValue("away_team_id")
+	divisionIDStr := r.FormValue("division_id")
+	scheduledDateStr := r.FormValue("scheduled_date")
+	venueLocation := r.FormValue("venue_location")
+
+	seasonID, err := strconv.ParseUint(seasonIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid season ID", http.StatusBadRequest)
+		return
+	}
+
+	weekID, err := strconv.ParseUint(weekIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid week ID", http.StatusBadRequest)
+		return
+	}
+
+	homeTeamID, err := strconv.ParseUint(homeTeamIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid home team ID", http.StatusBadRequest)
+		return
+	}
+
+	awayTeamID, err := strconv.ParseUint(awayTeamIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid away team ID", http.StatusBadRequest)
+		return
+	}
+
+	divisionID, err := strconv.ParseUint(divisionIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid division ID", http.StatusBadRequest)
+		return
+	}
+
+	scheduledDate, err := time.Parse("2006-01-02", scheduledDateStr)
+	if err != nil {
+		http.Error(w, "Invalid scheduled date", http.StatusBadRequest)
+		return
+	}
+
+	fixture := &models.Fixture{
+		SeasonID:      uint(seasonID),
+		WeekID:        uint(weekID),
+		HomeTeamID:    uint(homeTeamID),
+		AwayTeamID:    uint(awayTeamID),
+		DivisionID:    uint(divisionID),
+		ScheduledDate: scheduledDate,
+		VenueLocation: venueLocation,
+		Status:        "scheduled",
+	}
+
+	if err := h.service.CreateFixture(fixture); err != nil {
+		logAndError(w, "Failed to create fixture", err, http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/admin/league/fixtures", http.StatusSeeOther)
 }
 
 // handleFixtureDetail handles requests for individual fixture details

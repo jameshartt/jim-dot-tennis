@@ -747,3 +747,114 @@ func (s *Service) UpdatePlayerGeneralAvailability(playerID string, dayOfWeek str
 
 	return nil
 }
+
+// AvailabilityException represents a date range exception
+type AvailabilityException struct {
+	ID        uint                      `json:"id"`
+	StartDate string                    `json:"start_date"` // ISO format YYYY-MM-DD
+	EndDate   string                    `json:"end_date"`   // ISO format YYYY-MM-DD
+	Status    models.AvailabilityStatus `json:"status"`
+	Reason    string                    `json:"reason,omitempty"`
+}
+
+// GetPlayerAvailabilityExceptions retrieves all availability exceptions for a player in a date range
+func (s *Service) GetPlayerAvailabilityExceptions(playerID string, startDate, endDate time.Time) ([]AvailabilityException, error) {
+	ctx := context.Background()
+
+	// Get exceptions from repository
+	exceptions, err := s.availabilityRepository.GetPlayerAvailabilityByDateRange(ctx, playerID, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get availability exceptions: %w", err)
+	}
+
+	// Convert to response format
+	result := make([]AvailabilityException, 0, len(exceptions))
+	for _, exc := range exceptions {
+		result = append(result, AvailabilityException{
+			ID:        exc.ID,
+			StartDate: exc.StartDate.Format("2006-01-02"),
+			EndDate:   exc.EndDate.Format("2006-01-02"),
+			Status:    exc.Status,
+			Reason:    exc.Reason,
+		})
+	}
+
+	return result, nil
+}
+
+// CreateAvailabilityException creates a new availability exception for a date range
+func (s *Service) CreateAvailabilityException(playerID string, startDateStr, endDateStr, status, reason string) error {
+	ctx := context.Background()
+
+	// Parse dates
+	startDate, err := time.Parse("2006-01-02", startDateStr)
+	if err != nil {
+		return fmt.Errorf("invalid start date format: %w", err)
+	}
+
+	endDate, err := time.Parse("2006-01-02", endDateStr)
+	if err != nil {
+		return fmt.Errorf("invalid end date format: %w", err)
+	}
+
+	// Validate date range
+	if endDate.Before(startDate) {
+		return fmt.Errorf("end date must be after or equal to start date")
+	}
+
+	// Convert status
+	availStatus := s.convertFrontendStatus(status)
+	if availStatus == "clear" || availStatus == models.Unknown {
+		return fmt.Errorf("invalid status for exception: cannot create exception with 'clear' or 'unknown' status")
+	}
+
+	// Create exception for each day in the range
+	// This approach allows for easy deletion of individual days if needed
+	currentDate := startDate
+	for !currentDate.After(endDate) {
+		if err := s.availabilityRepository.UpsertPlayerAvailability(ctx, playerID, currentDate, availStatus, reason); err != nil {
+			return fmt.Errorf("failed to create availability exception: %w", err)
+		}
+		currentDate = currentDate.AddDate(0, 0, 1)
+	}
+
+	return nil
+}
+
+// DeleteAvailabilityException deletes an availability exception by removing all days in the date range
+func (s *Service) DeleteAvailabilityException(playerID string, startDateStr, endDateStr string) error {
+	ctx := context.Background()
+
+	// Parse dates
+	startDate, err := time.Parse("2006-01-02", startDateStr)
+	if err != nil {
+		return fmt.Errorf("invalid start date format: %w", err)
+	}
+
+	endDate, err := time.Parse("2006-01-02", endDateStr)
+	if err != nil {
+		return fmt.Errorf("invalid end date format: %w", err)
+	}
+
+	// Delete exception for each day in the range
+	// Note: The repository stores exceptions with end_date = start_date + 24 hours,
+	// so we need to delete using the stored format
+	currentDate := startDate
+	for !currentDate.After(endDate) {
+		// Delete using SQL directly to match the actual storage format
+		_, err := s.db.ExecContext(ctx, `
+			DELETE FROM player_availability_exceptions
+			WHERE player_id = ?
+			AND start_date >= ?
+			AND start_date < ?
+		`, playerID, currentDate, currentDate.AddDate(0, 0, 1))
+
+		if err != nil {
+			// Log but continue - some days might not have exceptions
+			fmt.Printf("Warning: failed to delete exception for %s: %v\n", currentDate.Format("2006-01-02"), err)
+		}
+		currentDate = currentDate.AddDate(0, 0, 1)
+	}
+
+	return nil
+}

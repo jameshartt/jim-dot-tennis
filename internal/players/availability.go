@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/models"
@@ -65,6 +66,12 @@ func (h *AvailabilityHandler) HandleAvailability(w http.ResponseWriter, r *http.
 		h.handleGeneralAvailabilityGet(w, r, &player, authToken)
 	case action == "general-availability" && r.Method == http.MethodPost:
 		h.handleGeneralAvailabilityUpdate(w, r, &player, authToken)
+	case action == "exceptions" && r.Method == http.MethodGet:
+		h.handleExceptionsGet(w, r, &player, authToken)
+	case action == "exceptions" && r.Method == http.MethodPost:
+		h.handleExceptionCreate(w, r, &player, authToken)
+	case action == "exceptions" && r.Method == http.MethodDelete:
+		h.handleExceptionDelete(w, r, &player, authToken)
 	case action == "request-preferred-name" && r.Method == http.MethodPost:
 		h.handlePreferredNameRequest(w, r, &player, authToken)
 	case action == "wrapped-auth" && r.Method == http.MethodPost:
@@ -221,6 +228,79 @@ func (h *AvailabilityHandler) handleGeneralAvailabilityUpdate(w http.ResponseWri
 
 	if err := h.service.UpdatePlayerGeneralAvailability(player.ID, updateReq.DayOfWeek, updateReq.Status, updateReq.Notes); err != nil {
 		logAndError(w, "Failed to update general availability", err, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+// handleExceptionsGet retrieves availability exceptions for the next 4 weeks
+func (h *AvailabilityHandler) handleExceptionsGet(w http.ResponseWriter, r *http.Request, player *models.Player, authToken string) {
+	log.Printf("Getting availability exceptions for player %s", player.ID)
+
+	// Get exceptions for the next 4 weeks (same as calendar range)
+	now := time.Now()
+	startDate := now.Truncate(24 * time.Hour)
+	endDate := startDate.AddDate(0, 0, 28)
+
+	exceptions, err := h.service.GetPlayerAvailabilityExceptions(player.ID, startDate, endDate)
+	if err != nil {
+		logAndError(w, "Failed to get availability exceptions", err, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"exceptions": exceptions,
+	}); err != nil {
+		logAndError(w, "Failed to encode exceptions", err, http.StatusInternalServerError)
+	}
+}
+
+// handleExceptionCreate creates a new availability exception
+func (h *AvailabilityHandler) handleExceptionCreate(w http.ResponseWriter, r *http.Request, player *models.Player, authToken string) {
+	var createReq struct {
+		StartDate string `json:"start_date"`
+		EndDate   string `json:"end_date"`
+		Status    string `json:"status"`
+		Reason    string `json:"reason"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&createReq); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Creating availability exception for player %s: %s to %s, status=%s",
+		player.ID, createReq.StartDate, createReq.EndDate, createReq.Status)
+
+	if err := h.service.CreateAvailabilityException(player.ID, createReq.StartDate, createReq.EndDate, createReq.Status, createReq.Reason); err != nil {
+		logAndError(w, "Failed to create availability exception", err, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+// handleExceptionDelete deletes an availability exception
+func (h *AvailabilityHandler) handleExceptionDelete(w http.ResponseWriter, r *http.Request, player *models.Player, authToken string) {
+	var deleteReq struct {
+		StartDate string `json:"start_date"`
+		EndDate   string `json:"end_date"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&deleteReq); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Deleting availability exception for player %s: %s to %s",
+		player.ID, deleteReq.StartDate, deleteReq.EndDate)
+
+	if err := h.service.DeleteAvailabilityException(player.ID, deleteReq.StartDate, deleteReq.EndDate); err != nil {
+		logAndError(w, "Failed to delete availability exception", err, http.StatusInternalServerError)
 		return
 	}
 

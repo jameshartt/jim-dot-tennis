@@ -292,6 +292,119 @@
             border-color: #6c757d;
             color: #495057;
         }
+
+        .exceptions-container {
+            margin-top: 20px;
+        }
+
+        .exception-form-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .btn-add-exception {
+            background: #4a7c59;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .btn-add-exception:hover {
+            background: #3d6849;
+        }
+
+        .exceptions-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .exception-card {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: box-shadow 0.2s ease;
+        }
+
+        .exception-card:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .exception-info {
+            flex: 1;
+        }
+
+        .exception-dates {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c5530;
+            margin-bottom: 4px;
+        }
+
+        .exception-status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .exception-status.available {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .exception-status.if-needed {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .exception-status.unavailable {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .exception-reason {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .exception-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-delete-exception {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .btn-delete-exception:hover {
+            background: #c82333;
+        }
+
+        .no-exceptions {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+            font-style: italic;
+        }
         
         .section-title {
             font-size: 20px;
@@ -1383,6 +1496,27 @@
         </div>
 
         <div class="availability-section">
+            <h2 class="section-title">Availability Exceptions</h2>
+            <p class="availability-instructions">
+                Set date range exceptions for special circumstances (e.g., vacation, injury). These override both general preferences and single-day availability.
+            </p>
+
+            <div class="exceptions-container">
+                <div class="exception-form-container">
+                    <button type="button" class="btn-add-exception" onclick="showExceptionModal()">
+                        + Add Exception
+                    </button>
+                </div>
+
+                <div id="exceptions-list" class="exceptions-list">
+                    <div style="text-align: center; padding: 20px; color: #666;">
+                        Loading exceptions...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="availability-section">
             <h2 class="section-title">Set Your Availability (Initials: {{printf "%.1s" .Player.FirstName}}.{{printf "%.1s" .Player.LastName}}.)</h2>
             <p class="availability-instructions">
                 Click on any date to toggle your availability. We recommend updating weekly, but you can set up to 4 weeks ahead.
@@ -1574,7 +1708,46 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- Exception Modal -->
+    <div id="exceptionModal" class="injury-modal" style="display: none;">
+        <div class="modal-overlay" onclick="hideExceptionModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📅 Add Availability Exception</h3>
+                <button class="modal-close" onclick="hideExceptionModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Set a date range when your availability differs from your normal pattern.</p>
+                <div class="date-input-group">
+                    <label for="exceptionStartDate">Start date:</label>
+                    <input type="date" id="exceptionStartDate" class="return-date-input">
+                </div>
+                <div class="date-input-group">
+                    <label for="exceptionEndDate">End date:</label>
+                    <input type="date" id="exceptionEndDate" class="return-date-input">
+                </div>
+                <div class="date-input-group">
+                    <label for="exceptionStatus">Status:</label>
+                    <select id="exceptionStatus" class="return-date-input">
+                        <option value="available">Available</option>
+                        <option value="unavailable" selected>Unavailable</option>
+                        <option value="if-needed">If Needed</option>
+                    </select>
+                </div>
+                <div class="date-input-group">
+                    <label for="exceptionReason">Reason (optional):</label>
+                    <input type="text" id="exceptionReason" class="return-date-input" placeholder="e.g., Vacation, Injury, Work trip">
+                </div>
+                <p class="injury-note">This will override your general availability and any single-day selections for the specified date range.</p>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-modal-cancel" onclick="hideExceptionModal()">Cancel</button>
+                <button type="button" class="btn-modal-confirm" onclick="createException()">Add Exception</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         class AvailabilityCalendar {
             constructor() {
@@ -1589,6 +1762,7 @@
                 this.renderCalendar();
                 this.loadUpcomingFixtures();
                 this.loadGeneralAvailability();
+                this.loadExceptions();
             }
             
             async loadAvailabilityData() {
@@ -2061,6 +2235,130 @@
                     alert('❌ Error updating preference. Please check your connection and try again.');
                 }
             }
+
+            async loadExceptions() {
+                try {
+                    const response = await fetch(`/my-availability/${this.authToken}/exceptions`, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.renderExceptions(data.exceptions || []);
+                    } else {
+                        console.error('Failed to load exceptions');
+                        this.renderExceptions([]);
+                    }
+                } catch (error) {
+                    console.error('Error loading exceptions:', error);
+                    this.renderExceptions([]);
+                }
+            }
+
+            renderExceptions(exceptions) {
+                const container = document.getElementById('exceptions-list');
+                if (!container) return;
+
+                if (exceptions.length === 0) {
+                    container.innerHTML = '<div class="no-exceptions">No active exceptions. Click "Add Exception" to create one.</div>';
+                    return;
+                }
+
+                let html = '';
+                exceptions.forEach(exc => {
+                    const startDate = new Date(exc.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+                    const endDate = new Date(exc.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                    const statusClass = exc.status.toLowerCase().replace('ifneeded', 'if-needed');
+                    const statusText = exc.status === 'IfNeeded' ? 'If Needed' : exc.status;
+
+                    html += `
+                        <div class="exception-card">
+                            <div class="exception-info">
+                                <div class="exception-dates">${startDate} - ${endDate}</div>
+                                <div>
+                                    <span class="exception-status ${statusClass}">${statusText}</span>
+                                    ${exc.reason ? `<span class="exception-reason">${exc.reason}</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="exception-actions">
+                                <button
+                                    class="btn-delete-exception"
+                                    onclick="calendar.deleteException('${exc.start_date}', '${exc.end_date}')"
+                                    title="Delete this exception">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            }
+
+            async createException(startDate, endDate, status, reason) {
+                try {
+                    const response = await fetch(`/my-availability/${this.authToken}/exceptions`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            start_date: startDate,
+                            end_date: endDate,
+                            status: status,
+                            reason: reason
+                        })
+                    });
+
+                    if (response.ok) {
+                        // Reload exceptions and calendar
+                        this.loadExceptions();
+                        this.loadAvailabilityData();
+                        return true;
+                    } else {
+                        const data = await response.json().catch(() => ({}));
+                        console.error('Failed to create exception:', data);
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('Error creating exception:', error);
+                    return false;
+                }
+            }
+
+            async deleteException(startDate, endDate) {
+                if (!confirm('Are you sure you want to delete this exception?')) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/my-availability/${this.authToken}/exceptions`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            start_date: startDate,
+                            end_date: endDate
+                        })
+                    });
+
+                    if (response.ok) {
+                        // Reload exceptions and calendar
+                        this.loadExceptions();
+                        this.loadAvailabilityData();
+                    } else {
+                        console.error('Failed to delete exception');
+                        alert('❌ Failed to delete exception. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Error deleting exception:', error);
+                    alert('❌ Error deleting exception. Please check your connection and try again.');
+                }
+            }
         }
 
         // Initialize calendar when page loads
@@ -2297,6 +2595,57 @@
                 card.classList.remove('collapsed');
                 icon.classList.remove('collapsed');
                 localStorage.setItem('fantasy-match-collapsed', 'false');
+            }
+        }
+
+        // Exception modal functions
+        function showExceptionModal() {
+            const modal = document.getElementById('exceptionModal');
+            modal.style.display = 'block';
+
+            // Set default dates (today and tomorrow)
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+
+            document.getElementById('exceptionStartDate').value = today.toISOString().split('T')[0];
+            document.getElementById('exceptionEndDate').value = tomorrow.toISOString().split('T')[0];
+        }
+
+        function hideExceptionModal() {
+            const modal = document.getElementById('exceptionModal');
+            modal.style.display = 'none';
+
+            // Clear the form
+            document.getElementById('exceptionStartDate').value = '';
+            document.getElementById('exceptionEndDate').value = '';
+            document.getElementById('exceptionStatus').value = 'unavailable';
+            document.getElementById('exceptionReason').value = '';
+        }
+
+        async function createException() {
+            const startDate = document.getElementById('exceptionStartDate').value;
+            const endDate = document.getElementById('exceptionEndDate').value;
+            const status = document.getElementById('exceptionStatus').value;
+            const reason = document.getElementById('exceptionReason').value;
+
+            if (!startDate || !endDate) {
+                alert('Please select both start and end dates.');
+                return;
+            }
+
+            if (new Date(endDate) < new Date(startDate)) {
+                alert('End date must be after or equal to start date.');
+                return;
+            }
+
+            const success = await calendar.createException(startDate, endDate, status, reason);
+
+            if (success) {
+                hideExceptionModal();
+                alert('✅ Exception created successfully!');
+            } else {
+                alert('❌ Failed to create exception. Please try again.');
             }
         }
     </script>

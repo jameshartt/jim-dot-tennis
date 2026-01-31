@@ -6,7 +6,7 @@
 
 **Duration**: 2 weeks (Feb 3 - Feb 17, 2026)
 
-**Status**: In Progress (2/12 completed)
+**Status**: In Progress (3/12 completed)
 
 ## Focus Areas
 
@@ -134,13 +134,20 @@ This sprint addresses critical gaps for MVP launch:
   - Players can set default availability status (Available/Unavailable/If Needed) per day of week
   - Preferences stored in `player_general_availability` table
 
+- **WI-003**: Availability exception handling ✅ (2026-01-31)
+  - Added service methods: `GetPlayerAvailabilityExceptions`, `CreateAvailabilityException`, `DeleteAvailabilityException`
+  - Added handler endpoints: GET/POST/DELETE `/my-availability/{token}/exceptions`
+  - Updated availability template with exception management UI
+  - Added modal for creating date range exceptions (start date, end date, status, reason)
+  - Added exception list display with delete functionality
+  - Exceptions override both general preferences and single-day availability
+  - Data stored in `player_availability_exceptions` table
+
 ### In Progress
 
 - None currently
 
 ### Not Started
-
-- WI-003: Availability exception handling
 - WI-004: Push notification subscription flow
 - WI-005: Push notification sending service
 - WI-006: Selection confirmation notifications
