@@ -76,9 +76,6 @@
         .col-division {
             min-width: 120px;
         }
-        .col-season {
-            min-width: 100px;
-        }
         .col-players {
             min-width: 100px;
             text-align: center;
@@ -87,15 +84,23 @@
             min-width: 150px;
         }
         
+        .season-heading {
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary-color);
+            color: var(--primary-color);
+            font-size: 1.2rem;
+        }
+        .season-heading:first-child {
+            margin-top: 0;
+        }
+
         /* Mobile responsiveness */
         @media (max-width: 768px) {
             .teams-table th,
             .teams-table td {
                 padding: 0.75rem 0.5rem;
-            }
-            
-            .col-season {
-                display: none;
             }
         }
         
@@ -145,11 +150,6 @@
             font-size: 0.9rem;
         }
         
-        .season-info {
-            color: #6c757d;
-            font-size: 0.9rem;
-        }
-        
         .player-count {
             background: var(--primary-color);
             color: white;
@@ -195,14 +195,15 @@
             </div>
             {{end}}
 
-            {{if .Teams}}
-            <div class="table-container">
+            {{if .GroupedTeams}}
+            {{range .GroupedTeams}}
+            <h3 class="season-heading">{{if .Season}}{{.Season.Name}} ({{.Season.Year}}){{else}}Unknown Season{{end}}</h3>
+            <div class="table-container" style="margin-bottom: 1.5rem;">
                 <table class="teams-table">
                     <thead>
                         <tr>
                             <th class="col-name">Team Name</th>
                             <th class="col-division">Division</th>
-                            <th class="col-season">Season</th>
                             <th class="col-players">Players</th>
                             <th class="col-captain">Team Captain</th>
                         </tr>
@@ -216,13 +217,6 @@
                             <td class="col-division">
                                 {{if .Division}}
                                     <span class="division-name">{{.Division.Name}}</span>
-                                {{else}}
-                                    <span class="no-captain">TBD</span>
-                                {{end}}
-                            </td>
-                            <td class="col-season">
-                                {{if .Season}}
-                                    <span class="season-info">{{.Season.Name}}</span>
                                 {{else}}
                                     <span class="no-captain">TBD</span>
                                 {{end}}
@@ -242,6 +236,7 @@
                     </tbody>
                 </table>
             </div>
+            {{end}}
             {{else}}
             <div class="no-teams">
                 <h3>No Teams Found</h3>

@@ -160,6 +160,37 @@ func (h *TeamsHandler) handleTeamsGet(w http.ResponseWriter, r *http.Request, us
 		})
 	}
 
+	// Group teams by season, ordered with active season first then by year descending
+	type SeasonTeams struct {
+		Season *models.Season
+		Teams  []TeamWithRelations
+	}
+	seasonOrder := []uint{}
+	seasonMap := map[uint]*SeasonTeams{}
+	for _, team := range teams {
+		sid := team.SeasonID
+		if _, exists := seasonMap[sid]; !exists {
+			seasonMap[sid] = &SeasonTeams{Season: team.Season}
+			seasonOrder = append(seasonOrder, sid)
+		}
+		seasonMap[sid].Teams = append(seasonMap[sid].Teams, team)
+	}
+	// Sort: active season first, then by year descending
+	var groupedTeams []SeasonTeams
+	// Add active season first if present
+	if activeSeason != nil {
+		if st, ok := seasonMap[activeSeason.ID]; ok {
+			groupedTeams = append(groupedTeams, *st)
+		}
+	}
+	// Add remaining seasons sorted by year descending
+	for _, sid := range seasonOrder {
+		if activeSeason != nil && sid == activeSeason.ID {
+			continue
+		}
+		groupedTeams = append(groupedTeams, *seasonMap[sid])
+	}
+
 	// Load the teams template
 	tmpl, err := parseTemplate(h.templateDir, "admin/teams.html")
 	if err != nil {
@@ -174,7 +205,7 @@ func (h *TeamsHandler) handleTeamsGet(w http.ResponseWriter, r *http.Request, us
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
 		"User":         user,
 		"Club":         club,
-		"Teams":        teams,
+		"GroupedTeams": groupedTeams,
 		"ActiveSeason": activeSeason,
 		"Divisions":    divisionData,
 	}); err != nil {
