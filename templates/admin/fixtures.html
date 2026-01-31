@@ -836,6 +836,32 @@
         function hideCreateFixtureModal() {
             document.getElementById('createFixtureModal').style.display = 'none';
             document.getElementById('createFixtureForm').reset();
+            // Re-show all team options after reset
+            filterTeamsByDivision();
+        }
+
+        function filterTeamsByDivision() {
+            var divisionSelect = document.getElementById('createFixtureDivision');
+            var homeSelect = document.getElementById('createFixtureHomeTeam');
+            var awaySelect = document.getElementById('createFixtureAwayTeam');
+            var selectedDivisionID = divisionSelect.value;
+
+            [homeSelect, awaySelect].forEach(function(select) {
+                var options = select.querySelectorAll('option[data-division-id]');
+                options.forEach(function(option) {
+                    if (!selectedDivisionID || option.getAttribute('data-division-id') === selectedDivisionID) {
+                        option.style.display = '';
+                        option.disabled = false;
+                    } else {
+                        option.style.display = 'none';
+                        option.disabled = true;
+                    }
+                });
+                // Reset selection if current choice is now hidden
+                if (select.selectedOptions.length > 0 && select.selectedOptions[0].disabled) {
+                    select.value = '';
+                }
+            });
         }
     </script>
 
@@ -860,7 +886,7 @@
 
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: bold;">Division:</label>
-                    <select name="division_id" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <select name="division_id" id="createFixtureDivision" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" onchange="filterTeamsByDivision()">
                         <option value="">Select Division</option>
                         {{range .Divisions}}
                         <option value="{{.ID}}">{{.Name}}</option>
@@ -880,20 +906,20 @@
 
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: bold;">Home Team:</label>
-                    <select name="home_team_id" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <select name="home_team_id" id="createFixtureHomeTeam" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                         <option value="">Select Home Team</option>
                         {{range .Teams}}
-                        <option value="{{.ID}}">{{.Name}}</option>
+                        <option value="{{.ID}}" data-division-id="{{.DivisionID}}">{{.Name}}</option>
                         {{end}}
                     </select>
                 </div>
 
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: bold;">Away Team:</label>
-                    <select name="away_team_id" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <select name="away_team_id" id="createFixtureAwayTeam" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                         <option value="">Select Away Team</option>
                         {{range .Teams}}
-                        <option value="{{.ID}}">{{.Name}}</option>
+                        <option value="{{.ID}}" data-division-id="{{.DivisionID}}">{{.Name}}</option>
                         {{end}}
                     </select>
                 </div>

@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -219,6 +220,27 @@ func (h *FixturesHandler) handleCreateFixture(w http.ResponseWriter, r *http.Req
 	scheduledDate, err := time.Parse("2006-01-02", scheduledDateStr)
 	if err != nil {
 		http.Error(w, "Invalid scheduled date", http.StatusBadRequest)
+		return
+	}
+
+	// Validate that both teams belong to the selected division
+	ctx := context.Background()
+	homeTeam, err := h.service.teamRepository.FindByID(ctx, uint(homeTeamID))
+	if err != nil {
+		http.Error(w, "Home team not found", http.StatusBadRequest)
+		return
+	}
+	awayTeam, err := h.service.teamRepository.FindByID(ctx, uint(awayTeamID))
+	if err != nil {
+		http.Error(w, "Away team not found", http.StatusBadRequest)
+		return
+	}
+	if homeTeam.DivisionID != uint(divisionID) {
+		http.Error(w, "Home team does not belong to the selected division", http.StatusBadRequest)
+		return
+	}
+	if awayTeam.DivisionID != uint(divisionID) {
+		http.Error(w, "Away team does not belong to the selected division", http.StatusBadRequest)
 		return
 	}
 
