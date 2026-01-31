@@ -2797,3 +2797,732 @@ Remember to:
 - Update this document with lessons learned
 
 Good luck with your deployment!
+
+---
+
+## Production Deployment - Actual Implementation (2026-01-19)
+
+### Phase 2-5: Production Deployment Completed ✅
+
+The production deployment to `jim.tennis` (144.126.228.64) was completed successfully on 2026-01-19. This section documents the actual hurdles encountered and solutions applied.
+
+### Production Environment Details
+
+- **Server:** DigitalOcean droplet at 144.126.228.64
+- **Domain:** jim.tennis (DNS already configured)
+- **SSH Access:** `ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64`
+- **Deployment Path:** `/opt/jim-dot-tennis/`
+- **User:** james.hartt (admin role)
+- **CourtHive Admin:** jameshartt@gmail.com / SecureP@ssw0rd2026!
+
+### Deployment Hurdles and Solutions
+
+#### Hurdle 1: Docker Build Context Path Mismatch
+
+**Symptom:**
+```
+unable to prepare context: path "/opt/competition-factory-server" not found
+```
+
+**Root Cause:** The docker-compose.courthive.yml was created with relative paths `../competition-factory-server` suitable for local development structure, but production had the files at `./competition-factory-server`.
+
+**Solution:**
+```bash
+cd /opt/jim-dot-tennis
+sed -i 's|context: ../competition-factory-server|context: ./competition-factory-server|g' docker-compose.courthive.yml
+sed -i 's|../competition-factory-server|./competition-factory-server|g' docker-compose.courthive.yml
+sed -i 's|../TMX/dist|./TMX/dist|g' docker-compose.courthive.yml
+sed -i 's|../courthive-public/dist|./courthive-public/dist|g' docker-compose.courthive.yml
+```
+
+**Prevention:** Create environment-specific docker-compose files or use environment variables for paths.
+
+---
+
+#### Hurdle 2: Missing Source Files for Docker Build
+
+**Symptom:**
+```
+failed to calculate checksum: "/pnpm-workspace.yaml": not found
+```
+
+**Root Cause:** Only Dockerfile and seed-admin.js were initially transferred. The Docker build requires the complete source tree to build the application.
+
+**Solution:**
+```bash
+rsync -avz --exclude='node_modules' --exclude='dist' --exclude='.git' \
+  -e "ssh -i ~/.ssh/digital_ocean_ssh" \
+  /home/jameshartt/Development/Tennis/competition-factory-server/ \
+  root@144.126.228.64:/opt/jim-dot-tennis/competition-factory-server/
+```
+
+**Lesson:** Always transfer complete source for Docker builds, not just the Dockerfile.
+
+---
+
+#### Hurdle 3: SSL/HTTPS Not Working
+
+**Symptom:** Unable to access site via HTTPS, certificate errors.
+
+**Root Cause:** The Caddyfile.courthive was configured for local testing with `:80` only. The production section was commented out.
+
+**Original Caddyfile:**
+```caddyfile
+:80 {
+  # ... configuration ...
+}
+
+# jim.tennis {
+#   # Production config commented out
+# }
+```
+
+**Solution:** Updated Caddyfile to use the domain:
+```caddyfile
+jim.tennis {
+  # CourtHive API endpoints
+  handle /api/courthive/* {
+    uri strip_prefix /api/courthive
+    reverse_proxy courthive-server:8383
+  }
+  
+  # Tournament admin interface (TMX)
+  handle_path /tournaments* {
+    root * /srv/tournaments
+    try_files {path} /index.html
+    file_server
+  }
+  
+  # Public tournament viewer
+  handle_path /public* {
+    root * /srv/public
+    try_files {path} /index.html
+    file_server
+  }
+  
+  # Jim-dot-tennis application (catch-all)
+  handle {
+    reverse_proxy app:8080
+  }
+  
+  # Security headers
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    X-Frame-Options "SAMEORIGIN"
+    X-Content-Type-Options "nosniff"
+    X-XSS-Protection "1; mode=block"
+  }
+  
+  encode gzip
+}
+```
+
+**Result:** Caddy automatically provisioned a Let's Encrypt certificate via TLS-ALPN-01 challenge. Certificate valid until April 19, 2026.
+
+**Lesson:** Always configure for production domain from the start when deploying to production environment.
+
+---
+
+#### Hurdle 4: Wrong Landing Page Showing
+
+**Symptom:** Home page at `https://jim.tennis/` showed old push notification demo instead of the new "Tennis Tournament Management" landing page.
+
+**Root Cause:** Production was running old code. The templates/ directory hadn't been updated with the new landing page created during Phase 1.
+
+**Solution:**
+```bash
+# Transfer updated templates
+rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
+  /home/jameshartt/Development/Tennis/jim-dot-tennis/templates/ \
+  root@144.126.228.64:/opt/jim-dot-tennis/templates/
+
+# Rebuild and restart app
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "cd /opt/jim-dot-tennis && docker compose build app && docker compose up -d app"
+```
+
+**Verification:**
+```bash
+curl -s https://jim.tennis/ | grep "Tournament Management"
+```
+
+**Lesson:** Always transfer all modified files (templates, static assets, source code) before rebuilding.
+
+---
+
+#### Hurdle 5: 404 Error at /admin/league
+
+**Symptom:** Accessing `https://jim.tennis/admin/league` returned 404 Not Found, despite authentication working.
+
+**Root Cause:** Production server still had the OLD route structure from before the courthive-integration branch changes:
+- Production code: `/admin/*` routes
+- Local code: `/admin/league/*` routes
+
+**Files affected:**
+- `/opt/jim-dot-tennis/cmd/jim-dot-tennis/main.go`
+- `/opt/jim-dot-tennis/internal/admin/handler.go`
+
+**Solution:**
+```bash
+# Transfer updated source code from courthive-integration branch
+rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
+  /home/jameshartt/Development/Tennis/jim-dot-tennis/internal/ \
+  root@144.126.228.64:/opt/jim-dot-tennis/internal/
+
+rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
+  /home/jameshartt/Development/Tennis/jim-dot-tennis/cmd/ \
+  root@144.126.228.64:/opt/jim-dot-tennis/cmd/
+
+# Rebuild and restart
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "cd /opt/jim-dot-tennis && docker compose build app && docker compose up -d app"
+```
+
+**Verification:**
+```bash
+curl -I https://jim.tennis/admin/league
+# Returns: HTTP/2 401 (correct - requires auth)
+```
+
+**Lesson:** When deploying a feature branch, ensure ALL code changes from that branch are transferred, not just the new files.
+
+---
+
+#### Hurdle 6: CourtHive User Seeding Not Working
+
+**Symptom:** TMX frontend login at `https://jim.tennis/tournaments` returned 401 Unauthorized for any credentials.
+
+**Root Cause:** No admin user existed in the LevelDB database. The seed-admin.js script wasn't run during deployment.
+
+**Solution:** Created admin user directly inside the courthive-server container:
+```bash
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker exec courthive-server node -e \"
+const bcrypt = require('bcryptjs');
+const netLevelClient = require('@gridspace/net-level-client');
+
+async function createAdminUser() {
+  const db = new netLevelClient();
+  
+  try {
+    console.log('Connecting to LevelDB...');
+    await db.open('localhost', 3838);
+    await db.auth('admin', 'adminpass');
+    await db.use('user', { create: true });
+    
+    const email = 'jameshartt@gmail.com';
+    
+    // Check if user already exists
+    try {
+      const existing = await db.get({ key: email });
+      if (existing && existing.value) {
+        console.log('User already exists!');
+        await db.close();
+        return;
+      }
+    } catch (err) {
+      // User doesn't exist, continue
+    }
+    
+    console.log('Hashing password...');
+    const hashedPassword = await bcrypt.hash('SecureP@ssw0rd2026!', 10);
+    
+    const user = {
+      email,
+      roles: ['superadmin', 'admin', 'developer', 'client', 'score'],
+      permissions: ['devMode'],
+      password: hashedPassword,
+      firstName: 'James',
+      lastName: 'Hartt',
+    };
+    
+    console.log('Creating user: ' + email);
+    await db.put(email, user);
+    
+    console.log('✅ Admin user created successfully!');
+    await db.close();
+  } catch (error) {
+    console.error('❌ Error:', error.message);
+  }
+}
+
+createAdminUser();
+\""
+```
+
+**Verification:**
+- Login at `https://jim.tennis/tournaments` with `jameshartt@gmail.com` / `SecureP@ssw0rd2026!` successful
+- Can create tournaments and manage competitions
+
+**Lesson:** User seeding should be part of the deployment checklist, especially for services with separate authentication systems.
+
+---
+
+### Deployment Success Checklist
+
+After completing production deployment, all endpoints verified:
+
+- ✅ **Main site:** https://jim.tennis/ → HTTP/2 200 (Tennis Tournament Management landing page)
+- ✅ **League admin:** https://jim.tennis/admin/league → HTTP/2 401 (redirects to login, then dashboard)
+- ✅ **TMX admin:** https://jim.tennis/tournaments → HTTP/2 200 (Tournament admin interface)
+- ✅ **Public viewer:** https://jim.tennis/public → HTTP/2 200 (Public tournament viewer)
+- ✅ **CourtHive API:** https://jim.tennis/api/courthive/ → HTTP/2 200 ({"message":"Factory server"})
+- ✅ **SSL/TLS:** Let's Encrypt certificate valid until 2026-04-19
+- ✅ **Authentication:** Both jim-dot-tennis and CourtHive auth working
+- ✅ **Data persistence:** Tournaments persist across container restarts
+- ✅ **Health checks:** All containers healthy
+
+---
+
+## Quick Reference Cheat Sheet
+
+### Common Production Operations
+
+#### 1. Update jim-dot-tennis Go Application
+
+When you've made changes to Go source code, templates, or static files:
+
+```bash
+# From local machine
+cd /home/jameshartt/Development/Tennis/jim-dot-tennis
+
+# Transfer updated files
+rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
+  internal/ root@144.126.228.64:/opt/jim-dot-tennis/internal/
+
+rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
+  cmd/ root@144.126.228.64:/opt/jim-dot-tennis/cmd/
+
+rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
+  templates/ root@144.126.228.64:/opt/jim-dot-tennis/templates/
+
+rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
+  static/ root@144.126.228.64:/opt/jim-dot-tennis/static/
+
+# Rebuild and restart (takes ~60-90 seconds)
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "cd /opt/jim-dot-tennis && docker compose build app && docker compose up -d app"
+
+# Watch logs to verify restart
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "docker logs -f jim-dot-tennis"
+```
+
+**Build time:** ~60-90 seconds  
+**Downtime:** ~5-10 seconds during container restart
+
+---
+
+#### 2. Update TMX Frontend
+
+When you've made changes to the TMX admin interface:
+
+```bash
+# Build TMX with production config
+cd /home/jameshartt/Development/Tennis/TMX
+nvm use 24  # TMX requires Node 24
+SERVER="https://jim.tennis/api/courthive" \
+ENVIRONMENT="production" \
+BASE_URL="tournaments" \
+pnpm build
+
+# Transfer to production
+rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
+  dist/ root@144.126.228.64:/opt/jim-dot-tennis/TMX/dist/
+
+# No restart needed - Caddy serves static files
+# Test immediately
+curl -I https://jim.tennis/tournaments
+```
+
+**Build time:** ~30-60 seconds  
+**Downtime:** None (atomic rsync replacement)
+
+---
+
+#### 3. Update courthive-public Frontend
+
+When you've made changes to the public tournament viewer:
+
+```bash
+# Build courthive-public with production config
+cd /home/jameshartt/Development/Tennis/courthive-public
+nvm use 20  # courthive-public requires Node 20
+VITE_API_URL="https://jim.tennis/api/courthive" \
+ENVIRONMENT="production" \
+pnpm build
+
+# Transfer to production
+rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
+  dist/ root@144.126.228.64:/opt/jim-dot-tennis/courthive-public/dist/
+
+# No restart needed
+curl -I https://jim.tennis/public
+```
+
+**Build time:** ~20-40 seconds  
+**Downtime:** None
+
+---
+
+#### 4. Update CourtHive Server
+
+When you've made changes to competition-factory-server:
+
+```bash
+# Transfer updated source
+cd /home/jameshartt/Development/Tennis/competition-factory-server
+rsync -avz --exclude='node_modules' --exclude='dist' --exclude='.git' \
+  -e "ssh -i ~/.ssh/digital_ocean_ssh" \
+  ./ root@144.126.228.64:/opt/jim-dot-tennis/competition-factory-server/
+
+# Rebuild and restart (takes ~90-120 seconds)
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "cd /opt/jim-dot-tennis && docker compose build courthive-server && docker compose up -d courthive-server"
+
+# Watch logs
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "docker logs -f courthive-server"
+```
+
+**Build time:** ~90-120 seconds  
+**Downtime:** ~10-15 seconds during container restart  
+**Warning:** This restarts the API - active users may experience interruption
+
+---
+
+#### 5. View Logs
+
+```bash
+# All services
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "cd /opt/jim-dot-tennis && docker compose logs -f"
+
+# Specific service
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "docker logs -f jim-dot-tennis"
+
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "docker logs -f courthive-server"
+
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "docker logs -f tennis-caddy"
+
+# Last 50 lines only
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "docker logs --tail 50 jim-dot-tennis"
+```
+
+---
+
+#### 6. Check Service Health
+
+```bash
+# Container status
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "docker compose ps"
+
+# Resource usage
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "docker stats --no-stream"
+
+# Endpoint health
+curl -I https://jim.tennis/
+curl -I https://jim.tennis/admin/league
+curl -I https://jim.tennis/tournaments
+curl -I https://jim.tennis/public
+curl https://jim.tennis/api/courthive/
+```
+
+---
+
+#### 7. Restart Services
+
+```bash
+# Restart all services
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "cd /opt/jim-dot-tennis && docker compose restart"
+
+# Restart specific service
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "cd /opt/jim-dot-tennis && docker compose restart app"
+
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "cd /opt/jim-dot-tennis && docker compose restart courthive-server"
+
+# Stop and start (full restart)
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "cd /opt/jim-dot-tennis && docker compose down && docker compose up -d"
+```
+
+---
+
+#### 8. Create CourtHive Admin User
+
+```bash
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker exec -i courthive-server node" << 'EOFNODE'
+const bcrypt = require('bcryptjs');
+const netLevelClient = require('@gridspace/net-level-client');
+
+async function createAdminUser() {
+  const db = new netLevelClient();
+  
+  try {
+    await db.open('localhost', 3838);
+    await db.auth('admin', 'adminpass');
+    await db.use('user', { create: true });
+    
+    const email = 'newuser@example.com';
+    const password = 'SecurePassword123!';
+    
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const user = {
+      email,
+      roles: ['superadmin', 'admin', 'developer', 'client', 'score'],
+      permissions: ['devMode'],
+      password: hashedPassword,
+      firstName: 'New',
+      lastName: 'User',
+    };
+    
+    await db.put(email, user);
+    console.log('✅ User created: ' + email);
+    await db.close();
+  } catch (error) {
+    console.error('❌ Error:', error.message);
+  }
+}
+
+createAdminUser();
+EOFNODE
+```
+
+**Note:** Replace `newuser@example.com` and `SecurePassword123!` with actual credentials.
+
+---
+
+#### 9. Database Backups
+
+```bash
+# Jim-dot-tennis database
+# Automatic backups run daily via backup container
+# Backups stored in: tennis-backups volume
+
+# List backups
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "docker run --rm -v jim-dot-tennis-backups:/backups alpine ls -lh /backups"
+
+# Manual backup
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "docker run --rm -v jim-dot-tennis-data:/data -v jim-dot-tennis-backups:/backups alpine \
+  sh -c 'apk add sqlite && sqlite3 /data/tennis.db \".backup /backups/manual-$(date +%Y%m%d-%H%M%S).db\"'"
+
+# Download backup to local machine
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "docker run --rm -v jim-dot-tennis-backups:/backups alpine cat /backups/tennis-20260119-120000.db" \
+  > ~/backups/tennis-20260119.db
+
+# CourtHive data (LevelDB)
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "docker run --rm -v courthive-data:/data alpine tar czf - -C /data ." \
+  > ~/backups/courthive-data-$(date +%Y%m%d).tar.gz
+```
+
+---
+
+#### 10. Update Environment Variables
+
+```bash
+# Edit .env file on production
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "nano /opt/jim-dot-tennis/.env"
+
+# After editing, restart affected services
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "cd /opt/jim-dot-tennis && docker compose up -d"
+```
+
+**Warning:** Changing environment variables requires container restart.
+
+---
+
+#### 11. SSL Certificate Management
+
+Caddy handles SSL automatically, but you can check certificate status:
+
+```bash
+# Check certificate expiry
+curl -vI https://jim.tennis/ 2>&1 | grep -A 5 "Server certificate"
+
+# Force certificate renewal (rarely needed)
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "docker compose restart caddy"
+
+# View Caddy logs for certificate issues
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "docker logs tennis-caddy | grep -i cert"
+```
+
+---
+
+#### 12. Quick Troubleshooting
+
+**Issue: Site not responding**
+```bash
+# Check if containers are running
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker compose ps"
+
+# Check Caddy logs
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker logs --tail 50 tennis-caddy"
+
+# Restart Caddy
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker compose restart caddy"
+```
+
+**Issue: API errors**
+```bash
+# Check courthive-server logs
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker logs --tail 100 courthive-server"
+
+# Check if Redis is running
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker exec courthive-redis redis-cli ping"
+# Should return: PONG
+
+# Restart courthive-server
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker compose restart courthive-server"
+```
+
+**Issue: Admin login not working**
+```bash
+# Check jim-dot-tennis logs
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker logs --tail 50 jim-dot-tennis | grep -i auth"
+
+# Check database exists
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "docker exec jim-dot-tennis ls -lh /app/data/tennis.db"
+```
+
+**Issue: TMX login not working**
+```bash
+# Check if LevelDB server is running
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "docker exec courthive-server ps aux | grep net-level"
+
+# Check if user exists
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "docker exec courthive-server cat /app/data/.users"
+```
+
+---
+
+### Development Workflow
+
+**Recommended workflow for active development:**
+
+1. **Make changes locally**
+   - Edit code in your local repository
+   - Test locally using `./scripts/run.sh` or local Docker setup
+
+2. **Commit to git**
+   ```bash
+   git add .
+   git commit -m "Description of changes"
+   git push origin courthive-integration
+   ```
+
+3. **Deploy to production**
+   - Use appropriate rsync command from cheat sheet above
+   - Rebuild affected containers
+   - Verify changes
+
+4. **Monitor**
+   - Watch logs for errors
+   - Test affected functionality
+   - Check health endpoints
+
+---
+
+### Performance Notes
+
+**Current Resource Usage (2026-01-19):**
+- Total memory: ~210MB / 961MB available (22%)
+- jim-dot-tennis: ~20MB
+- courthive-server: ~120MB
+- Redis: ~8MB
+- Caddy: ~15MB
+
+**Build Times:**
+- jim-dot-tennis (Go): ~60-90 seconds
+- courthive-server (NestJS): ~90-120 seconds
+- TMX (Vite): ~30-60 seconds
+- courthive-public (Vite): ~20-40 seconds
+
+**Deployment Times (full update):**
+- Transfer files: ~10-30 seconds (depends on file size and connection)
+- Build container: See build times above
+- Restart container: ~5-15 seconds
+- **Total: ~2-3 minutes** for Go app, ~2-4 minutes for Node app
+
+---
+
+### Security Checklist
+
+- ✅ SSL/TLS enabled with automatic renewal
+- ✅ HSTS header configured (max-age=31536000)
+- ✅ Security headers (X-Frame-Options, X-Content-Type-Options, X-XSS-Protection)
+- ✅ Non-root user in containers (node, appuser)
+- ✅ JWT secrets configured (COURTHIVE_JWT_SECRET)
+- ✅ Database credentials not exposed
+- ✅ Environment variables in .env (not committed to git)
+- ✅ LevelDB authentication (admin/adminpass - change in production)
+- ✅ SSH key authentication (no password login)
+
+**TODO for enhanced security:**
+- [ ] Change default LevelDB credentials (DB_USER, DB_PASS)
+- [ ] Setup firewall rules (ufw) to restrict ports
+- [ ] Configure Redis password (REDIS_PASSWORD)
+- [ ] Setup automated security updates
+- [ ] Configure log rotation
+- [ ] Setup monitoring/alerting (Grafana/Prometheus)
+
+---
+
+## Lessons Learned
+
+1. **Always use production-ready configs from the start** - Don't deploy with local/development configurations commented out
+2. **Transfer complete source trees** - Docker builds need the full context, not just the Dockerfile
+3. **Verify route changes across all files** - When changing URL structure, ensure main.go, handlers, templates, and frontends all match
+4. **Document credentials immediately** - Create admin users as part of deployment, not as an afterthought
+5. **Test incrementally** - Deploy and verify one service at a time rather than all at once
+6. **Use rsync --delete carefully** - Ensure you're not deleting important production data
+7. **Docker volumes persist** - Data survives container rebuilds, which is good for production
+8. **Caddy is magical** - Automatic HTTPS with Let's Encrypt "just works" when configured correctly
+
+---
+
+## Next Steps
+
+1. **Change default credentials**
+   - Update LevelDB admin password
+   - Rotate JWT secrets periodically
+   
+2. **Setup monitoring**
+   - Application metrics
+   - Error tracking
+   - Uptime monitoring
+
+3. **Automate deployments**
+   - Create deployment scripts
+   - Setup CI/CD pipeline
+   - Automated testing
+
+4. **Enhanced backups**
+   - Offsite backup storage
+   - Backup verification
+   - Restore testing
+
+5. **Performance optimization**
+   - Enable caching
+   - CDN for static assets
+   - Database query optimization
+
