@@ -446,7 +446,10 @@
         <div class="container">
             <div class="action-bar">
                 <h2>St. Ann's Fixtures</h2>
-                <a href="/admin/league/fixtures/week-overview" class="btn-add" style="background: var(--success-color); color: white; padding: 0.5rem 1rem; text-decoration: none; border-radius: 4px;">📱 Week Overview</a>
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="showCreateFixtureModal()" class="btn-add" style="background: var(--primary-color); color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">➕ Create Fixture</button>
+                    <a href="/admin/league/fixtures/week-overview" class="btn-add" style="background: var(--success-color); color: white; padding: 0.5rem 1rem; text-decoration: none; border-radius: 4px;">📱 Week Overview</a>
+                </div>
             </div>
 
             {{if .Club}}
@@ -481,7 +484,7 @@
                         <tbody id="todaysFixturesBody">
                             {{range .TodaysFixtures}}
                             <tr class="status-{{.Status}} fixture-row" data-division="{{if .Division}}{{.Division.Name}}{{else}}Unknown{{end}}"
-                                onclick="window.location.href='{{if .IsDerby}}/admin/fixtures/{{.ID}}?managingTeam={{.DefaultTeamContext.ID}}&teamName={{.DefaultTeamContext.Name}}{{else}}/admin/fixtures/{{.ID}}{{end}}'" style="cursor: pointer;">
+                                onclick="window.location.href='{{if .IsDerby}}/admin/league/fixtures/{{.ID}}?managingTeam={{.DefaultTeamContext.ID}}&teamName={{.DefaultTeamContext.Name}}{{else}}/admin/league/fixtures/{{.ID}}{{end}}'" style="cursor: pointer;">
                                 <td class="col-date">
                                     <div class="date-time">
                                         <small>{{.ScheduledDate.Format "3:04 PM"}}</small>
@@ -566,7 +569,7 @@
                     <tbody id="upcomingFixturesBody">
                         {{range .UpcomingFixtures}}
                         <tr class="status-{{.Status}} fixture-row" data-division="{{if .Division}}{{.Division.Name}}{{else}}Unknown{{end}}" 
-                            onclick="window.location.href='{{if .IsDerby}}/admin/fixtures/{{.ID}}?managingTeam={{.DefaultTeamContext.ID}}&teamName={{.DefaultTeamContext.Name}}{{else}}/admin/fixtures/{{.ID}}{{end}}'" style="cursor: pointer;">
+                            onclick="window.location.href='{{if .IsDerby}}/admin/league/fixtures/{{.ID}}?managingTeam={{.DefaultTeamContext.ID}}&teamName={{.DefaultTeamContext.Name}}{{else}}/admin/league/fixtures/{{.ID}}{{end}}'" style="cursor: pointer;">
                             <td class="col-date">
                                 <div class="date-time">
                                     {{.ScheduledDate.Format "Mon, Jan 2"}}<br>
@@ -635,7 +638,7 @@
                             <tbody id="pastFixturesBody">
                                 {{range .PastFixtures}}
                                 <tr class="status-{{.Status}} fixture-row" data-division="{{if .Division}}{{.Division.Name}}{{else}}Unknown{{end}}" 
-                                    onclick="window.location.href='{{if .IsDerby}}/admin/fixtures/{{.ID}}?managingTeam={{.DefaultTeamContext.ID}}&teamName={{.DefaultTeamContext.Name}}{{else}}/admin/fixtures/{{.ID}}{{end}}'" style="cursor: pointer;">
+                                    onclick="window.location.href='{{if .IsDerby}}/admin/league/fixtures/{{.ID}}?managingTeam={{.DefaultTeamContext.ID}}&teamName={{.DefaultTeamContext.Name}}{{else}}/admin/league/fixtures/{{.ID}}{{end}}'" style="cursor: pointer;">
                                     <td class="col-date">
                                         <div class="date-time">
                                             {{.ScheduledDate.Format "Mon, Jan 2"}}<br>
@@ -817,14 +820,104 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Start with filters collapsed
             toggleFilters();
-            
+
             // Start with past fixtures collapsed
             togglePastFixtures();
-            
+
             // Initialize filter state
             updateFilters();
         });
+
+        // Create Fixture Modal Functions
+        function showCreateFixtureModal() {
+            document.getElementById('createFixtureModal').style.display = 'flex';
+        }
+
+        function hideCreateFixtureModal() {
+            document.getElementById('createFixtureModal').style.display = 'none';
+            document.getElementById('createFixtureForm').reset();
+        }
     </script>
+
+    <!-- Create Fixture Modal -->
+    <div id="createFixtureModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 30px; border-radius: 8px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">Create New Fixture</h2>
+                <button onclick="hideCreateFixtureModal()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+            </div>
+
+            <form id="createFixtureForm" method="POST" action="/admin/league/fixtures">
+                <input type="hidden" name="action" value="create">
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Season:</label>
+                    <select name="season_id" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Select Season</option>
+                        {{range .Seasons}}
+                        <option value="{{.ID}}" {{if .IsActive}}selected{{end}}>{{.Name}} ({{.Year}})</option>
+                        {{end}}
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Division:</label>
+                    <select name="division_id" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Select Division</option>
+                        {{range .Divisions}}
+                        <option value="{{.ID}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Week:</label>
+                    <select name="week_id" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Select Week</option>
+                        {{range .Weeks}}
+                        <option value="{{.ID}}">Week {{.WeekNumber}}</option>
+                        {{end}}
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Home Team:</label>
+                    <select name="home_team_id" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Select Home Team</option>
+                        {{range .Teams}}
+                        <option value="{{.ID}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Away Team:</label>
+                    <select name="away_team_id" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Select Away Team</option>
+                        {{range .Teams}}
+                        <option value="{{.ID}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Scheduled Date:</label>
+                    <input type="date" name="scheduled_date" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Venue Location:</label>
+                    <input type="text" name="venue_location" placeholder="e.g., St Ann's Tennis Club" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" onclick="hideCreateFixtureModal()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+                    <button type="submit" style="padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer;">Create Fixture</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 </body>
 
 </html>

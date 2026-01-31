@@ -226,7 +226,7 @@ func (h *FixturesHandler) handleCreateFixture(w http.ResponseWriter, r *http.Req
 		DivisionID:    uint(divisionID),
 		ScheduledDate: scheduledDate,
 		VenueLocation: venueLocation,
-		Status:        "scheduled",
+		Status:        "Scheduled",
 	}
 
 	if err := h.service.CreateFixture(fixture); err != nil {

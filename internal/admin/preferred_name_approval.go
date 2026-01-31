@@ -149,7 +149,7 @@ func (s *Service) HandleApprovePreferredName(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Redirect back to approval page
-	http.Redirect(w, r, "/admin/preferred-names", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/league/preferred-names", http.StatusSeeOther)
 }
 
 // HandleRejectPreferredName handles rejection of a preferred name request
@@ -201,7 +201,7 @@ func (s *Service) HandleRejectPreferredName(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Redirect back to approval page
-	http.Redirect(w, r, "/admin/preferred-names", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/league/preferred-names", http.StatusSeeOther)
 }
 
 // HandlePreferredNameHistory shows the history of all preferred name requests
