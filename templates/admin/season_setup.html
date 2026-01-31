@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Season Setup - {{.Season.Name}} - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+
+        .season-header {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .season-header h2 {
+            margin: 0 0 0.5rem 0;
+            color: var(--primary-color);
+        }
+
+        .season-info {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            font-size: 0.9rem;
+            color: #495057;
+        }
+
+        .season-info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .season-info-label {
+            font-weight: 600;
+            color: #6c757d;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+
+        .division-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .division-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .division-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .division-meta {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+
+        .team-list {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .team-card {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 1rem;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .team-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .team-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: var(--primary-color);
+        }
+
+        .team-club {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+
+        .team-stats {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.85rem;
+            color: #495057;
+        }
+
+        .team-stat {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .team-stat-value {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .team-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .move-form {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .move-select {
+            padding: 0.4rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        .btn-move {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.4rem 0.8rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .btn-move:hover {
+            opacity: 0.9;
+        }
+
+        .no-teams {
+            text-align: center;
+            padding: 2rem;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .captain-info {
+            font-size: 0.85rem;
+            color: #495057;
+        }
+
+        .captain-badge {
+            background: #28a745;
+            color: white;
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            margin-left: 0.25rem;
+        }
+
+        @media (max-width: 768px) {
+            .team-card {
+                grid-template-columns: 1fr;
+            }
+
+            .team-actions {
+                justify-content: flex-start;
+            }
+
+            .season-info {
+                flex-direction: column;
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin/league">Admin Dashboard</a> &gt;
+                <a href="/admin/league/seasons">Seasons</a> &gt;
+                Setup
+            </div>
+            <h1>Season Setup - {{.Season.Name}}</h1>
+        </div>
+    </header>
+
+    <main class="admin-content">
+        <div class="container">
+            <div class="season-header">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                    <h2 style="margin: 0;">{{.Season.Name}}</h2>
+                    {{if not .SetupData.Divisions}}
+                    <button onclick="showCopyModal()" style="background: var(--primary-color); color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+                        📋 Copy from Previous Season
+                    </button>
+                    {{end}}
+                </div>
+                <div class="season-info">
+                    <div class="season-info-item">
+                        <span class="season-info-label">Year</span>
+                        <span>{{.Season.Year}}</span>
+                    </div>
+                    <div class="season-info-item">
+                        <span class="season-info-label">Start Date</span>
+                        <span>{{.Season.StartDate.Format "02 Jan 2006"}}</span>
+                    </div>
+                    <div class="season-info-item">
+                        <span class="season-info-label">End Date</span>
+                        <span>{{.Season.EndDate.Format "02 Jan 2006"}}</span>
+                    </div>
+                    <div class="season-info-item">
+                        <span class="season-info-label">Status</span>
+                        <span>
+                            {{if .Season.IsActive}}
+                            <span style="color: #28a745; font-weight: 600;">✓ Active</span>
+                            {{else}}
+                            <span style="color: #6c757d;">Inactive</span>
+                            {{end}}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {{if .SetupData.Divisions}}
+                {{range .SetupData.Divisions}}
+                <div class="division-section">
+                    <div class="division-header">
+                        <div>
+                            <div class="division-title">{{.Division.Name}}</div>
+                            <div class="division-meta">
+                                Level {{.Division.Level}} • Plays {{.Division.PlayDay}} • {{.TeamCount}} team{{if ne .TeamCount 1}}s{{end}}
+                            </div>
+                        </div>
+                    </div>
+
+                    {{if .Teams}}
+                    <div class="team-list">
+                        {{range .Teams}}
+                        <div class="team-card">
+                            <div class="team-info">
+                                <div class="team-name">
+                                    {{.Team.Name}}
+                                </div>
+                                <div class="team-club">
+                                    {{.Club.Name}}
+                                </div>
+                                <div class="team-stats">
+                                    <div class="team-stat">
+                                        👥 <span class="team-stat-value">{{.PlayerCount}}</span> players
+                                    </div>
+                                    {{if .Captains}}
+                                    <div class="team-stat">
+                                        {{range $i, $captain := .Captains}}
+                                        {{if $i}}, {{end}}
+                                        <span class="captain-info">{{$captain.PlayerID}}<span class="captain-badge">{{$captain.Role}}</span></span>
+                                        {{end}}
+                                    </div>
+                                    {{end}}
+                                </div>
+                            </div>
+
+                            <div class="team-actions">
+                                <form method="POST" action="/admin/league/seasons/move-team" class="move-form">
+                                    <input type="hidden" name="team_id" value="{{.Team.ID}}">
+                                    <input type="hidden" name="season_id" value="{{$.Season.ID}}">
+                                    <label style="font-size: 0.85rem; color: #6c757d;">Move to:</label>
+                                    <select name="target_division_id" class="move-select">
+                                        {{range $.SetupData.Divisions}}
+                                        <option value="{{.Division.ID}}" {{if eq .Division.ID $.Team.DivisionID}}selected disabled{{end}}>
+                                            {{.Division.Name}}
+                                        </option>
+                                        {{end}}
+                                    </select>
+                                    <button type="submit" class="btn-move">Move</button>
+                                </form>
+                            </div>
+                        </div>
+                        {{end}}
+                    </div>
+                    {{else}}
+                    <div class="no-teams">
+                        No teams in this division yet
+                    </div>
+                    {{end}}
+                </div>
+                {{end}}
+            {{else}}
+            <div class="no-teams" style="background: white; border-radius: 8px; padding: 3rem;">
+                <h3>No Divisions Set Up</h3>
+                <p>Create divisions for this season to start adding teams.</p>
+            </div>
+            {{end}}
+        </div>
+    </main>
+
+    <script>
+        function showCopyModal() {
+            document.getElementById('copyModal').style.display = 'flex';
+        }
+
+        function hideCopyModal() {
+            document.getElementById('copyModal').style.display = 'none';
+        }
+    </script>
+
+    <!-- Copy from Previous Season Modal -->
+    <div id="copyModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 30px; border-radius: 8px; max-width: 500px; width: 90%;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">Copy from Previous Season</h2>
+                <button onclick="hideCopyModal()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+            </div>
+
+            <p style="color: #6c757d; margin-bottom: 20px;">
+                This will copy divisions and teams from the {{.PreviousYear}} season to {{.Season.Name}}.
+            </p>
+
+            <form method="POST" action="/admin/league/seasons/copy-from-previous">
+                <input type="hidden" name="season_id" value="{{.Season.ID}}">
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem; background: #f8f9fa; border-radius: 4px;">
+                        <input type="checkbox" name="copy_divisions" checked style="cursor: pointer;">
+                        <div>
+                            <strong>Copy Divisions</strong>
+                            <div style="font-size: 0.85rem; color: #6c757d;">Copy all division structure (recommended)</div>
+                        </div>
+                    </label>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem; background: #f8f9fa; border-radius: 4px;">
+                        <input type="checkbox" name="copy_teams" checked style="cursor: pointer;">
+                        <div>
+                            <strong>Copy Teams</strong>
+                            <div style="font-size: 0.85rem; color: #6c757d;">Copy teams with their players and captains</div>
+                        </div>
+                    </label>
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" onclick="hideCopyModal()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+                    <button type="submit" style="padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer;">Copy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</body>
+</html>

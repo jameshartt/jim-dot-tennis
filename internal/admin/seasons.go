@@ -59,8 +59,22 @@ func (h *SeasonsHandler) HandleSetActiveSeason(w http.ResponseWriter, r *http.Re
 	http.Redirect(w, r, "/admin/league/seasons", http.StatusSeeOther)
 }
 
+// SeasonWithStats combines a season with its statistics
+type SeasonWithStats struct {
+	Season    models.Season
+	Stats     *SeasonStats
+	WeekCount int
+}
+
 // handleSeasonsList displays the list of seasons
 func (h *SeasonsHandler) handleSeasonsList(w http.ResponseWriter, r *http.Request) {
+	// Get user from context
+	user, err := getUserFromContext(r)
+	if err != nil {
+		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
+		return
+	}
+
 	seasons, err := h.service.GetAllSeasons()
 	if err != nil {
 		logAndError(w, "Failed to load seasons", err, http.StatusInternalServerError)
@@ -69,136 +83,40 @@ func (h *SeasonsHandler) handleSeasonsList(w http.ResponseWriter, r *http.Reques
 
 	activeSeason, _ := h.service.GetActiveSeason()
 
-	// Simple HTML response
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(`
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Season Management</title>
-    <link rel="stylesheet" href="/static/css/main.css">
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
-        h1 { color: #2c5530; }
-        .seasons-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        .seasons-table th, .seasons-table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-        .seasons-table th { background-color: #4a7c59; color: white; }
-        .seasons-table tr:nth-child(even) { background-color: #f8f9fa; }
-        .active-badge { background: #28a745; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
-        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
-        .btn-primary { background: #4a7c59; color: white; }
-        .btn-secondary { background: #6c757d; color: white; }
-        .btn:hover { opacity: 0.9; }
-        .create-form { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
-    </style>
-</head>
-<body>
-    <h1>Season Management</h1>
-    <p><a href="/admin/league/dashboard" class="btn btn-secondary">← Back to Dashboard</a></p>
-
-    <div class="create-form">
-        <h2>Create New Season</h2>
-        <form method="POST" action="/admin/league/seasons">
-            <div class="form-group">
-                <label for="name">Season Name:</label>
-                <input type="text" id="name" name="name" required placeholder="e.g., 2026 Season">
-            </div>
-            <div class="form-group">
-                <label for="year">Year:</label>
-                <input type="number" id="year" name="year" required value="2026">
-            </div>
-            <div class="form-group">
-                <label for="start_date">Start Date:</label>
-                <input type="date" id="start_date" name="start_date" required>
-                <small style="color: #666; font-size: 12px;">Date picker will display in your local format</small>
-            </div>
-            <div class="form-group">
-                <label for="end_date">End Date:</label>
-                <input type="date" id="end_date" name="end_date" required>
-                <small style="color: #666; font-size: 12px;">Date picker will display in your local format</small>
-            </div>
-            <div class="form-group">
-                <label for="num_weeks">Number of Weeks:</label>
-                <input type="number" id="num_weeks" name="num_weeks" required value="18" min="1" max="52">
-                <small style="color: #666; font-size: 12px;">Typically 18 weeks for a standard season</small>
-            </div>
-            <button type="submit" class="btn btn-primary">Create Season with Weeks</button>
-        </form>
-    </div>
-
-    <h2>Existing Seasons</h2>
-    <table class="seasons-table">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Year</th>
-                <th>Start Date</th>
-                <th>End Date</th>
-                <th>Weeks</th>
-                <th>Status</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-`))
-
+	// Build seasons with stats
+	var seasonsWithStats []SeasonWithStats
 	for _, season := range seasons {
-		isActive := activeSeason != nil && season.ID == activeSeason.ID
-		statusBadge := ""
-		if isActive {
-			statusBadge = `<span class="active-badge">ACTIVE</span>`
-		}
-
-		activeButton := ""
-		if !isActive {
-			activeButton = `<form method="POST" action="/admin/league/seasons/set-active?id=` + strconv.Itoa(int(season.ID)) + `" style="display: inline;">
-                <button type="submit" class="btn btn-secondary">Set Active</button>
-            </form>`
-		}
-
-		// Get week count for this season
+		stats, _ := h.service.GetSeasonStats(season.ID)
 		weekCount, _ := h.service.GetWeekCountForSeason(season.ID)
 
-		w.Write([]byte(`
-            <tr>
-                <td>` + strconv.Itoa(int(season.ID)) + `</td>
-                <td>` + season.Name + `</td>
-                <td>` + strconv.Itoa(season.Year) + `</td>
-                <td class="date-cell" data-date="` + season.StartDate.Format("2006-01-02") + `">` + season.StartDate.Format("02 Jan 2006") + `</td>
-                <td class="date-cell" data-date="` + season.EndDate.Format("2006-01-02") + `">` + season.EndDate.Format("02 Jan 2006") + `</td>
-                <td>` + strconv.Itoa(weekCount) + `</td>
-                <td>` + statusBadge + `</td>
-                <td>` + activeButton + `</td>
-            </tr>
-        `))
+		seasonsWithStats = append(seasonsWithStats, SeasonWithStats{
+			Season:    season,
+			Stats:     stats,
+			WeekCount: weekCount,
+		})
 	}
 
-	w.Write([]byte(`
-        </tbody>
-    </table>
+	// Load the template
+	tmpl, err := parseTemplate(h.templateDir, "admin/season_list.html")
+	if err != nil {
+		log.Printf("Error parsing season list template: %v", err)
+		// Fallback to simple HTML response
+		renderFallbackHTML(w, "Admin - Seasons", "Season Management",
+			"Season management page - coming soon", "/admin/league")
+		return
+	}
 
-    <script>
-        // Format dates based on user's locale
-        document.addEventListener('DOMContentLoaded', function() {
-            const dateCells = document.querySelectorAll('.date-cell');
-            dateCells.forEach(cell => {
-                const isoDate = cell.getAttribute('data-date');
-                if (isoDate) {
-                    const date = new Date(isoDate);
-                    // Format: e.g., "31/01/2026" for en-GB or "1/31/2026" for en-US
-                    cell.textContent = date.toLocaleDateString();
-                }
-            });
-        });
-    </script>
-</body>
-</html>
-`))
+	// Execute the template with data
+	if err := renderTemplate(w, tmpl, map[string]interface{}{
+		"User":         user,
+		"Seasons":      seasonsWithStats,
+		"ActiveSeason": activeSeason,
+		"CurrentYear":  time.Now().Year(),
+	}); err != nil {
+		logAndError(w, err.Error(), err, http.StatusInternalServerError)
+	}
 }
+
 
 // handleCreateSeason handles POST request to create a new season
 func (h *SeasonsHandler) handleCreateSeason(w http.ResponseWriter, r *http.Request) {

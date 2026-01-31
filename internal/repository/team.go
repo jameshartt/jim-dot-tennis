@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 	"time"
@@ -45,6 +46,11 @@ type TeamRepository interface {
 	// Statistics
 	CountPlayers(ctx context.Context, teamID, seasonID uint) (int, error)
 	CountCaptains(ctx context.Context, teamID, seasonID uint) (int, error)
+
+	// Season management
+	UpdateDivision(ctx context.Context, teamID uint, newDivisionID uint) error
+	FindOrCreateByNameAndClubAndSeason(ctx context.Context, name string, clubID, seasonID, defaultDivisionID uint) (*models.Team, bool, error)
+	FindByNameAndSeason(ctx context.Context, name string, seasonID uint) ([]models.Team, error)
 }
 
 // teamRepository implements TeamRepository
@@ -402,8 +408,69 @@ func (r *teamRepository) CountPlayers(ctx context.Context, teamID, seasonID uint
 func (r *teamRepository) CountCaptains(ctx context.Context, teamID, seasonID uint) (int, error) {
 	var count int
 	err := r.db.GetContext(ctx, &count, `
-		SELECT COUNT(*) FROM captains 
+		SELECT COUNT(*) FROM captains
 		WHERE team_id = ? AND season_id = ?
 	`, teamID, seasonID)
 	return count, err
+}
+
+// UpdateDivision changes a team's division (for promotion/demotion)
+func (r *teamRepository) UpdateDivision(ctx context.Context, teamID uint, newDivisionID uint) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE teams
+		SET division_id = ?, updated_at = ?
+		WHERE id = ?
+	`, newDivisionID, time.Now(), teamID)
+	return err
+}
+
+// FindOrCreateByNameAndClubAndSeason finds a team by name, club, and season or creates it if not found
+func (r *teamRepository) FindOrCreateByNameAndClubAndSeason(
+	ctx context.Context,
+	name string,
+	clubID, seasonID, defaultDivisionID uint,
+) (*models.Team, bool, error) {
+	// Try to find existing team
+	var team models.Team
+	err := r.db.GetContext(ctx, &team, `
+		SELECT id, name, club_id, division_id, season_id, created_at, updated_at
+		FROM teams
+		WHERE name = ? AND club_id = ? AND season_id = ?
+	`, name, clubID, seasonID)
+
+	if err == nil {
+		// Team found
+		return &team, false, nil
+	}
+
+	if err != sql.ErrNoRows {
+		// Some other error occurred
+		return nil, false, err
+	}
+
+	// Team not found, create it
+	newTeam := &models.Team{
+		Name:       name,
+		ClubID:     clubID,
+		DivisionID: defaultDivisionID,
+		SeasonID:   seasonID,
+	}
+
+	if err := r.Create(ctx, newTeam); err != nil {
+		return nil, false, err
+	}
+
+	return newTeam, true, nil
+}
+
+// FindByNameAndSeason retrieves teams with an exact name match in a specific season
+func (r *teamRepository) FindByNameAndSeason(ctx context.Context, name string, seasonID uint) ([]models.Team, error) {
+	var teams []models.Team
+	err := r.db.SelectContext(ctx, &teams, `
+		SELECT id, name, club_id, division_id, season_id, created_at, updated_at
+		FROM teams
+		WHERE name = ? AND season_id = ?
+		ORDER BY name ASC
+	`, name, seasonID)
+	return teams, err
 }

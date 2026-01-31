@@ -253,15 +253,57 @@ func (s *MatchCardService) processMatchCard(ctx context.Context, config ImportCo
 	}
 
 	if fixture == nil {
-		if config.Verbose {
-			playedStr := "N/A"
-			if !matchCard.PlayedDate.IsZero() {
-				playedStr = matchCard.PlayedDate.Format("2006-01-02")
-			}
-			fmt.Printf("No matching fixture found for %s vs %s (event: %s, played: %s)\n",
-				matchCard.HomeTeam, matchCard.AwayTeam, matchCard.EventDate.Format("2006-01-02"), playedStr)
+		// Try to auto-create teams if they don't exist
+		// Determine season from match card date
+		var year int
+		if !matchCard.EventDate.IsZero() {
+			year = matchCard.EventDate.Year()
+		} else if !matchCard.PlayedDate.IsZero() {
+			year = matchCard.PlayedDate.Year()
 		}
-		return result, nil
+
+		if year > 0 {
+			// Find season by year
+			seasons, err := s.seasonRepo.FindByYear(ctx, year)
+			if err == nil && len(seasons) > 0 {
+				seasonID := seasons[0].ID
+
+				// Try to ensure teams exist (will create if needed)
+				_, _, teamsCreated, err := s.ensureTeamsExist(
+					ctx, matchCard.HomeTeam, matchCard.AwayTeam, seasonID,
+				)
+				if err != nil {
+					if config.Verbose {
+						fmt.Printf("Failed to auto-create teams for %s vs %s: %v\n",
+							matchCard.HomeTeam, matchCard.AwayTeam, err)
+					}
+				} else if teamsCreated {
+					if config.Verbose {
+						fmt.Printf("Auto-created teams/clubs for %s vs %s\n",
+							matchCard.HomeTeam, matchCard.AwayTeam)
+					}
+
+					// Try finding fixture again now that teams exist
+					fixture, err = s.findMatchingFixture(ctx, matchCard)
+					if err != nil {
+						return nil, fmt.Errorf("failed to find matching fixture after creating teams: %w", err)
+					}
+				}
+			}
+		}
+
+		// If still no fixture found, skip this match card
+		if fixture == nil {
+			if config.Verbose {
+				playedStr := "N/A"
+				if !matchCard.PlayedDate.IsZero() {
+					playedStr = matchCard.PlayedDate.Format("2006-01-02")
+				}
+				fmt.Printf("No matching fixture found for %s vs %s (event: %s, played: %s)\n",
+					matchCard.HomeTeam, matchCard.AwayTeam, matchCard.EventDate.Format("2006-01-02"), playedStr)
+			}
+			return result, nil
+		}
 	}
 
 	// Check if this is a derby match (both teams are St. Ann's)
@@ -782,6 +824,56 @@ func (s *MatchCardService) determineManagingTeamID(ctx context.Context, fixtureI
 	} else {
 		return 0, fmt.Errorf("no St Ann's team found in this fixture")
 	}
+}
+
+// ensureTeamsExist ensures both home and away teams exist, creating them if necessary
+func (s *MatchCardService) ensureTeamsExist(
+	ctx context.Context,
+	homeTeamName string,
+	awayTeamName string,
+	seasonID uint,
+) (homeTeamID uint, awayTeamID uint, created bool, err error) {
+	// Extract club names from team names
+	homeClubName := repository.ExtractClubNameFromTeamName(homeTeamName)
+	awayClubName := repository.ExtractClubNameFromTeamName(awayTeamName)
+
+	// Find or create clubs
+	homeClub, homeClubCreated, err := s.clubRepo.FindOrCreateByName(ctx, homeClubName)
+	if err != nil {
+		return 0, 0, false, fmt.Errorf("failed to find/create home club: %w", err)
+	}
+
+	awayClub, awayClubCreated, err := s.clubRepo.FindOrCreateByName(ctx, awayClubName)
+	if err != nil {
+		return 0, 0, false, fmt.Errorf("failed to find/create away club: %w", err)
+	}
+
+	created = homeClubCreated || awayClubCreated
+
+	// Get default division (lowest level for this season)
+	defaultDivision, err := s.divisionRepo.GetLowestLevelDivision(ctx, seasonID)
+	if err != nil {
+		return 0, 0, created, fmt.Errorf("failed to get default division: %w", err)
+	}
+
+	// Find or create teams
+	homeTeam, homeTeamCreated, err := s.teamRepo.FindOrCreateByNameAndClubAndSeason(
+		ctx, homeTeamName, homeClub.ID, seasonID, defaultDivision.ID,
+	)
+	if err != nil {
+		return 0, 0, created, fmt.Errorf("failed to find/create home team: %w", err)
+	}
+
+	awayTeam, awayTeamCreated, err := s.teamRepo.FindOrCreateByNameAndClubAndSeason(
+		ctx, awayTeamName, awayClub.ID, seasonID, defaultDivision.ID,
+	)
+	if err != nil {
+		return 0, 0, created, fmt.Errorf("failed to find/create away team: %w", err)
+	}
+
+	created = created || homeTeamCreated || awayTeamCreated
+
+	return homeTeam.ID, awayTeam.ID, created, nil
 }
 
 // findMatchingFixture finds a fixture in our database that matches the match card

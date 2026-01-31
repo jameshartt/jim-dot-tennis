@@ -651,6 +651,15 @@ func (s *Service) GetStAnnsFixtures() (*models.Club, []FixtureWithRelations, err
 func (s *Service) GetStAnnsPastFixtures() (*models.Club, []FixtureWithRelations, error) {
 	ctx := context.Background()
 
+	// Get the active season
+	activeSeason, err := s.seasonRepository.FindActive(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	if activeSeason == nil {
+		return nil, nil, nil // No active season
+	}
+
 	// Find St. Ann's club
 	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
 	if err != nil {
@@ -691,11 +700,16 @@ func (s *Service) GetStAnnsPastFixtures() (*models.Club, []FixtureWithRelations,
 		allFixtures = append(allFixtures, fixture)
 	}
 
-	// Filter for past fixtures (completed/cancelled/postponed or scheduled/in-progress before today)
+	// Filter for past fixtures from the active season only (completed/cancelled/postponed or scheduled/in-progress before today)
 	var pastFixtures []models.Fixture
 	now := time.Now()
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	for _, fixture := range allFixtures {
+		// Only include fixtures from the active season
+		if fixture.SeasonID != activeSeason.ID {
+			continue
+		}
+
 		if fixture.Status == models.Completed || fixture.Status == models.Cancelled || fixture.Status == models.Postponed {
 			pastFixtures = append(pastFixtures, fixture)
 		} else if fixture.Status == models.Scheduled || fixture.Status == models.InProgress {
@@ -893,6 +907,18 @@ func (s *Service) buildFixturesWithRelations(ctx context.Context, fixtures []mod
 func (s *Service) GetAllDivisions() ([]models.Division, error) {
 	ctx := context.Background()
 	return s.divisionRepository.FindAll(ctx)
+}
+
+// GetDivisionsBySeason retrieves all divisions for a specific season
+func (s *Service) GetDivisionsBySeason(seasonID uint) ([]models.Division, error) {
+	ctx := context.Background()
+	return s.divisionRepository.FindBySeason(ctx, seasonID)
+}
+
+// CreateTeam creates a new team
+func (s *Service) CreateTeam(team *models.Team) error {
+	ctx := context.Background()
+	return s.teamRepository.Create(ctx, team)
 }
 
 // GetUsers retrieves all users for admin management
@@ -3121,6 +3147,278 @@ func (s *Service) GetWeeksBySeason(seasonID uint) ([]models.Week, error) {
 func (s *Service) GetWeekCountForSeason(seasonID uint) (int, error) {
 	ctx := context.Background()
 	return s.weekRepository.CountBySeason(ctx, seasonID)
+}
+
+// SeasonStats holds statistics for a season
+type SeasonStats struct {
+	SeasonID       uint
+	TeamCount      int
+	PlayerCount    int
+	DivisionCount  int
+	FixtureCount   int
+	CompletedCount int
+}
+
+// GetSeasonStats retrieves statistics for a season
+func (s *Service) GetSeasonStats(seasonID uint) (*SeasonStats, error) {
+	ctx := context.Background()
+
+	stats := &SeasonStats{
+		SeasonID: seasonID,
+	}
+
+	// Count teams in this season
+	teams, err := s.teamRepository.FindBySeason(ctx, seasonID)
+	if err == nil {
+		stats.TeamCount = len(teams)
+	}
+
+	// Count divisions in this season
+	divisions, err := s.divisionRepository.FindBySeason(ctx, seasonID)
+	if err == nil {
+		stats.DivisionCount = len(divisions)
+	}
+
+	// Count fixtures in this season
+	fixtures, err := s.fixtureRepository.FindBySeason(ctx, seasonID)
+	if err == nil {
+		stats.FixtureCount = len(fixtures)
+		// Count completed fixtures
+		for _, f := range fixtures {
+			if f.Status == models.Completed {
+				stats.CompletedCount++
+			}
+		}
+	}
+
+	// Count unique players in this season (via player_teams table)
+	// For now, we'll just set it to 0 or implement if needed
+	stats.PlayerCount = 0
+
+	return stats, nil
+}
+
+// GetSeasonByID retrieves a season by its ID
+func (s *Service) GetSeasonByID(seasonID uint) (*models.Season, error) {
+	ctx := context.Background()
+	return s.seasonRepository.FindByID(ctx, seasonID)
+}
+
+// DivisionWithTeams holds a division and its teams
+type DivisionWithTeams struct {
+	Division  models.Division
+	Teams     []TeamWithPlayers
+	TeamCount int
+}
+
+// TeamWithPlayers holds a team with its players and captains
+type TeamWithPlayers struct {
+	Team         models.Team
+	Club         models.Club
+	Players      []models.Player
+	Captains     []models.Captain
+	PlayerCount  int
+	CaptainCount int
+}
+
+// SeasonSetupData holds all data needed for the season setup page
+type SeasonSetupData struct {
+	Divisions []DivisionWithTeams
+}
+
+// GetSeasonSetupData retrieves all data needed for season setup page
+func (s *Service) GetSeasonSetupData(seasonID uint) (*SeasonSetupData, error) {
+	ctx := context.Background()
+
+	setupData := &SeasonSetupData{
+		Divisions: []DivisionWithTeams{},
+	}
+
+	// Get all divisions for this season
+	divisions, err := s.divisionRepository.FindBySeason(ctx, seasonID)
+	if err != nil {
+		return nil, err
+	}
+
+	// For each division, get its teams with details
+	for _, division := range divisions {
+		divisionData := DivisionWithTeams{
+			Division:  division,
+			Teams:     []TeamWithPlayers{},
+			TeamCount: 0,
+		}
+
+		// Get teams in this division
+		teams, err := s.teamRepository.FindByDivisionAndSeason(ctx, division.ID, seasonID)
+		if err != nil {
+			continue
+		}
+
+		divisionData.TeamCount = len(teams)
+
+		// For each team, get its players and captains
+		for _, team := range teams {
+			teamData := TeamWithPlayers{
+				Team:         team,
+				Players:      []models.Player{},
+				Captains:     []models.Captain{},
+				PlayerCount:  0,
+				CaptainCount: 0,
+			}
+
+			// Get club for this team
+			club, err := s.clubRepository.FindByID(ctx, team.ClubID)
+			if err == nil {
+				teamData.Club = *club
+			}
+
+			// Get player count for this team
+			playerCount, err := s.teamRepository.CountPlayers(ctx, team.ID, seasonID)
+			if err == nil {
+				teamData.PlayerCount = playerCount
+			}
+
+			// Get captains for this team
+			captains, err := s.teamRepository.FindCaptainsInTeam(ctx, team.ID, seasonID)
+			if err == nil {
+				teamData.Captains = captains
+				teamData.CaptainCount = len(captains)
+			}
+
+			divisionData.Teams = append(divisionData.Teams, teamData)
+		}
+
+		setupData.Divisions = append(setupData.Divisions, divisionData)
+	}
+
+	return setupData, nil
+}
+
+// MoveTeamToDivision promotes/demotes a team to a different division
+func (s *Service) MoveTeamToDivision(teamID uint, targetDivisionID uint) error {
+	ctx := context.Background()
+	return s.teamRepository.UpdateDivision(ctx, teamID, targetDivisionID)
+}
+
+// CopyFromPreviousSeason copies divisions and/or teams from the previous season to the target season
+func (s *Service) CopyFromPreviousSeason(targetSeasonID uint, copyDivisions, copyTeams bool) error {
+	ctx := context.Background()
+
+	// Get the target season
+	targetSeason, err := s.seasonRepository.FindByID(ctx, targetSeasonID)
+	if err != nil {
+		return fmt.Errorf("failed to find target season: %w", err)
+	}
+
+	// Find the previous season (by year)
+	previousYear := targetSeason.Year - 1
+	previousSeasons, err := s.seasonRepository.FindByYear(ctx, previousYear)
+	if err != nil || len(previousSeasons) == 0 {
+		return fmt.Errorf("no season found for year %d", previousYear)
+	}
+	previousSeason := previousSeasons[0]
+
+	// Map to track old division ID -> new division ID
+	divisionIDMap := make(map[uint]uint)
+
+	// Copy divisions if requested
+	if copyDivisions {
+		oldDivisions, err := s.divisionRepository.FindBySeason(ctx, previousSeason.ID)
+		if err != nil {
+			return fmt.Errorf("failed to find divisions from previous season: %w", err)
+		}
+
+		for _, oldDiv := range oldDivisions {
+			newDiv := &models.Division{
+				Name:             oldDiv.Name,
+				Level:            oldDiv.Level,
+				PlayDay:          oldDiv.PlayDay,
+				LeagueID:         oldDiv.LeagueID,
+				SeasonID:         targetSeasonID,
+				MaxTeamsPerClub:  oldDiv.MaxTeamsPerClub,
+			}
+
+			if err := s.divisionRepository.Create(ctx, newDiv); err != nil {
+				return fmt.Errorf("failed to create division %s: %w", oldDiv.Name, err)
+			}
+
+			divisionIDMap[oldDiv.ID] = newDiv.ID
+		}
+	}
+
+	// Copy teams if requested
+	if copyTeams {
+		// If divisions weren't copied, we need to build the division map
+		if !copyDivisions {
+			oldDivisions, err := s.divisionRepository.FindBySeason(ctx, previousSeason.ID)
+			if err != nil {
+				return fmt.Errorf("failed to find divisions from previous season: %w", err)
+			}
+
+			newDivisions, err := s.divisionRepository.FindBySeason(ctx, targetSeasonID)
+			if err != nil {
+				return fmt.Errorf("failed to find divisions in target season: %w", err)
+			}
+
+			// Map by name (assuming division names match)
+			newDivsByName := make(map[string]uint)
+			for _, div := range newDivisions {
+				newDivsByName[div.Name] = div.ID
+			}
+
+			for _, oldDiv := range oldDivisions {
+				if newDivID, ok := newDivsByName[oldDiv.Name]; ok {
+					divisionIDMap[oldDiv.ID] = newDivID
+				}
+			}
+		}
+
+		oldTeams, err := s.teamRepository.FindBySeason(ctx, previousSeason.ID)
+		if err != nil {
+			return fmt.Errorf("failed to find teams from previous season: %w", err)
+		}
+
+		for _, oldTeam := range oldTeams {
+			newDivisionID, ok := divisionIDMap[oldTeam.DivisionID]
+			if !ok {
+				// Skip teams whose division doesn't have a match in the new season
+				continue
+			}
+
+			newTeam := &models.Team{
+				Name:       oldTeam.Name,
+				ClubID:     oldTeam.ClubID,
+				DivisionID: newDivisionID,
+				SeasonID:   targetSeasonID,
+			}
+
+			if err := s.teamRepository.Create(ctx, newTeam); err != nil {
+				return fmt.Errorf("failed to create team %s: %w", oldTeam.Name, err)
+			}
+
+			// Copy players to the new team
+			oldPlayers, err := s.teamRepository.FindPlayersInTeam(ctx, oldTeam.ID, previousSeason.ID)
+			if err != nil {
+				continue // Skip if can't get players
+			}
+
+			for _, playerTeam := range oldPlayers {
+				_ = s.teamRepository.AddPlayer(ctx, newTeam.ID, playerTeam.PlayerID, targetSeasonID)
+			}
+
+			// Copy captains to the new team
+			oldCaptains, err := s.teamRepository.FindCaptainsInTeam(ctx, oldTeam.ID, previousSeason.ID)
+			if err != nil {
+				continue // Skip if can't get captains
+			}
+
+			for _, captain := range oldCaptains {
+				_ = s.teamRepository.AddCaptain(ctx, newTeam.ID, captain.PlayerID, captain.Role, targetSeasonID)
+			}
+		}
+	}
+
+	return nil
 }
 
 // GetAllTeams retrieves all teams

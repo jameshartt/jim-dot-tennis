@@ -24,6 +24,7 @@ type Handler struct {
 	points            *PointsHandler
 	clubWrapped       *ClubWrappedHandler
 	seasons           *SeasonsHandler
+	seasonSetup       *SeasonSetupHandler
 	selectionOverview *SelectionOverviewHandler
 }
 
@@ -44,6 +45,7 @@ func New(db *database.DB, templateDir string) *Handler {
 		points:            NewPointsHandler(service, templateDir),
 		clubWrapped:       NewClubWrappedHandler(service, templateDir),
 		seasons:           NewSeasonsHandler(service, templateDir),
+		seasonSetup:       NewSeasonSetupHandler(service, templateDir),
 		selectionOverview: NewSelectionOverviewHandler(service, templateDir),
 	}
 }
@@ -87,6 +89,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/league/seasons", h.seasons.HandleSeasons)
 	adminMux.HandleFunc("/admin/league/seasons/", h.seasons.HandleSeasons)
 	adminMux.HandleFunc("/admin/league/seasons/set-active", h.seasons.HandleSetActiveSeason)
+	adminMux.HandleFunc("/admin/league/seasons/setup", h.seasonSetup.HandleSeasonSetup)
+	adminMux.HandleFunc("/admin/league/seasons/move-team", h.seasonSetup.HandleMoveTeam)
+	adminMux.HandleFunc("/admin/league/seasons/copy-from-previous", h.seasonSetup.HandleCopyFromPreviousSeason)
 
 	// Selection overview routes
 	adminMux.HandleFunc("/admin/league/selection-overview", h.selectionOverview.HandleSelectionOverview)

@@ -113,17 +113,20 @@ func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Get data for fixture creation form
-	seasons, err := h.service.GetAllSeasons()
+	// Get weeks for the active season only
+	var weeks []models.Week
+	activeSeason, err := h.service.GetActiveSeason()
 	if err != nil {
-		// Log but don't fail - just won't show create form
-		log.Printf("Failed to load seasons for create form: %v", err)
-		seasons = []models.Season{}
-	}
-
-	weeks, err := h.service.GetAllWeeks()
-	if err != nil {
-		log.Printf("Failed to load weeks for create form: %v", err)
+		log.Printf("Failed to load active season for create form: %v", err)
+		weeks = []models.Week{}
+	} else if activeSeason != nil {
+		weeks, err = h.service.GetWeeksBySeason(activeSeason.ID)
+		if err != nil {
+			log.Printf("Failed to load weeks for active season: %v", err)
+			weeks = []models.Week{}
+		}
+	} else {
+		log.Printf("No active season found")
 		weeks = []models.Week{}
 	}
 
@@ -151,7 +154,7 @@ func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Reque
 		"UpcomingFixtures": upcomingFixtures,
 		"PastFixtures":     pastFixtures,
 		"Divisions":        divisions,
-		"Seasons":          seasons,
+		"ActiveSeason":     activeSeason,
 		"Weeks":            weeks,
 		"Teams":            teams,
 	}); err != nil {
@@ -174,19 +177,23 @@ func (h *FixturesHandler) handleFixturesPost(w http.ResponseWriter, r *http.Requ
 
 // handleCreateFixture handles creating a new fixture
 func (h *FixturesHandler) handleCreateFixture(w http.ResponseWriter, r *http.Request) {
-	seasonIDStr := r.FormValue("season_id")
+	// Get the active season - fixtures can only be created for the active season
+	activeSeason, err := h.service.GetActiveSeason()
+	if err != nil {
+		http.Error(w, "Failed to get active season", http.StatusInternalServerError)
+		return
+	}
+	if activeSeason == nil {
+		http.Error(w, "No active season found. Please create an active season first.", http.StatusBadRequest)
+		return
+	}
+
 	weekIDStr := r.FormValue("week_id")
 	homeTeamIDStr := r.FormValue("home_team_id")
 	awayTeamIDStr := r.FormValue("away_team_id")
 	divisionIDStr := r.FormValue("division_id")
 	scheduledDateStr := r.FormValue("scheduled_date")
 	venueLocation := r.FormValue("venue_location")
-
-	seasonID, err := strconv.ParseUint(seasonIDStr, 10, 32)
-	if err != nil {
-		http.Error(w, "Invalid season ID", http.StatusBadRequest)
-		return
-	}
 
 	weekID, err := strconv.ParseUint(weekIDStr, 10, 32)
 	if err != nil {
@@ -219,7 +226,7 @@ func (h *FixturesHandler) handleCreateFixture(w http.ResponseWriter, r *http.Req
 	}
 
 	fixture := &models.Fixture{
-		SeasonID:      uint(seasonID),
+		SeasonID:      activeSeason.ID, // Use the active season ID
 		WeekID:        uint(weekID),
 		HomeTeamID:    uint(homeTeamID),
 		AwayTeamID:    uint(awayTeamID),

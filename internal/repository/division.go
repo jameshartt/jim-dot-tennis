@@ -31,6 +31,9 @@ type DivisionRepository interface {
 	CountTeamsByClub(ctx context.Context, divisionID, clubID uint) (int, error)
 	CanAddTeamFromClub(ctx context.Context, divisionID, clubID uint) (bool, error)
 	FindTeamsInDivision(ctx context.Context, id uint) ([]models.Team, error)
+
+	// Season management
+	GetLowestLevelDivision(ctx context.Context, seasonID uint) (*models.Division, error)
 }
 
 // divisionRepository implements DivisionRepository
@@ -309,4 +312,21 @@ func (r *divisionRepository) FindTeamsInDivision(ctx context.Context, id uint) (
 		ORDER BY name ASC
 	`, id)
 	return teams, err
+}
+
+// GetLowestLevelDivision finds the division with the highest level number (lowest skill) for a season
+// This is used as the default division for new teams
+func (r *divisionRepository) GetLowestLevelDivision(ctx context.Context, seasonID uint) (*models.Division, error) {
+	var division models.Division
+	err := r.db.GetContext(ctx, &division, `
+		SELECT id, name, level, play_day, league_id, season_id, max_teams_per_club, created_at, updated_at
+		FROM divisions
+		WHERE season_id = ?
+		ORDER BY level DESC
+		LIMIT 1
+	`, seasonID)
+	if err != nil {
+		return nil, err
+	}
+	return &division, nil
 }

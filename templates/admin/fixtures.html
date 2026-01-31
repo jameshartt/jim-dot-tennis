@@ -850,15 +850,13 @@
             <form id="createFixtureForm" method="POST" action="/admin/league/fixtures">
                 <input type="hidden" name="action" value="create">
 
-                <div style="margin-bottom: 15px;">
+                {{if .ActiveSeason}}
+                <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: bold;">Season:</label>
-                    <select name="season_id" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="">Select Season</option>
-                        {{range .Seasons}}
-                        <option value="{{.ID}}" {{if .IsActive}}selected{{end}}>{{.Name}} ({{.Year}})</option>
-                        {{end}}
-                    </select>
+                    <div style="color: #495057;">{{.ActiveSeason.Name}} ({{.ActiveSeason.Year}})</div>
+                    <small style="color: #6c757d;">Fixtures will be created for the active season</small>
                 </div>
+                {{end}}
 
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: bold;">Division:</label>

@@ -2,8 +2,11 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -29,6 +32,9 @@ type ClubRepository interface {
 	// New queries
 	GetPlayersByClub(ctx context.Context, clubID uint) ([]models.Player, error)
 	GetAllPlayersWithClubs(ctx context.Context) ([]models.Player, error)
+
+	// Season management
+	FindOrCreateByName(ctx context.Context, name string) (*models.Club, bool, error)
 }
 
 // clubRepository implements ClubRepository
@@ -275,8 +281,53 @@ func (r *clubRepository) GetAllPlayersWithClubs(ctx context.Context) ([]models.P
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
 		SELECT id, first_name, last_name, preferred_name, gender, club_id, fantasy_match_id, created_at, updated_at
-		FROM players 
+		FROM players
 		ORDER BY last_name ASC, first_name ASC
 	`)
 	return players, err
+}
+
+// FindOrCreateByName finds a club by exact name match, or creates it if it doesn't exist
+func (r *clubRepository) FindOrCreateByName(ctx context.Context, name string) (*models.Club, bool, error) {
+	// Try to find existing club first
+	clubs, err := r.FindByName(ctx, name)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, false, err
+	}
+
+	// If found, return it
+	if len(clubs) > 0 {
+		return &clubs[0], false, nil
+	}
+
+	// Club doesn't exist, create it
+	club := &models.Club{
+		Name:    name,
+		Address: "",
+	}
+
+	if err := r.Create(ctx, club); err != nil {
+		return nil, false, err
+	}
+
+	return club, true, nil
+}
+
+// ExtractClubNameFromTeamName extracts the club name from a team name
+// Examples: "Dyke A" -> "Dyke", "St Ann's B" -> "St Ann's", "Hove" -> "Hove"
+func ExtractClubNameFromTeamName(teamName string) string {
+	// Trim spaces
+	teamName = strings.TrimSpace(teamName)
+
+	// Common pattern: team name ends with a single letter (A, B, C, etc.)
+	// Use regex to remove trailing single letter optionally preceded by space
+	re := regexp.MustCompile(`\s+[A-Z]$`)
+	clubName := re.ReplaceAllString(teamName, "")
+
+	// If nothing was removed, the whole team name is the club name
+	if clubName == "" {
+		clubName = teamName
+	}
+
+	return clubName
 }

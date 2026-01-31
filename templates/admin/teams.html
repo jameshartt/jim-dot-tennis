@@ -181,6 +181,10 @@
 
     <main class="admin-content">
         <div class="container">
+            <div class="action-bar">
+                <h2>St. Ann's Teams</h2>
+                <button onclick="showCreateTeamModal()" class="btn-add" style="background: var(--primary-color); color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">➕ Create Team</button>
+            </div>
 
             {{if .Club}}
             <div class="club-info">
@@ -247,6 +251,68 @@
         </div>
     </main>
 
+    <script>
+        // Create Team Modal Functions
+        function showCreateTeamModal() {
+            document.getElementById('createTeamModal').style.display = 'flex';
+        }
+
+        function hideCreateTeamModal() {
+            document.getElementById('createTeamModal').style.display = 'none';
+            document.getElementById('createTeamForm').reset();
+        }
+    </script>
+
+    <!-- Create Team Modal -->
+    <div id="createTeamModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 30px; border-radius: 8px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">Create New Team</h2>
+                <button onclick="hideCreateTeamModal()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+            </div>
+
+            <form id="createTeamForm" method="POST" action="/admin/league/teams">
+                <input type="hidden" name="action" value="create">
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Team Name:</label>
+                    <input type="text" name="name" required placeholder="e.g., St Ann's A" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <small style="color: #6c757d;">Use format: Club Name + Letter (e.g., St Ann's A, St Ann's B)</small>
+                </div>
+
+                {{if .ActiveSeason}}
+                <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Season:</label>
+                    <div style="color: #495057;">{{.ActiveSeason.Name}} ({{.ActiveSeason.Year}})</div>
+                    <small style="color: #6c757d;">Teams will be created for the active season</small>
+                </div>
+                {{end}}
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Division:</label>
+                    <select name="division_id" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Select Division</option>
+                        {{range .Divisions}}
+                        <option value="{{.ID}}" {{if .IsLowest}}selected{{end}}>{{.Name}} ({{.PlayDay}})</option>
+                        {{end}}
+                    </select>
+                    <small style="color: #6c757d;">New teams typically start in the lowest division</small>
+                </div>
+
+                {{if .Club}}
+                <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Club:</label>
+                    <div style="color: #495057;">{{.Club.Name}}</div>
+                </div>
+                {{end}}
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" onclick="hideCreateTeamModal()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+                    <button type="submit" style="padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer;">Create Team</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
 </body>
 </html> 

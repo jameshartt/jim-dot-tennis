@@ -44,9 +44,75 @@ func (h *TeamsHandler) HandleTeams(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		h.handleTeamsGet(w, r, user)
+	case http.MethodPost:
+		h.handleTeamsPost(w, r, user)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+// handleTeamsPost handles POST requests for team management
+func (h *TeamsHandler) handleTeamsPost(w http.ResponseWriter, r *http.Request, user *models.User) {
+	action := r.FormValue("action")
+
+	if action == "create" {
+		h.handleCreateTeam(w, r)
+		return
+	}
+
+	http.Error(w, "Unknown action", http.StatusBadRequest)
+}
+
+// handleCreateTeam handles creating a new team
+func (h *TeamsHandler) handleCreateTeam(w http.ResponseWriter, r *http.Request) {
+	// Get the active season - teams can only be created for the active season
+	activeSeason, err := h.service.GetActiveSeason()
+	if err != nil {
+		http.Error(w, "Failed to get active season", http.StatusInternalServerError)
+		return
+	}
+	if activeSeason == nil {
+		http.Error(w, "No active season found. Please create an active season first.", http.StatusBadRequest)
+		return
+	}
+
+	// Get form values
+	name := strings.TrimSpace(r.FormValue("name"))
+	divisionIDStr := r.FormValue("division_id")
+
+	if name == "" {
+		http.Error(w, "Team name is required", http.StatusBadRequest)
+		return
+	}
+
+	divisionID, err := strconv.ParseUint(divisionIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid division ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get St Ann's club
+	clubs, err := h.service.GetClubsByName("St Ann")
+	if err != nil || len(clubs) == 0 {
+		http.Error(w, "Failed to find St Ann's club", http.StatusInternalServerError)
+		return
+	}
+	stAnnsClub := clubs[0]
+
+	// Create the team
+	team := &models.Team{
+		Name:       name,
+		ClubID:     stAnnsClub.ID,
+		DivisionID: uint(divisionID),
+		SeasonID:   activeSeason.ID,
+	}
+
+	if err := h.service.CreateTeam(team); err != nil {
+		logAndError(w, "Failed to create team", err, http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/admin/league/teams", http.StatusSeeOther)
 }
 
 // handleTeamsGet handles GET requests for team management
@@ -56,6 +122,42 @@ func (h *TeamsHandler) handleTeamsGet(w http.ResponseWriter, r *http.Request, us
 	if err != nil {
 		logAndError(w, "Failed to load teams", err, http.StatusInternalServerError)
 		return
+	}
+
+	// Get active season
+	activeSeason, err := h.service.GetActiveSeason()
+	if err != nil {
+		log.Printf("Failed to load active season: %v", err)
+	}
+
+	// Get divisions for the active season
+	var divisions []models.Division
+	var lowestDivisionID uint
+	if activeSeason != nil {
+		divisions, err = h.service.GetDivisionsBySeason(activeSeason.ID)
+		if err != nil {
+			log.Printf("Failed to load divisions: %v", err)
+		}
+
+		// Find the lowest level division (highest level number)
+		for _, div := range divisions {
+			if lowestDivisionID == 0 || div.Level > divisions[0].Level {
+				lowestDivisionID = div.ID
+			}
+		}
+	}
+
+	// Create division data with IsLowest flag
+	type DivisionData struct {
+		models.Division
+		IsLowest bool
+	}
+	var divisionData []DivisionData
+	for _, div := range divisions {
+		divisionData = append(divisionData, DivisionData{
+			Division: div,
+			IsLowest: div.ID == lowestDivisionID,
+		})
 	}
 
 	// Load the teams template
@@ -70,9 +172,11 @@ func (h *TeamsHandler) handleTeamsGet(w http.ResponseWriter, r *http.Request, us
 
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
-		"User":  user,
-		"Club":  club,
-		"Teams": teams,
+		"User":         user,
+		"Club":         club,
+		"Teams":        teams,
+		"ActiveSeason": activeSeason,
+		"Divisions":    divisionData,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
