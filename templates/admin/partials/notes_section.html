@@ -15,7 +15,7 @@
                 class="notes-textarea"
                 placeholder="Add notes about the fixture (max 1000 characters)..."
                 maxlength="1000"
-                hx-post="/admin/fixtures/{{.FixtureDetail.ID}}/notes"
+                hx-post="/admin/league/fixtures/{{.FixtureDetail.ID}}/notes"
                 hx-trigger="keyup changed delay:2s"
                 hx-indicator="#notes-indicator"
                 hx-target="#notes-status"

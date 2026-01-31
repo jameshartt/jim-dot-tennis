@@ -122,7 +122,7 @@ func renderTemplate(w http.ResponseWriter, tmpl *template.Template, data interfa
 }
 
 // parseIDFromPath extracts an ID from a URL path
-// e.g., "/admin/teams/123" -> "123"
+// e.g., "/admin/league/teams/123" -> "123"
 func parseIDFromPath(path, prefix string) (uint, error) {
 	pathParts := strings.Split(strings.TrimPrefix(path, prefix), "/")
 	if len(pathParts) < 1 || pathParts[0] == "" {

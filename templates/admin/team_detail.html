@@ -520,8 +520,8 @@
     <header class="admin-header">
         <div class="container">
             <div class="breadcrumb">
-                <a href="/admin">Admin Dashboard</a> &gt; 
-                <a href="/admin/teams">Teams</a> &gt; 
+                <a href="/admin/league">Admin Dashboard</a> &gt; 
+                <a href="/admin/league/teams">Teams</a> &gt; 
                 {{.TeamDetail.Name}}
             </div>
             <h1>Team Detail</h1>
@@ -681,7 +681,7 @@
             <div class="players-section">
                 <div class="section-header">
                     <h2>Team Players</h2>
-                    <a href="/admin/teams/{{.TeamDetail.ID}}/add-players" class="btn-add">Add Players</a>
+                    <a href="/admin/league/teams/{{.TeamDetail.ID}}/add-players" class="btn-add">Add Players</a>
                 </div>
                 
                 {{if .TeamDetail.Players}}
@@ -759,7 +759,7 @@
                                             Remove
                                         </button>
                                         <div class="confirm-remove" style="display: none;">
-                                            <form class="remove-captain-form" method="POST" action="/admin/teams/{{$.TeamDetail.ID}}/remove-captain" style="display: inline;">
+                                            <form class="remove-captain-form" method="POST" action="/admin/league/teams/{{$.TeamDetail.ID}}/remove-captain" style="display: inline;">
                                                 <input type="hidden" name="player_id" value="{{.PlayerID}}">
                                                 <button type="submit" class="btn-sm btn-danger">Confirm</button>
                                             </form>
@@ -790,7 +790,7 @@
                 <button class="close" onclick="hideAddCaptainModal()">&times;</button>
             </div>
             
-            <form id="addCaptainForm" method="POST" action="/admin/teams/{{.TeamDetail.ID}}/add-captain">
+            <form id="addCaptainForm" method="POST" action="/admin/league/teams/{{.TeamDetail.ID}}/add-captain">
                 <div class="form-group">
                     <label for="player_id">Select Player:</label>
                     <select id="player_id" name="player_id" required>

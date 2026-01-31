@@ -258,9 +258,9 @@
     <div class="admin-header">
         <div class="container">
             <div class="breadcrumb">
-                <a href="/admin/dashboard">Admin Dashboard</a> &gt; 
-                <a href="/admin/teams">Teams</a> &gt; 
-                <a href="/admin/teams/{{.TeamDetail.ID}}">{{.TeamDetail.Name}}</a> &gt; 
+                <a href="/admin/league/dashboard">Admin Dashboard</a> &gt; 
+                <a href="/admin/league/teams">Teams</a> &gt; 
+                <a href="/admin/league/teams/{{.TeamDetail.ID}}">{{.TeamDetail.Name}}</a> &gt; 
                 Add Players
             </div>
             <h1>Add Players to Team</h1>
@@ -297,7 +297,7 @@
                     <label for="search">Search:</label>
                     <input type="text" id="search" name="q" placeholder="Search players..." 
                            value="{{.SearchQuery}}"
-                           hx-get="/admin/teams/{{.TeamDetail.ID}}/add-players"
+                           hx-get="/admin/league/teams/{{.TeamDetail.ID}}/add-players"
                            hx-target="#players-tbody"
                            hx-trigger="keyup changed delay:300ms">
                 </div>
@@ -338,7 +338,7 @@
                 <button type="submit" class="btn-primary" id="addPlayersBtn" disabled>
                     Add Selected Players
                 </button>
-                <a href="/admin/teams/{{.TeamDetail.ID}}" class="btn-secondary">Cancel</a>
+                <a href="/admin/league/teams/{{.TeamDetail.ID}}" class="btn-secondary">Cancel</a>
             </div>
         </form>
     </div>

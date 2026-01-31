@@ -114,7 +114,7 @@ func (h *PlayersHandler) handlePlayersGet(w http.ResponseWriter, r *http.Request
 		log.Printf("Error parsing players template: %v", err)
 		// Fallback to simple HTML response
 		renderFallbackHTML(w, "Admin - Players", "Player Management",
-			"Player management page - coming soon", "/admin")
+			"Player management page - coming soon", "/admin/league")
 		return
 	}
 
@@ -168,7 +168,7 @@ func (h *PlayersHandler) handlePlayerNewGet(w http.ResponseWriter, r *http.Reque
 		log.Printf("Error parsing player new template: %v", err)
 		// Fallback to simple HTML response
 		renderFallbackHTML(w, "Add New Player", "Add New Player",
-			"Add new player form - coming soon", "/admin/players")
+			"Add new player form - coming soon", "/admin/league/players")
 		return
 	}
 
@@ -236,7 +236,7 @@ func (h *PlayersHandler) handlePlayerNewPost(w http.ResponseWriter, r *http.Requ
 	log.Printf("Successfully created new player: %s %s (ID: %s, Club: St. Ann's)", firstName, lastName, player.ID)
 
 	// Redirect to the player edit page to allow setting additional details
-	http.Redirect(w, r, fmt.Sprintf("/admin/players/%s/edit", player.ID), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/admin/league/players/%s/edit", player.ID), http.StatusSeeOther)
 }
 
 // handlePlayerEdit handles GET/POST requests for editing a player
@@ -252,7 +252,7 @@ func (h *PlayersHandler) handlePlayerEdit(w http.ResponseWriter, r *http.Request
 
 	// Extract player ID from URL path
 	// Path format: /admin/players/{id}/edit
-	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/players/"), "/")
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/league/players/"), "/")
 	if len(pathParts) < 2 || pathParts[0] == "" || pathParts[1] != "edit" {
 		http.Error(w, "Invalid player edit URL", http.StatusBadRequest)
 		return
@@ -320,7 +320,7 @@ func (h *PlayersHandler) handlePlayerEditGet(w http.ResponseWriter, r *http.Requ
 		log.Printf("Error parsing player edit template: %v", err)
 		// Fallback to simple HTML response
 		renderFallbackHTML(w, "Edit Player", "Edit Player",
-			"Player edit form - coming soon", "/admin/players")
+			"Player edit form - coming soon", "/admin/league/players")
 		return
 	}
 
@@ -438,7 +438,7 @@ func (h *PlayersHandler) handlePlayerEditPost(w http.ResponseWriter, r *http.Req
 	}
 
 	// Redirect back to players list
-	http.Redirect(w, r, "/admin/players", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/league/players", http.StatusSeeOther)
 }
 
 // handleCreateFantasyDoubles handles the creation of a new fantasy doubles pairing
@@ -499,7 +499,7 @@ func (h *PlayersHandler) handleCreateFantasyDoubles(w http.ResponseWriter, r *ht
 	log.Printf("Successfully assigned fantasy pairing %d to player %s", fantasyMatch.ID, playerID)
 
 	// Redirect back to the player edit page to show the new assignment
-	http.Redirect(w, r, fmt.Sprintf("/admin/players/%s/edit", playerID), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/admin/league/players/%s/edit", playerID), http.StatusSeeOther)
 }
 
 // handleGenerateRandomFantasyDoubles handles the generation of a random fantasy doubles pairing
@@ -514,7 +514,7 @@ func (h *PlayersHandler) handleGenerateRandomFantasyDoubles(w http.ResponseWrite
 	log.Printf("Generated and assigned random fantasy pairing %s to player %s", fantasyDetail.Match.AuthToken, playerID)
 
 	// Redirect back to the player edit page to show the new assignment
-	http.Redirect(w, r, fmt.Sprintf("/admin/players/%s/edit", playerID), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/admin/league/players/%s/edit", playerID), http.StatusSeeOther)
 }
 
 // HandlePlayersFilter handles HTMX requests for filtering players
@@ -624,7 +624,7 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 			w.Write([]byte(fmt.Sprintf(`
 				<tr data-player-id="%s" data-player-name="%s %s" class="%s">
 					<td class="col-name">
-						<a href="/admin/players/%s/edit" class="row-link">%s %s</a>
+						<a href="/admin/league/players/%s/edit" class="row-link">%s %s</a>
 					</td>
 					<td class="col-gender">%s</td>
 					<td class="col-availability">%s</td>
@@ -679,7 +679,7 @@ func (h *PlayersHandler) handleGenerateAvailabilityURL(w http.ResponseWriter, r 
 
 	// Extract player ID from URL path
 	// Path format: /admin/players/{id}/generate-availability-url
-	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/players/"), "/")
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/league/players/"), "/")
 	if len(pathParts) < 2 || pathParts[0] == "" {
 		http.Error(w, "Invalid player URL", http.StatusBadRequest)
 		return
@@ -720,7 +720,7 @@ func (h *PlayersHandler) handleGetAvailabilityURL(w http.ResponseWriter, r *http
 
 	// Extract player ID from URL path
 	// Path format: /admin/players/{id}/availability-url
-	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/players/"), "/")
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/league/players/"), "/")
 	if len(pathParts) < 2 || pathParts[0] == "" {
 		http.Error(w, "Invalid player URL", http.StatusBadRequest)
 		return

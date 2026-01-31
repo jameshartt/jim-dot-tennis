@@ -14,13 +14,13 @@
     <header class="admin-header">
         <div class="container">
             <div class="breadcrumb">
-                <a href="/admin">Admin Dashboard</a> &gt; 
+                <a href="/admin/league">Admin Dashboard</a> &gt; 
                 {{if and .NavigationContext (eq .NavigationContext.from "team")}}
-                    <a href="/admin/teams">Teams</a> &gt; 
-                    <a href="/admin/teams/{{.NavigationContext.teamId}}">{{.NavigationContext.teamName}}</a> &gt; 
+                    <a href="/admin/league/teams">Teams</a> &gt; 
+                    <a href="/admin/league/teams/{{.NavigationContext.teamId}}">{{.NavigationContext.teamName}}</a> &gt; 
                     Fixture Detail
                 {{else}}
-                    <a href="/admin/fixtures">Fixtures</a> &gt; 
+                    <a href="/admin/league/fixtures">Fixtures</a> &gt; 
                     Fixture Detail
                 {{end}}
             </div>
@@ -33,12 +33,12 @@
                 <h2>Fixture Information</h2>
                 <div class="action-buttons">
                     {{if ne .FixtureDetail.Status "Completed"}}
-                        <a href="/admin/fixtures/{{.FixtureDetail.ID}}/edit" class="btn-edit">📅 Edit Schedule</a>
+                        <a href="/admin/league/fixtures/{{.FixtureDetail.ID}}/edit" class="btn-edit">📅 Edit Schedule</a>
                     {{end}}
                     {{if and .NavigationContext (eq .NavigationContext.from "team")}}
-                        <a href="/admin/teams/{{.NavigationContext.teamId}}" class="btn-back">← Back to {{.NavigationContext.teamName}}</a>
+                        <a href="/admin/league/teams/{{.NavigationContext.teamId}}" class="btn-back">← Back to {{.NavigationContext.teamName}}</a>
                     {{else}}
-                        <a href="/admin/fixtures" class="btn-back">← Back to Fixtures</a>
+                        <a href="/admin/league/fixtures" class="btn-back">← Back to Fixtures</a>
                     {{end}}
                 </div>
             </div>
@@ -111,9 +111,9 @@
 
                         <div class="matchup-actions">
                             {{if and .IsDerby .ManagingTeam}}
-                            <a href="/admin/fixtures/{{.FixtureDetail.ID}}/team-selection?managingTeam={{.ManagingTeam.ID}}&teamName={{.ManagingTeam.Name}}" class="btn-matchup-selection">
+                            <a href="/admin/league/fixtures/{{.FixtureDetail.ID}}/team-selection?managingTeam={{.ManagingTeam.ID}}&teamName={{.ManagingTeam.Name}}" class="btn-matchup-selection">
                             {{else}}
-                            <a href="/admin/fixtures/{{.FixtureDetail.ID}}/team-selection" class="btn-matchup-selection">
+                            <a href="/admin/league/fixtures/{{.FixtureDetail.ID}}/team-selection" class="btn-matchup-selection">
                             {{end}}
                                 {{if .FixtureDetail.Matchups}}
                                     ✏️ Select Team Players

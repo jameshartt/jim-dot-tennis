@@ -36,7 +36,7 @@ func (h *FixturesHandler) HandleFixtures(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Check if this is a specific fixture detail request
-	if strings.Contains(r.URL.Path, "/fixtures/") && r.URL.Path != "/admin/fixtures/" {
+	if strings.Contains(r.URL.Path, "/fixtures/") && r.URL.Path != "/admin/league/fixtures/" {
 		// Check if this is a notes update request
 		if strings.HasSuffix(r.URL.Path, "/notes") {
 			h.handleUpdateFixtureNotes(w, r)
@@ -119,7 +119,7 @@ func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Reque
 		log.Printf("Error parsing fixtures template: %v", err)
 		// Fallback to simple HTML response
 		renderFallbackHTML(w, "Admin - Fixtures", "Fixture Management",
-			"Fixture management page - coming soon", "/admin")
+			"Fixture management page - coming soon", "/admin/league")
 		return
 	}
 
@@ -154,7 +154,7 @@ func (h *FixturesHandler) handleFixtureDetail(w http.ResponseWriter, r *http.Req
 	}
 
 	// Extract fixture ID from URL path
-	fixtureID, err := parseIDFromPath(r.URL.Path, "/admin/fixtures/")
+	fixtureID, err := parseIDFromPath(r.URL.Path, "/admin/league/fixtures/")
 	if err != nil {
 		logAndError(w, "Invalid fixture ID", err, http.StatusBadRequest)
 		return
@@ -283,7 +283,7 @@ func (h *FixturesHandler) handleFixtureDetailGet(w http.ResponseWriter, r *http.
 		log.Printf("Error parsing fixture detail template: %v", err)
 		// Fallback to simple HTML response
 		renderFallbackHTML(w, "Fixture Detail", "Fixture Detail",
-			"Fixture detail page - coming soon", "/admin/fixtures")
+			"Fixture detail page - coming soon", "/admin/league/fixtures")
 		return
 	}
 
@@ -471,7 +471,7 @@ func (h *FixturesHandler) handleUpdateMatchup(w http.ResponseWriter, r *http.Req
 	}
 
 	// Redirect back to fixture detail
-	http.Redirect(w, r, fmt.Sprintf("/admin/fixtures/%d", fixtureID), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/admin/league/fixtures/%d", fixtureID), http.StatusSeeOther)
 }
 
 // handlePlayerSelection handles requests for the player selection interface
@@ -485,7 +485,7 @@ func (h *FixturesHandler) handlePlayerSelection(w http.ResponseWriter, r *http.R
 
 	// Extract fixture ID from URL path, removing the "/player-selection" suffix
 	path := strings.TrimSuffix(r.URL.Path, "/player-selection")
-	fixtureID, err := parseIDFromPath(path, "/admin/fixtures/")
+	fixtureID, err := parseIDFromPath(path, "/admin/league/fixtures/")
 	if err != nil {
 		logAndError(w, "Invalid fixture ID", err, http.StatusBadRequest)
 		return
@@ -559,7 +559,7 @@ func renderPlayerGroup(title string, players []models.Player, fixtureID uint, is
 				<input type="hidden" name="player_id" value="` + player.ID + `">
 				<input type="hidden" name="is_home" value="` + fmt.Sprintf("%t", isHome) + `">
 				<button type="submit" class="btn-add-player" 
-				        hx-post="/admin/fixtures/` + fmt.Sprintf("%d", fixtureID) + `" 
+				        hx-post="/admin/league/fixtures/` + fmt.Sprintf("%d", fixtureID) + `" 
 				        hx-target="body" 
 				        hx-swap="outerHTML">
 					` + player.FirstName + ` ` + player.LastName + `
@@ -582,7 +582,7 @@ func (h *FixturesHandler) handleTeamSelection(w http.ResponseWriter, r *http.Req
 
 	// Extract fixture ID from URL path, removing the "/team-selection" suffix
 	path := strings.TrimSuffix(r.URL.Path, "/team-selection")
-	fixtureID, err := parseIDFromPath(path, "/admin/fixtures/")
+	fixtureID, err := parseIDFromPath(path, "/admin/league/fixtures/")
 	if err != nil {
 		logAndError(w, "Invalid fixture ID", err, http.StatusBadRequest)
 		return
@@ -675,7 +675,7 @@ func (h *FixturesHandler) handleTeamSelectionGet(w http.ResponseWriter, r *http.
 		log.Printf("Error parsing team selection template: %v", err)
 		// Fallback to simple HTML response
 		renderFallbackHTML(w, "Team Selection", "Team Selection",
-			"Team selection page - coming soon", "/admin/fixtures/"+fmt.Sprintf("%d", fixtureID))
+			"Team selection page - coming soon", "/admin/league/fixtures/"+fmt.Sprintf("%d", fixtureID))
 		return
 	}
 
@@ -734,7 +734,7 @@ func (h *FixturesHandler) handleMatchupSelectionPost(w http.ResponseWriter, r *h
 
 	// Extract fixture ID from URL path, removing the "/matchup-selection" suffix
 	path := strings.TrimSuffix(r.URL.Path, "/matchup-selection")
-	fixtureID, err := parseIDFromPath(path, "/admin/fixtures/")
+	fixtureID, err := parseIDFromPath(path, "/admin/league/fixtures/")
 	if err != nil {
 		logAndError(w, "Invalid fixture ID", err, http.StatusBadRequest)
 		return
@@ -812,7 +812,7 @@ func (h *FixturesHandler) handleAssignPlayerToMatchup(w http.ResponseWriter, r *
 	}
 
 	// Redirect back to team selection page for non-HTMX requests
-	redirectURL := fmt.Sprintf("/admin/fixtures/%d/team-selection", fixtureID)
+	redirectURL := fmt.Sprintf("/admin/league/fixtures/%d/team-selection", fixtureID)
 	if managingTeamParam != "" {
 		redirectURL += fmt.Sprintf("?managingTeam=%s", managingTeamParam)
 	}
@@ -872,7 +872,7 @@ func (h *FixturesHandler) handleRemovePlayerFromMatchup(w http.ResponseWriter, r
 	}
 
 	// Redirect back to team selection page for non-HTMX requests
-	redirectURL := fmt.Sprintf("/admin/fixtures/%d/team-selection", fixtureID)
+	redirectURL := fmt.Sprintf("/admin/league/fixtures/%d/team-selection", fixtureID)
 	managingTeamParam = r.FormValue("managing_team_id")
 	if managingTeamParam != "" {
 		redirectURL += fmt.Sprintf("?managingTeam=%s", managingTeamParam)
@@ -884,10 +884,10 @@ func (h *FixturesHandler) handleRemovePlayerFromMatchup(w http.ResponseWriter, r
 func (h *FixturesHandler) getTeamSelectionRedirectURL(r *http.Request, fixtureID uint) string {
 	// If this is coming from the team selection page, redirect back to it
 	if strings.Contains(r.Header.Get("Referer"), "/team-selection") {
-		return fmt.Sprintf("/admin/fixtures/%d/team-selection", fixtureID)
+		return fmt.Sprintf("/admin/league/fixtures/%d/team-selection", fixtureID)
 	}
 	// Otherwise redirect to fixture detail
-	return fmt.Sprintf("/admin/fixtures/%d", fixtureID)
+	return fmt.Sprintf("/admin/league/fixtures/%d", fixtureID)
 }
 
 // renderTeamSelectionContainer renders just the team selection container for HTMX requests
@@ -1008,7 +1008,7 @@ func (h *FixturesHandler) handleUpdateFixtureNotes(w http.ResponseWriter, r *htt
 
 	// Extract fixture ID from URL path, removing the "/notes" suffix
 	path := strings.TrimSuffix(r.URL.Path, "/notes")
-	fixtureID, err := parseIDFromPath(path, "/admin/fixtures/")
+	fixtureID, err := parseIDFromPath(path, "/admin/league/fixtures/")
 	if err != nil {
 		logAndError(w, "Invalid fixture ID", err, http.StatusBadRequest)
 		return
@@ -1044,7 +1044,7 @@ func (h *FixturesHandler) handleUpdateFixtureNotes(w http.ResponseWriter, r *htt
 	}
 
 	// For regular requests, redirect back to fixture detail
-	http.Redirect(w, r, fmt.Sprintf("/admin/fixtures/%d", fixtureID), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/admin/league/fixtures/%d", fixtureID), http.StatusSeeOther)
 }
 
 // handleSetDayCaptain handles setting the day captain for a fixture
@@ -1085,7 +1085,7 @@ func (h *FixturesHandler) handleSetDayCaptain(w http.ResponseWriter, r *http.Req
 
 	// For regular requests, redirect back to team selection
 	managingTeamParam := r.FormValue("managing_team_id")
-	redirectURL := fmt.Sprintf("/admin/fixtures/%d/team-selection", fixtureID)
+	redirectURL := fmt.Sprintf("/admin/league/fixtures/%d/team-selection", fixtureID)
 	if managingTeamParam != "" {
 		redirectURL += fmt.Sprintf("?managingTeam=%s", managingTeamParam)
 	}
@@ -1122,7 +1122,7 @@ func (h *FixturesHandler) handleWeekOverview(w http.ResponseWriter, r *http.Requ
 		log.Printf("Error parsing week overview template: %v", err)
 		// Fallback to simple HTML response
 		renderFallbackHTML(w, "Week Overview", "Week Overview",
-			"Week overview page - coming soon", "/admin/fixtures")
+			"Week overview page - coming soon", "/admin/league/fixtures")
 		return
 	}
 
@@ -1153,7 +1153,7 @@ func (h *FixturesHandler) handleFixtureEdit(w http.ResponseWriter, r *http.Reque
 
 	// Extract fixture ID from URL path, removing the "/edit" suffix
 	path := strings.TrimSuffix(r.URL.Path, "/edit")
-	fixtureID, err := parseIDFromPath(path, "/admin/fixtures/")
+	fixtureID, err := parseIDFromPath(path, "/admin/league/fixtures/")
 	if err != nil {
 		logAndError(w, "Invalid fixture ID", err, http.StatusBadRequest)
 		return
@@ -1271,7 +1271,7 @@ func (h *FixturesHandler) handleFixtureEditPost(w http.ResponseWriter, r *http.R
 	}
 
 	// Redirect back to fixture detail page with success message
-	redirectURL := fmt.Sprintf("/admin/fixtures/%d", fixtureID)
+	redirectURL := fmt.Sprintf("/admin/league/fixtures/%d", fixtureID)
 
 	// Add navigation context if present
 	if from := r.URL.Query().Get("from"); from != "" {

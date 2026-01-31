@@ -24,7 +24,7 @@ func (h *DashboardHandler) HandleDashboard(w http.ResponseWriter, r *http.Reques
 	log.Printf("Admin dashboard handler called with path: %s", r.URL.Path)
 
 	// Only handle dashboard path
-	if r.URL.Path != "/admin/dashboard" {
+	if r.URL.Path != "/admin/league/dashboard" {
 		log.Printf("Dashboard handler: not found for path: %s", r.URL.Path)
 		http.NotFound(w, r)
 		return

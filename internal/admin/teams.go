@@ -29,7 +29,7 @@ func (h *TeamsHandler) HandleTeams(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Admin teams handler called with path: %s, method: %s", r.URL.Path, r.Method)
 
 	// Check if this is a specific team detail request
-	if strings.Contains(r.URL.Path, "/teams/") && r.URL.Path != "/admin/teams/" {
+	if strings.Contains(r.URL.Path, "/teams/") && r.URL.Path != "/admin/league/teams/" {
 		h.handleTeamDetail(w, r)
 		return
 	}
@@ -64,7 +64,7 @@ func (h *TeamsHandler) handleTeamsGet(w http.ResponseWriter, r *http.Request, us
 		log.Printf("Error parsing teams template: %v", err)
 		// Fallback to simple HTML response
 		renderFallbackHTML(w, "Admin - Teams", "Team Management",
-			"Team management page - coming soon", "/admin")
+			"Team management page - coming soon", "/admin/league")
 		return
 	}
 
@@ -108,7 +108,7 @@ func (h *TeamsHandler) handleTeamDetail(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Extract team ID from URL path
-	teamID, err := parseIDFromPath(r.URL.Path, "/admin/teams/")
+	teamID, err := parseIDFromPath(r.URL.Path, "/admin/league/teams/")
 	if err != nil {
 		logAndError(w, "Invalid team ID", err, http.StatusBadRequest)
 		return
@@ -155,7 +155,7 @@ func (h *TeamsHandler) handleTeamDetailGet(w http.ResponseWriter, r *http.Reques
 		log.Printf("Error parsing team detail template: %v", err)
 		// Fallback to simple HTML response
 		renderFallbackHTML(w, "Team Detail", "Team Detail",
-			"Team detail page - coming soon", "/admin/teams")
+			"Team detail page - coming soon", "/admin/league/teams")
 		return
 	}
 
@@ -189,7 +189,7 @@ func (h *TeamsHandler) handleAddCaptain(w http.ResponseWriter, r *http.Request) 
 
 	// Extract team ID from URL path
 	// Path format: /admin/teams/{id}/add-captain
-	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/teams/"), "/")
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/league/teams/"), "/")
 	if len(pathParts) < 2 || pathParts[0] == "" || pathParts[1] != "add-captain" {
 		http.Error(w, "Invalid add captain URL", http.StatusBadRequest)
 		return
@@ -253,7 +253,7 @@ func (h *TeamsHandler) handleAddCaptainPost(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Redirect back to team detail page
-	http.Redirect(w, r, fmt.Sprintf("/admin/teams/%d", teamID), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/admin/league/teams/%d", teamID), http.StatusSeeOther)
 }
 
 // handleRemoveCaptain handles the remove captain functionality
@@ -269,7 +269,7 @@ func (h *TeamsHandler) handleRemoveCaptain(w http.ResponseWriter, r *http.Reques
 
 	// Extract team ID from URL path
 	// Path format: /admin/teams/{id}/remove-captain
-	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/teams/"), "/")
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/league/teams/"), "/")
 	if len(pathParts) < 2 || pathParts[0] == "" || pathParts[1] != "remove-captain" {
 		http.Error(w, "Invalid remove captain URL", http.StatusBadRequest)
 		return
@@ -315,7 +315,7 @@ func (h *TeamsHandler) handleRemoveCaptainPost(w http.ResponseWriter, r *http.Re
 	}
 
 	// Redirect back to team detail page
-	http.Redirect(w, r, fmt.Sprintf("/admin/teams/%d", teamID), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/admin/league/teams/%d", teamID), http.StatusSeeOther)
 }
 
 // handleAddPlayers handles the add players functionality
@@ -331,7 +331,7 @@ func (h *TeamsHandler) handleAddPlayers(w http.ResponseWriter, r *http.Request) 
 
 	// Extract team ID from URL path
 	// Path format: /admin/teams/{id}/add-players
-	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/teams/"), "/")
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/league/teams/"), "/")
 	if len(pathParts) < 2 || pathParts[0] == "" || pathParts[1] != "add-players" {
 		http.Error(w, "Invalid add players URL", http.StatusBadRequest)
 		return
@@ -391,7 +391,7 @@ func (h *TeamsHandler) handleAddPlayersGet(w http.ResponseWriter, r *http.Reques
 		log.Printf("Error parsing add players template: %v", err)
 		// Fallback to simple HTML response
 		renderFallbackHTML(w, "Add Players", "Add Players to Team",
-			"Add players page - coming soon", fmt.Sprintf("/admin/teams/%d", teamID))
+			"Add players page - coming soon", fmt.Sprintf("/admin/league/teams/%d", teamID))
 		return
 	}
 
@@ -463,5 +463,5 @@ func (h *TeamsHandler) handleAddPlayersPost(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Redirect back to team detail page with success message
-	http.Redirect(w, r, fmt.Sprintf("/admin/teams/%d?success=players_added", teamID), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/admin/league/teams/%d?success=players_added", teamID), http.StatusSeeOther)
 }

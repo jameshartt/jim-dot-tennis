@@ -156,7 +156,7 @@
     <div class="admin-header">
         <div class="container">
             <div class="breadcrumb">
-                <a href="/admin">Admin</a> / Preferred Name Approvals
+                <a href="/admin/league">Admin</a> / Preferred Name Approvals
             </div>
             <h1>Preferred Name Approvals</h1>
         </div>
@@ -184,8 +184,8 @@
             <div class="admin-section">
                 <h2>Actions</h2>
                 <div class="admin-actions">
-                    <a href="/admin/preferred-names/history" class="btn btn-secondary">View History</a>
-                    <a href="/admin/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+                    <a href="/admin/league/preferred-names/history" class="btn btn-secondary">View History</a>
+                    <a href="/admin/league/dashboard" class="btn btn-secondary">Back to Dashboard</a>
                 </div>
             </div>
 
@@ -226,7 +226,7 @@
                                 <td>
                                     <div class="action-buttons">
                                         <!-- Approve Form -->
-                                        <form method="POST" action="/admin/preferred-names/approve/{{.ID}}" 
+                                        <form method="POST" action="/admin/league/preferred-names/approve/{{.ID}}" 
                                               style="display: inline-block; margin-right: 10px;">
                                             <input type="text" name="admin_notes" placeholder="Optional notes..." 
                                                    style="width: 150px; padding: 4px; margin-right: 5px;">
@@ -237,7 +237,7 @@
                                         </form>
                                         
                                         <!-- Reject Form -->
-                                        <form method="POST" action="/admin/preferred-names/reject/{{.ID}}" 
+                                        <form method="POST" action="/admin/league/preferred-names/reject/{{.ID}}" 
                                               style="display: inline-block;">
                                             <input type="text" name="admin_notes" placeholder="Reason for rejection..." 
                                                    style="width: 150px; padding: 4px; margin-right: 5px;">

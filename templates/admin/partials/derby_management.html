@@ -20,13 +20,13 @@
             {{if .ManagingTeam}}
                 {{if eq .ManagingTeam.ID .FixtureDetail.HomeTeam.ID}}
                     <!-- Currently managing home team, show switch to away -->
-                    <a href="/admin/fixtures/{{.FixtureDetail.ID}}?managingTeam={{.FixtureDetail.AwayTeam.ID}}&teamName={{.FixtureDetail.AwayTeam.Name}}" 
+                    <a href="/admin/league/fixtures/{{.FixtureDetail.ID}}?managingTeam={{.FixtureDetail.AwayTeam.ID}}&teamName={{.FixtureDetail.AwayTeam.Name}}" 
                        class="btn-switch-team">
                         Switch to {{.FixtureDetail.AwayTeam.Name}}
                     </a>
                 {{else}}
                     <!-- Currently managing away team, show switch to home -->
-                    <a href="/admin/fixtures/{{.FixtureDetail.ID}}?managingTeam={{.FixtureDetail.HomeTeam.ID}}&teamName={{.FixtureDetail.HomeTeam.Name}}" 
+                    <a href="/admin/league/fixtures/{{.FixtureDetail.ID}}?managingTeam={{.FixtureDetail.HomeTeam.ID}}&teamName={{.FixtureDetail.HomeTeam.Name}}" 
                        class="btn-switch-team">
                         Switch to {{.FixtureDetail.HomeTeam.Name}}
                     </a>
