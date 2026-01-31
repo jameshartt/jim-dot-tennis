@@ -6,7 +6,7 @@
 
 **Duration**: 2 weeks (Feb 3 - Feb 17, 2026)
 
-**Status**: Not started
+**Status**: In Progress (1/12 completed)
 
 ## Focus Areas
 
@@ -91,7 +91,7 @@ Execute after prerequisites:
 
 ## Success Metrics
 
-- [ ] Players can view their profile and upcoming fixtures
+- [x] Players can view their profile and upcoming fixtures (WI-001 completed 2026-01-31)
 - [ ] Players can set general availability preferences
 - [ ] Players receive push notifications for selections and reminders
 - [ ] Captains can see hierarchical selection overview

@@ -7,6 +7,9 @@
   "complexity": "M",
   "parallelisable": true,
   "dependencies": [],
+  "status": "completed",
+  "completed_date": "2026-01-31",
+  "commit": "32f44ff",
   "phase": "Phase 3: Player Availability Management",
   "acceptance_criteria": [
     "Player profile page accessible at /players/profile or /my-profile",
