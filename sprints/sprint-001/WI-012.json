@@ -57,5 +57,8 @@
       "docs/user_experience_requirements.md",
       "docs/project_overview.md"
     ]
-  }
+  },
+  "status": "completed",
+  "completed_date": "2026-01-31",
+  "completion_notes": "Added share button to fixture detail page using Web Share API with WhatsApp (wa.me) fallback. Reuses existing glance-copyable text and appends deep link. Client-side only — no server changes needed."
 }

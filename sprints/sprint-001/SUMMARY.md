@@ -6,7 +6,7 @@
 
 **Duration**: 2 weeks (Feb 3 - Feb 17, 2026)
 
-**Status**: In Progress (3/12 completed)
+**Status**: In Progress (5/12 completed)
 
 ## Focus Areas
 
@@ -97,7 +97,7 @@ Execute after prerequisites:
 - [ ] Captains can see hierarchical selection overview
 - [ ] App can be installed as PWA on mobile devices
 - [ ] Availability updates work offline and sync when online
-- [ ] Fixture information can be shared via WhatsApp
+- [x] Fixture information can be shared via WhatsApp (WI-011, WI-012 completed 2026-01-31)
 
 ## MVP Readiness
 
@@ -146,6 +146,17 @@ This sprint addresses critical gaps for MVP launch:
     - Removed "Report Injury" button (duplicated exception functionality)
     - Streamlined modal to fit mobile screens properly
 
+- **WI-011**: Fixture details and listing page ✅ (2026-01-31)
+  - Already fully implemented in the admin interface
+  - Fixture listing with filtering by week, division, team
+  - Fixture detail page with matchup management, derby support, notes, and fixture-at-glance copyable summary
+
+- **WI-012**: WhatsApp sharing for fixture details ✅ (2026-01-31)
+  - Added share button to fixture detail action bar (WhatsApp green styling)
+  - Uses Web Share API on mobile (native share sheet) with WhatsApp (wa.me) fallback on desktop
+  - Reuses existing glance-copyable text and appends deep link
+  - Client-side only implementation — no server changes needed
+
 ### In Progress
 
 - None currently
@@ -158,5 +169,3 @@ This sprint addresses critical gaps for MVP launch:
 - WI-008: Captain selection overview dashboard
 - WI-009: PWA installation prompt flow
 - WI-010: Offline availability with background sync
-- WI-011: Fixture details and listing page
-- WI-012: WhatsApp sharing for fixture details

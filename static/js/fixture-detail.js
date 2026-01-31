@@ -123,6 +123,34 @@ document.addEventListener('DOMContentLoaded', function() {
         updateCharacterCount();
     }
     
+    // Share button functionality
+    const shareBtn = document.getElementById('share-fixture-btn');
+    if (shareBtn) {
+        shareBtn.addEventListener('click', async function(e) {
+            e.stopPropagation();
+
+            const fixtureUrl = shareBtn.getAttribute('data-fixture-url');
+            const copyableDiv = document.querySelector('.glance-copyable');
+            if (!copyableDiv) return;
+
+            const baseText = (copyableDiv.textContent || copyableDiv.innerText).trim();
+            const deepLink = window.location.origin + fixtureUrl;
+            const shareText = baseText + '\n\n🔗 ' + deepLink;
+
+            if (navigator.share) {
+                try {
+                    await navigator.share({ text: shareText });
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        console.error('Share failed:', err);
+                    }
+                }
+            } else {
+                window.open('https://wa.me/?text=' + encodeURIComponent(shareText), '_blank');
+            }
+        });
+    }
+
     // Add click-to-copy functionality to fixture-at-glance elements
     const copyableElements = document.querySelectorAll('.fixture-at-glance');
     

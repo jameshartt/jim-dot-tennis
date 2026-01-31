@@ -35,6 +35,10 @@
                     {{if ne .FixtureDetail.Status "Completed"}}
                         <a href="/admin/league/fixtures/{{.FixtureDetail.ID}}/edit" class="btn-edit">📅 Edit Schedule</a>
                     {{end}}
+                    <button type="button" class="btn-share" id="share-fixture-btn"
+                        data-fixture-url="/admin/league/fixtures/{{.FixtureDetail.ID}}">
+                        📤 Share
+                    </button>
                     {{if and .NavigationContext (eq .NavigationContext.from "team")}}
                         <a href="/admin/league/teams/{{.NavigationContext.teamId}}" class="btn-back">← Back to {{.NavigationContext.teamName}}</a>
                     {{else}}
