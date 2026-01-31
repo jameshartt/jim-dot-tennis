@@ -14,16 +14,17 @@ type Handler struct {
 	templateDir string
 
 	// Sub-handlers for different domains
-	dashboard       *DashboardHandler
-	players         *PlayersHandler
-	fixtures        *FixturesHandler
-	teams           *TeamsHandler
-	users           *UsersHandler
-	sessions        *SessionsHandler
-	matchCardImport *MatchCardImportationHandler
-	points          *PointsHandler
-	clubWrapped     *ClubWrappedHandler
-	seasons         *SeasonsHandler
+	dashboard         *DashboardHandler
+	players           *PlayersHandler
+	fixtures          *FixturesHandler
+	teams             *TeamsHandler
+	users             *UsersHandler
+	sessions          *SessionsHandler
+	matchCardImport   *MatchCardImportationHandler
+	points            *PointsHandler
+	clubWrapped       *ClubWrappedHandler
+	seasons           *SeasonsHandler
+	selectionOverview *SelectionOverviewHandler
 }
 
 // New creates a new admin handler
@@ -31,18 +32,19 @@ func New(db *database.DB, templateDir string) *Handler {
 	service := NewService(db)
 
 	return &Handler{
-		service:         service,
-		templateDir:     templateDir,
-		dashboard:       NewDashboardHandler(service, templateDir),
-		players:         NewPlayersHandler(service, templateDir),
-		fixtures:        NewFixturesHandler(service, templateDir),
-		teams:           NewTeamsHandler(service, templateDir),
-		users:           NewUsersHandler(service, templateDir),
-		sessions:        NewSessionsHandler(service, templateDir),
-		matchCardImport: NewMatchCardImportationHandler(service, templateDir),
-		points:          NewPointsHandler(service, templateDir),
-		clubWrapped:     NewClubWrappedHandler(service, templateDir),
-		seasons:         NewSeasonsHandler(service, templateDir),
+		service:           service,
+		templateDir:       templateDir,
+		dashboard:         NewDashboardHandler(service, templateDir),
+		players:           NewPlayersHandler(service, templateDir),
+		fixtures:          NewFixturesHandler(service, templateDir),
+		teams:             NewTeamsHandler(service, templateDir),
+		users:             NewUsersHandler(service, templateDir),
+		sessions:          NewSessionsHandler(service, templateDir),
+		matchCardImport:   NewMatchCardImportationHandler(service, templateDir),
+		points:            NewPointsHandler(service, templateDir),
+		clubWrapped:       NewClubWrappedHandler(service, templateDir),
+		seasons:           NewSeasonsHandler(service, templateDir),
+		selectionOverview: NewSelectionOverviewHandler(service, templateDir),
 	}
 }
 
@@ -85,6 +87,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/league/seasons", h.seasons.HandleSeasons)
 	adminMux.HandleFunc("/admin/league/seasons/", h.seasons.HandleSeasons)
 	adminMux.HandleFunc("/admin/league/seasons/set-active", h.seasons.HandleSetActiveSeason)
+
+	// Selection overview routes
+	adminMux.HandleFunc("/admin/league/selection-overview", h.selectionOverview.HandleSelectionOverview)
+	adminMux.HandleFunc("/admin/league/selection-overview/", h.selectionOverview.HandleSelectionOverview)
+	adminMux.HandleFunc("/admin/league/selection-overview/refresh", h.selectionOverview.HandleSelectionOverview)
 
 	// Preferred name approval routes
 	adminMux.HandleFunc("/admin/league/preferred-names", h.service.HandlePreferredNameApprovals)

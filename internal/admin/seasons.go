@@ -120,7 +120,12 @@ func (h *SeasonsHandler) handleSeasonsList(w http.ResponseWriter, r *http.Reques
                 <input type="date" id="end_date" name="end_date" required>
                 <small style="color: #666; font-size: 12px;">Date picker will display in your local format</small>
             </div>
-            <button type="submit" class="btn btn-primary">Create Season</button>
+            <div class="form-group">
+                <label for="num_weeks">Number of Weeks:</label>
+                <input type="number" id="num_weeks" name="num_weeks" required value="18" min="1" max="52">
+                <small style="color: #666; font-size: 12px;">Typically 18 weeks for a standard season</small>
+            </div>
+            <button type="submit" class="btn btn-primary">Create Season with Weeks</button>
         </form>
     </div>
 
@@ -133,6 +138,7 @@ func (h *SeasonsHandler) handleSeasonsList(w http.ResponseWriter, r *http.Reques
                 <th>Year</th>
                 <th>Start Date</th>
                 <th>End Date</th>
+                <th>Weeks</th>
                 <th>Status</th>
                 <th>Actions</th>
             </tr>
@@ -154,6 +160,9 @@ func (h *SeasonsHandler) handleSeasonsList(w http.ResponseWriter, r *http.Reques
             </form>`
 		}
 
+		// Get week count for this season
+		weekCount, _ := h.service.GetWeekCountForSeason(season.ID)
+
 		w.Write([]byte(`
             <tr>
                 <td>` + strconv.Itoa(int(season.ID)) + `</td>
@@ -161,6 +170,7 @@ func (h *SeasonsHandler) handleSeasonsList(w http.ResponseWriter, r *http.Reques
                 <td>` + strconv.Itoa(season.Year) + `</td>
                 <td class="date-cell" data-date="` + season.StartDate.Format("2006-01-02") + `">` + season.StartDate.Format("02 Jan 2006") + `</td>
                 <td class="date-cell" data-date="` + season.EndDate.Format("2006-01-02") + `">` + season.EndDate.Format("02 Jan 2006") + `</td>
+                <td>` + strconv.Itoa(weekCount) + `</td>
                 <td>` + statusBadge + `</td>
                 <td>` + activeButton + `</td>
             </tr>
@@ -196,10 +206,17 @@ func (h *SeasonsHandler) handleCreateSeason(w http.ResponseWriter, r *http.Reque
 	yearStr := r.FormValue("year")
 	startDateStr := r.FormValue("start_date")
 	endDateStr := r.FormValue("end_date")
+	numWeeksStr := r.FormValue("num_weeks")
 
 	year, err := strconv.Atoi(yearStr)
 	if err != nil {
 		http.Error(w, "Invalid year", http.StatusBadRequest)
+		return
+	}
+
+	numWeeks, err := strconv.Atoi(numWeeksStr)
+	if err != nil || numWeeks < 1 || numWeeks > 52 {
+		http.Error(w, "Invalid number of weeks (must be between 1 and 52)", http.StatusBadRequest)
 		return
 	}
 
@@ -223,7 +240,7 @@ func (h *SeasonsHandler) handleCreateSeason(w http.ResponseWriter, r *http.Reque
 		IsActive:  false,
 	}
 
-	if err := h.service.CreateSeason(season); err != nil {
+	if err := h.service.CreateSeasonWithWeeks(season, numWeeks); err != nil {
 		logAndError(w, "Failed to create season", err, http.StatusInternalServerError)
 		return
 	}

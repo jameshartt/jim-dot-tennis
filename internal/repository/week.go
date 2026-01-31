@@ -22,6 +22,7 @@ type WeekRepository interface {
 	FindActive(ctx context.Context, seasonID uint) (*models.Week, error)
 	FindByDateRange(ctx context.Context, startDate, endDate time.Time) ([]models.Week, error)
 	FindCurrentWeek(ctx context.Context, seasonID uint) (*models.Week, error)
+	FindCurrentOrNextWeek(ctx context.Context, seasonID uint) (*models.Week, error)
 	SetActive(ctx context.Context, id uint) error
 
 	// Week with relationships
@@ -223,4 +224,32 @@ func (r *weekRepository) CountBySeason(ctx context.Context, seasonID uint) (int,
 		SELECT COUNT(*) FROM weeks WHERE season_id = ?
 	`, seasonID)
 	return count, err
+}
+
+// FindCurrentOrNextWeek gets the current week or next upcoming week
+func (r *weekRepository) FindCurrentOrNextWeek(ctx context.Context, seasonID uint) (*models.Week, error) {
+	var week models.Week
+	now := time.Now()
+	err := r.db.GetContext(ctx, &week, `
+		SELECT id, week_number, season_id, start_date, end_date, name, is_active, created_at, updated_at
+		FROM weeks
+		WHERE season_id = ?
+		  AND end_date >= ?
+		ORDER BY start_date ASC
+		LIMIT 1
+	`, seasonID, now)
+	if err != nil {
+		// Fallback to latest week in season
+		err = r.db.GetContext(ctx, &week, `
+			SELECT id, week_number, season_id, start_date, end_date, name, is_active, created_at, updated_at
+			FROM weeks
+			WHERE season_id = ?
+			ORDER BY week_number DESC
+			LIMIT 1
+		`, seasonID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &week, nil
 }

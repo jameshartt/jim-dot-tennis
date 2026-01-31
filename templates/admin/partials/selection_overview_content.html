@@ -1,0 +1,81 @@
+{{if .Overview.DivisionSections}}
+    <div class="fixtures-grid">
+        {{range .Overview.DivisionSections}}
+            <div class="division-section">
+                <h2 class="division-header">{{.DivisionName}} ({{len .Fixtures}} fixture{{if ne (len .Fixtures) 1}}s{{end}} this week)</h2>
+
+                {{range .Fixtures}}
+                    <div class="fixture-card">
+                        <div class="fixture-teams">
+                            {{if .Fixture.HomeTeam}}{{.Fixture.HomeTeam.Name}}{{else}}TBD{{end}}
+                            <span class="vs-text">vs</span>
+                            {{if .Fixture.AwayTeam}}{{.Fixture.AwayTeam.Name}}{{else}}TBD{{end}}
+                            {{if .IsDerby}}<span class="derby-badge">DERBY</span>{{end}}
+                        </div>
+
+                        <div class="fixture-datetime">
+                            {{if .Fixture.ScheduledDate}}{{.Fixture.ScheduledDate.Format "Mon, Jan 2, 3:04 PM"}}{{end}}
+                            {{if .Fixture.VenueLocation}} at {{.Fixture.VenueLocation}}{{end}}
+                        </div>
+
+                        <div class="selection-status">
+                            {{if .IsDerby}}
+                                <div class="status-item">
+                                    {{if lt .HomeTeamSelectedCount .RequiredCount}}
+                                        <span class="status-icon status-warning">⚠️</span>
+                                    {{else}}
+                                        <span class="status-icon status-success">✓</span>
+                                    {{end}}
+                                    <span>Home ({{if .Fixture.HomeTeam}}{{.Fixture.HomeTeam.Name}}{{end}}): {{.HomeTeamSelectedCount}}/{{.RequiredCount}} players selected</span>
+                                </div>
+                                <div class="status-item">
+                                    {{if lt .AwayTeamSelectedCount .RequiredCount}}
+                                        <span class="status-icon status-warning">⚠️</span>
+                                    {{else}}
+                                        <span class="status-icon status-success">✓</span>
+                                    {{end}}
+                                    <span>Away ({{if .Fixture.AwayTeam}}{{.Fixture.AwayTeam.Name}}{{end}}): {{.AwayTeamSelectedCount}}/{{.RequiredCount}} players selected</span>
+                                </div>
+                            {{else}}
+                                <div class="status-item">
+                                    {{if lt .SelectedCount .RequiredCount}}
+                                        <span class="status-icon status-warning">⚠️</span>
+                                    {{else}}
+                                        <span class="status-icon status-success">✓</span>
+                                    {{end}}
+                                    <span>Selection: {{.SelectedCount}}/{{.RequiredCount}} players selected</span>
+                                </div>
+                            {{end}}
+
+                            {{if .HigherDivisionSelections}}
+                                <div class="higher-div-summary">
+                                    <div class="higher-div-summary-title">Higher division selections this week:</div>
+                                    {{range .HigherDivisionSelections}}
+                                        <div class="higher-div-item">📋 {{.DivisionName}} selected: {{.PlayerCount}} players</div>
+                                    {{end}}
+                                    <div class="available-count">→ {{.AvailablePlayerCount}} players still available</div>
+                                </div>
+                            {{end}}
+                        </div>
+
+                        <div class="fixture-actions">
+                            {{if .IsDerby}}
+                                <a href="/admin/league/fixtures/{{.Fixture.ID}}/team-selection?team={{.Fixture.HomeTeamID}}" class="btn-primary">Select Home Team</a>
+                                <a href="/admin/league/fixtures/{{.Fixture.ID}}/team-selection?team={{.Fixture.AwayTeamID}}" class="btn-primary">Select Away Team</a>
+                            {{else}}
+                                <a href="/admin/league/fixtures/{{.Fixture.ID}}/team-selection" class="btn-primary">Select Team →</a>
+                            {{end}}
+                            <a href="/admin/league/fixtures/{{.Fixture.ID}}" class="btn-secondary">View Detail</a>
+                        </div>
+                    </div>
+                {{end}}
+            </div>
+        {{end}}
+    </div>
+{{else}}
+    <div class="empty-state">
+        <div class="empty-state-icon">📅</div>
+        <h2>No fixtures scheduled for this week</h2>
+        <p>Select a different week to view fixtures.</p>
+    </div>
+{{end}}

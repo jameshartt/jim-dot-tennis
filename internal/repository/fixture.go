@@ -33,6 +33,7 @@ type FixtureRepository interface {
 	FindByWeek(ctx context.Context, weekID uint) ([]models.Fixture, error)
 	FindByWeekNumber(ctx context.Context, seasonID uint, weekNumber int) ([]models.Fixture, error)
 	FindByWeekAndDivision(ctx context.Context, weekID, divisionID uint) ([]models.Fixture, error)
+	FindByWeekAndDivisionLevels(ctx context.Context, weekID uint, minLevel, maxLevel int) ([]models.Fixture, error)
 
 	// Fixture with relationships
 	FindWithMatchups(ctx context.Context, id uint) (*models.Fixture, error)
@@ -59,6 +60,7 @@ type FixtureRepository interface {
 	// Fixture Player Selection methods
 	FindSelectedPlayers(ctx context.Context, fixtureID uint) ([]models.FixturePlayer, error)
 	FindSelectedPlayersByTeam(ctx context.Context, fixtureID, managingTeamID uint) ([]models.FixturePlayer, error)
+	GetSelectedPlayerCountByFixture(ctx context.Context, fixtureID uint, managingTeamID *uint) (int, error)
 	AddSelectedPlayer(ctx context.Context, fixturePlayer *models.FixturePlayer) error
 	RemoveSelectedPlayer(ctx context.Context, fixtureID uint, playerID string) error
 	RemoveSelectedPlayerByTeam(ctx context.Context, fixtureID, managingTeamID uint, playerID string) error
@@ -598,16 +600,50 @@ func (r *fixtureRepository) FindUpcomingFixturesForPlayer(ctx context.Context, p
 	// Execute the main query
 
 	err := r.db.SelectContext(ctx, &fixtures, `
-		SELECT DISTINCT f.id, f.home_team_id, f.away_team_id, f.division_id, f.season_id, f.week_id, 
-		       f.scheduled_date, f.venue_location, f.status, f.completed_date, f.day_captain_id, 
+		SELECT DISTINCT f.id, f.home_team_id, f.away_team_id, f.division_id, f.season_id, f.week_id,
+		       f.scheduled_date, f.venue_location, f.status, f.completed_date, f.day_captain_id,
 		       f.external_match_card_id, f.notes, f.created_at, f.updated_at
 		FROM fixtures f
 		INNER JOIN fixture_players fp ON f.id = fp.fixture_id
-		WHERE fp.player_id = ? 
+		WHERE fp.player_id = ?
 		  AND date(f.scheduled_date) >= date('now')
 		  AND f.status IN ('Scheduled', 'InProgress')
 				ORDER BY f.scheduled_date ASC
 	`, playerID)
 
 	return fixtures, err
+}
+
+// FindByWeekAndDivisionLevels retrieves fixtures for a week where division level is in range
+func (r *fixtureRepository) FindByWeekAndDivisionLevels(ctx context.Context, weekID uint, minLevel, maxLevel int) ([]models.Fixture, error) {
+	var fixtures []models.Fixture
+	err := r.db.SelectContext(ctx, &fixtures, `
+		SELECT f.id, f.home_team_id, f.away_team_id, f.division_id, f.season_id, f.week_id,
+		       f.scheduled_date, f.venue_location, f.status, f.completed_date, f.day_captain_id,
+		       f.external_match_card_id, f.notes, f.created_at, f.updated_at
+		FROM fixtures f
+		INNER JOIN divisions d ON d.id = f.division_id
+		WHERE f.week_id = ?
+		  AND d.level >= ?
+		  AND d.level <= ?
+		ORDER BY d.level, f.scheduled_date
+	`, weekID, minLevel, maxLevel)
+	return fixtures, err
+}
+
+// GetSelectedPlayerCountByFixture gets count of selected players (handles derbies)
+func (r *fixtureRepository) GetSelectedPlayerCountByFixture(ctx context.Context, fixtureID uint, managingTeamID *uint) (int, error) {
+	var count int
+	if managingTeamID == nil {
+		// Total count
+		err := r.db.GetContext(ctx, &count, `
+			SELECT COUNT(*) FROM fixture_players WHERE fixture_id = ?
+		`, fixtureID)
+		return count, err
+	}
+	// Derby: count for specific team
+	err := r.db.GetContext(ctx, &count, `
+		SELECT COUNT(*) FROM fixture_players WHERE fixture_id = ? AND managing_team_id = ?
+	`, fixtureID, *managingTeamID)
+	return count, err
 }
