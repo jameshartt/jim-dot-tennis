@@ -106,34 +106,31 @@ func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Get all divisions for filtering
-	divisions, err := h.service.GetAllDivisions()
-	if err != nil {
-		logAndError(w, "Failed to load divisions", err, http.StatusInternalServerError)
-		return
-	}
-
-	// Get weeks for the active season only
+	// Get the active season for filtering divisions, teams, and weeks
+	var divisions []models.Division
 	var weeks []models.Week
+	var teams []models.Team
 	activeSeason, err := h.service.GetActiveSeason()
 	if err != nil {
 		log.Printf("Failed to load active season for create form: %v", err)
-		weeks = []models.Week{}
 	} else if activeSeason != nil {
 		weeks, err = h.service.GetWeeksBySeason(activeSeason.ID)
 		if err != nil {
 			log.Printf("Failed to load weeks for active season: %v", err)
 			weeks = []models.Week{}
 		}
+		divisions, err = h.service.GetDivisionsBySeason(activeSeason.ID)
+		if err != nil {
+			log.Printf("Failed to load divisions for active season: %v", err)
+			divisions = []models.Division{}
+		}
+		teams, err = h.service.GetTeamsBySeason(activeSeason.ID)
+		if err != nil {
+			log.Printf("Failed to load teams for active season: %v", err)
+			teams = []models.Team{}
+		}
 	} else {
 		log.Printf("No active season found")
-		weeks = []models.Week{}
-	}
-
-	teams, err := h.service.GetAllTeams()
-	if err != nil {
-		log.Printf("Failed to load teams for create form: %v", err)
-		teams = []models.Team{}
 	}
 
 	// Load the fixtures template

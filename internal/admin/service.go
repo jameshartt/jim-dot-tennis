@@ -3427,6 +3427,12 @@ func (s *Service) GetAllTeams() ([]models.Team, error) {
 	return s.teamRepository.FindAll(ctx)
 }
 
+// GetTeamsBySeason retrieves all teams for a specific season
+func (s *Service) GetTeamsBySeason(seasonID uint) ([]models.Team, error) {
+	ctx := context.Background()
+	return s.teamRepository.FindBySeason(ctx, seasonID)
+}
+
 // GetWeekSelectionOverview gets selection status for all St Ann's fixtures in a week
 func (s *Service) GetWeekSelectionOverview(weekID uint, filteredDivisionIDs []uint) (*WeekSelectionOverview, error) {
 	ctx := context.Background()
