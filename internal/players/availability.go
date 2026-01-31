@@ -61,6 +61,10 @@ func (h *AvailabilityHandler) HandleAvailability(w http.ResponseWriter, r *http.
 		h.handleAvailabilityUpdate(w, r, &player, authToken)
 	case action == "batch-update" && r.Method == http.MethodPost:
 		h.handleAvailabilityBatchUpdate(w, r, &player, authToken)
+	case action == "general-availability" && r.Method == http.MethodGet:
+		h.handleGeneralAvailabilityGet(w, r, &player, authToken)
+	case action == "general-availability" && r.Method == http.MethodPost:
+		h.handleGeneralAvailabilityUpdate(w, r, &player, authToken)
 	case action == "request-preferred-name" && r.Method == http.MethodPost:
 		h.handlePreferredNameRequest(w, r, &player, authToken)
 	case action == "wrapped-auth" && r.Method == http.MethodPost:
@@ -174,6 +178,49 @@ func (h *AvailabilityHandler) handleAvailabilityBatchUpdate(w http.ResponseWrite
 
 	if err := h.service.BatchUpdatePlayerAvailability(player.ID, batchReq.Updates); err != nil {
 		logAndError(w, "Failed to batch update availability", err, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+// handleGeneralAvailabilityGet retrieves general availability preferences
+func (h *AvailabilityHandler) handleGeneralAvailabilityGet(w http.ResponseWriter, r *http.Request, player *models.Player, authToken string) {
+	log.Printf("Getting general availability for player %s", player.ID)
+
+	preferences, err := h.service.GetPlayerGeneralAvailability(player.ID)
+	if err != nil {
+		logAndError(w, "Failed to get general availability", err, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"preferences": preferences,
+	}); err != nil {
+		logAndError(w, "Failed to encode general availability", err, http.StatusInternalServerError)
+	}
+}
+
+// handleGeneralAvailabilityUpdate updates general availability preferences
+func (h *AvailabilityHandler) handleGeneralAvailabilityUpdate(w http.ResponseWriter, r *http.Request, player *models.Player, authToken string) {
+	var updateReq struct {
+		DayOfWeek string `json:"day_of_week"`
+		Status    string `json:"status"`
+		Notes     string `json:"notes"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&updateReq); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Updating general availability for player %s: day=%s, status=%s",
+		player.ID, updateReq.DayOfWeek, updateReq.Status)
+
+	if err := h.service.UpdatePlayerGeneralAvailability(player.ID, updateReq.DayOfWeek, updateReq.Status, updateReq.Notes); err != nil {
+		logAndError(w, "Failed to update general availability", err, http.StatusInternalServerError)
 		return
 	}
 

@@ -210,6 +210,88 @@
             padding: 25px;
             margin-bottom: 20px;
         }
+
+        .general-availability-container {
+            margin-top: 20px;
+        }
+
+        .general-availability-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .general-day-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.2s ease;
+        }
+
+        .general-day-card:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .general-day-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c5530;
+            margin-bottom: 10px;
+        }
+
+        .general-status-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .general-status-btn {
+            flex: 1;
+            min-width: 60px;
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .general-status-btn:hover {
+            border-color: #4a7c59;
+        }
+
+        .general-status-btn.active {
+            font-weight: 600;
+        }
+
+        .general-status-btn.available.active {
+            background: #d4edda;
+            border-color: #4a7c59;
+            color: #155724;
+        }
+
+        .general-status-btn.if-needed.active {
+            background: #fff3cd;
+            border-color: #ffc107;
+            color: #856404;
+        }
+
+        .general-status-btn.unavailable.active {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+
+        .general-status-btn.clear.active {
+            background: #e9ecef;
+            border-color: #6c757d;
+            color: #495057;
+        }
         
         .section-title {
             font-size: 20px;
@@ -1283,7 +1365,23 @@
                 <div class="fixtures-loading">Loading your fixture information...</div>
             </div>
         </div>
-        
+
+        <div class="availability-section">
+            <h2 class="section-title">General Availability Preferences</h2>
+            <p class="availability-instructions">
+                Set your default availability by day of the week. These preferences serve as defaults that can be overridden by specific dates below.
+            </p>
+
+            <div class="general-availability-container">
+                <div class="general-availability-grid" id="general-availability-grid">
+                    <!-- Loading state -->
+                    <div id="general-availability-loading" style="text-align: center; padding: 20px; color: #666;">
+                        Loading preferences...
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="availability-section">
             <h2 class="section-title">Set Your Availability (Initials: {{printf "%.1s" .Player.FirstName}}.{{printf "%.1s" .Player.LastName}}.)</h2>
             <p class="availability-instructions">
@@ -1490,6 +1588,7 @@
                 this.loadAvailabilityData();
                 this.renderCalendar();
                 this.loadUpcomingFixtures();
+                this.loadGeneralAvailability();
             }
             
             async loadAvailabilityData() {
@@ -1861,8 +1960,109 @@
                     alert('❌ Error reporting injury. Please check your connection and try again.');
                 }
             }
+
+            async loadGeneralAvailability() {
+                try {
+                    const response = await fetch(`/my-availability/${this.authToken}/general-availability`, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.renderGeneralAvailability(data.preferences || []);
+                    } else {
+                        console.error('Failed to load general availability');
+                        this.renderGeneralAvailability([]);
+                    }
+                } catch (error) {
+                    console.error('Error loading general availability:', error);
+                    this.renderGeneralAvailability([]);
+                }
+            }
+
+            renderGeneralAvailability(preferences) {
+                const container = document.getElementById('general-availability-grid');
+                if (!container) return;
+
+                const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+                // Create a map of existing preferences
+                const prefMap = new Map();
+                preferences.forEach(pref => {
+                    prefMap.set(pref.day_of_week, pref.status);
+                });
+
+                let html = '';
+                daysOfWeek.forEach(day => {
+                    const currentStatus = prefMap.get(day) || 'Unknown';
+
+                    html += `
+                        <div class="general-day-card">
+                            <div class="general-day-name">${day}</div>
+                            <div class="general-status-buttons">
+                                <button
+                                    class="general-status-btn available ${currentStatus === 'Available' ? 'active' : ''}"
+                                    onclick="calendar.updateGeneralAvailability('${day}', 'available')"
+                                    title="Usually available on ${day}s">
+                                    Available
+                                </button>
+                                <button
+                                    class="general-status-btn if-needed ${currentStatus === 'IfNeeded' ? 'active' : ''}"
+                                    onclick="calendar.updateGeneralAvailability('${day}', 'if-needed')"
+                                    title="Can play if needed on ${day}s">
+                                    If Needed
+                                </button>
+                                <button
+                                    class="general-status-btn unavailable ${currentStatus === 'Unavailable' ? 'active' : ''}"
+                                    onclick="calendar.updateGeneralAvailability('${day}', 'unavailable')"
+                                    title="Usually unavailable on ${day}s">
+                                    Unavailable
+                                </button>
+                                <button
+                                    class="general-status-btn clear ${currentStatus === 'Unknown' ? 'active' : ''}"
+                                    onclick="calendar.updateGeneralAvailability('${day}', 'clear')"
+                                    title="Clear preference for ${day}s">
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            }
+
+            async updateGeneralAvailability(dayOfWeek, status) {
+                try {
+                    const response = await fetch(`/my-availability/${this.authToken}/general-availability`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            day_of_week: dayOfWeek,
+                            status: status,
+                            notes: ''
+                        })
+                    });
+
+                    if (response.ok) {
+                        // Reload to update UI
+                        this.loadGeneralAvailability();
+                    } else {
+                        console.error('Failed to update general availability');
+                        alert('❌ Failed to update preference. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Error updating general availability:', error);
+                    alert('❌ Error updating preference. Please check your connection and try again.');
+                }
+            }
         }
-        
+
         // Initialize calendar when page loads
         let calendar;
         document.addEventListener('DOMContentLoaded', function() {

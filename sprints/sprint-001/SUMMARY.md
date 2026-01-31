@@ -6,7 +6,7 @@
 
 **Duration**: 2 weeks (Feb 3 - Feb 17, 2026)
 
-**Status**: In Progress (1/12 completed)
+**Status**: In Progress (2/12 completed)
 
 ## Focus Areas
 
@@ -92,7 +92,7 @@ Execute after prerequisites:
 ## Success Metrics
 
 - [x] Players can view their profile and upcoming fixtures (WI-001 completed 2026-01-31)
-- [ ] Players can set general availability preferences
+- [x] Players can set general availability preferences (WI-002 completed 2026-01-31)
 - [ ] Players receive push notifications for selections and reminders
 - [ ] Captains can see hierarchical selection overview
 - [ ] App can be installed as PWA on mobile devices
@@ -117,3 +117,36 @@ This sprint addresses critical gaps for MVP launch:
 4. Monitor progress and adjust as needed
 5. Conduct testing after each phase
 6. Prepare for MVP launch after sprint completion
+
+## Work Items Tracking
+
+### Completed
+
+- **WI-001**: Player profile view page ✅ (2026-01-31)
+  - Added profile handler and template
+  - Displays player info, teams, upcoming fixtures, and availability stats
+  - Accessible via `/my-profile/{token}` URL pattern
+
+- **WI-002**: General availability preferences ✅ (2026-01-31)
+  - Added service methods: `GetPlayerGeneralAvailability`, `UpdatePlayerGeneralAvailability`
+  - Added handler endpoints: GET/POST `/my-availability/{token}/general-availability`
+  - Updated availability template with day-of-week preference UI
+  - Players can set default availability status (Available/Unavailable/If Needed) per day of week
+  - Preferences stored in `player_general_availability` table
+
+### In Progress
+
+- None currently
+
+### Not Started
+
+- WI-003: Availability exception handling
+- WI-004: Push notification subscription flow
+- WI-005: Push notification sending service
+- WI-006: Selection confirmation notifications
+- WI-007: Availability reminder notification system
+- WI-008: Captain selection overview dashboard
+- WI-009: PWA installation prompt flow
+- WI-010: Offline availability with background sync
+- WI-011: Fixture details and listing page
+- WI-012: WhatsApp sharing for fixture details

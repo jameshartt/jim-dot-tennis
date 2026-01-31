@@ -680,3 +680,70 @@ func (s *Service) calculateAvailabilityStats(availability []AvailabilityDay) Ava
 
 	return stats
 }
+
+// GeneralAvailabilityPreference represents a day-of-week availability preference
+type GeneralAvailabilityPreference struct {
+	DayOfWeek string                    `json:"day_of_week"`
+	Status    models.AvailabilityStatus `json:"status"`
+	Notes     string                    `json:"notes,omitempty"`
+}
+
+// GetPlayerGeneralAvailability retrieves general availability preferences for a player
+func (s *Service) GetPlayerGeneralAvailability(playerID string) ([]GeneralAvailabilityPreference, error) {
+	ctx := context.Background()
+
+	// Get active season
+	activeSeason, err := s.seasonRepository.FindActive(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find active season: %w", err)
+	}
+
+	// Get general availability from repository
+	availabilities, err := s.availabilityRepository.GetPlayerGeneralAvailability(ctx, playerID, activeSeason.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get general availability: %w", err)
+	}
+
+	// Convert to response format
+	preferences := make([]GeneralAvailabilityPreference, 0, len(availabilities))
+	for _, avail := range availabilities {
+		preferences = append(preferences, GeneralAvailabilityPreference{
+			DayOfWeek: avail.DayOfWeek,
+			Status:    avail.Status,
+			Notes:     avail.Notes,
+		})
+	}
+
+	return preferences, nil
+}
+
+// UpdatePlayerGeneralAvailability updates a player's general availability for a specific day
+func (s *Service) UpdatePlayerGeneralAvailability(playerID string, dayOfWeek string, status string, notes string) error {
+	ctx := context.Background()
+
+	// Get active season
+	activeSeason, err := s.seasonRepository.FindActive(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to find active season: %w", err)
+	}
+
+	// If status is "clear", delete the preference instead of upserting
+	if status == "clear" {
+		// Delete by setting status to Unknown (which effectively clears it)
+		// We use Unknown as the default "not set" status
+		if err := s.availabilityRepository.UpsertPlayerGeneralAvailability(ctx, playerID, activeSeason.ID, dayOfWeek, models.Unknown, notes); err != nil {
+			return fmt.Errorf("failed to clear general availability: %w", err)
+		}
+		return nil
+	}
+
+	// Convert status string to AvailabilityStatus
+	availStatus := s.convertFrontendStatus(status)
+
+	// Update via repository
+	if err := s.availabilityRepository.UpsertPlayerGeneralAvailability(ctx, playerID, activeSeason.ID, dayOfWeek, availStatus, notes); err != nil {
+		return fmt.Errorf("failed to update general availability: %w", err)
+	}
+
+	return nil
+}
