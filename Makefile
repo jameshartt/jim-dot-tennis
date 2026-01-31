@@ -1,4 +1,5 @@
-.PHONY: build run stop clean backup logs restart build-local run-local local
+.PHONY: build run stop clean backup logs restart build-local run-local local \
+	build-tmx courthive courthive-up courthive-down courthive-restart courthive-logs
 
 # Docker compose command
 DOCKER_COMPOSE = docker compose
@@ -113,4 +114,35 @@ ps:
 	$(DOCKER_COMPOSE) ps
 
 # Follow the TDD development workflow
-dev: build run logs 
+dev: build run logs
+
+# CourtHive compose file
+COURTHIVE_COMPOSE = $(DOCKER_COMPOSE) -f docker-compose.courthive.yml
+
+# TMX source directory (relative to this project)
+TMX_DIR = ../TMX
+
+# Build TMX frontend for local development
+build-tmx:
+	@echo "Building TMX frontend for local development..."
+	cd $(TMX_DIR) && pnpm build
+
+# Build and start the full CourtHive stack locally
+courthive: build-tmx
+	@echo "Starting CourtHive stack..."
+	$(COURTHIVE_COMPOSE) up -d --build
+
+# Start the CourtHive stack without rebuilding TMX
+courthive-up:
+	$(COURTHIVE_COMPOSE) up -d
+
+# Stop the CourtHive stack
+courthive-down:
+	$(COURTHIVE_COMPOSE) down
+
+# Restart the CourtHive stack
+courthive-restart: courthive-down courthive-up
+
+# View CourtHive stack logs
+courthive-logs:
+	$(COURTHIVE_COMPOSE) logs -f
