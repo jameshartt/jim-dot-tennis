@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+        .content-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+        .content-section h2 {
+            margin: 0 0 1rem 0;
+            color: var(--primary-color);
+        }
+        .user-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .user-table th, .user-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .user-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge-admin { background: #e3f2fd; color: #1565c0; }
+        .badge-captain { background: #f3e5f5; color: #7b1fa2; }
+        .badge-player { background: #e8f5e9; color: #2e7d32; }
+        .badge-active { background: #e8f5e9; color: #2e7d32; }
+        .badge-inactive { background: #ffebee; color: #c62828; }
+        .action-btn {
+            padding: 0.25rem 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .action-btn:hover {
+            background: #f8f9fa;
+        }
+        .action-btn-danger {
+            color: var(--danger-color);
+            border-color: var(--danger-color);
+        }
+        .action-btn-danger:hover {
+            background: #fff5f5;
+        }
+        .inline-form {
+            display: inline;
+        }
+        .inline-select {
+            padding: 0.25rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+        .new-user-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto;
+            gap: 0.75rem;
+            align-items: end;
+        }
+        .table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .alert {
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            max-width: 400px;
+            width: 90%;
+        }
+        .modal-content h3 {
+            margin: 0 0 1rem 0;
+        }
+        @media (max-width: 768px) {
+            .new-user-form {
+                grid-template-columns: 1fr;
+            }
+            .user-table th:nth-child(4),
+            .user-table td:nth-child(4) {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin/league">Admin Dashboard</a> &gt; Users
+            </div>
+            <h1>User Management</h1>
+        </div>
+    </header>
+
+    <main class="admin-content">
+        <div class="container">
+            {{if .SuccessMsg}}
+            <div class="alert alert-success">{{.SuccessMsg}}</div>
+            {{end}}
+            {{if .ErrorMsg}}
+            <div class="alert alert-error">{{.ErrorMsg}}</div>
+            {{end}}
+
+            <div class="content-section">
+                <h2>Create New User</h2>
+                <form method="POST" action="/admin/league/users" class="new-user-form">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" name="username" required placeholder="Enter username">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required placeholder="Enter password">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="role">Role</label>
+                        <select id="role" name="role" required>
+                            {{range .Roles}}
+                            <option value="{{.}}">{{.}}</option>
+                            {{end}}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create User</button>
+                </form>
+            </div>
+
+            <div class="content-section">
+                <h2>All Users ({{len .Users}})</h2>
+                <div class="table-container">
+                    <table class="user-table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Last Login</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .Users}}
+                            <tr>
+                                <td>
+                                    <strong>{{.Username}}</strong>
+                                    {{if eq .ID $.User.ID}}<span style="font-size: 0.75rem; color: #6c757d;">(you)</span>{{end}}
+                                </td>
+                                <td>
+                                    <form method="POST" action="/admin/league/users/{{.ID}}/role" class="inline-form">
+                                        <select name="role" class="inline-select" onchange="this.form.submit()">
+                                            <option value="admin" {{if eq (lower .Role) "admin"}}selected{{end}}>admin</option>
+                                            <option value="captain" {{if eq (lower .Role) "captain"}}selected{{end}}>captain</option>
+                                            <option value="player" {{if eq (lower .Role) "player"}}selected{{end}}>player</option>
+                                        </select>
+                                    </form>
+                                </td>
+                                <td>
+                                    {{if .IsActive}}
+                                    <span class="badge badge-active">Active</span>
+                                    {{else}}
+                                    <span class="badge badge-inactive">Inactive</span>
+                                    {{end}}
+                                </td>
+                                <td style="font-size: 0.85rem;">{{.LastLoginAt.Format "02 Jan 2006 15:04"}}</td>
+                                <td>
+                                    {{if ne .ID $.User.ID}}
+                                    <form method="POST" action="/admin/league/users/{{.ID}}/toggle-active" class="inline-form">
+                                        <button type="submit" class="action-btn" onclick="return confirm('{{if .IsActive}}Deactivate{{else}}Activate{{end}} this user?')">
+                                            {{if .IsActive}}Deactivate{{else}}Activate{{end}}
+                                        </button>
+                                    </form>
+                                    {{end}}
+                                    <button class="action-btn" onclick="showResetModal({{.ID}}, '{{.Username}}')">Reset Password</button>
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="resetModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Reset Password</h3>
+            <p style="color: #6c757d; margin-bottom: 1rem;">Reset password for <strong id="resetUsername"></strong></p>
+            <form id="resetForm" method="POST">
+                <div class="form-group">
+                    <label for="new_password">New Password</label>
+                    <input type="password" id="new_password" name="password" required placeholder="Enter new password">
+                </div>
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                    <button type="button" onclick="hideResetModal()" class="btn btn-sm" style="background: #6c757d; color: white; border: none;">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-primary">Reset Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function showResetModal(userId, username) {
+            document.getElementById('resetUsername').textContent = username;
+            document.getElementById('resetForm').action = '/admin/league/users/' + userId + '/reset-password';
+            document.getElementById('resetModal').style.display = 'flex';
+            document.getElementById('new_password').focus();
+        }
+        function hideResetModal() {
+            document.getElementById('resetModal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+{
+  "id": "WI-017",
+  "title": "Reorganise admin dashboard layout and quick actions",
+  "description": "The admin dashboard quick actions section has grown organically and needs a proper reorganisation. All existing links must be preserved but presented in a more structured way with logical groupings. The stat cards with counts at the top should remain as the primary navigation. Login attempts should be demoted from prominent placement on the main dashboard - either collapsed by default, moved to a secondary/expandable section, or relocated behind a link. The overall dashboard layout should feel cleaner and more purposeful. Debug JavaScript in the template should be removed.",
+  "type": "improvement",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "completed",
+  "completed_date": "2026-02-01",
+  "phase": "Phase 4: Admin Interface Polish",
+  "acceptance_criteria": [
+    "All 5 stat cards with counts remain at the top of the dashboard as primary clickable navigation",
+    "All 11 existing quick action links are preserved and still accessible from the dashboard",
+    "Quick actions are grouped into logical categories (e.g. League Management, Data & Import, Season Tools, System)",
+    "Each category has a clear heading to aid scanning",
+    "Login attempts table is demoted from its current prominent side-by-side placement - moved to a collapsible section or accessible via a link rather than always visible",
+    "Dashboard layout is cleaner with clear visual hierarchy: stats > categorised actions > secondary info",
+    "Debug console.log JavaScript removed from the template",
+    "Mobile responsive layout still works well",
+    "No functional regressions - all links navigate to the correct pages"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "templates/admin_standalone.html"
+    ],
+    "current_quick_actions": [
+      "Manage Players → /admin/league/players",
+      "Manage Fixtures → /admin/league/fixtures",
+      "Manage Users → /admin/league/users",
+      "View Sessions → /admin/league/sessions",
+      "Manage Teams → /admin/league/teams",
+      "Preferred Name Approvals → /admin/league/preferred-names",
+      "Manage Clubs → /admin/league/clubs",
+      "Club Data Import → /admin/league/club-data-import",
+      "Match Card Import → /admin/league/match-card-import",
+      "Points Table → /admin/league/points-table",
+      "Season Wrapped → /admin/league/wrapped"
+    ],
+    "suggested_categories": {
+      "League Management": [
+        "Manage Players",
+        "Manage Teams",
+        "Manage Fixtures",
+        "Manage Clubs"
+      ],
+      "Results & Standings": [
+        "Match Card Import",
+        "Points Table"
+      ],
+      "Season Tools": [
+        "Season Wrapped",
+        "Preferred Name Approvals",
+        "Club Data Import"
+      ],
+      "System": [
+        "Manage Users",
+        "View Sessions"
+      ]
+    },
+    "login_attempts_handling": "Demote from prominent 2-column layout. Options: (a) move to collapsible details/summary element, (b) hide behind a 'View Login Attempts' link, or (c) move to the Sessions page. Preference is to keep on dashboard but collapsed by default.",
+    "cleanup_required": [
+      "Remove debug console.log and click event listener JavaScript at bottom of template",
+      "Remove unused stat-card click fallback JS"
+    ]
+  },
+  "testing_requirements": [
+    "Verify all 11 quick action links navigate correctly",
+    "Verify all 5 stat cards are clickable and show correct counts",
+    "Verify login attempts data is still accessible (even if collapsed/hidden by default)",
+    "Verify mobile layout is responsive and usable",
+    "Verify no JavaScript console errors after debug code removal"
+  ],
+  "context": {
+    "user_story": "As an admin, I want the dashboard to be well-organised with logical groupings so I can quickly find the action I need without scanning a wall of buttons",
+    "related_docs": []
+  }
+}

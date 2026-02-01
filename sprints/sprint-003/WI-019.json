@@ -1,0 +1,76 @@
+{
+  "id": "WI-019",
+  "title": "Implement user management admin page",
+  "description": "The user management page at /admin/league/users currently renders a 'coming soon' placeholder. Implement a full user management UI that lists all users, shows their details (username, role, active status, last login, linked player), and allows basic admin operations. The auth.Service already has CreateUser and the database schema supports all required fields. The admin service needs methods to list users and the handler needs to be fleshed out with proper template rendering.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "completed",
+  "completed_date": "2026-02-01",
+  "phase": "Phase 4: Admin Interface Polish",
+  "acceptance_criteria": [
+    "User management page lists all users with username, role, active status, last login, and linked player",
+    "Admin can create a new user with username, password, and role selection (admin/captain/player)",
+    "Admin can toggle user active/inactive status",
+    "Admin can change a user's role",
+    "Admin can reset a user's password",
+    "Admin can link/unlink a user to a player record",
+    "Confirmation required for destructive actions (deactivation, password reset)",
+    "Current user cannot deactivate their own account",
+    "Page uses consistent admin template styling with the rest of the admin UI",
+    "No 'coming soon' placeholder remains"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/admin/users.html"
+    ],
+    "files_to_modify": [
+      "internal/admin/users.go",
+      "internal/admin/service.go",
+      "internal/auth/service.go"
+    ],
+    "existing_infrastructure": {
+      "model": "internal/models/user.go - User struct with ID, Username, PasswordHash, Role, PlayerID, IsActive, CreatedAt, LastLoginAt",
+      "auth_service": "internal/auth/service.go - CreateUser() exists; needs ListUsers, UpdateUser, ResetPassword, ToggleActive",
+      "admin_service_stubs": "internal/admin/service.go lines 940-944 - GetUsers() returns nil (stub)",
+      "handler_stub": "internal/admin/users.go - handleUsersGet renders placeholder, handleUsersPost returns 501",
+      "roles": "admin, captain, player (models.RoleAdmin, models.RoleCaptain, models.RolePlayer)",
+      "db_schema": "migrations/004_create_auth_tables.up.sql - users table with all fields, 8 seeded admin accounts"
+    },
+    "new_methods_needed": {
+      "auth_service": [
+        "ListUsers() ([]models.User, error)",
+        "GetUserByID(id int64) (*models.User, error)",
+        "UpdateUserRole(id int64, role models.Role) error",
+        "ToggleUserActive(id int64) error",
+        "ResetUserPassword(id int64, newPassword string) error"
+      ],
+      "admin_service": [
+        "GetAllUsers() ([]models.User, error) - replace stub",
+        "Wire through to auth service methods"
+      ]
+    },
+    "routes": [
+      "GET /admin/league/users - list users",
+      "POST /admin/league/users - create new user",
+      "POST /admin/league/users/{id}/role - update role",
+      "POST /admin/league/users/{id}/toggle-active - toggle active status",
+      "POST /admin/league/users/{id}/reset-password - reset password"
+    ]
+  },
+  "testing_requirements": [
+    "Verify user list page renders with all user records",
+    "Verify new user creation with valid data succeeds",
+    "Verify role change persists correctly",
+    "Verify active toggle works and prevents self-deactivation",
+    "Verify password reset changes the stored hash",
+    "Verify auth middleware protects all routes",
+    "Verify page renders correctly on mobile"
+  ],
+  "context": {
+    "user_story": "As an admin, I want to manage user accounts so I can create new admin/captain accounts, reset passwords, and control access without touching the database directly",
+    "related_docs": []
+  }
+}

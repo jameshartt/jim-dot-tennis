@@ -1,0 +1,66 @@
+{
+  "id": "WI-018",
+  "title": "Add division editing with play_day correction",
+  "description": "Currently there is no admin UI to edit division properties after creation. The play_day field on divisions is known to be incorrect and there is no way to fix it without direct database access. Add a division management UI that allows editing division properties, particularly play_day. This should integrate naturally with the existing season setup flow. The division repository already has an Update method, so the backend is ready - this is primarily a handler and template task.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "completed",
+  "completed_date": "2026-02-01",
+  "phase": "Phase 4: Admin Interface Polish",
+  "acceptance_criteria": [
+    "Admin can view and edit division properties from the admin UI",
+    "Division play_day field is editable via a dropdown of days of the week (Monday-Sunday)",
+    "Division name, level, and max_teams_per_club are also editable",
+    "Edit interface is accessible from the season setup page for each division",
+    "Successful edit shows confirmation and returns to the season setup view",
+    "Validation prevents saving invalid data (e.g. empty name, invalid play_day)",
+    "Changes persist correctly to the database via the existing repository Update method",
+    "New route(s) registered with proper admin auth middleware"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "internal/admin/divisions.go",
+      "templates/admin/division_edit.html"
+    ],
+    "files_to_modify": [
+      "internal/admin/handler.go",
+      "internal/admin/service.go",
+      "templates/admin/season_setup.html"
+    ],
+    "existing_infrastructure": {
+      "model": "internal/models/models.go - Division struct with PlayDay field (string, day of week)",
+      "repository": "internal/repository/division.go - Update() method already exists at line 99",
+      "service": "internal/admin/service.go - GetAllDivisions() and GetDivisionsBySeason() exist"
+    },
+    "routes_to_add": [
+      "GET /admin/league/divisions/{id}/edit - render edit form",
+      "POST /admin/league/divisions/{id}/edit - process edit form"
+    ],
+    "play_day_values": [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday"
+    ],
+    "integration_point": "Add an 'Edit' link/button next to each division heading on the season setup page (templates/admin/season_setup.html around line 234)"
+  },
+  "testing_requirements": [
+    "Verify division edit form renders with current values pre-filled",
+    "Verify play_day dropdown shows all 7 days with current value selected",
+    "Verify saving changes updates the database correctly",
+    "Verify validation rejects empty division name",
+    "Verify edit link appears on season setup page for each division",
+    "Verify auth middleware protects the new routes",
+    "Verify redirect back to season setup after successful edit"
+  ],
+  "context": {
+    "user_story": "As an admin, I want to correct the play_day on divisions because the imported data has the wrong days, and I need to fix this without accessing the database directly",
+    "related_docs": []
+  }
+}

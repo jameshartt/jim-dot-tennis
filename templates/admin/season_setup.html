@@ -241,6 +241,7 @@
                                 Level {{.Division.Level}} • Plays {{.Division.PlayDay}} • {{.TeamCount}} team{{if ne .TeamCount 1}}s{{end}}
                             </div>
                         </div>
+                        <a href="/admin/league/divisions/{{.Division.ID}}/edit" class="btn-move" style="text-decoration: none;">Edit</a>
                     </div>
 
                     {{if .Teams}}

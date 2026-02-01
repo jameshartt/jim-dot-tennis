@@ -28,6 +28,7 @@ type Handler struct {
 	seasons           *SeasonsHandler
 	seasonSetup       *SeasonSetupHandler
 	selectionOverview *SelectionOverviewHandler
+	divisions         *DivisionsHandler
 }
 
 // New creates a new admin handler
@@ -51,6 +52,7 @@ func New(db *database.DB, templateDir string) *Handler {
 		seasons:           NewSeasonsHandler(service, templateDir),
 		seasonSetup:       NewSeasonSetupHandler(service, templateDir),
 		selectionOverview: NewSelectionOverviewHandler(service, templateDir),
+		divisions:         NewDivisionsHandler(service, templateDir),
 	}
 }
 
@@ -102,6 +104,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/league/seasons/setup", h.seasonSetup.HandleSeasonSetup)
 	adminMux.HandleFunc("/admin/league/seasons/move-team", h.seasonSetup.HandleMoveTeam)
 	adminMux.HandleFunc("/admin/league/seasons/copy-from-previous", h.seasonSetup.HandleCopyFromPreviousSeason)
+
+	// Division management routes
+	adminMux.HandleFunc("/admin/league/divisions/", h.divisions.HandleDivisionEdit)
 
 	// Selection overview routes
 	adminMux.HandleFunc("/admin/league/selection-overview", h.selectionOverview.HandleSelectionOverview)

@@ -1,0 +1,36 @@
+{
+  "sprint": {
+    "id": "sprint-003",
+    "name": "Admin Polish: Dashboard, Divisions, Users & Service Refactor",
+    "goal": "Reorganise the admin dashboard for better usability, add division and user/session management, and break down the monolithic service.go into maintainable domain files",
+    "start_date": "2026-02-01",
+    "end_date": "2026-02-03",
+    "duration_weeks": 1,
+    "status": "completed",
+    "focus_areas": [
+      "Dashboard layout and quick actions reorganisation",
+      "Division management and editing",
+      "User management admin page",
+      "Session management admin page",
+      "Admin service.go refactor into domain files"
+    ],
+    "phases_addressed": [
+      "Phase 4: Admin Interface Polish"
+    ],
+    "work_items": [
+      "WI-017",
+      "WI-018",
+      "WI-019",
+      "WI-020",
+      "WI-021"
+    ],
+    "completed_items": [
+      "WI-017",
+      "WI-018",
+      "WI-019",
+      "WI-020",
+      "WI-021"
+    ],
+    "deferred_items": {}
+  }
+}

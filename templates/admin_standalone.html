@@ -13,14 +13,14 @@
         .admin-container {
             padding: 1rem 0;
         }
-        
+
         .admin-stats {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 1rem;
             margin: 1.5rem 0;
         }
-        
+
         .stat-card {
             background-color: white;
             border-radius: 8px;
@@ -28,7 +28,7 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             text-align: center;
         }
-        
+
         .stat-card-link {
             text-decoration: none;
             color: inherit;
@@ -36,153 +36,216 @@
             transition: transform 0.2s ease, box-shadow 0.2s ease;
             cursor: pointer;
         }
-        
+
         .stat-card-link:hover {
             transform: translateY(-2px);
             text-decoration: none;
             color: inherit;
         }
-        
+
         .stat-card-link:hover .stat-card {
             box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
-        
+
         .stat-value {
             font-size: 2rem;
             font-weight: bold;
             margin: 0.5rem 0 0;
             color: var(--secondary-color);
         }
-        
-        .admin-sections {
+
+        .action-categories {
             display: grid;
-            grid-template-columns: 1fr;
-            gap: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
         }
-        
-        .admin-section {
+
+        .action-category {
             background-color: white;
             border-radius: 8px;
-            padding: 1.5rem;
+            padding: 1.25rem;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        
-        .admin-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            margin-top: 1rem;
+
+        .action-category h3 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6c757d;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--bg-color);
         }
-        
+
+        .action-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+        }
+
+        .action-link {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            text-decoration: none;
+            color: var(--text-color);
+            font-weight: 500;
+            font-size: 0.925rem;
+            transition: background-color 0.15s ease;
+        }
+
+        .action-link:hover {
+            background-color: var(--bg-color);
+            text-decoration: none;
+            color: var(--secondary-color);
+        }
+
+        .action-link-icon {
+            width: 1.5rem;
+            text-align: center;
+            margin-right: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .login-attempts-section {
+            margin-top: 2rem;
+        }
+
+        .login-attempts-toggle {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .login-attempts-toggle summary {
+            padding: 1rem 1.25rem;
+            cursor: pointer;
+            font-weight: 600;
+            color: #6c757d;
+            font-size: 0.9rem;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .login-attempts-toggle summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .login-attempts-toggle summary::before {
+            content: "\25B6";
+            font-size: 0.7rem;
+            transition: transform 0.2s ease;
+        }
+
+        .login-attempts-toggle[open] summary::before {
+            transform: rotate(90deg);
+        }
+
+        .login-attempts-toggle summary:hover {
+            color: var(--text-color);
+        }
+
+        .login-attempts-content {
+            padding: 0 1.25rem 1.25rem;
+        }
+
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 1rem;
         }
-        
+
         .data-table th, .data-table td {
             padding: 0.75rem;
             text-align: left;
             border-bottom: 1px solid var(--border-color);
         }
-        
+
         .data-table th {
             background-color: #f8f9fa;
             font-weight: 600;
+            font-size: 0.85rem;
         }
-        
+
         .table-container {
             overflow-x: auto;
-            margin-top: 1rem;
             -webkit-overflow-scrolling: touch;
         }
-        
+
+        .status-success {
+            color: var(--success-color);
+            font-weight: 500;
+        }
+
+        .status-failure {
+            color: var(--danger-color);
+            font-weight: 500;
+        }
+
+        .user-info {
+            color: #fff;
+            margin-right: 0.5rem;
+        }
+
         /* Mobile responsive adjustments */
         @media (max-width: 767px) {
             .admin-container {
                 padding: 0.5rem 0;
             }
-            
+
             .admin-stats {
                 grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
                 gap: 0.75rem;
                 margin: 1rem 0;
             }
-            
+
             .stat-card {
                 padding: 1rem;
             }
-            
+
             .stat-value {
                 font-size: 1.5rem;
             }
-            
-            .admin-section {
+
+            .action-categories {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .action-category {
                 padding: 1rem;
             }
-            
-            .admin-actions {
-                gap: 0.25rem;
-            }
-            
-            .admin-actions .btn {
-                font-size: 0.875rem;
-                padding: 0.5rem 0.75rem;
-            }
-            
+
             .data-table th, .data-table td {
                 padding: 0.5rem 0.25rem;
                 font-size: 0.875rem;
             }
-            
-            .data-table th:nth-child(2), 
+
+            .data-table th:nth-child(2),
             .data-table td:nth-child(2) {
-                /* IP column - make it narrower on mobile */
                 max-width: 80px;
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
             }
-            
-            .data-table th:nth-child(3), 
+
+            .data-table th:nth-child(3),
             .data-table td:nth-child(3) {
-                /* Date column - make it narrower on mobile */
                 max-width: 100px;
                 font-size: 0.75rem;
             }
-            
+
             h1 {
                 font-size: 1.75rem;
                 margin-bottom: 1rem;
             }
-            
-            h2 {
-                font-size: 1.25rem;
-            }
-            
+
             .user-info {
-                display: none; /* Hide "Logged in as" text on mobile */
-            }
-        }
-        
-        .status-success {
-            color: var(--success-color);
-            font-weight: 500;
-        }
-        
-        .status-failure {
-            color: var(--danger-color);
-            font-weight: 500;
-        }
-        
-        .user-info {
-            color: #fff;
-            margin-right: 0.5rem;
-        }
-        
-        @media (min-width: 768px) {
-            .admin-sections {
-                grid-template-columns: 1fr 2fr;
+                display: none;
             }
         }
     </style>
@@ -206,7 +269,7 @@
         <div class="container">
             <div class="admin-container">
                 <h1>Admin Dashboard</h1>
-                
+
                 <div class="admin-stats">
                     <a href="/admin/league/players" class="stat-card-link">
                         <div class="stat-card">
@@ -239,62 +302,112 @@
                         </div>
                     </a>
                 </div>
-                
-                <div class="admin-sections">
-                    <div class="admin-section">
-                        <h2>Quick Actions</h2>
-                        <div class="admin-actions">
-                            <a href="/admin/league/players" class="btn btn-primary">Manage Players</a>
-                            <a href="/admin/league/fixtures" class="btn btn-primary">Manage Fixtures</a>
-                            <a href="/admin/league/users" class="btn btn-primary">Manage Users</a>
-                            <a href="/admin/league/sessions" class="btn btn-primary">View Sessions</a>
-                            <a href="/admin/league/teams" class="btn btn-primary">Manage Teams</a>
-                            <a href="/admin/league/preferred-names" class="btn btn-primary">Preferred Name Approvals</a>
-                            <a href="/admin/league/clubs" class="btn btn-primary">Manage Clubs</a>
-                            <a href="/admin/league/club-data-import" class="btn btn-primary">Club Data Import</a>
-                            <a href="/admin/league/match-card-import" class="btn btn-primary">🎾 Match Card Import</a>
-                            <a href="/admin/league/points-table" class="btn btn-primary">📊 Points Table</a>
-                            <a href="/admin/league/wrapped" class="btn btn-primary">✨ Season Wrapped</a>
+
+                <div class="action-categories">
+                    <div class="action-category">
+                        <h3>League Management</h3>
+                        <div class="action-list">
+                            <a href="/admin/league/players" class="action-link">
+                                <span class="action-link-icon">&#128101;</span> Manage Players
+                            </a>
+                            <a href="/admin/league/teams" class="action-link">
+                                <span class="action-link-icon">&#127942;</span> Manage Teams
+                            </a>
+                            <a href="/admin/league/fixtures" class="action-link">
+                                <span class="action-link-icon">&#128197;</span> Manage Fixtures
+                            </a>
+                            <a href="/admin/league/clubs" class="action-link">
+                                <span class="action-link-icon">&#127959;</span> Manage Clubs
+                            </a>
+                            <a href="/admin/league/seasons" class="action-link">
+                                <span class="action-link-icon">&#9728;</span> Manage Seasons
+                            </a>
                         </div>
                     </div>
-                    
-                    <div class="admin-section">
-                        <h2>Recent Login Attempts</h2>
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>Username</th>
-                                        <th>IP</th>
-                                        <th>Date/Time</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {{if .LoginAttempts}}
-                                        {{range .LoginAttempts}}
+
+                    <div class="action-category">
+                        <h3>Results &amp; Standings</h3>
+                        <div class="action-list">
+                            <a href="/admin/league/match-card-import" class="action-link">
+                                <span class="action-link-icon">&#127934;</span> Match Card Import
+                            </a>
+                            <a href="/admin/league/points-table" class="action-link">
+                                <span class="action-link-icon">&#128202;</span> Points Table
+                            </a>
+                            <a href="/admin/league/selection-overview" class="action-link">
+                                <span class="action-link-icon">&#128203;</span> Selection Overview
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="action-category">
+                        <h3>Season Tools</h3>
+                        <div class="action-list">
+                            <a href="/admin/league/wrapped" class="action-link">
+                                <span class="action-link-icon">&#10024;</span> Season Wrapped
+                            </a>
+                            <a href="/admin/league/preferred-names" class="action-link">
+                                <span class="action-link-icon">&#128221;</span> Preferred Name Approvals
+                            </a>
+                            <a href="/admin/league/club-data-import" class="action-link">
+                                <span class="action-link-icon">&#128229;</span> Club Data Import
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="action-category">
+                        <h3>System</h3>
+                        <div class="action-list">
+                            <a href="/admin/league/users" class="action-link">
+                                <span class="action-link-icon">&#128100;</span> Manage Users
+                            </a>
+                            <a href="/admin/league/sessions" class="action-link">
+                                <span class="action-link-icon">&#128274;</span> View Sessions
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="login-attempts-section">
+                    <details class="login-attempts-toggle">
+                        <summary>Recent Login Attempts</summary>
+                        <div class="login-attempts-content">
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
                                         <tr>
-                                            <td>{{.Username}}</td>
-                                            <td>{{.IP}}</td>
-                                            <td>{{.CreatedAt.Format "Jan 02, 2006 15:04:05"}}</td>
-                                            <td>
-                                                {{if .Success}}
-                                                <span class="status-success">Success</span>
-                                                {{else}}
-                                                <span class="status-failure">Failed</span>
-                                                {{end}}
-                                            </td>
+                                            <th>Username</th>
+                                            <th>IP</th>
+                                            <th>Date/Time</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {{if .LoginAttempts}}
+                                            {{range .LoginAttempts}}
+                                            <tr>
+                                                <td>{{.Username}}</td>
+                                                <td>{{.IP}}</td>
+                                                <td>{{.CreatedAt.Format "Jan 02, 2006 15:04:05"}}</td>
+                                                <td>
+                                                    {{if .Success}}
+                                                    <span class="status-success">Success</span>
+                                                    {{else}}
+                                                    <span class="status-failure">Failed</span>
+                                                    {{end}}
+                                                </td>
+                                            </tr>
+                                            {{end}}
+                                        {{else}}
+                                        <tr>
+                                            <td colspan="4">No recent login attempts</td>
                                         </tr>
                                         {{end}}
-                                    {{else}}
-                                    <tr>
-                                        <td colspan="4">No recent login attempts</td>
-                                    </tr>
-                                    {{end}}
-                                </tbody>
-                            </table>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                    </div>
+                    </details>
                 </div>
             </div>
         </div>
@@ -305,44 +418,5 @@
             <p>&copy; Jim.Tennis 2025</p>
         </div>
     </footer>
-
-    <script>
-        console.log("Admin page loaded");
-        
-        // Debug the players card link
-        document.addEventListener('DOMContentLoaded', function() {
-            const playersLink = document.querySelector('.stat-card-link');
-            const playersCard = document.querySelector('.stat-card-link .stat-card');
-            
-            if (playersLink) {
-                console.log("Found players link:", playersLink);
-                console.log("Link href:", playersLink.href);
-                
-                // Add click listener to the link
-                playersLink.addEventListener('click', function(e) {
-                    console.log("Players link clicked!", e);
-                    console.log("Going to:", this.href);
-                });
-                
-                // Add click listener to the card as fallback
-                if (playersCard) {
-                    playersCard.addEventListener('click', function(e) {
-                        console.log("Players card clicked directly!");
-                        e.stopPropagation();
-                        window.location.href = '/admin/players';
-                    });
-                }
-            } else {
-                console.log("Players link not found");
-            }
-            
-            // Also check if navigation is being prevented
-            document.addEventListener('click', function(e) {
-                if (e.target.closest('.stat-card-link')) {
-                    console.log("Click detected on stat-card-link area");
-                }
-            });
-        });
-    </script>
 </body>
-</html> 
+</html>

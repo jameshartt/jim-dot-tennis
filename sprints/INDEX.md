@@ -4,9 +4,17 @@ This file provides a quick reference to all sprints and their status.
 
 ## Active Sprints
 
-None.
+None currently active.
 
 ## Completed Sprints
+
+### Sprint 003: Admin Polish: Dashboard, Divisions, Users & Service Refactor
+- **Status**: Completed (closed 2026-02-01)
+- **Duration**: Short sprint (Feb 1, 2026)
+- **Work Items**: 5 (WI-017 to WI-021) - all completed
+- **Goal**: Reorganise dashboard, add division editing, implement user/session management, refactor service.go
+- **Directory**: `sprint-003/`
+- **Summary**: [sprint-003/SUMMARY.md](sprint-003/SUMMARY.md)
 
 ### Sprint 002: Venue Infrastructure & Season Filtering
 - **Status**: Completed (closed 2026-02-01)
@@ -33,7 +41,7 @@ None.
 - **Directory**: `sprint-pwa/`
 - **Summary**: [sprint-pwa/SUMMARY.md](sprint-pwa/SUMMARY.md)
 
-### Sprint 003: Team Selection Optimization (Planned)
+### Sprint 004: Team Selection Optimization (Planned)
 - **Focus**: Advanced captain tools
 - **Estimated Items**: 6-8
 - **Key Features**: Auto-suggestions, player statistics, historical performance
@@ -42,6 +50,7 @@ None.
 
 | Sprint | Work Items | Completed | In Progress | Blocked | Success Rate |
 |--------|-----------|-----------|-------------|---------|--------------|
+| 003 | 5 | 5 | 0 | 0 | 100% |
 | 002 | 4 | 4 | 0 | 0 | 100% |
 | 001 | 12 | 5 | 0 | 0 | 42% (6 carried to sprint-pwa) |
 

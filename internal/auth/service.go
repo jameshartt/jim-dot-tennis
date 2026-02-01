@@ -280,6 +280,85 @@ func (s *Service) ClearSessionCookie(w http.ResponseWriter) {
 	})
 }
 
+// ListUsers retrieves all users
+func (s *Service) ListUsers() ([]models.User, error) {
+	var users []models.User
+	err := s.db.Select(&users, `
+		SELECT id, username, password_hash, role, player_id, is_active, created_at, last_login_at
+		FROM users
+		ORDER BY username ASC
+	`)
+	return users, err
+}
+
+// GetUserByID retrieves a single user by ID
+func (s *Service) GetUserByID(id int64) (*models.User, error) {
+	var user models.User
+	err := s.db.Get(&user, `
+		SELECT id, username, password_hash, role, player_id, is_active, created_at, last_login_at
+		FROM users WHERE id = ?
+	`, id)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// UpdateUserRole changes a user's role
+func (s *Service) UpdateUserRole(id int64, role models.Role) error {
+	_, err := s.db.Exec(`UPDATE users SET role = ? WHERE id = ?`, role, id)
+	return err
+}
+
+// ToggleUserActive toggles a user's active status
+func (s *Service) ToggleUserActive(id int64) error {
+	_, err := s.db.Exec(`UPDATE users SET is_active = NOT is_active WHERE id = ?`, id)
+	return err
+}
+
+// ResetUserPassword resets a user's password
+func (s *Service) ResetUserPassword(id int64, newPassword string) error {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+	_, err = s.db.Exec(`UPDATE users SET password_hash = ? WHERE id = ?`, string(hashedPassword), id)
+	return err
+}
+
+// SessionWithUser represents a session joined with its user info
+type SessionWithUser struct {
+	models.Session
+	Username string `db:"username"`
+}
+
+// ListActiveSessions retrieves all valid sessions with usernames
+func (s *Service) ListActiveSessions() ([]SessionWithUser, error) {
+	var sessions []SessionWithUser
+	err := s.db.Select(&sessions, `
+		SELECT s.id, s.user_id, s.role, s.created_at, s.expires_at,
+		       s.last_activity_at, s.ip, s.user_agent, s.device_info, s.is_valid,
+		       u.username
+		FROM sessions s
+		JOIN users u ON s.user_id = u.id
+		WHERE s.is_valid = true AND s.expires_at > ?
+		ORDER BY s.last_activity_at DESC
+	`, time.Now())
+	return sessions, err
+}
+
+// ListAllLoginAttempts retrieves recent login attempts
+func (s *Service) ListAllLoginAttempts(limit int) ([]models.LoginAttempt, error) {
+	var attempts []models.LoginAttempt
+	err := s.db.Select(&attempts, `
+		SELECT id, username, ip, user_agent, success, created_at
+		FROM login_attempts
+		ORDER BY created_at DESC
+		LIMIT ?
+	`, limit)
+	return attempts, err
+}
+
 // CleanupExpiredSessions removes all expired sessions
 func (s *Service) CleanupExpiredSessions() error {
 	_, err := s.db.Exec(`

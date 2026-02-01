@@ -1,0 +1,76 @@
+{
+  "id": "WI-020",
+  "title": "Implement session management admin page",
+  "description": "The session management page at /admin/league/sessions currently renders a 'coming soon' placeholder. Implement a session management UI that shows all active sessions with their metadata (user, IP, user agent, created, last activity, expiry) and allows admins to invalidate sessions. The auth.Service already has InvalidateSession and InvalidateAllUserSessions methods. This also ties into WI-017 as login attempts could be relocated here from the dashboard.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "completed",
+  "completed_date": "2026-02-01",
+  "phase": "Phase 4: Admin Interface Polish",
+  "acceptance_criteria": [
+    "Session management page lists all active sessions with user, IP, user agent, device info, created date, last activity, and expiry",
+    "Sessions are grouped or filterable by user",
+    "Admin can invalidate a specific session",
+    "Admin can invalidate all sessions for a specific user",
+    "Admin can trigger cleanup of expired sessions",
+    "Current session is visually marked so admin knows which one is theirs",
+    "Login attempts history is viewable on this page (relocated from dashboard per WI-017)",
+    "Page uses consistent admin template styling",
+    "No 'coming soon' placeholder remains"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/admin/sessions.html"
+    ],
+    "files_to_modify": [
+      "internal/admin/sessions.go",
+      "internal/admin/service.go",
+      "internal/auth/service.go"
+    ],
+    "existing_infrastructure": {
+      "model": "internal/models/user.go - Session struct with ID, UserID, Role, CreatedAt, ExpiresAt, LastActivityAt, IP, UserAgent, DeviceInfo, IsValid",
+      "login_attempt_model": "internal/models/user.go - LoginAttempt struct with ID, Username, IP, UserAgent, Success, CreatedAt",
+      "auth_service_methods": [
+        "InvalidateSession(sessionID string) error",
+        "InvalidateAllUserSessions(userID int64) error",
+        "CleanupExpiredSessions() error"
+      ],
+      "login_attempt_repo": "internal/repository/login_attempt.go - FindByUsername, FindByUsernameAndIP, Create",
+      "admin_service_stubs": "internal/admin/service.go lines 946-949 - GetSessions() returns nil (stub)",
+      "handler_stub": "internal/admin/sessions.go - handleSessionsGet renders placeholder"
+    },
+    "new_methods_needed": {
+      "auth_service": [
+        "ListActiveSessions() ([]SessionWithUser, error) - join sessions with users to show username",
+        "ListAllLoginAttempts(limit int) ([]models.LoginAttempt, error)"
+      ],
+      "admin_service": [
+        "GetAllSessions() - replace stub, wire to auth service",
+        "GetLoginAttempts() - for the login attempts section"
+      ]
+    },
+    "routes": [
+      "GET /admin/league/sessions - list active sessions and login attempts",
+      "POST /admin/league/sessions/{id}/invalidate - invalidate specific session",
+      "POST /admin/league/sessions/invalidate-user/{userID} - invalidate all sessions for user",
+      "POST /admin/league/sessions/cleanup - trigger expired session cleanup"
+    ]
+  },
+  "testing_requirements": [
+    "Verify session list page renders with all active sessions",
+    "Verify current session is visually distinguished",
+    "Verify single session invalidation works",
+    "Verify bulk user session invalidation works",
+    "Verify expired session cleanup works",
+    "Verify login attempts section displays correctly",
+    "Verify auth middleware protects all routes",
+    "Verify page renders correctly on mobile"
+  ],
+  "context": {
+    "user_story": "As an admin, I want to see who is logged in and from where, and be able to force logout sessions if needed for security purposes",
+    "related_docs": []
+  }
+}

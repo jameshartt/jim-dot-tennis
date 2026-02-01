@@ -1,0 +1,106 @@
+{
+  "id": "WI-021",
+  "title": "Refactor admin service.go into domain-specific service files",
+  "description": "internal/admin/service.go has grown to 3757 lines with ~90 methods covering every domain in the application. It is difficult to read, navigate, and maintain. Break it down into focused, domain-specific service files while keeping the Service struct as the main entry point. Each domain's methods should move to their own file. The Service struct and constructor stay in service.go as the central wiring point. This is a pure refactor with no functional changes.",
+  "type": "refactor",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": ["WI-019", "WI-020"],
+  "status": "completed",
+  "completed_date": "2026-02-01",
+  "phase": "Phase 4: Admin Interface Polish",
+  "acceptance_criteria": [
+    "service.go is reduced to the Service struct definition, constructor (NewService), shared types, and shared helper methods only",
+    "Domain methods are extracted into separate files in internal/admin/ with receiver on *Service",
+    "All extracted files are in the same 'admin' package so no interface changes are needed",
+    "No method signatures change - all callers continue to work without modification",
+    "No functional changes - purely a file reorganisation",
+    "Application builds and runs correctly after refactor",
+    "All existing routes and handlers continue to function identically"
+  ],
+  "technical_notes": {
+    "current_state": {
+      "file": "internal/admin/service.go",
+      "lines": 3757,
+      "method_count": "~90 methods on *Service",
+      "problem": "Single file contains all business logic for every domain: dashboard, players, fixtures, teams, clubs, seasons, matchups, fantasy, selection overview, preferred names, week overview"
+    },
+    "proposed_extraction": {
+      "service.go": {
+        "keep": "Service struct, NewService constructor, shared types (DashboardData, Stats, etc.), shared helpers",
+        "estimated_lines": "~300"
+      },
+      "service_dashboard.go": {
+        "methods": ["GetDashboardData"],
+        "description": "Dashboard-specific service methods"
+      },
+      "service_players.go": {
+        "methods": ["GetPlayers", "GetFilteredPlayers", "GetFilteredPlayersWithAvailability", "GetPlayerByID", "UpdatePlayer", "CreatePlayer", "filterPlayersByQuery"],
+        "description": "Player CRUD and filtering"
+      },
+      "service_fixtures.go": {
+        "methods": ["GetFixtures", "GetStAnnsFixtures", "GetStAnnsPastFixtures", "GetStAnnsTodaysFixtures", "buildFixturesWithRelations", "GetFixtureDetail", "GetFixtureDetailWithTeamContext", "GetFixtureWithMatchups", "CreateFixture", "UpdateFixtureNotes", "UpdateFixtureSchedule", "SetFixtureDayCaptain", "GetStAnnsNextWeekFixturesByDivision", "GetUpcomingFixturesForTeam", "IsStAnnsHomeInFixture"],
+        "description": "Fixture queries and mutations"
+      },
+      "service_teams.go": {
+        "methods": ["GetTeams", "GetStAnnsTeams", "GetTeamDetail", "CreateTeam", "GetAllTeams", "GetTeamsBySeason", "GetAvailablePlayersForCaptain", "AddTeamCaptain", "RemoveTeamCaptain", "GetEligiblePlayersForTeam", "AddPlayersToTeam"],
+        "description": "Team management and captain operations"
+      },
+      "service_matchups.go": {
+        "methods": ["CreateMatchup", "CreateMatchupWithTeam", "GetOrCreateMatchup", "GetOrCreateMatchupWithTeam", "UpdateMatchupPlayers", "UpdateStAnnsMatchupPlayers", "AddPlayerToMatchup", "RemovePlayerFromMatchup", "GetAvailablePlayersForMatchup", "getMatchupsForTeam", "detectDuplicatePlayersInMatchups"],
+        "description": "Matchup CRUD and player assignment"
+      },
+      "service_fixture_players.go": {
+        "methods": ["GetAvailablePlayersForFixture", "GetAvailablePlayersForFixtureWithTeamContext", "GetAvailablePlayersForFixtureWithAvailability", "GetAvailablePlayersWithEligibilityForTeamSelection", "AddPlayerToFixture", "RemovePlayerFromFixture", "UpdatePlayerPositionInFixture", "ClearFixturePlayerSelection", "AddPlayerToFixtureWithTeam", "RemovePlayerFromFixtureByTeam", "ClearFixturePlayerSelectionByTeam", "determinePlayerAvailabilityForFixture", "determineManagingTeamID"],
+        "description": "Fixture-player selection and availability"
+      },
+      "service_seasons.go": {
+        "methods": ["GetAllSeasons", "GetActiveSeason", "CreateSeason", "CreateSeasonWithWeeks", "SetActiveSeason", "GetSeasonByID", "GetSeasonStats", "GetAllWeeks", "GetWeeksBySeason", "GetWeekCountForSeason", "GetCurrentOrNextWeek", "GetSeasonSetupData", "MoveTeamToDivision", "CopyFromPreviousSeason", "getCurrentWeekDateRange", "getNextWeekDateRange", "GetNextWeekDateRange"],
+        "description": "Season, week, and setup operations"
+      },
+      "service_divisions.go": {
+        "methods": ["GetAllDivisions", "GetDivisionsBySeason", "getDivisionByID"],
+        "description": "Division queries"
+      },
+      "service_clubs.go": {
+        "methods": ["GetClubs", "GetClubsByName", "getStAnnsTeamCount", "getStAnnsFixtureCount"],
+        "description": "Club queries and St Anns helpers"
+      },
+      "service_fantasy.go": {
+        "methods": ["GetFantasyDoubles", "GetActiveFantasyDoubles", "GetUnassignedFantasyDoubles", "CreateFantasyDoubles", "GetFantasyDoublesByID", "GetFantasyDoublesDetailByID", "GetATPPlayers", "GetWTAPlayers", "UpdatePlayerFantasyMatch", "GenerateAndAssignRandomFantasyMatch"],
+        "description": "Fantasy doubles operations"
+      },
+      "service_selection.go": {
+        "methods": ["GetWeekSelectionOverview", "GetHigherDivisionSelectionsForWeek", "GetAvailablePlayerCountForDivision"],
+        "description": "Selection overview operations"
+      }
+    },
+    "approach": [
+      "1. Create each new service_*.go file in internal/admin/",
+      "2. Move methods and their associated types/helpers to the appropriate file",
+      "3. Keep all files in package admin - no interface changes needed",
+      "4. Shared types that are used across multiple domains stay in service.go",
+      "5. Types used only by one domain move with that domain's methods",
+      "6. Verify build after each file extraction",
+      "7. Run the app and verify all routes still work"
+    ],
+    "risks": [
+      "Shared helper methods referenced across domains need to stay in service.go or a shared file",
+      "Type definitions used across multiple domains must remain accessible",
+      "The GetUsers/GetSessions stubs will be replaced by WI-019/WI-020 first, so this should run after those"
+    ]
+  },
+  "testing_requirements": [
+    "Application builds successfully with 'make build-local'",
+    "Application starts and serves all routes correctly",
+    "All admin pages load without errors",
+    "All HTMX interactions still function",
+    "No import cycles introduced",
+    "service.go reduced to under ~400 lines"
+  ],
+  "context": {
+    "user_story": "As a developer, I want the admin service code organised into logical domain files so I can find and modify business logic without scrolling through a 3700-line file",
+    "related_docs": []
+  }
+}
