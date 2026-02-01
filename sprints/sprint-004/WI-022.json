@@ -1,0 +1,54 @@
+{
+  "id": "WI-022",
+  "title": "Add Go tooling Makefile targets via Docker",
+  "description": "Go is not installed on the host machine - all Go operations run inside Docker. Add Makefile targets that run Go static analysis, linting, and formatting tools inside a Docker container based on the existing golang:1.24.1-alpine builder image. This provides the foundation for all subsequent work items in this sprint.",
+  "type": "infrastructure",
+  "priority": "high",
+  "complexity": "S",
+  "parallelisable": false,
+  "dependencies": [],
+  "status": "not_started",
+  "phase": "Phase 5: Code Quality & Tooling",
+  "acceptance_criteria": [
+    "make vet - runs go vet ./... inside Docker",
+    "make fmt - runs gofmt -l . inside Docker to list unformatted files",
+    "make fmt-fix - runs gofmt -w . inside Docker to fix formatting in-place",
+    "make imports - runs goimports -l . inside Docker to list import issues",
+    "make imports-fix - runs goimports -w . inside Docker to fix imports in-place",
+    "make lint - runs golangci-lint or staticcheck inside Docker",
+    "make deadcode - runs deadcode analysis inside Docker",
+    "make tidy - runs go mod tidy inside Docker",
+    "make check - runs all read-only checks (vet, fmt, lint, deadcode) in sequence",
+    "All targets mount the source code and write changes back to the host filesystem",
+    "Targets use the same Go version as the Dockerfile builder stage (golang:1.24.1-alpine)"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "Makefile"
+    ],
+    "approach": [
+      "Use docker run with volume mount (-v $(PWD):/app) to run tools against host source",
+      "Install tools (golangci-lint, goimports, deadcode) as part of the docker run command or via a lightweight Dockerfile stage",
+      "Consider a dedicated Dockerfile.tools or a multi-line docker run with go install commands",
+      "Ensure CGO_ENABLED=1 and necessary C libraries are available for sqlite compilation",
+      "All targets should return non-zero exit codes on findings so CI can gate on them"
+    ],
+    "tools_to_install": {
+      "golangci-lint": "github.com/golangci-lint/golangci-lint/cmd/golangci-lint@latest",
+      "goimports": "golang.org/x/tools/cmd/goimports@latest",
+      "deadcode": "golang.org/x/tools/cmd/deadcode@latest",
+      "staticcheck": "honnef.co/go/tools/cmd/staticcheck@latest"
+    },
+    "docker_base": "golang:1.24.1-alpine (matches Dockerfile builder stage)"
+  },
+  "testing_requirements": [
+    "Each make target runs without Docker errors",
+    "Volume mount correctly reflects changes back to host",
+    "make check runs all checks in sequence and reports findings",
+    "Targets work on both clean and dirty working trees"
+  ],
+  "context": {
+    "user_story": "As a developer, I want Makefile targets for Go analysis tools so I can run linting, formatting, and dead code checks without installing Go locally",
+    "related_docs": []
+  }
+}

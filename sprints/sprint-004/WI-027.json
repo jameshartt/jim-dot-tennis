@@ -1,0 +1,55 @@
+{
+  "id": "WI-027",
+  "title": "Update Go version and Docker base images",
+  "description": "The Dockerfile builder stage uses golang:1.24.1-alpine, but Go 1.25 is the current stable release (1.25.6 available). Update the Go version in the Dockerfile, go.mod, and any other references. Also review and update the Alpine base image to the latest stable. Go 1.26 is expected in February 2026 but is not yet released - use 1.25.x as the target for now.",
+  "type": "infrastructure",
+  "priority": "high",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "not_started",
+  "phase": "Phase 5: Code Quality & Tooling",
+  "acceptance_criteria": [
+    "Dockerfile builder stage updated from golang:1.24.1-alpine to golang:1.25-alpine (or latest 1.25.x)",
+    "go.mod updated to reflect Go 1.25",
+    "Alpine runtime image updated to latest stable if a newer version is available",
+    "Application builds successfully with make build",
+    "Application starts and runs correctly",
+    "No deprecation warnings from the newer Go version",
+    "Any new go vet findings from the updated version are addressed"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "Dockerfile",
+      "go.mod"
+    ],
+    "current_versions": {
+      "go": "1.24.1 (Dockerfile builder stage)",
+      "go_mod": "check go.mod for go directive version",
+      "alpine_runtime": "alpine:latest (Dockerfile runtime stage)"
+    },
+    "target_versions": {
+      "go": "1.25.x (latest stable)",
+      "alpine": "latest stable"
+    },
+    "approach": [
+      "1. Check current go.mod go directive version",
+      "2. Update Dockerfile builder FROM golang:1.24.1-alpine to golang:1.25-alpine",
+      "3. Update go.mod go directive to 1.25",
+      "4. Run go mod tidy to update go.sum",
+      "5. Build and verify application works",
+      "6. Check for and fix any new warnings or deprecations"
+    ],
+    "note": "Go 1.26 is expected Feb 2026. If it releases during this sprint and is stable, consider targeting 1.26 instead."
+  },
+  "testing_requirements": [
+    "make build completes successfully",
+    "Application starts and serves all routes",
+    "No new compilation warnings or errors",
+    "Docker image size is similar or smaller"
+  ],
+  "context": {
+    "user_story": "As a developer, I want the project to use a current and supported Go version so we get the latest security patches, performance improvements, and language features",
+    "related_docs": []
+  }
+}

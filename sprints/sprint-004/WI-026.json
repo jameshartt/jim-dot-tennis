@@ -1,0 +1,37 @@
+{
+  "id": "WI-026",
+  "title": "Module dependency cleanup with go mod tidy",
+  "description": "Run go mod tidy to remove unused dependencies from go.mod and go.sum, and ensure all required dependencies are explicitly listed. Also review go.mod for any outdated or unnecessary dependencies that could be removed or updated. This keeps the dependency tree clean and the module files accurate.",
+  "type": "refactor",
+  "priority": "medium",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": ["WI-022", "WI-023"],
+  "status": "not_started",
+  "phase": "Phase 5: Code Quality & Tooling",
+  "acceptance_criteria": [
+    "go mod tidy produces no changes (already clean after running)",
+    "No unused dependencies remain in go.mod",
+    "go.sum is consistent with go.mod",
+    "All required dependencies are explicitly listed (no implicit transitive-only deps)",
+    "Application builds successfully after any dependency changes"
+  ],
+  "technical_notes": {
+    "approach": [
+      "1. Run go mod tidy inside Docker and check for changes",
+      "2. Review go.mod for any obviously unused or redundant dependencies",
+      "3. Run go mod verify to ensure integrity",
+      "4. Build and verify the application still works"
+    ],
+    "dependency_on_wi_023": "Dead code removal may eliminate imports, which in turn may make dependencies unused. Run this after WI-023."
+  },
+  "testing_requirements": [
+    "make tidy produces no diff",
+    "go mod verify passes",
+    "Application builds with make build"
+  ],
+  "context": {
+    "user_story": "As a developer, I want the module files to accurately reflect only the dependencies the project actually uses",
+    "related_docs": []
+  }
+}

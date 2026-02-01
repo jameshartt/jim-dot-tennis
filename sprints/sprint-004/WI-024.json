@@ -1,0 +1,60 @@
+{
+  "id": "WI-024",
+  "title": "Static analysis and linting fixes",
+  "description": "Run golangci-lint (or staticcheck) against the codebase and fix all reported issues. This includes error handling gaps (unchecked errors), shadowed variables, inefficient code patterns, potential nil pointer dereferences, and other common Go anti-patterns. Configure a .golangci.yml to establish ongoing linting standards for the project.",
+  "type": "refactor",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": ["WI-022", "WI-023"],
+  "status": "not_started",
+  "phase": "Phase 5: Code Quality & Tooling",
+  "acceptance_criteria": [
+    "golangci-lint runs clean with zero errors",
+    ".golangci.yml configuration file created with appropriate linter selection",
+    "All unchecked errors addressed (errcheck findings)",
+    "All shadowed variables resolved (govet shadow findings)",
+    "Inefficient string operations optimised where flagged",
+    "No new functionality introduced - purely fixing existing code quality issues",
+    "Application builds and runs correctly after all fixes"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      ".golangci.yml"
+    ],
+    "recommended_linters": [
+      "errcheck - unchecked error returns",
+      "govet - suspicious constructs (shadow, printf format strings)",
+      "staticcheck - comprehensive static analysis",
+      "ineffassign - ineffectual assignments",
+      "unused - unused code",
+      "gosimple - code simplifications",
+      "typecheck - type checking",
+      "misspell - common spelling mistakes in comments/strings",
+      "goconst - repeated string constants",
+      "gocyclo - cyclomatic complexity (report only, don't fail)"
+    ],
+    "approach": [
+      "1. Run golangci-lint with default linters and review scope of findings",
+      "2. Create .golangci.yml with sensible defaults and linter selection",
+      "3. Fix findings in batches by linter/category",
+      "4. Build and verify after each batch",
+      "5. Re-run until clean"
+    ],
+    "caution": [
+      "Some errcheck findings in defer statements (e.g. defer rows.Close()) are acceptable - configure exclusions",
+      "Template execution errors may be intentionally logged rather than returned",
+      "Focus on genuine improvements, not pedantic style changes"
+    ]
+  },
+  "testing_requirements": [
+    "make lint returns zero exit code",
+    "Application builds with make build",
+    "All admin and player pages function correctly",
+    "No regressions in HTMX interactions"
+  ],
+  "context": {
+    "user_story": "As a developer, I want linting issues resolved and a linter configuration established so the codebase follows consistent Go best practices and new issues are caught early",
+    "related_docs": []
+  }
+}

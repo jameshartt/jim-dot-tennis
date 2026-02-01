@@ -1,0 +1,32 @@
+{
+  "sprint": {
+    "id": "sprint-004",
+    "name": "Spring Clean: Go Tooling, Dead Code, Linting & Environment Update",
+    "goal": "Use Go's static analysis, dead code detection, linting, and formatting tools to clean up the codebase, update the Go version and Docker images to current stable, and establish ongoing code quality tooling",
+    "start_date": "2026-02-01",
+    "end_date": "2026-02-03",
+    "duration_weeks": 1,
+    "status": "planned",
+    "focus_areas": [
+      "Go and Docker version updates",
+      "Go tooling infrastructure via Docker",
+      "Dead code detection and removal",
+      "Static analysis and linting fixes",
+      "Code formatting standardisation",
+      "Module dependency cleanup"
+    ],
+    "phases_addressed": [
+      "Phase 5: Code Quality & Tooling"
+    ],
+    "work_items": [
+      "WI-022",
+      "WI-023",
+      "WI-024",
+      "WI-025",
+      "WI-026",
+      "WI-027"
+    ],
+    "completed_items": [],
+    "deferred_items": {}
+  }
+}

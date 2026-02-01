@@ -1,0 +1,40 @@
+{
+  "id": "WI-025",
+  "title": "Code formatting standardisation with gofmt and goimports",
+  "description": "Run gofmt and goimports across the entire codebase to ensure consistent formatting and import organisation. gofmt enforces the canonical Go formatting style, while goimports additionally groups and sorts imports into standard library, external, and internal groups. This is a zero-risk operation that changes only whitespace and import ordering.",
+  "type": "refactor",
+  "priority": "medium",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": ["WI-022"],
+  "status": "not_started",
+  "phase": "Phase 5: Code Quality & Tooling",
+  "acceptance_criteria": [
+    "gofmt -l . reports zero files (all files already formatted)",
+    "goimports -l . reports zero files (all imports correctly grouped)",
+    "Imports follow standard Go convention: stdlib, blank line, external, blank line, internal",
+    "No functional changes - only whitespace and import ordering",
+    "Application builds successfully"
+  ],
+  "technical_notes": {
+    "approach": [
+      "1. Run gofmt -l . to see which files need formatting",
+      "2. Run gofmt -w . to apply formatting fixes",
+      "3. Run goimports -l . to see which files have import issues",
+      "4. Run goimports -w -local jim-dot-tennis . to fix imports with correct local prefix",
+      "5. Verify build",
+      "6. Review diff to confirm only whitespace/import changes"
+    ],
+    "goimports_local_flag": "jim-dot-tennis - ensures internal packages are grouped separately from external dependencies"
+  },
+  "testing_requirements": [
+    "make fmt reports no findings",
+    "make imports reports no findings",
+    "Application builds with make build",
+    "git diff shows only whitespace and import ordering changes"
+  ],
+  "context": {
+    "user_story": "As a developer, I want all Go code formatted consistently so diffs are clean and code style is never a concern during reviews",
+    "related_docs": []
+  }
+}

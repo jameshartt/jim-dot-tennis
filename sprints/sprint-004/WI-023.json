@@ -1,0 +1,49 @@
+{
+  "id": "WI-023",
+  "title": "Dead code detection and removal",
+  "description": "Run Go's deadcode tool (golang.org/x/tools/cmd/deadcode) and go vet to identify unused functions, methods, types, constants, and variables across the codebase. Remove all confirmed dead code. This is particularly valuable after the service.go refactor in sprint-003, which may have left orphaned helpers or types. Also addresses the getCurrentWeekDateRange method already identified as unused in service.go.",
+  "type": "refactor",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-022"],
+  "status": "not_started",
+  "phase": "Phase 5: Code Quality & Tooling",
+  "acceptance_criteria": [
+    "deadcode tool reports zero unreachable functions",
+    "go vet reports no unused variables, imports, or assignments",
+    "getCurrentWeekDateRange removed from service.go (already confirmed unused)",
+    "No unused types, constants, or struct fields remain",
+    "No unused function parameters that can be safely removed",
+    "Application builds successfully after all removals",
+    "All existing routes and functionality still work"
+  ],
+  "technical_notes": {
+    "known_dead_code": [
+      "service.go: getCurrentWeekDateRange() - confirmed unused, only defined never called"
+    ],
+    "approach": [
+      "1. Run deadcode tool and capture full report",
+      "2. Run go vet ./... and capture findings",
+      "3. Review each finding - some may be intentionally exported for future use",
+      "4. Remove confirmed dead code, keeping exported API methods that form a logical public interface",
+      "5. Verify build after each batch of removals",
+      "6. Run deadcode again to confirm clean"
+    ],
+    "caution": [
+      "Exported methods may be used by templates via reflection - verify before removing",
+      "Handler methods registered via HandleFunc may not show as called in static analysis",
+      "Repository interface implementations may appear unused but are needed"
+    ]
+  },
+  "testing_requirements": [
+    "Application builds with make build",
+    "deadcode reports no findings",
+    "All admin pages still load correctly",
+    "All player-facing pages still load correctly"
+  ],
+  "context": {
+    "user_story": "As a developer, I want dead code removed so the codebase only contains code that is actually used, making it easier to understand and maintain",
+    "related_docs": []
+  }
+}
