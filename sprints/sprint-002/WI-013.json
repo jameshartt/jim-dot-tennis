@@ -1,0 +1,56 @@
+{
+  "id": "WI-013",
+  "title": "Fix active season filtering across admin UI",
+  "description": "Multiple admin views were showing data from all seasons, causing duplicate entries and confusing displays. Add consistent active season filtering to the dashboard, fixtures, teams, players, and season setup pages.",
+  "type": "bug",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "completed",
+  "completed_date": "2026-01-31",
+  "commits": [
+    "8eb9a7f",
+    "344bf97",
+    "239bbcf",
+    "efd2f64",
+    "943d370",
+    "fa7a917"
+  ],
+  "phase": "Phase 5: Fixture Result Management",
+  "acceptance_criteria": [
+    "Dashboard teams count filtered by active season",
+    "Fixtures page shows no duplicate divisions or teams",
+    "Team dropdowns on Create New Fixture modal filtered by division",
+    "Teams page groups teams by season with section headings",
+    "Season setup page uses compact single-line team rows",
+    "Players page filters teams and divisions by active season"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/admin/service.go",
+      "internal/admin/fixtures.go",
+      "internal/admin/teams.go",
+      "internal/admin/players.go",
+      "templates/admin/fixtures.html",
+      "templates/admin/teams.html",
+      "templates/admin/season_setup.html"
+    ],
+    "repositories_needed": [
+      "SeasonRepository",
+      "TeamRepository",
+      "DivisionRepository",
+      "FixtureRepository"
+    ]
+  },
+  "testing_requirements": [
+    "Verify no duplicate entries on any admin page",
+    "Verify team dropdowns show correct teams per division",
+    "Verify dashboard counts match active season only",
+    "Verify players page only shows active season teams"
+  ],
+  "context": {
+    "user_story": "As an admin, I want all views to show data for the current season only so I don't see confusing duplicates from past seasons",
+    "related_docs": []
+  }
+}

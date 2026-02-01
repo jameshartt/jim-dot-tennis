@@ -1,0 +1,39 @@
+{
+  "id": "WI-016",
+  "title": "Improve player-facing fixture UX",
+  "description": "Enhance the player-facing fixture experience with improved layout, better information hierarchy, and more intuitive navigation for viewing fixture details and venue information.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [
+    "WI-014"
+  ],
+  "status": "completed",
+  "completed_date": "2026-02-01",
+  "commits": [
+    "5f64a2b"
+  ],
+  "phase": "Phase 5: Fixture Result Management",
+  "acceptance_criteria": [
+    "Player fixture list has improved visual hierarchy",
+    "Fixture details are easier to scan on mobile",
+    "Venue information integrated into fixture flow"
+  ],
+  "technical_notes": {
+    "files_modified": [
+      "templates/players/availability.html",
+      "templates/admin/fixture_detail.html",
+      "templates/admin_standalone.html"
+    ]
+  },
+  "testing_requirements": [
+    "Verify fixture list renders correctly on mobile",
+    "Verify fixture detail page shows venue information",
+    "Verify navigation between fixture views works smoothly"
+  ],
+  "context": {
+    "user_story": "As a player, I want a clear and easy-to-use fixture view so I can quickly see my upcoming matches and where they are",
+    "related_docs": []
+  }
+}

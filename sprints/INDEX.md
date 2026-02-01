@@ -4,24 +4,34 @@ This file provides a quick reference to all sprints and their status.
 
 ## Active Sprints
 
+None.
+
+## Completed Sprints
+
+### Sprint 002: Venue Infrastructure & Season Filtering
+- **Status**: Completed (closed 2026-02-01)
+- **Duration**: 2 days (Jan 31 - Feb 1, 2026)
+- **Work Items**: 4 (WI-013 to WI-016)
+- **Goal**: Add venue/club infrastructure, fix season filtering, improve player fixture UX
+- **Directory**: `sprint-002/`
+- **Summary**: [sprint-002/SUMMARY.md](sprint-002/SUMMARY.md)
+
 ### Sprint 001: Player Experience & Notifications MVP
-- **Status**: Not Started
+- **Status**: Completed (closed 2026-02-01)
 - **Duration**: 2 weeks (Feb 3 - Feb 17, 2026)
-- **Work Items**: 12
+- **Work Items**: 12 (5 completed, 1 deferred, 6 carried to sprint-pwa)
 - **Goal**: Complete core player availability features and implement push notification system
 - **Directory**: `sprint-001/`
 - **Summary**: [sprint-001/SUMMARY.md](sprint-001/SUMMARY.md)
 
-## Completed Sprints
-
-None yet.
-
 ## Planned Sprints
 
-### Sprint 002: Fixture Management & Venue Integration (Planned)
-- **Focus**: Complete Phase 5 items
-- **Estimated Items**: 8-10
-- **Key Features**: Venue maps, fixture reminders, match result UI
+### Sprint PWA: Push Notifications & PWA Enhancement
+- **Focus**: Push notification pipeline and PWA capabilities
+- **Items**: 6 (carried from sprint-001)
+- **Key Features**: Push subscriptions, notification sending, PWA install prompt, offline sync
+- **Directory**: `sprint-pwa/`
+- **Summary**: [sprint-pwa/SUMMARY.md](sprint-pwa/SUMMARY.md)
 
 ### Sprint 003: Team Selection Optimization (Planned)
 - **Focus**: Advanced captain tools
@@ -32,7 +42,8 @@ None yet.
 
 | Sprint | Work Items | Completed | In Progress | Blocked | Success Rate |
 |--------|-----------|-----------|-------------|---------|--------------|
-| 001 | 12 | 0 | 0 | 0 | - |
+| 002 | 4 | 4 | 0 | 0 | 100% |
+| 001 | 12 | 5 | 0 | 0 | 42% (6 carried to sprint-pwa) |
 
 ## How to Use This Index
 

@@ -1,0 +1,85 @@
+{
+  "id": "WI-014",
+  "title": "Add venue/club infrastructure and data enrichment",
+  "description": "Build venue and club data infrastructure including a web scraper for BHPLTA club information, admin UI for managing clubs and venues, venue resolver for fixtures, iCal calendar generation, and player-facing venue pages with maps and directions.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "completed",
+  "completed_date": "2026-02-01",
+  "commits": [
+    "c83e225"
+  ],
+  "phase": "Phase 6: Venue Integration",
+  "acceptance_criteria": [
+    "Club scraper fetches venue data from BHPLTA website",
+    "Admin UI for listing, viewing, and editing clubs with venue details",
+    "Admin import page for triggering club data scraping",
+    "Venue override system for fixture-specific venue changes",
+    "Venue resolver determines correct venue for each fixture",
+    "Player-facing fixture venue page with map and directions",
+    "iCal calendar feed generation for fixtures",
+    "Database migrations for enriched club data and venue overrides"
+  ],
+  "technical_notes": {
+    "files_created": [
+      "internal/services/club_scraper.go",
+      "internal/services/venue_resolver.go",
+      "internal/services/ical_generator.go",
+      "internal/admin/clubs.go",
+      "internal/admin/club_import.go",
+      "internal/models/venue_override.go",
+      "internal/repository/venue_override.go",
+      "internal/players/venue.go",
+      "templates/admin/clubs.html",
+      "templates/admin/club_detail.html",
+      "templates/admin/club_import.html",
+      "templates/players/fixture_venue.html",
+      "cmd/import-club-info/main.go",
+      "scripts/seed_club_venue_data.sql",
+      "migrations/018_enrich_clubs_venue_data.up.sql",
+      "migrations/018_enrich_clubs_venue_data.down.sql",
+      "migrations/019_add_venue_overrides.up.sql",
+      "migrations/019_add_venue_overrides.down.sql"
+    ],
+    "files_modified": [
+      "internal/admin/handler.go",
+      "internal/admin/common.go",
+      "internal/admin/service.go",
+      "internal/models/models.go",
+      "internal/repository/club.go",
+      "internal/repository/fixture.go",
+      "internal/players/availability.go",
+      "internal/players/service.go",
+      "internal/players/templates.go"
+    ],
+    "repositories_needed": [
+      "ClubRepository",
+      "FixtureRepository",
+      "VenueOverrideRepository"
+    ],
+    "routes_added": [
+      "GET /admin/league/clubs",
+      "GET /admin/league/clubs/{id}",
+      "POST /admin/league/clubs/{id}",
+      "GET /admin/league/clubs/import",
+      "POST /admin/league/clubs/import",
+      "GET /my-fixtures/{token}/venue/{fixtureID}"
+    ]
+  },
+  "testing_requirements": [
+    "Verify club scraper parses BHPLTA data correctly",
+    "Verify admin club list and detail pages render",
+    "Verify venue resolver picks correct venue for home/away/derby fixtures",
+    "Verify player venue page shows map and directions",
+    "Verify iCal feed generates valid calendar data",
+    "Verify venue override system works for fixture-specific changes",
+    "Verify migrations run cleanly up and down"
+  ],
+  "context": {
+    "user_story": "As a player, I want to see where my fixture is being played with directions so I can get to the venue. As an admin, I want to manage club and venue data centrally.",
+    "related_docs": []
+  }
+}

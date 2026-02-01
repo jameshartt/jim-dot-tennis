@@ -1,0 +1,35 @@
+{
+  "id": "WI-015",
+  "title": "Add CourtHive stack management to Makefile",
+  "description": "Add make targets for building the TMX frontend and managing the CourtHive docker compose stack, enabling streamlined local and production management of the tournament management system.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "completed",
+  "completed_date": "2026-01-31",
+  "commits": [
+    "3af95f8"
+  ],
+  "phase": "Phase 6: Venue Integration",
+  "acceptance_criteria": [
+    "Make targets for CourtHive stack up/down/logs",
+    "Make target for building TMX frontend",
+    "Consistent with existing Makefile patterns"
+  ],
+  "technical_notes": {
+    "files_modified": [
+      "Makefile"
+    ]
+  },
+  "testing_requirements": [
+    "Verify make courthive-up starts the stack",
+    "Verify make courthive-down stops the stack",
+    "Verify make courthive builds TMX frontend"
+  ],
+  "context": {
+    "user_story": "As a developer, I want simple make commands to manage the CourtHive tournament stack alongside the main application",
+    "related_docs": []
+  }
+}
