@@ -66,7 +66,7 @@
         .player-badge.home { background: #2c5530; color: white; }
         .player-badge.away { background: #8b4513; color: white; }
 
-        .calendar-btn { display: block; width: 100%; padding: 14px; background: #4a7c59; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; margin-top: 16px; }
+        .calendar-btn { display: block; width: 100%; padding: 14px; background: #4a7c59; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; margin-bottom: 20px; }
         .calendar-btn:hover { background: #3d6b4a; }
 
         .no-venue-data { text-align: center; padding: 20px; color: #999; font-size: 14px; }
@@ -104,6 +104,11 @@
                         · {{.VenueDetail.PlayerTeamName}}
                     </div>
                 </div>
+
+                {{/* Calendar download */}}
+                <a href="/my-availability/{{.AuthToken}}/fixture/{{.VenueDetail.Fixture.ID}}/calendar.ics" class="calendar-btn">
+                    📅 Add to Calendar
+                </a>
 
                 {{/* Venue override notice */}}
                 {{if .VenueDetail.IsOverridden}}
@@ -220,11 +225,6 @@
                     </ul>
                 </div>
                 {{end}}
-
-                {{/* Calendar download */}}
-                <a href="/my-availability/{{.AuthToken}}/fixture/{{.VenueDetail.Fixture.ID}}/calendar.ics" class="calendar-btn">
-                    📅 Add to Calendar
-                </a>
             </div>
         </div>
     </div>
