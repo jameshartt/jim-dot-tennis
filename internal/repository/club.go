@@ -10,6 +10,20 @@ import (
 	"time"
 )
 
+// clubColumns is the standard set of columns for club queries
+const clubColumns = `id, name, address, website, phone_number,
+	latitude, longitude, postcode, address_line_1, address_line_2, city,
+	court_surface, court_count, parking_info, transport_info, tips, google_maps_url,
+	created_at, updated_at`
+
+// clubColumnsWithPrefix returns club columns prefixed with a table alias
+func clubColumnsWithPrefix(prefix string) string {
+	return prefix + ".id, " + prefix + ".name, " + prefix + ".address, " + prefix + ".website, " + prefix + ".phone_number, " +
+		prefix + ".latitude, " + prefix + ".longitude, " + prefix + ".postcode, " + prefix + ".address_line_1, " + prefix + ".address_line_2, " + prefix + ".city, " +
+		prefix + ".court_surface, " + prefix + ".court_count, " + prefix + ".parking_info, " + prefix + ".transport_info, " + prefix + ".tips, " + prefix + ".google_maps_url, " +
+		prefix + ".created_at, " + prefix + ".updated_at"
+}
+
 // ClubRepository defines the interface for club data access
 type ClubRepository interface {
 	// Basic CRUD operations
@@ -53,8 +67,8 @@ func NewClubRepository(db *database.DB) ClubRepository {
 func (r *clubRepository) FindAll(ctx context.Context) ([]models.Club, error) {
 	var clubs []models.Club
 	err := r.db.SelectContext(ctx, &clubs, `
-		SELECT id, name, address, website, phone_number, created_at, updated_at
-		FROM clubs 
+		SELECT `+clubColumns+`
+		FROM clubs
 		ORDER BY name ASC
 	`)
 	return clubs, err
@@ -64,8 +78,8 @@ func (r *clubRepository) FindAll(ctx context.Context) ([]models.Club, error) {
 func (r *clubRepository) FindByID(ctx context.Context, id uint) (*models.Club, error) {
 	var club models.Club
 	err := r.db.GetContext(ctx, &club, `
-		SELECT id, name, address, website, phone_number, created_at, updated_at
-		FROM clubs 
+		SELECT `+clubColumns+`
+		FROM clubs
 		WHERE id = ?
 	`, id)
 	if err != nil {
@@ -81,8 +95,14 @@ func (r *clubRepository) Create(ctx context.Context, club *models.Club) error {
 	club.UpdatedAt = now
 
 	result, err := r.db.NamedExecContext(ctx, `
-		INSERT INTO clubs (name, address, website, phone_number, created_at, updated_at)
-		VALUES (:name, :address, :website, :phone_number, :created_at, :updated_at)
+		INSERT INTO clubs (name, address, website, phone_number,
+			latitude, longitude, postcode, address_line_1, address_line_2, city,
+			court_surface, court_count, parking_info, transport_info, tips, google_maps_url,
+			created_at, updated_at)
+		VALUES (:name, :address, :website, :phone_number,
+			:latitude, :longitude, :postcode, :address_line_1, :address_line_2, :city,
+			:court_surface, :court_count, :parking_info, :transport_info, :tips, :google_maps_url,
+			:created_at, :updated_at)
 	`, club)
 
 	if err != nil {
@@ -102,9 +122,15 @@ func (r *clubRepository) Update(ctx context.Context, club *models.Club) error {
 	club.UpdatedAt = time.Now()
 
 	_, err := r.db.NamedExecContext(ctx, `
-		UPDATE clubs 
-		SET name = :name, address = :address, website = :website, 
-		    phone_number = :phone_number, updated_at = :updated_at
+		UPDATE clubs
+		SET name = :name, address = :address, website = :website,
+		    phone_number = :phone_number,
+		    latitude = :latitude, longitude = :longitude, postcode = :postcode,
+		    address_line_1 = :address_line_1, address_line_2 = :address_line_2, city = :city,
+		    court_surface = :court_surface, court_count = :court_count,
+		    parking_info = :parking_info, transport_info = :transport_info,
+		    tips = :tips, google_maps_url = :google_maps_url,
+		    updated_at = :updated_at
 		WHERE id = :id
 	`, club)
 
@@ -121,8 +147,8 @@ func (r *clubRepository) Delete(ctx context.Context, id uint) error {
 func (r *clubRepository) FindByName(ctx context.Context, name string) ([]models.Club, error) {
 	var clubs []models.Club
 	err := r.db.SelectContext(ctx, &clubs, `
-		SELECT id, name, address, website, phone_number, created_at, updated_at
-		FROM clubs 
+		SELECT `+clubColumns+`
+		FROM clubs
 		WHERE name = ?
 		ORDER BY name ASC
 	`, name)
@@ -134,8 +160,8 @@ func (r *clubRepository) FindByNameLike(ctx context.Context, name string) ([]mod
 	var clubs []models.Club
 	searchPattern := "%" + name + "%"
 	err := r.db.SelectContext(ctx, &clubs, `
-		SELECT id, name, address, website, phone_number, created_at, updated_at
-		FROM clubs 
+		SELECT `+clubColumns+`
+		FROM clubs
 		WHERE name LIKE ?
 		ORDER BY name ASC
 	`, searchPattern)
@@ -235,7 +261,7 @@ func (r *clubRepository) FindWithPlayersAndTeams(ctx context.Context, id uint) (
 func (r *clubRepository) FindByPlayerID(ctx context.Context, playerID string) (*models.Club, error) {
 	var club models.Club
 	err := r.db.GetContext(ctx, &club, `
-		SELECT c.id, c.name, c.address, c.website, c.phone_number, c.created_at, c.updated_at
+		SELECT `+clubColumnsWithPrefix("c")+`
 		FROM clubs c
 		INNER JOIN players p ON c.id = p.club_id
 		WHERE p.id = ?
@@ -269,7 +295,7 @@ func (r *clubRepository) GetPlayersByClub(ctx context.Context, clubID uint) ([]m
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
 		SELECT id, first_name, last_name, preferred_name, gender, club_id, fantasy_match_id, created_at, updated_at
-		FROM players 
+		FROM players
 		WHERE club_id = ?
 		ORDER BY last_name ASC, first_name ASC
 	`, clubID)

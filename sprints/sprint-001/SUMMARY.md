@@ -6,7 +6,7 @@
 
 **Duration**: 2 weeks (Feb 3 - Feb 17, 2026)
 
-**Status**: In Progress (5/12 completed)
+**Status**: Completed (closed 2026-02-01)
 
 ## Focus Areas
 
@@ -93,11 +93,11 @@ Execute after prerequisites:
 
 - [x] Players can view their profile and upcoming fixtures (WI-001 completed 2026-01-31)
 - [x] Players can set general availability preferences (WI-002 completed 2026-01-31)
-- [ ] Players receive push notifications for selections and reminders
-- [ ] Captains can see hierarchical selection overview
-- [ ] App can be installed as PWA on mobile devices
-- [ ] Availability updates work offline and sync when online
+- [x] Players can mark time away / availability exceptions (WI-003 completed 2026-01-31)
 - [x] Fixture information can be shared via WhatsApp (WI-011, WI-012 completed 2026-01-31)
+- [~] Captains can see hierarchical selection overview (WI-008 - partially done, deferred)
+- [->] Push notifications (WI-004, WI-005, WI-006, WI-007 - carried to sprint-pwa)
+- [->] PWA install + offline (WI-009, WI-010 - carried to sprint-pwa)
 
 ## MVP Readiness
 
@@ -109,14 +109,13 @@ This sprint addresses critical gaps for MVP launch:
 4. ✅ Push notifications for selection and reminders (new functionality)
 5. ✅ WhatsApp integration for sharing (new functionality)
 
-## Next Steps
+## Sprint Retrospective
 
-1. Review and prioritize work items
-2. Assign work items to AI agents or developers
-3. Execute Phase 1 items in parallel
-4. Monitor progress and adjust as needed
-5. Conduct testing after each phase
-6. Prepare for MVP launch after sprint completion
+**Outcome**: 5 of 12 work items completed. 1 item (WI-008) partially done and deferred for further speccing. 6 items carried forward to Sprint PWA.
+
+**Completed scope**: Core player experience - profiles, availability management (with exceptions/time away), fixture details, and WhatsApp sharing.
+
+**Carried forward**: Push notification pipeline and PWA enhancements moved to Sprint PWA as a cohesive focused sprint.
 
 ## Work Items Tracking
 
@@ -157,15 +156,17 @@ This sprint addresses critical gaps for MVP launch:
   - Reuses existing glance-copyable text and appends deep link
   - Client-side only implementation — no server changes needed
 
-### In Progress
+### Deferred
 
-- None currently
+- **WI-008**: Captain selection overview dashboard - partially implemented and functional for now. Needs further thought and speccing before additional work.
 
-### Not Started
+### Carried to Sprint PWA
+
+The following items were de-prioritised and moved to [Sprint PWA](../sprint-pwa/SUMMARY.md) (Push Notifications & PWA Enhancement):
+
 - WI-004: Push notification subscription flow
 - WI-005: Push notification sending service
 - WI-006: Selection confirmation notifications
 - WI-007: Availability reminder notification system
-- WI-008: Captain selection overview dashboard
 - WI-009: PWA installation prompt flow
 - WI-010: Offline availability with background sync

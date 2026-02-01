@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,6 +54,24 @@ func (h *AvailabilityHandler) HandleAvailability(w http.ResponseWriter, r *http.
 
 	log.Printf("Authenticated player: %s %s (ID: %s) for auth token: %s, action: %s",
 		player.FirstName, player.LastName, player.ID, authToken, action)
+
+	// Check for fixture sub-routes: /my-availability/{token}/fixture/{fixtureID}[/calendar.ics]
+	if action == "fixture" && len(pathParts) > 2 {
+		fixtureIDStr := pathParts[2]
+		subAction := ""
+		if len(pathParts) > 3 {
+			subAction = pathParts[3]
+		}
+		switch {
+		case subAction == "calendar.ics" && r.Method == http.MethodGet:
+			h.handleFixtureCalendarDownload(w, r, &player, authToken, fixtureIDStr)
+		case subAction == "" && r.Method == http.MethodGet:
+			h.handleFixtureVenueDetail(w, r, &player, authToken, fixtureIDStr)
+		default:
+			http.Error(w, "Not found", http.StatusNotFound)
+		}
+		return
+	}
 
 	// Route based on action and method
 	switch {
@@ -433,6 +452,69 @@ func (h *AvailabilityHandler) handleWrappedPasswordAuth(w http.ResponseWriter, r
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)
 	_ = json.NewEncoder(w).Encode(map[string]any{"success": false, "error": "Incorrect password"})
+}
+
+// handleFixtureVenueDetail shows the venue detail page for a fixture
+func (h *AvailabilityHandler) handleFixtureVenueDetail(w http.ResponseWriter, r *http.Request, player *models.Player, authToken string, fixtureIDStr string) {
+	fixtureID, err := strconv.ParseUint(fixtureIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid fixture ID", http.StatusBadRequest)
+		return
+	}
+
+	venueDetail, err := h.service.GetFixtureVenueDetail(player.ID, uint(fixtureID))
+	if err != nil {
+		log.Printf("Error loading fixture venue detail: %v", err)
+		http.Error(w, "Fixture not found", http.StatusNotFound)
+		return
+	}
+
+	tmpl, err := parseTemplate(h.templateDir, "players/fixture_venue.html")
+	if err != nil {
+		log.Printf("Error parsing fixture venue template: %v", err)
+		renderFallbackHTML(w, "Fixture Venue", "Venue Details",
+			"Venue detail page - template error", "/my-availability/"+authToken)
+		return
+	}
+
+	// Build directions URLs
+	var googleDirectionsURL, appleDirectionsURL string
+	if venueDetail.VenueClub != nil && venueDetail.VenueClub.Latitude != nil && venueDetail.VenueClub.Longitude != nil {
+		lat := *venueDetail.VenueClub.Latitude
+		lon := *venueDetail.VenueClub.Longitude
+		googleDirectionsURL = fmt.Sprintf("https://www.google.com/maps/dir/?api=1&destination=%f,%f", lat, lon)
+		appleDirectionsURL = fmt.Sprintf("maps://maps.apple.com/?daddr=%f,%f", lat, lon)
+	}
+
+	if err := renderTemplate(w, tmpl, map[string]interface{}{
+		"Player":              player,
+		"AuthToken":           authToken,
+		"VenueDetail":         venueDetail,
+		"GoogleDirectionsURL": googleDirectionsURL,
+		"AppleDirectionsURL":  appleDirectionsURL,
+	}); err != nil {
+		logAndError(w, err.Error(), err, http.StatusInternalServerError)
+	}
+}
+
+// handleFixtureCalendarDownload generates and serves an .ics file for a fixture
+func (h *AvailabilityHandler) handleFixtureCalendarDownload(w http.ResponseWriter, r *http.Request, player *models.Player, authToken string, fixtureIDStr string) {
+	fixtureID, err := strconv.ParseUint(fixtureIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid fixture ID", http.StatusBadRequest)
+		return
+	}
+
+	icalContent, err := h.service.GenerateFixtureICal(uint(fixtureID))
+	if err != nil {
+		log.Printf("Error generating iCal for fixture %d: %v", fixtureID, err)
+		http.Error(w, "Failed to generate calendar event", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/calendar; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=fixture-%d.ics", fixtureID))
+	w.Write([]byte(icalContent))
 }
 
 // getTeamName creates a formatted team name from two tennis players

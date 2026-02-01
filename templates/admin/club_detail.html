@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Club.Name}} - Club Detail - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+
+        .club-header {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .club-header h1 {
+            margin: 0 0 0.5rem 0;
+            color: var(--primary-color);
+        }
+        .club-header .completeness-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 0.5rem;
+        }
+        .completeness-bar-large {
+            display: inline-block;
+            width: 120px;
+            height: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .completeness-bar-fill {
+            height: 100%;
+            border-radius: 5px;
+        }
+        .completeness-high { background: #28a745; }
+        .completeness-medium { background: #ffc107; }
+        .completeness-low { background: #dc3545; }
+        .completeness-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            border: 1px solid #c3e6cb;
+        }
+
+        .form-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-section h2 {
+            margin: 0 0 1.5rem 0;
+            color: var(--primary-color);
+            font-size: 1.2rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem 1.5rem;
+        }
+        .form-grid .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group {
+            margin-bottom: 0.5rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.35rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #495057;
+        }
+        .form-group input[type="text"],
+        .form-group input[type="url"],
+        .form-group input[type="tel"],
+        .form-group input[type="number"],
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            box-sizing: border-box;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb, 0, 123, 255), 0.25);
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        .form-group .help-text {
+            font-size: 0.8rem;
+            color: #6c757d;
+            margin-top: 0.25rem;
+        }
+
+        .map-preview {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .map-preview h2 {
+            margin: 0 0 1rem 0;
+            color: var(--primary-color);
+            font-size: 1.2rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--primary-color);
+        }
+        .map-preview iframe {
+            width: 100%;
+            height: 300px;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+        }
+        .map-preview .no-map {
+            text-align: center;
+            padding: 2rem;
+            color: #6c757d;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e9ecef;
+        }
+        .btn-save {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.6rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .btn-save:hover {
+            opacity: 0.9;
+        }
+        .btn-back {
+            color: #6c757d;
+            text-decoration: none;
+            padding: 0.6rem 1rem;
+            font-size: 0.95rem;
+        }
+        .btn-back:hover {
+            color: #495057;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin/league/dashboard">Admin Dashboard</a> &gt; <a href="/admin/league/clubs">Clubs</a> &gt; {{.Club.Name}}
+            </div>
+            <h1>{{.Club.Name}}</h1>
+        </div>
+    </header>
+
+    <main class="admin-content">
+        <div class="container">
+
+            {{if .Success}}
+            <div class="success-message">{{.Success}}</div>
+            {{end}}
+
+            <div class="club-header">
+                <h1>{{.Club.Name}}</h1>
+                <div class="completeness-info">
+                    <span class="completeness-label">Data completeness:</span>
+                    <span class="completeness-bar-large">
+                        <span class="completeness-bar-fill {{if ge .DataCompleteness 70}}completeness-high{{else if ge .DataCompleteness 40}}completeness-medium{{else}}completeness-low{{end}}" style="width: {{.DataCompleteness}}%"></span>
+                    </span>
+                    <span class="completeness-label">{{.DataCompleteness}}% ({{.DataCompletenessText}})</span>
+                </div>
+            </div>
+
+            {{if and .Club.Latitude .Club.Longitude}}
+            <div class="map-preview">
+                <h2>Location Preview</h2>
+                <iframe
+                    src="https://www.openstreetmap.org/export/embed.html?bbox={{printf "%.6f" (addFloat .Club.Longitude -0.005)}},{{printf "%.6f" (addFloat .Club.Latitude -0.003)}},{{printf "%.6f" (addFloat .Club.Longitude 0.005)}},{{printf "%.6f" (addFloat .Club.Latitude 0.003)}}&layer=mapnik&marker={{printf "%.6f" (derefFloat .Club.Latitude)}},{{printf "%.6f" (derefFloat .Club.Longitude)}}"
+                    frameborder="0"
+                    scrolling="no"
+                    loading="lazy">
+                </iframe>
+            </div>
+            {{else}}
+            <div class="map-preview">
+                <h2>Location Preview</h2>
+                <div class="no-map">
+                    <p>No latitude/longitude set. Add coordinates below to see a map preview.</p>
+                </div>
+            </div>
+            {{end}}
+
+            <form method="POST" action="/admin/league/clubs/{{.Club.ID}}">
+
+                <div class="form-section">
+                    <h2>Basic Information</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="name">Club Name</label>
+                            <input type="text" id="name" name="name" value="{{.Club.Name}}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="phone_number">Phone Number</label>
+                            <input type="tel" id="phone_number" name="phone_number" value="{{.Club.PhoneNumber}}">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="website">Website</label>
+                            <input type="url" id="website" name="website" value="{{.Club.Website}}" placeholder="https://...">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="address">Address (legacy field)</label>
+                            <input type="text" id="address" name="address" value="{{.Club.Address}}">
+                            <div class="help-text">Original address field. Use the structured address fields below instead.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Address Details</h2>
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label for="address_line_1">Address Line 1</label>
+                            <input type="text" id="address_line_1" name="address_line_1" value="{{if .Club.AddressLine1}}{{.Club.AddressLine1}}{{end}}">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="address_line_2">Address Line 2</label>
+                            <input type="text" id="address_line_2" name="address_line_2" value="{{if .Club.AddressLine2}}{{.Club.AddressLine2}}{{end}}">
+                        </div>
+                        <div class="form-group">
+                            <label for="city">City</label>
+                            <input type="text" id="city" name="city" value="{{if .Club.City}}{{.Club.City}}{{end}}">
+                        </div>
+                        <div class="form-group">
+                            <label for="postcode">Postcode</label>
+                            <input type="text" id="postcode" name="postcode" value="{{if .Club.Postcode}}{{.Club.Postcode}}{{end}}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Location</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="latitude">Latitude</label>
+                            <input type="number" id="latitude" name="latitude" step="any" min="-90" max="90"
+                                   value="{{if .Club.Latitude}}{{printf "%.6f" (derefFloat .Club.Latitude)}}{{end}}"
+                                   placeholder="e.g. 50.8225">
+                            <div class="help-text">Range: -90 to 90</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="longitude">Longitude</label>
+                            <input type="number" id="longitude" name="longitude" step="any" min="-180" max="180"
+                                   value="{{if .Club.Longitude}}{{printf "%.6f" (derefFloat .Club.Longitude)}}{{end}}"
+                                   placeholder="e.g. -0.1372">
+                            <div class="help-text">Range: -180 to 180</div>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="google_maps_url">Google Maps URL</label>
+                            <input type="url" id="google_maps_url" name="google_maps_url"
+                                   value="{{if .Club.GoogleMapsURL}}{{.Club.GoogleMapsURL}}{{end}}"
+                                   placeholder="https://maps.google.com/...">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Court Information</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="court_surface">Court Surface</label>
+                            <input type="text" id="court_surface" name="court_surface"
+                                   value="{{if .Club.CourtSurface}}{{.Club.CourtSurface}}{{end}}"
+                                   placeholder="e.g. Hard, Clay, Grass, Artificial">
+                        </div>
+                        <div class="form-group">
+                            <label for="court_count">Number of Courts</label>
+                            <input type="number" id="court_count" name="court_count" min="0"
+                                   value="{{if .Club.CourtCount}}{{.Club.CourtCount}}{{end}}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Visitor Information</h2>
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label for="parking_info">Parking Information</label>
+                            <textarea id="parking_info" name="parking_info" rows="3" placeholder="Describe parking options...">{{if .Club.ParkingInfo}}{{.Club.ParkingInfo}}{{end}}</textarea>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="transport_info">Transport Information</label>
+                            <textarea id="transport_info" name="transport_info" rows="3" placeholder="Nearest bus stops, train stations, etc.">{{if .Club.TransportInfo}}{{.Club.TransportInfo}}{{end}}</textarea>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="tips">Tips</label>
+                            <textarea id="tips" name="tips" rows="3" placeholder="Any helpful tips for visitors...">{{if .Club.Tips}}{{.Club.Tips}}{{end}}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-save">Save Changes</button>
+                    <a href="/admin/league/clubs" class="btn-back">Back to Clubs</a>
+                </div>
+
+            </form>
+
+        </div>
+    </main>
+</body>
+</html>

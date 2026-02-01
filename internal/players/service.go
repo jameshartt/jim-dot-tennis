@@ -8,37 +8,40 @@ import (
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
+	"jim-dot-tennis/internal/services"
 )
 
 // Service provides business logic for player operations
 type Service struct {
-	db                     *database.DB
-	playerRepository       repository.PlayerRepository
-	fantasyRepository      repository.FantasyMixedDoublesRepository
-	tennisPlayerRepository repository.ProTennisPlayerRepository
-	availabilityRepository repository.AvailabilityRepository
-	seasonRepository       repository.SeasonRepository
-	fixtureRepository      repository.FixtureRepository
-	teamRepository         repository.TeamRepository
-	divisionRepository     repository.DivisionRepository
-	weekRepository         repository.WeekRepository
-	clubRepository         repository.ClubRepository
+	db                      *database.DB
+	playerRepository        repository.PlayerRepository
+	fantasyRepository       repository.FantasyMixedDoublesRepository
+	tennisPlayerRepository  repository.ProTennisPlayerRepository
+	availabilityRepository  repository.AvailabilityRepository
+	seasonRepository        repository.SeasonRepository
+	fixtureRepository       repository.FixtureRepository
+	teamRepository          repository.TeamRepository
+	divisionRepository      repository.DivisionRepository
+	weekRepository          repository.WeekRepository
+	clubRepository          repository.ClubRepository
+	venueOverrideRepository repository.VenueOverrideRepository
 }
 
 // NewService creates a new players service
 func NewService(db *database.DB) *Service {
 	return &Service{
-		db:                     db,
-		playerRepository:       repository.NewPlayerRepository(db),
-		fantasyRepository:      repository.NewFantasyMixedDoublesRepository(db),
-		tennisPlayerRepository: repository.NewProTennisPlayerRepository(db),
-		availabilityRepository: repository.NewAvailabilityRepository(db),
-		seasonRepository:       repository.NewSeasonRepository(db),
-		fixtureRepository:      repository.NewFixtureRepository(db),
-		teamRepository:         repository.NewTeamRepository(db),
-		divisionRepository:     repository.NewDivisionRepository(db),
-		weekRepository:         repository.NewWeekRepository(db),
-		clubRepository:         repository.NewClubRepository(db),
+		db:                      db,
+		playerRepository:        repository.NewPlayerRepository(db),
+		fantasyRepository:       repository.NewFantasyMixedDoublesRepository(db),
+		tennisPlayerRepository:  repository.NewProTennisPlayerRepository(db),
+		availabilityRepository:  repository.NewAvailabilityRepository(db),
+		seasonRepository:        repository.NewSeasonRepository(db),
+		fixtureRepository:       repository.NewFixtureRepository(db),
+		teamRepository:          repository.NewTeamRepository(db),
+		divisionRepository:      repository.NewDivisionRepository(db),
+		weekRepository:          repository.NewWeekRepository(db),
+		clubRepository:          repository.NewClubRepository(db),
+		venueOverrideRepository: repository.NewVenueOverrideRepository(db),
 	}
 }
 
@@ -348,16 +351,18 @@ func (s *Service) RequestPreferredName(playerID string, preferredName string) er
 
 // PlayerUpcomingFixture represents upcoming fixture information for a player (privacy-focused)
 type PlayerUpcomingFixture struct {
-	FixtureID     uint      `json:"fixture_id"`
-	ScheduledDate time.Time `json:"scheduled_date"`
-	Division      string    `json:"division"`      // e.g. "Div. 1", "Div. 2"
-	WeekNumber    int       `json:"week_number"`   // e.g. 1, 2, 3
-	IsHome        bool      `json:"is_home"`       // Whether player's team is at home
-	IsAway        bool      `json:"is_away"`       // Whether player's team is away
-	IsDerby       bool      `json:"is_derby"`      // Whether both teams are from same club
-	MyTeam        string    `json:"my_team"`       // The team the player is playing FOR
-	OpponentTeam  string    `json:"opponent_team"` // The opposing team name (no player names)
-	VenueHint     string    `json:"venue_hint"`    // General location hint if available
+	FixtureID          uint      `json:"fixture_id"`
+	ScheduledDate      time.Time `json:"scheduled_date"`
+	Division           string    `json:"division"`             // e.g. "Div. 1", "Div. 2"
+	WeekNumber         int       `json:"week_number"`          // e.g. 1, 2, 3
+	IsHome             bool      `json:"is_home"`              // Whether player's team is at home
+	IsAway             bool      `json:"is_away"`              // Whether player's team is away
+	IsDerby            bool      `json:"is_derby"`             // Whether both teams are from same club
+	MyTeam             string    `json:"my_team"`              // The team the player is playing FOR
+	OpponentTeam       string    `json:"opponent_team"`        // The opposing team name (no player names)
+	VenueHint          string    `json:"venue_hint"`           // General location hint if available
+	VenueClubName      string    `json:"venue_club_name"`      // Resolved venue club name
+	IsVenueOverridden  bool      `json:"is_venue_overridden"`  // Whether venue has been overridden
 }
 
 // GetPlayerUpcomingFixtures retrieves upcoming fixtures where the player has been selected
@@ -412,6 +417,13 @@ func (s *Service) GetPlayerUpcomingFixtures(playerID string) ([]PlayerUpcomingFi
 					playerFixture.IsDerby = true
 				}
 			}
+		}
+
+		// Resolve venue
+		venueResolver := services.NewVenueResolver(s.clubRepository, s.teamRepository, s.venueOverrideRepository)
+		if resolution, err := venueResolver.ResolveFixtureVenue(ctx, &fixture); err == nil && resolution.Club != nil {
+			playerFixture.VenueClubName = resolution.Club.Name
+			playerFixture.IsVenueOverridden = resolution.IsOverridden
 		}
 
 		playerFixtures = append(playerFixtures, playerFixture)

@@ -1,0 +1,30 @@
+{
+  "sprint": {
+    "id": "sprint-pwa",
+    "name": "Push Notifications & PWA Enhancement",
+    "goal": "Implement the full push notification pipeline and PWA capabilities to enable real-time player communication and offline support",
+    "start_date": null,
+    "end_date": null,
+    "duration_weeks": 2,
+    "type": "special",
+    "focus_areas": [
+      "Push notification pipeline",
+      "PWA capabilities",
+      "Offline support",
+      "Player communication"
+    ],
+    "phases_addressed": [
+      "Phase 4: PWA and Push Notifications",
+      "Phase 2: Captain Selection Tools"
+    ],
+    "carried_from": "sprint-001",
+    "work_items": [
+      "WI-004",
+      "WI-005",
+      "WI-006",
+      "WI-007",
+      "WI-009",
+      "WI-010"
+    ]
+  }
+}

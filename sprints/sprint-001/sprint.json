@@ -6,6 +6,7 @@
     "start_date": "2026-02-03",
     "end_date": "2026-02-17",
     "duration_weeks": 2,
+    "status": "completed",
     "focus_areas": [
       "Player availability management",
       "Push notification pipeline",
@@ -15,21 +16,33 @@
     "phases_addressed": [
       "Phase 3: Player Availability Management",
       "Phase 4: PWA and Push Notifications",
-      "Phase 2: Captain Selection Tools"
+      "Phase 2: Captain Selection Tools",
+      "Phase 5: Fixture Result Management"
     ],
     "work_items": [
       "WI-001",
       "WI-002",
       "WI-003",
-      "WI-004",
-      "WI-005",
-      "WI-006",
-      "WI-007",
-      "WI-008",
-      "WI-009",
-      "WI-010",
       "WI-011",
       "WI-012"
-    ]
+    ],
+    "completed_items": [
+      "WI-001",
+      "WI-002",
+      "WI-003",
+      "WI-011",
+      "WI-012"
+    ],
+    "deferred_items": {
+      "WI-008": "Partially implemented and functional for now. Needs further thought and speccing before additional work.",
+      "carried_to_sprint_pwa": [
+        "WI-004",
+        "WI-005",
+        "WI-006",
+        "WI-007",
+        "WI-009",
+        "WI-010"
+      ]
+    }
   }
 }

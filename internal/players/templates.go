@@ -23,6 +23,27 @@ func parseTemplate(templateDir, templateName string) (*template.Template, error)
 		"formatDateTime": func(t time.Time) string {
 			return t.Format("January 2, 2006 at 3:04 PM")
 		},
+		"deref": func(s *string) string {
+			if s == nil {
+				return ""
+			}
+			return *s
+		},
+		"derefFloat": func(f *float64) float64 {
+			if f == nil {
+				return 0
+			}
+			return *f
+		},
+		"derefInt": func(i *int) int {
+			if i == nil {
+				return 0
+			}
+			return *i
+		},
+		"addFloat": func(a float64, b float64) float64 {
+			return a + b
+		},
 	})
 
 	return tmpl.ParseFiles(templatePath)

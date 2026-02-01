@@ -11,6 +11,7 @@ PROJECT = jim-dot-tennis
 BINARY_PATH = ./bin/jim-dot-tennis
 EXTRACT_NONCE_PATH = ./bin/extract-nonce
 IMPORT_MATCHCARDS_PATH = ./bin/import-matchcards
+IMPORT_CLUB_INFO_PATH = ./bin/import-club-info
 
 # Default target
 all: build run
@@ -34,8 +35,14 @@ build-import-matchcards:
 	@mkdir -p bin
 	go build -o $(IMPORT_MATCHCARDS_PATH) ./cmd/import-matchcards
 
+# Build the import-club-info utility
+build-import-club-info:
+	@echo "Building import-club-info utility..."
+	@mkdir -p bin
+	go build -o $(IMPORT_CLUB_INFO_PATH) ./cmd/import-club-info
+
 # Build all utilities
-build-utils: build-extract-nonce build-import-matchcards
+build-utils: build-extract-nonce build-import-matchcards build-import-club-info
 
 # Build everything
 build-all: build-local build-utils
@@ -56,6 +63,7 @@ clean-local:
 	rm -f $(BINARY_PATH)
 	rm -f $(EXTRACT_NONCE_PATH)
 	rm -f $(IMPORT_MATCHCARDS_PATH)
+	rm -f $(IMPORT_CLUB_INFO_PATH)
 	rm -f ./tennis.db
 
 # Build the Docker images

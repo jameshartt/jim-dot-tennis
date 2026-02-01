@@ -63,6 +63,30 @@
 
                 {{template "admin/partials/derby_management.html" .}}
 
+                {{if .FixtureDetail.VenueClub}}
+                <div class="detail-section venue-section" style="margin-bottom: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid var(--secondary-color, #2ecc71);">
+                    <h3 style="margin-top: 0;">📍 Venue</h3>
+                    <p style="margin: 0.25rem 0;"><strong>{{.FixtureDetail.VenueClub.Name}}</strong></p>
+                    {{if .FixtureDetail.VenueClub.AddressLine1}}
+                        <p style="margin: 0.25rem 0; color: #555;">{{if .FixtureDetail.VenueClub.AddressLine1}}{{deref .FixtureDetail.VenueClub.AddressLine1}}{{end}}{{if .FixtureDetail.VenueClub.AddressLine2}}, {{deref .FixtureDetail.VenueClub.AddressLine2}}{{end}}</p>
+                    {{end}}
+                    {{if .FixtureDetail.VenueClub.Postcode}}
+                        <p style="margin: 0.25rem 0; color: #555;">{{deref .FixtureDetail.VenueClub.Postcode}}</p>
+                    {{end}}
+                    <div style="margin-top: 0.75rem; display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                        {{if and .FixtureDetail.VenueClub.Latitude .FixtureDetail.VenueClub.Longitude}}
+                            <a href="https://www.google.com/maps?q={{derefFloat .FixtureDetail.VenueClub.Latitude}},{{derefFloat .FixtureDetail.VenueClub.Longitude}}" target="_blank" rel="noopener" class="btn-edit" style="font-size: 0.875rem;">🗺️ View on Map</a>
+                        {{end}}
+                        <a href="/admin/league/fixtures/{{.FixtureDetail.ID}}/calendar.ics" class="btn-edit" style="font-size: 0.875rem;">📅 Download Calendar</a>
+                    </div>
+                    {{if .FixtureDetail.IsVenueOverridden}}
+                        <div style="margin-top: 0.75rem; padding: 0.5rem 0.75rem; background: #fff3cd; border-radius: 4px; font-size: 0.875rem;">
+                            <strong>⚠️ Venue overridden:</strong> {{.FixtureDetail.VenueOverrideReason}}
+                        </div>
+                    {{end}}
+                </div>
+                {{end}}
+
                 <div class="info-highlight">
                     <strong>💡 Tip:</strong> The fixture summary below is designed to look great in screenshots and can be <u>clicked to copy</u> all the details to your clipboard for easy sharing via WhatsApp, email, or other communication channels.
                 </div>

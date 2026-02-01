@@ -258,10 +258,34 @@
             padding: 20px;
             border-left: 4px solid #4a7c59;
             transition: box-shadow 0.2s ease;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            cursor: pointer;
+            position: relative;
         }
-        
+
         .fixture-card:hover {
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .fixture-card .fixture-chevron {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #aaa;
+            font-size: 18px;
+        }
+
+        .fixture-venue-override {
+            background: #fff3cd;
+            color: #856404;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
         }
         
         .fixture-header {
@@ -1608,19 +1632,23 @@
         
         // Show the section if there are fixtures
         section.style.display = 'block';
-        
+
+        // Update section header with count
+        const sectionTitle = section.querySelector('.section-title');
+        if (sectionTitle) {
+            sectionTitle.textContent = `Upcoming Fixtures (${fixtures.length})`;
+        }
+
         let html = '<div class="fixtures-list">';
-        
+
         fixtures.forEach(fixture => {
             const date = new Date(fixture.scheduled_date);
-            const formattedDate = date.toLocaleDateString('en-GB', { 
-                weekday: 'short', 
-                day: 'numeric', 
-                month: 'short' 
+            const formattedDate = date.toLocaleDateString('en-GB', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short'
             });
-            
-            // Location info removed for now - venues are TBD and everyone knows club locations
-            
+
             let indicator = '';
             if (fixture.is_derby) {
                 indicator = '<span class="fixture-derby-indicator">DERBY</span>';
@@ -1629,9 +1657,19 @@
             } else if (fixture.is_away) {
                 indicator = '<span class="fixture-away-indicator">AWAY</span>';
             }
-            
+
+            if (fixture.is_venue_overridden) {
+                indicator += '<span class="fixture-venue-override">VENUE CHANGED</span>';
+            }
+
+            const venueHtml = fixture.venue_club_name
+                ? `<div class="fixture-venue">📍 @ ${fixture.venue_club_name}</div>`
+                : '';
+
+            const fixtureUrl = `/my-availability/{{.AuthToken}}/fixture/${fixture.fixture_id}`;
+
             html += `
-                <div class="fixture-card">
+                <a href="${fixtureUrl}" class="fixture-card">
                     <div class="fixture-header">
                         <div class="fixture-info">
                             <span class="fixture-division">${fixture.division || 'TBD'}</span>
@@ -1641,13 +1679,15 @@
                     </div>
                     <div class="fixture-matchup">
                         <div class="fixture-teams">
-                            <span class="fixture-my-team">${fixture.my_team || 'Your Team'}</span> 
-                            vs 
+                            <span class="fixture-my-team">${fixture.my_team || 'Your Team'}</span>
+                            vs
                             ${fixture.opponent_team || 'TBD'}
                             ${indicator}
                         </div>
                     </div>
-                </div>
+                    ${venueHtml}
+                    <span class="fixture-chevron">›</span>
+                </a>
             `;
         });
         

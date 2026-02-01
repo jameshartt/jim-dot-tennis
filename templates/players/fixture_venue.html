@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fixture Venue - Jim.Tennis</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
+
+        .venue-container { max-width: 600px; margin: 0 auto; padding: 16px; }
+
+        .back-nav { margin-bottom: 16px; }
+        .back-nav a { color: #4a7c59; text-decoration: none; font-size: 14px; display: inline-flex; align-items: center; gap: 4px; }
+        .back-nav a:hover { text-decoration: underline; }
+
+        .venue-card { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; margin-bottom: 16px; }
+        .venue-card-header { background: #2c5530; color: white; padding: 16px 20px; }
+        .venue-card-header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+        .venue-card-header .fixture-meta { font-size: 13px; opacity: 0.85; margin-top: 4px; }
+        .venue-card-body { padding: 20px; }
+
+        .override-notice { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; }
+        .override-notice strong { color: #856404; }
+
+        .teams-display { text-align: center; margin-bottom: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px; }
+        .teams-display .team-name { font-size: 17px; font-weight: 600; color: #2c5530; }
+        .teams-display .vs { font-size: 13px; color: #999; margin: 4px 0; }
+        .teams-display .match-info { font-size: 13px; color: #666; margin-top: 8px; }
+
+        .venue-name { font-size: 20px; font-weight: 700; color: #2c5530; margin: 0 0 12px 0; }
+
+        .venue-info-row { display: flex; gap: 8px; margin-bottom: 10px; font-size: 14px; color: #333; align-items: flex-start; }
+        .venue-info-row .icon { width: 20px; text-align: center; flex-shrink: 0; margin-top: 1px; }
+
+        .map-container { border-radius: 8px; overflow: hidden; margin: 16px 0; border: 1px solid #e0e0e0; }
+        .map-container iframe { width: 100%; height: 250px; border: 0; }
+
+        .directions-buttons { display: flex; gap: 10px; margin: 16px 0; }
+        .btn-directions { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 12px 16px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 600; text-align: center; }
+        .btn-google { background: #4285f4; color: white; }
+        .btn-google:hover { background: #3367d6; }
+        .btn-apple { background: #333; color: white; }
+        .btn-apple:hover { background: #555; }
+
+        .info-section { margin-top: 20px; }
+        .info-section h3 { font-size: 15px; font-weight: 600; color: #2c5530; margin: 0 0 8px 0; border-bottom: 2px solid #e8f0e9; padding-bottom: 6px; }
+        .info-section p { font-size: 14px; color: #444; line-height: 1.5; margin: 0; white-space: pre-line; }
+        .info-section + .info-section { margin-top: 16px; }
+
+        .court-info { display: flex; gap: 16px; margin: 12px 0; }
+        .court-badge { background: #e8f0e9; border-radius: 8px; padding: 10px 14px; text-align: center; flex: 1; }
+        .court-badge .value { font-size: 18px; font-weight: 700; color: #2c5530; }
+        .court-badge .label { font-size: 11px; color: #666; margin-top: 2px; }
+
+        .players-section { margin-top: 20px; }
+        .players-section h3 { font-size: 15px; font-weight: 600; color: #2c5530; margin: 0 0 12px 0; border-bottom: 2px solid #e8f0e9; padding-bottom: 6px; }
+        .player-list { list-style: none; padding: 0; margin: 0; }
+        .player-list li { padding: 8px 12px; font-size: 14px; border-radius: 6px; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+        .player-list li.home { background: #e8f0e9; }
+        .player-list li.away { background: #f0e8e8; }
+        .player-list li.viewing-player { font-weight: 600; }
+        .player-badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+        .player-badge.home { background: #2c5530; color: white; }
+        .player-badge.away { background: #8b4513; color: white; }
+
+        .calendar-btn { display: block; width: 100%; padding: 14px; background: #4a7c59; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; margin-top: 16px; }
+        .calendar-btn:hover { background: #3d6b4a; }
+
+        .no-venue-data { text-align: center; padding: 20px; color: #999; font-size: 14px; }
+
+        @media (max-width: 480px) {
+            .venue-container { padding: 12px; }
+            .directions-buttons { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="venue-container">
+        <div class="back-nav">
+            <a href="/my-availability/{{.AuthToken}}">← Back to availability</a>
+        </div>
+
+        <div class="venue-card">
+            <div class="venue-card-header">
+                <h1>Fixture Venue</h1>
+                <div class="fixture-meta">
+                    {{if .VenueDetail.Division}}{{.VenueDetail.Division.Name}}{{end}}
+                    {{if .VenueDetail.WeekNumber}} · Week {{.VenueDetail.WeekNumber}}{{end}}
+                    · {{.VenueDetail.Fixture.ScheduledDate.Format "Monday 2 January 2006"}}
+                </div>
+            </div>
+
+            <div class="venue-card-body">
+                {{/* Teams display */}}
+                <div class="teams-display">
+                    <div class="team-name">{{if .VenueDetail.HomeTeam}}{{.VenueDetail.HomeTeam.Name}}{{end}}</div>
+                    <div class="vs">vs</div>
+                    <div class="team-name">{{if .VenueDetail.AwayTeam}}{{.VenueDetail.AwayTeam.Name}}{{end}}</div>
+                    <div class="match-info">
+                        {{if .VenueDetail.IsHome}}You're playing at home{{else}}You're playing away{{end}}
+                        · {{.VenueDetail.PlayerTeamName}}
+                    </div>
+                </div>
+
+                {{/* Venue override notice */}}
+                {{if .VenueDetail.IsOverridden}}
+                <div class="override-notice">
+                    <strong>⚠ Venue changed</strong>
+                    {{if .VenueDetail.OverrideReason}} — {{.VenueDetail.OverrideReason}}{{end}}
+                </div>
+                {{end}}
+
+                {{/* Venue details */}}
+                {{if .VenueDetail.VenueClub}}
+                <h2 class="venue-name">{{.VenueDetail.VenueClub.Name}}</h2>
+
+                {{if .VenueDetail.VenueClub.AddressLine1}}
+                <div class="venue-info-row">
+                    <span class="icon">📍</span>
+                    <span>
+                        {{if .VenueDetail.VenueClub.AddressLine1}}{{deref .VenueDetail.VenueClub.AddressLine1}}<br>{{end}}
+                        {{if .VenueDetail.VenueClub.AddressLine2}}{{deref .VenueDetail.VenueClub.AddressLine2}}<br>{{end}}
+                        {{if .VenueDetail.VenueClub.City}}{{deref .VenueDetail.VenueClub.City}} {{end}}
+                        {{if .VenueDetail.VenueClub.Postcode}}{{deref .VenueDetail.VenueClub.Postcode}}{{end}}
+                    </span>
+                </div>
+                {{else if .VenueDetail.VenueClub.Address}}
+                <div class="venue-info-row">
+                    <span class="icon">📍</span>
+                    <span>{{.VenueDetail.VenueClub.Address}}</span>
+                </div>
+                {{end}}
+
+                {{/* Court info badges */}}
+                {{if or .VenueDetail.VenueClub.CourtSurface .VenueDetail.VenueClub.CourtCount}}
+                <div class="court-info">
+                    {{if .VenueDetail.VenueClub.CourtSurface}}
+                    <div class="court-badge">
+                        <div class="value">{{deref .VenueDetail.VenueClub.CourtSurface}}</div>
+                        <div class="label">Surface</div>
+                    </div>
+                    {{end}}
+                    {{if .VenueDetail.VenueClub.CourtCount}}
+                    <div class="court-badge">
+                        <div class="value">{{derefInt .VenueDetail.VenueClub.CourtCount}}</div>
+                        <div class="label">Courts</div>
+                    </div>
+                    {{end}}
+                </div>
+                {{end}}
+
+                {{/* Map embed */}}
+                {{if and .VenueDetail.VenueClub.Latitude .VenueDetail.VenueClub.Longitude}}
+                <div class="map-container">
+                    <iframe src="https://www.openstreetmap.org/export/embed.html?bbox={{addFloat (derefFloat .VenueDetail.VenueClub.Longitude) -0.005}},{{addFloat (derefFloat .VenueDetail.VenueClub.Latitude) -0.003}},{{addFloat (derefFloat .VenueDetail.VenueClub.Longitude) 0.005}},{{addFloat (derefFloat .VenueDetail.VenueClub.Latitude) 0.003}}&layer=mapnik&marker={{derefFloat .VenueDetail.VenueClub.Latitude}},{{derefFloat .VenueDetail.VenueClub.Longitude}}" loading="lazy"></iframe>
+                </div>
+
+                {{/* Direction buttons */}}
+                <div class="directions-buttons">
+                    {{if .GoogleDirectionsURL}}
+                    <a href="{{.GoogleDirectionsURL}}" target="_blank" rel="noopener" class="btn-directions btn-google">
+                        🗺 Get Directions
+                    </a>
+                    {{end}}
+                    {{if .AppleDirectionsURL}}
+                    <a href="{{.AppleDirectionsURL}}" class="btn-directions btn-apple">
+                        🍎 Apple Maps
+                    </a>
+                    {{end}}
+                </div>
+                {{end}}
+
+                {{/* Transport info */}}
+                {{if .VenueDetail.VenueClub.TransportInfo}}
+                <div class="info-section">
+                    <h3>🚌 Getting There</h3>
+                    <p>{{deref .VenueDetail.VenueClub.TransportInfo}}</p>
+                </div>
+                {{end}}
+
+                {{/* Parking info */}}
+                {{if .VenueDetail.VenueClub.ParkingInfo}}
+                <div class="info-section">
+                    <h3>🅿️ Parking</h3>
+                    <p>{{deref .VenueDetail.VenueClub.ParkingInfo}}</p>
+                </div>
+                {{end}}
+
+                {{/* Tips */}}
+                {{if .VenueDetail.VenueClub.Tips}}
+                <div class="info-section">
+                    <h3>💡 Tips</h3>
+                    <p>{{deref .VenueDetail.VenueClub.Tips}}</p>
+                </div>
+                {{end}}
+
+                {{else}}
+                <div class="no-venue-data">
+                    <p>Venue details not yet available for this fixture.</p>
+                    {{if .VenueDetail.Fixture.VenueLocation}}
+                    <p>Location: {{.VenueDetail.Fixture.VenueLocation}}</p>
+                    {{end}}
+                </div>
+                {{end}}
+
+                {{/* Selected players */}}
+                {{if .VenueDetail.SelectedPlayers}}
+                <div class="players-section">
+                    <h3>👥 Selected Players</h3>
+                    <ul class="player-list">
+                        {{range .VenueDetail.SelectedPlayers}}
+                        <li class="{{if .IsHome}}home{{else}}away{{end}} {{if .IsViewingPlayer}}viewing-player{{end}}">
+                            <span class="player-badge {{if .IsHome}}home{{else}}away{{end}}">{{if .IsHome}}H{{else}}A{{end}}</span>
+                            {{if .IsViewingPlayer}}{{.FullName}} (you){{else}}{{.FirstName}} {{.LastInitial}}{{end}}
+                        </li>
+                        {{end}}
+                    </ul>
+                </div>
+                {{end}}
+
+                {{/* Calendar download */}}
+                <a href="/my-availability/{{.AuthToken}}/fixture/{{.VenueDetail.Fixture.ID}}/calendar.ics" class="calendar-btn">
+                    📅 Add to Calendar
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

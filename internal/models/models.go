@@ -89,15 +89,27 @@ type PreferredNameRequest struct {
 
 // Club represents a tennis club that has players and teams
 type Club struct {
-	ID          uint      `json:"id" db:"id"`
-	Name        string    `json:"name" db:"name"`
-	Address     string    `json:"address" db:"address"`
-	Website     string    `json:"website" db:"website"`
-	PhoneNumber string    `json:"phone_number" db:"phone_number"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
-	Players     []Player  `json:"players,omitempty"`
-	Teams       []Team    `json:"teams,omitempty"`
+	ID            uint      `json:"id" db:"id"`
+	Name          string    `json:"name" db:"name"`
+	Address       string    `json:"address" db:"address"`
+	Website       string    `json:"website" db:"website"`
+	PhoneNumber   string    `json:"phone_number" db:"phone_number"`
+	Latitude      *float64  `json:"latitude,omitempty" db:"latitude"`
+	Longitude     *float64  `json:"longitude,omitempty" db:"longitude"`
+	Postcode      *string   `json:"postcode,omitempty" db:"postcode"`
+	AddressLine1  *string   `json:"address_line_1,omitempty" db:"address_line_1"`
+	AddressLine2  *string   `json:"address_line_2,omitempty" db:"address_line_2"`
+	City          *string   `json:"city,omitempty" db:"city"`
+	CourtSurface  *string   `json:"court_surface,omitempty" db:"court_surface"`
+	CourtCount    *int      `json:"court_count,omitempty" db:"court_count"`
+	ParkingInfo   *string   `json:"parking_info,omitempty" db:"parking_info"`
+	TransportInfo *string   `json:"transport_info,omitempty" db:"transport_info"`
+	Tips          *string   `json:"tips,omitempty" db:"tips"`
+	GoogleMapsURL *string   `json:"google_maps_url,omitempty" db:"google_maps_url"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+	Players       []Player  `json:"players,omitempty"`
+	Teams         []Team    `json:"teams,omitempty"`
 }
 
 // LeagueSeason represents the many-to-many relationship between leagues and seasons
@@ -227,6 +239,7 @@ type Fixture struct {
 	Notes               string             `json:"notes" db:"notes"`
 	PreviousDates       []time.Time        `json:"previous_dates,omitempty" db:"previous_dates"`         // Previous scheduled dates (stored as JSON)
 	RescheduledReason   *RescheduledReason `json:"rescheduled_reason,omitempty" db:"rescheduled_reason"` // Reason for rescheduling
+	VenueClubID         *uint              `json:"venue_club_id,omitempty" db:"venue_club_id"`           // Per-fixture venue override (FK to clubs)
 	CreatedAt           time.Time          `json:"created_at" db:"created_at"`
 	UpdatedAt           time.Time          `json:"updated_at" db:"updated_at"`
 	Matchups            []Matchup          `json:"matchups,omitempty"`

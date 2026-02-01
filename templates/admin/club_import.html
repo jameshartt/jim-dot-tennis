@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Club Data Import - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <script>
+        if (typeof htmx === 'undefined') {
+            console.warn('HTMX failed to load from CDN, loading fallback...');
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/htmx.org@1.9.4/dist/htmx.min.js';
+            script.onerror = function() {
+                console.error('Both HTMX CDNs failed, form will use standard submission');
+            };
+            document.head.appendChild(script);
+        }
+    </script>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#2c3e50">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+            text-decoration: underline;
+        }
+        .admin-container {
+            padding: 1rem 0;
+        }
+        .card {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        .card-header {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem;
+            font-weight: 600;
+        }
+        .card-body {
+            padding: 1.5rem;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+            display: block;
+        }
+        .form-control {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+        .form-check {
+            margin: 0.5rem 0;
+        }
+        .form-check-input {
+            margin-right: 0.5rem;
+        }
+        .form-actions {
+            margin-top: 1.5rem;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+        }
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+            transform: translateY(-1px);
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background-color: #545b62;
+            color: white;
+            text-decoration: none;
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .text-muted {
+            color: #6c757d;
+        }
+        .form-text {
+            display: block;
+            margin-top: 0.25rem;
+            font-size: 0.875rem;
+        }
+        .spinner-border {
+            width: 1rem;
+            height: 1rem;
+            border: 0.125em solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spinner-border 0.75s linear infinite;
+        }
+        @keyframes spinner-border {
+            to { transform: rotate(360deg); }
+        }
+        .spinner-border-sm {
+            width: 0.875rem;
+            height: 0.875rem;
+            border-width: 0.125em;
+        }
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 0 -0.5rem;
+        }
+        .col-md-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+            padding: 0 0.5rem;
+        }
+        @media (max-width: 768px) {
+            .col-md-6 {
+                flex: 0 0 100%;
+                max-width: 100%;
+            }
+            .form-actions {
+                flex-direction: column;
+            }
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin/league">Admin</a> / Club Data Import
+            </div>
+            <h1>Club Data Import</h1>
+            <p class="text-muted" style="color: rgba(255,255,255,0.8);">Scrape club information from the BHPLTA website and update the database</p>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <div class="admin-container">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Import Parameters</h3>
+                            </div>
+                            <div class="card-body">
+                                <form id="import-form" hx-post="/admin/league/club-data-import" hx-target="#import-results" hx-swap="innerHTML">
+                                    <div class="form-group">
+                                        <label for="slug">Club</label>
+                                        <select class="form-control" id="slug" name="slug">
+                                            <option value="">All clubs</option>
+                                            {{range .ClubSlugs}}
+                                            <option value="{{.Slug}}">{{.DisplayName}} ({{.Slug}})</option>
+                                            {{end}}
+                                        </select>
+                                        <small class="form-text text-muted">
+                                            Leave blank to scrape all known clubs, or select a specific club.
+                                        </small>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="dry_run" name="dry_run" checked>
+                                            <label class="form-check-label" for="dry_run">
+                                                Dry Run Mode
+                                            </label>
+                                            <small class="form-text text-muted">
+                                                Test the import without making database changes
+                                            </small>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-primary" id="import-btn">
+                                            <span class="btn-text">Start Import</span>
+                                            <span class="btn-loading" style="display: none;">
+                                                <span class="spinner-border spinner-border-sm" role="status"></span>
+                                                Importing...
+                                            </span>
+                                        </button>
+                                        <a href="/admin/league/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Import Results</h3>
+                            </div>
+                            <div class="card-body" id="import-results">
+                                <div class="text-center text-muted" style="padding: 2rem 0;">
+                                    <p>No import has been run yet.</p>
+                                    <p>Select parameters and click "Start Import" to begin.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; Jim.Tennis {{currentYear}}</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('import-form');
+            const importBtn = document.getElementById('import-btn');
+            const btnText = importBtn.querySelector('.btn-text');
+            const btnLoading = importBtn.querySelector('.btn-loading');
+
+            // Show loading state on submit
+            form.addEventListener('htmx:beforeRequest', function() {
+                importBtn.disabled = true;
+                btnText.style.display = 'none';
+                btnLoading.style.display = 'inline-flex';
+            });
+
+            // Reset button after response
+            form.addEventListener('htmx:afterRequest', function() {
+                importBtn.disabled = false;
+                btnText.style.display = 'inline';
+                btnLoading.style.display = 'none';
+            });
+        });
+    </script>
+</body>
+</html>

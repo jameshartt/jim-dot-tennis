@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/services"
 )
 
 // FixturesHandler handles fixture-related requests
@@ -38,6 +39,11 @@ func (h *FixturesHandler) HandleFixtures(w http.ResponseWriter, r *http.Request)
 
 	// Check if this is a specific fixture detail request
 	if strings.Contains(r.URL.Path, "/fixtures/") && r.URL.Path != "/admin/league/fixtures/" {
+		// Check if this is a calendar download request
+		if strings.HasSuffix(r.URL.Path, "/calendar.ics") {
+			h.handleCalendarDownload(w, r)
+			return
+		}
 		// Check if this is a notes update request
 		if strings.HasSuffix(r.URL.Path, "/notes") {
 			h.handleUpdateFixtureNotes(w, r)
@@ -1440,4 +1446,68 @@ func getNavigationContextFromRequest(r *http.Request) map[string]string {
 		"teamName":     r.URL.Query().Get("teamName"),
 		"managingTeam": r.URL.Query().Get("managingTeam"),
 	}
+}
+
+// handleCalendarDownload generates and serves an .ics file for a fixture
+func (h *FixturesHandler) handleCalendarDownload(w http.ResponseWriter, r *http.Request) {
+	// Strip the /calendar.ics suffix to get the fixture path
+	path := strings.TrimSuffix(r.URL.Path, "/calendar.ics")
+	fixtureID, err := parseIDFromPath(path, "/admin/league/fixtures/")
+	if err != nil {
+		logAndError(w, "Invalid fixture ID", err, http.StatusBadRequest)
+		return
+	}
+
+	ctx := context.Background()
+
+	fixture, err := h.service.fixtureRepository.FindByID(ctx, fixtureID)
+	if err != nil {
+		logAndError(w, "Fixture not found", err, http.StatusNotFound)
+		return
+	}
+
+	homeTeam, err := h.service.teamRepository.FindByID(ctx, fixture.HomeTeamID)
+	if err != nil {
+		logAndError(w, "Home team not found", err, http.StatusInternalServerError)
+		return
+	}
+
+	awayTeam, err := h.service.teamRepository.FindByID(ctx, fixture.AwayTeamID)
+	if err != nil {
+		logAndError(w, "Away team not found", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Resolve venue
+	venueResolver := services.NewVenueResolver(h.service.clubRepository, h.service.teamRepository, h.service.venueOverrideRepository)
+	resolution, err := venueResolver.ResolveFixtureVenue(ctx, fixture)
+	if err != nil {
+		logAndError(w, "Failed to resolve venue", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Get division and week info
+	divisionName := ""
+	if d, err := h.service.divisionRepository.FindByID(ctx, fixture.DivisionID); err == nil {
+		divisionName = d.Name
+	}
+	weekNumber := 0
+	if w, err := h.service.weekRepository.FindByID(ctx, fixture.WeekID); err == nil {
+		weekNumber = w.WeekNumber
+	}
+
+	event := services.BuildICalEventFromFixture(
+		fixture,
+		homeTeam.Name,
+		awayTeam.Name,
+		divisionName,
+		weekNumber,
+		resolution.Club,
+	)
+
+	icalContent := services.GenerateICalEvent(event)
+
+	w.Header().Set("Content-Type", "text/calendar; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=fixture-%d.ics", fixtureID))
+	w.Write([]byte(icalContent))
 }

@@ -70,6 +70,31 @@ func parseTemplate(templateDir, templatePath string) (*template.Template, error)
 		"ge": func(a, b int) bool {
 			return a >= b
 		},
+		"addFloat": func(a interface{}, b float64) float64 {
+			switch v := a.(type) {
+			case float64:
+				return v + b
+			case *float64:
+				if v != nil {
+					return *v + b
+				}
+				return b
+			default:
+				return b
+			}
+		},
+		"deref": func(s *string) string {
+			if s != nil {
+				return *s
+			}
+			return ""
+		},
+		"derefFloat": func(f *float64) float64 {
+			if f != nil {
+				return *f
+			}
+			return 0
+		},
 	}
 
 	// Parse template with function map

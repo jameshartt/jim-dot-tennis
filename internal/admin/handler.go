@@ -23,6 +23,8 @@ type Handler struct {
 	matchCardImport   *MatchCardImportationHandler
 	points            *PointsHandler
 	clubWrapped       *ClubWrappedHandler
+	clubs             *ClubsHandler
+	clubImport        *ClubImportHandler
 	seasons           *SeasonsHandler
 	seasonSetup       *SeasonSetupHandler
 	selectionOverview *SelectionOverviewHandler
@@ -44,6 +46,8 @@ func New(db *database.DB, templateDir string) *Handler {
 		matchCardImport:   NewMatchCardImportationHandler(service, templateDir),
 		points:            NewPointsHandler(service, templateDir),
 		clubWrapped:       NewClubWrappedHandler(service, templateDir),
+		clubs:             NewClubsHandler(service, templateDir),
+		clubImport:        NewClubImportHandler(service, templateDir),
 		seasons:           NewSeasonsHandler(service, templateDir),
 		seasonSetup:       NewSeasonSetupHandler(service, templateDir),
 		selectionOverview: NewSelectionOverviewHandler(service, templateDir),
@@ -72,10 +76,16 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/league/sessions/", h.sessions.HandleSessions)
 	adminMux.HandleFunc("/admin/league/teams", h.teams.HandleTeams)
 	adminMux.HandleFunc("/admin/league/teams/", h.teams.HandleTeams)
+	adminMux.HandleFunc("/admin/league/clubs", h.clubs.HandleClubs)
+	adminMux.HandleFunc("/admin/league/clubs/", h.clubs.HandleClubs)
 
 	// Match card import routes
 	adminMux.HandleFunc("/admin/league/match-card-import", h.matchCardImport.HandleMatchCardImportation)
 	adminMux.HandleFunc("/admin/league/match-card-import/", h.matchCardImport.HandleMatchCardImportation)
+
+	// Club data import routes
+	adminMux.HandleFunc("/admin/league/club-data-import", h.clubImport.HandleClubImport)
+	adminMux.HandleFunc("/admin/league/club-data-import/", h.clubImport.HandleClubImport)
 
 	// Points table route
 	adminMux.HandleFunc("/admin/league/points-table", h.points.HandlePointsTable)

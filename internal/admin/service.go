@@ -11,42 +11,45 @@ import (
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
+	"jim-dot-tennis/internal/services"
 )
 
 // Service handles admin business logic
 type Service struct {
-	db                     *database.DB
-	loginAttemptRepository repository.LoginAttemptRepository
-	playerRepository       repository.PlayerRepository
-	clubRepository         repository.ClubRepository
-	fixtureRepository      repository.FixtureRepository
-	teamRepository         repository.TeamRepository
-	weekRepository         repository.WeekRepository
-	divisionRepository     repository.DivisionRepository
-	seasonRepository       repository.SeasonRepository
-	matchupRepository      repository.MatchupRepository
-	fantasyRepository      repository.FantasyMixedDoublesRepository
-	tennisPlayerRepository repository.ProTennisPlayerRepository
-	availabilityRepository repository.AvailabilityRepository
-	teamEligibilityService *TeamEligibilityService
+	db                      *database.DB
+	loginAttemptRepository  repository.LoginAttemptRepository
+	playerRepository        repository.PlayerRepository
+	clubRepository          repository.ClubRepository
+	fixtureRepository       repository.FixtureRepository
+	teamRepository          repository.TeamRepository
+	weekRepository          repository.WeekRepository
+	divisionRepository      repository.DivisionRepository
+	seasonRepository        repository.SeasonRepository
+	matchupRepository       repository.MatchupRepository
+	fantasyRepository       repository.FantasyMixedDoublesRepository
+	tennisPlayerRepository  repository.ProTennisPlayerRepository
+	availabilityRepository  repository.AvailabilityRepository
+	venueOverrideRepository repository.VenueOverrideRepository
+	teamEligibilityService  *TeamEligibilityService
 }
 
 // NewService creates a new admin service
 func NewService(db *database.DB) *Service {
 	service := &Service{
-		db:                     db,
-		loginAttemptRepository: repository.NewLoginAttemptRepository(db),
-		playerRepository:       repository.NewPlayerRepository(db),
-		clubRepository:         repository.NewClubRepository(db),
-		fixtureRepository:      repository.NewFixtureRepository(db),
-		teamRepository:         repository.NewTeamRepository(db),
-		weekRepository:         repository.NewWeekRepository(db),
-		divisionRepository:     repository.NewDivisionRepository(db),
-		seasonRepository:       repository.NewSeasonRepository(db),
-		matchupRepository:      repository.NewMatchupRepository(db),
-		fantasyRepository:      repository.NewFantasyMixedDoublesRepository(db),
-		tennisPlayerRepository: repository.NewProTennisPlayerRepository(db),
-		availabilityRepository: repository.NewAvailabilityRepository(db),
+		db:                      db,
+		loginAttemptRepository:  repository.NewLoginAttemptRepository(db),
+		playerRepository:        repository.NewPlayerRepository(db),
+		clubRepository:          repository.NewClubRepository(db),
+		fixtureRepository:       repository.NewFixtureRepository(db),
+		teamRepository:          repository.NewTeamRepository(db),
+		weekRepository:          repository.NewWeekRepository(db),
+		divisionRepository:      repository.NewDivisionRepository(db),
+		seasonRepository:        repository.NewSeasonRepository(db),
+		matchupRepository:       repository.NewMatchupRepository(db),
+		fantasyRepository:       repository.NewFantasyMixedDoublesRepository(db),
+		tennisPlayerRepository:  repository.NewProTennisPlayerRepository(db),
+		availabilityRepository:  repository.NewAvailabilityRepository(db),
+		venueOverrideRepository: repository.NewVenueOverrideRepository(db),
 	}
 
 	// Initialize team eligibility service with reference to the main service
@@ -66,6 +69,7 @@ type Stats struct {
 	PlayerCount                  int `json:"player_count"`
 	FixtureCount                 int `json:"fixture_count"`
 	TeamCount                    int `json:"team_count"`
+	ClubCount                    int `json:"club_count"`
 	PendingPreferredNameRequests int `json:"pending_preferred_name_requests"`
 }
 
@@ -94,15 +98,18 @@ type FixtureWithRelations struct {
 // FixtureDetail represents a fixture with comprehensive related data for detail view
 type FixtureDetail struct {
 	models.Fixture
-	HomeTeam          *models.Team             `json:"home_team,omitempty"`
-	AwayTeam          *models.Team             `json:"away_team,omitempty"`
-	Week              *models.Week             `json:"week,omitempty"`
-	Division          *models.Division         `json:"division,omitempty"`
-	Season            *models.Season           `json:"season,omitempty"`
-	DayCaptain        *models.Player           `json:"day_captain,omitempty"`
-	Matchups          []MatchupWithPlayers     `json:"matchups,omitempty"`
-	SelectedPlayers   []SelectedPlayerInfo     `json:"selected_players,omitempty"`
-	DuplicateWarnings []DuplicatePlayerWarning `json:"duplicate_warnings,omitempty"`
+	HomeTeam            *models.Team             `json:"home_team,omitempty"`
+	AwayTeam            *models.Team             `json:"away_team,omitempty"`
+	Week                *models.Week             `json:"week,omitempty"`
+	Division            *models.Division         `json:"division,omitempty"`
+	Season              *models.Season           `json:"season,omitempty"`
+	DayCaptain          *models.Player           `json:"day_captain,omitempty"`
+	Matchups            []MatchupWithPlayers     `json:"matchups,omitempty"`
+	SelectedPlayers     []SelectedPlayerInfo     `json:"selected_players,omitempty"`
+	DuplicateWarnings   []DuplicatePlayerWarning `json:"duplicate_warnings,omitempty"`
+	VenueClub           *models.Club             `json:"venue_club,omitempty"`
+	IsVenueOverridden   bool                     `json:"is_venue_overridden"`
+	VenueOverrideReason string                   `json:"venue_override_reason,omitempty"`
 }
 
 // SelectedPlayerInfo represents a player selected for a fixture with additional context
@@ -267,10 +274,18 @@ func (s *Service) GetDashboardData(user *models.User) (*DashboardData, error) {
 		pendingPreferredNameRequests = 0 // Default to 0 if error
 	}
 
+	// Get club count
+	clubs, err := s.clubRepository.FindAll(ctx)
+	clubCount := 0
+	if err == nil {
+		clubCount = len(clubs)
+	}
+
 	stats := Stats{
 		PlayerCount:                  playerCount,
 		FixtureCount:                 fixtureCount,
 		TeamCount:                    teamCount,
+		ClubCount:                    clubCount,
 		PendingPreferredNameRequests: pendingPreferredNameRequests,
 	}
 
@@ -971,6 +986,14 @@ func (s *Service) GetFixtureDetail(fixtureID uint) (*FixtureDetail, error) {
 	// Get season
 	if season, err := s.getSeasonByID(ctx, fixture.SeasonID); err == nil {
 		detail.Season = season
+	}
+
+	// Resolve venue
+	venueResolver := services.NewVenueResolver(s.clubRepository, s.teamRepository, s.venueOverrideRepository)
+	if resolution, err := venueResolver.ResolveFixtureVenue(ctx, fixture); err == nil {
+		detail.VenueClub = resolution.Club
+		detail.IsVenueOverridden = resolution.IsOverridden
+		detail.VenueOverrideReason = resolution.OverrideReason
 	}
 
 	// Get day captain if assigned
@@ -2677,6 +2700,14 @@ func (s *Service) GetFixtureDetailWithTeamContext(fixtureID uint, managingTeamID
 	// Get season
 	if season, err := s.getSeasonByID(ctx, fixture.SeasonID); err == nil {
 		detail.Season = season
+	}
+
+	// Resolve venue
+	venueResolver := services.NewVenueResolver(s.clubRepository, s.teamRepository, s.venueOverrideRepository)
+	if resolution, err := venueResolver.ResolveFixtureVenue(ctx, fixture); err == nil {
+		detail.VenueClub = resolution.Club
+		detail.IsVenueOverridden = resolution.IsOverridden
+		detail.VenueOverrideReason = resolution.OverrideReason
 	}
 
 	// Get day captain if assigned
