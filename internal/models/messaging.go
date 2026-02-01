@@ -100,20 +100,20 @@ const (
 
 // Message represents a persistent message in the system
 type Message struct {
-	ID                uint              `json:"id"`
-	Title             string            `json:"title"`
-	Content           string            `json:"content"`
-	SenderType        SenderType        `json:"sender_type"`
-	SenderID          string            `json:"sender_id,omitempty"` // UUID or ID of sender
-	Category          MessageCategory   `json:"category"`
-	Importance        MessageImportance `json:"importance"`
-	RelatedEntityType EntityType        `json:"related_entity_type,omitempty"`
-	RelatedEntityID   uint              `json:"related_entity_id,omitempty"`
-	IsDraft           bool              `json:"is_draft"`
-	SentAt            *time.Time        `json:"sent_at,omitempty"`
-	SeasonID          uint              `json:"season_id,omitempty"`
-	CreatedAt         time.Time         `json:"created_at"`
-	UpdatedAt         time.Time         `json:"updated_at"`
+	ID                uint               `json:"id"`
+	Title             string             `json:"title"`
+	Content           string             `json:"content"`
+	SenderType        SenderType         `json:"sender_type"`
+	SenderID          string             `json:"sender_id,omitempty"` // UUID or ID of sender
+	Category          MessageCategory    `json:"category"`
+	Importance        MessageImportance  `json:"importance"`
+	RelatedEntityType EntityType         `json:"related_entity_type,omitempty"`
+	RelatedEntityID   uint               `json:"related_entity_id,omitempty"`
+	IsDraft           bool               `json:"is_draft"`
+	SentAt            *time.Time         `json:"sent_at,omitempty"`
+	SeasonID          uint               `json:"season_id,omitempty"`
+	CreatedAt         time.Time          `json:"created_at"`
+	UpdatedAt         time.Time          `json:"updated_at"`
 	Recipients        []MessageRecipient `json:"recipients,omitempty"`
 }
 
@@ -151,15 +151,15 @@ type Notification struct {
 
 // ScheduledMessage represents a message scheduled to be sent in the future
 type ScheduledMessage struct {
-	ID            uint      `json:"id"`
-	MessageID     uint      `json:"message_id"`
-	ScheduledTime time.Time `json:"scheduled_time"`
-	Recurrence    string    `json:"recurrence,omitempty"` // None, Daily, Weekly, Monthly
-	IsSent        bool      `json:"is_sent"`
+	ID            uint       `json:"id"`
+	MessageID     uint       `json:"message_id"`
+	ScheduledTime time.Time  `json:"scheduled_time"`
+	Recurrence    string     `json:"recurrence,omitempty"` // None, Daily, Weekly, Monthly
+	IsSent        bool       `json:"is_sent"`
 	LastSentAt    *time.Time `json:"last_sent_at,omitempty"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	Message       *Message  `json:"message,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+	Message       *Message   `json:"message,omitempty"`
 }
 
 // DeliveryPreference represents a player's preferences for receiving notifications
@@ -176,4 +176,4 @@ type DeliveryPreference struct {
 	ResultNotifications    bool      `json:"result_notifications"`
 	CreatedAt              time.Time `json:"created_at"`
 	UpdatedAt              time.Time `json:"updated_at"`
-} 
+}

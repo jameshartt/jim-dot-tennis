@@ -658,15 +658,17 @@ func (h *FixturesHandler) handlePlayerSelection(w http.ResponseWriter, r *http.R
 
 	// Render inline player selection template
 	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte(`
+	if _, err := w.Write([]byte(`
 		<div class="player-selection-form">
 			<h4>Add Players to Selection</h4>
-			
+
 			` + renderPlayerGroup("Team Players", availableTeamPlayers, fixtureID, isStAnnsHome) + `
-			
+
 			` + renderPlayerGroup("All St Ann Players", availableStAnnPlayers, fixtureID, isStAnnsHome) + `
 		</div>
-	`))
+	`)); err != nil {
+		log.Printf("Failed to write player selection response: %v", err)
+	}
 }
 
 // Helper function to render a group of players
@@ -1166,7 +1168,9 @@ func (h *FixturesHandler) handleUpdateFixtureNotes(w http.ResponseWriter, r *htt
 	// For HTMX requests, return a success response
 	if r.Header.Get("HX-Request") == "true" {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Notes updated successfully"))
+		if _, writeErr := w.Write([]byte("Notes updated successfully")); writeErr != nil {
+			log.Printf("Failed to write notes update response: %v", writeErr)
+		}
 		return
 	}
 
@@ -1206,7 +1210,9 @@ func (h *FixturesHandler) handleSetDayCaptain(w http.ResponseWriter, r *http.Req
 	// For HTMX requests, return a success response
 	if r.Header.Get("HX-Request") == "true" {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Day captain updated successfully"))
+		if _, writeErr := w.Write([]byte("Day captain updated successfully")); writeErr != nil {
+			log.Printf("Failed to write day captain update response: %v", writeErr)
+		}
 		return
 	}
 
@@ -1509,5 +1515,7 @@ func (h *FixturesHandler) handleCalendarDownload(w http.ResponseWriter, r *http.
 
 	w.Header().Set("Content-Type", "text/calendar; charset=utf-8")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=fixture-%d.ics", fixtureID))
-	w.Write([]byte(icalContent))
+	if _, err := w.Write([]byte(icalContent)); err != nil {
+		log.Printf("Failed to write calendar download response: %v", err)
+	}
 }

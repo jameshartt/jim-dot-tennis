@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-
-	"jim-dot-tennis/internal/models"
 )
 
 // SelectionOverviewHandler handles the selection overview dashboard
@@ -196,20 +194,4 @@ func (h *SelectionOverviewHandler) handleRefresh(w http.ResponseWriter, r *http.
 		http.Error(w, "Template error", http.StatusInternalServerError)
 		return
 	}
-}
-
-// Helper function to get week by ID
-func (h *SelectionOverviewHandler) getWeek(weekID uint) (*models.Week, error) {
-	weeks, err := h.service.GetAllWeeks()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, week := range weeks {
-		if week.ID == weekID {
-			return &week, nil
-		}
-	}
-
-	return nil, nil
 }

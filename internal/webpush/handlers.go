@@ -151,10 +151,10 @@ func (s *Service) handleTestPush(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status": "success",
-		"message": "Notifications are being sent",
+		"status":            "success",
+		"message":           "Notifications are being sent",
 		"subscriptionCount": len(subs),
-		"startTime": startTime.Format(time.RFC3339),
+		"startTime":         startTime.Format(time.RFC3339),
 	})
 }
 
@@ -180,8 +180,8 @@ func (s *Service) handleResetVAPIDKeys(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
-		"status": "success",
-		"publicKey": publicKey,
+		"status":     "success",
+		"publicKey":  publicKey,
 		"privateKey": privateKey[:10] + "..." + privateKey[len(privateKey)-10:], // Only show part of private key
 	})
 }
@@ -190,4 +190,4 @@ func (s *Service) handleResetVAPIDKeys(w http.ResponseWriter, r *http.Request) {
 func isLocalhost(r *http.Request) bool {
 	host := r.Host
 	return host == "localhost" || host == "127.0.0.1" || strings.HasPrefix(host, "localhost:") || strings.HasPrefix(host, "127.0.0.1:")
-} 
+}

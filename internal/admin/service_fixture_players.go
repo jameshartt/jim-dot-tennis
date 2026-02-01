@@ -16,13 +16,6 @@ type SelectedPlayerInfo struct {
 	AvailabilityNotes  string                    `json:"availability_notes"`
 }
 
-// PlayerWithAvailability combines player information with their availability status for a fixture
-type PlayerWithAvailability struct {
-	Player             models.Player
-	AvailabilityStatus models.AvailabilityStatus
-	AvailabilityNotes  string
-}
-
 // PlayerWithEligibility combines player information with availability and eligibility for team selection
 type PlayerWithEligibility struct {
 	Player             models.Player
@@ -261,12 +254,6 @@ func (s *Service) RemovePlayerFromFixture(fixtureID uint, playerID string) error
 	return s.fixtureRepository.RemoveSelectedPlayer(ctx, fixtureID, playerID)
 }
 
-// UpdatePlayerPositionInFixture updates the position/order of a selected player
-func (s *Service) UpdatePlayerPositionInFixture(fixtureID uint, playerID string, position int) error {
-	ctx := context.Background()
-	return s.fixtureRepository.UpdateSelectedPlayerPosition(ctx, fixtureID, playerID, position)
-}
-
 // ClearFixturePlayerSelection removes all selected players from a fixture
 func (s *Service) ClearFixturePlayerSelection(fixtureID uint) error {
 	ctx := context.Background()
@@ -313,46 +300,6 @@ func (s *Service) RemovePlayerFromFixtureByTeam(fixtureID uint, playerID string,
 func (s *Service) ClearFixturePlayerSelectionByTeam(fixtureID uint, managingTeamID uint) error {
 	ctx := context.Background()
 	return s.fixtureRepository.ClearSelectedPlayersByTeam(ctx, fixtureID, managingTeamID)
-}
-
-// GetAvailablePlayersForFixtureWithAvailability returns players with their availability status for a fixture
-func (s *Service) GetAvailablePlayersForFixtureWithAvailability(fixtureID uint) ([]PlayerWithAvailability, []PlayerWithAvailability, error) {
-	ctx := context.Background()
-
-	// Get the basic player lists first
-	teamPlayers, allStAnnPlayers, err := s.GetAvailablePlayersForFixture(fixtureID)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Get the fixture to get its date
-	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Convert players to PlayerWithAvailability
-	teamPlayersWithAvail := make([]PlayerWithAvailability, 0, len(teamPlayers))
-	for _, player := range teamPlayers {
-		availability := s.determinePlayerAvailabilityForFixture(ctx, player.ID, fixtureID, fixture.ScheduledDate)
-		teamPlayersWithAvail = append(teamPlayersWithAvail, PlayerWithAvailability{
-			Player:             player,
-			AvailabilityStatus: availability.Status,
-			AvailabilityNotes:  availability.Notes,
-		})
-	}
-
-	allStAnnPlayersWithAvail := make([]PlayerWithAvailability, 0, len(allStAnnPlayers))
-	for _, player := range allStAnnPlayers {
-		availability := s.determinePlayerAvailabilityForFixture(ctx, player.ID, fixtureID, fixture.ScheduledDate)
-		allStAnnPlayersWithAvail = append(allStAnnPlayersWithAvail, PlayerWithAvailability{
-			Player:             player,
-			AvailabilityStatus: availability.Status,
-			AvailabilityNotes:  availability.Notes,
-		})
-	}
-
-	return teamPlayersWithAvail, allStAnnPlayersWithAvail, nil
 }
 
 // GetAvailablePlayersWithEligibilityForTeamSelection retrieves players with both availability and eligibility information

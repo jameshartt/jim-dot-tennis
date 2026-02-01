@@ -522,17 +522,6 @@ func getTeamName(woman, man models.ProTennisPlayer) string {
 	return fmt.Sprintf("%s & %s", woman.LastName, man.LastName)
 }
 
-// Helper functions (similar to admin helpers)
-
-// getUserFromContext extracts user from request context
-func getUserFromContext(r *http.Request) (*models.User, error) {
-	user, err := auth.GetUserFromContext(r.Context())
-	if err != nil {
-		return nil, err
-	}
-	return &user, nil
-}
-
 // logAndError logs an error and sends HTTP error response
 func logAndError(w http.ResponseWriter, message string, err error, statusCode int) {
 	log.Printf("%s: %v", message, err)

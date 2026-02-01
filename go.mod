@@ -1,8 +1,6 @@
 module jim-dot-tennis
 
-go 1.24.1
-
-toolchain go1.24.3
+go 1.25.0
 
 require (
 	github.com/PuerkitoBio/goquery v1.11.0

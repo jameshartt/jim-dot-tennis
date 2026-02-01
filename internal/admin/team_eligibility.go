@@ -262,11 +262,9 @@ func (s *TeamEligibilityService) hasPlayerPlayedInCalendarWeek(ctx context.Conte
 func (s *TeamEligibilityService) countHigherTeamMatchesInDateRange(ctx context.Context, playerID string, targetTeamRank int, rankings []TeamRank, seasonID uint, startDate time.Time, endDate time.Time) (int, string, error) {
 	// Get all teams ranked higher than the target team
 	var higherTeamIDs []uint
-	var higherTeamNames []string
 	for _, ranking := range rankings {
 		if ranking.Rank < targetTeamRank {
 			higherTeamIDs = append(higherTeamIDs, ranking.Team.ID)
-			higherTeamNames = append(higherTeamNames, ranking.Team.Name)
 		}
 	}
 
@@ -424,23 +422,4 @@ func (s *TeamEligibilityService) isLowestRankedTeam(rankings []TeamRank, teamID 
 	}
 
 	return false
-}
-
-// GetPlayersEligibilityForTeamSelection gets eligibility info for all players for team selection
-func (s *TeamEligibilityService) GetPlayersEligibilityForTeamSelection(ctx context.Context, players []models.Player, teamID uint, fixtureID uint) (map[string]*PlayerEligibilityInfo, error) {
-	eligibilityMap := make(map[string]*PlayerEligibilityInfo)
-
-	for _, player := range players {
-		eligibility, err := s.GetPlayerEligibilityForTeam(ctx, player.ID, teamID, fixtureID)
-		if err != nil {
-			// Log error but continue with other players
-			eligibility = &PlayerEligibilityInfo{
-				Player:  player,
-				CanPlay: true, // Default to allowing play if we can't determine eligibility
-			}
-		}
-		eligibilityMap[player.ID] = eligibility
-	}
-
-	return eligibilityMap, nil
 }

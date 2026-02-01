@@ -52,12 +52,6 @@ func (s *Service) GetActiveSeason() (*models.Season, error) {
 	return s.seasonRepository.FindActive(ctx)
 }
 
-// CreateSeason creates a new season
-func (s *Service) CreateSeason(season *models.Season) error {
-	ctx := context.Background()
-	return s.seasonRepository.Create(ctx, season)
-}
-
 // CreateSeasonWithWeeks creates a season and automatically generates weeks for it
 func (s *Service) CreateSeasonWithWeeks(season *models.Season, numWeeks int) error {
 	ctx := context.Background()
@@ -131,12 +125,6 @@ func (s *Service) SetActiveSeason(seasonID uint) error {
 	}
 
 	return nil
-}
-
-// GetAllWeeks retrieves all weeks
-func (s *Service) GetAllWeeks() ([]models.Week, error) {
-	ctx := context.Background()
-	return s.weekRepository.FindAll(ctx)
 }
 
 // GetWeeksBySeason retrieves weeks for a specific season
@@ -300,12 +288,12 @@ func (s *Service) CopyFromPreviousSeason(targetSeasonID uint, copyDivisions, cop
 
 		for _, oldDiv := range oldDivisions {
 			newDiv := &models.Division{
-				Name:             oldDiv.Name,
-				Level:            oldDiv.Level,
-				PlayDay:          oldDiv.PlayDay,
-				LeagueID:         oldDiv.LeagueID,
-				SeasonID:         targetSeasonID,
-				MaxTeamsPerClub:  oldDiv.MaxTeamsPerClub,
+				Name:            oldDiv.Name,
+				Level:           oldDiv.Level,
+				PlayDay:         oldDiv.PlayDay,
+				LeagueID:        oldDiv.LeagueID,
+				SeasonID:        targetSeasonID,
+				MaxTeamsPerClub: oldDiv.MaxTeamsPerClub,
 			}
 
 			if err := s.divisionRepository.Create(ctx, newDiv); err != nil {

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -260,7 +261,9 @@ func (h *MatchCardImportationHandler) renderImportError(w http.ResponseWriter, m
 	`, message, err)
 
 	w.WriteHeader(http.StatusBadRequest)
-	w.Write([]byte(errorHTML))
+	if _, writeErr := w.Write([]byte(errorHTML)); writeErr != nil {
+		log.Printf("Failed to write import error response: %v", writeErr)
+	}
 }
 
 // renderImportSuccess renders a success response for the import
@@ -326,7 +329,9 @@ func (h *MatchCardImportationHandler) renderImportSuccess(w http.ResponseWriter,
 		time.Now().Format("2006-01-02 15:04:05"),
 	)
 
-	w.Write([]byte(successHTML))
+	if _, err := w.Write([]byte(successHTML)); err != nil {
+		log.Printf("Failed to write import success response: %v", err)
+	}
 }
 
 // generateStatsHTML creates HTML for displaying import statistics

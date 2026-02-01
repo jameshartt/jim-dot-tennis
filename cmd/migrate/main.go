@@ -61,10 +61,10 @@ func getStringValue(flagValue, envName, defaultValue string) string {
 	if flagValue != "" {
 		return flagValue
 	}
-	
+
 	if envValue := os.Getenv(envName); envValue != "" {
 		return envValue
 	}
-	
+
 	return defaultValue
-} 
+}

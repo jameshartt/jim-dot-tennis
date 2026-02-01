@@ -53,30 +53,6 @@ func NewService(db *database.DB) *Service {
 	return service
 }
 
-// getCurrentWeekDateRange returns the start and end dates of the current week (Monday to Sunday)
-func (s *Service) getCurrentWeekDateRange() (time.Time, time.Time) {
-	now := time.Now()
-
-	// Get the day of the week (0=Sunday, 1=Monday, etc.)
-	dayOfWeek := int(now.Weekday())
-
-	// Calculate days since Monday (convert Sunday=0 to Sunday=6)
-	if dayOfWeek == 0 {
-		dayOfWeek = 7
-	}
-	daysSinceMonday := dayOfWeek - 1
-
-	// Get start of week (Monday)
-	weekStart := now.AddDate(0, 0, -daysSinceMonday)
-	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
-
-	// Get end of week (Sunday)
-	weekEnd := weekStart.AddDate(0, 0, 6)
-	weekEnd = time.Date(weekEnd.Year(), weekEnd.Month(), weekEnd.Day(), 23, 59, 59, 999999999, weekEnd.Location())
-
-	return weekStart, weekEnd
-}
-
 // getNextWeekDateRange returns the start and end dates of the next week (Monday to Sunday)
 func (s *Service) getNextWeekDateRange() (time.Time, time.Time) {
 	now := time.Now()

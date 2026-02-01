@@ -3,11 +3,12 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"jim-dot-tennis/internal/database"
-	"jim-dot-tennis/internal/models"
 	"regexp"
 	"strings"
 	"time"
+
+	"jim-dot-tennis/internal/database"
+	"jim-dot-tennis/internal/models"
 )
 
 // clubColumns is the standard set of columns for club queries

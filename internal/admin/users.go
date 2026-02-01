@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -61,11 +60,11 @@ func (h *UsersHandler) handleUsersGet(w http.ResponseWriter, r *http.Request, us
 	}
 
 	data := map[string]interface{}{
-		"User":        user,
-		"Users":       users,
-		"Roles":       []string{string(models.RoleAdmin), string(models.RoleCaptain), string(models.RolePlayer)},
-		"SuccessMsg":  r.URL.Query().Get("success"),
-		"ErrorMsg":    r.URL.Query().Get("error"),
+		"User":       user,
+		"Users":      users,
+		"Roles":      []string{string(models.RoleAdmin), string(models.RoleCaptain), string(models.RolePlayer)},
+		"SuccessMsg": r.URL.Query().Get("success"),
+		"ErrorMsg":   r.URL.Query().Get("error"),
 	}
 
 	tmpl, err := parseTemplate(h.templateDir, "admin/users.html")
@@ -175,7 +174,7 @@ func (h *UsersHandler) handleUserAction(w http.ResponseWriter, r *http.Request, 
 		}
 		if err := h.service.ResetUserPassword(targetID, newPassword); err != nil {
 			log.Printf("Failed to reset password: %v", err)
-			http.Redirect(w, r, fmt.Sprintf("/admin/league/users?error=Failed+to+reset+password"), http.StatusSeeOther)
+			http.Redirect(w, r, "/admin/league/users?error=Failed+to+reset+password", http.StatusSeeOther)
 			return
 		}
 		http.Redirect(w, r, "/admin/league/users?success=Password+reset+successfully", http.StatusSeeOther)

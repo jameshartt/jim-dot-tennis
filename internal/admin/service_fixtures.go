@@ -42,12 +42,6 @@ type FixtureDetail struct {
 	VenueOverrideReason string                   `json:"venue_override_reason,omitempty"`
 }
 
-// GetFixtures retrieves all fixtures for admin management
-func (s *Service) GetFixtures() (interface{}, error) {
-	// TODO: Implement fixture retrieval from database
-	return nil, nil
-}
-
 // GetStAnnsFixtures retrieves upcoming fixtures for St. Ann's club with related data
 func (s *Service) GetStAnnsFixtures() (*models.Club, []FixtureWithRelations, error) {
 	ctx := context.Background()

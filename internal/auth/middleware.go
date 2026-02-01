@@ -137,15 +137,6 @@ func GetUserFromContext(ctx context.Context) (models.User, error) {
 	return user, nil
 }
 
-// GetRoleFromContext gets the role from the request context
-func GetRoleFromContext(ctx context.Context) (models.Role, error) {
-	role, ok := ctx.Value(RoleContextKey).(models.Role)
-	if !ok {
-		return "", errors.New("role not found in context")
-	}
-	return role, nil
-}
-
 // GetPlayerFromContext gets the player from the request context (for fantasy token auth)
 func GetPlayerFromContext(ctx context.Context) (models.Player, error) {
 	player, ok := ctx.Value(PlayerContextKey).(models.Player)

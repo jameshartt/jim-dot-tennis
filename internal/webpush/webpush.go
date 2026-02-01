@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/SherClockHolmes/webpush-go"
+
 	"jim-dot-tennis/internal/database"
 )
 
@@ -53,7 +54,7 @@ func (s *Service) GenerateVAPIDKeys() (publicKey, privateKey string, err error) 
 		PublicKey  string `db:"public_key"`
 		PrivateKey string `db:"private_key"`
 	}
-	
+
 	err = s.db.QueryRow("SELECT public_key, private_key FROM vapid_keys LIMIT 1").Scan(&keys.PublicKey, &keys.PrivateKey)
 	if err == nil {
 		// Keys already exist, verify format
@@ -63,22 +64,22 @@ func (s *Service) GenerateVAPIDKeys() (publicKey, privateKey string, err error) 
 			return keys.PublicKey, keys.PrivateKey, nil
 		}
 	}
-	
+
 	if err != nil && err != sql.ErrNoRows {
 		return "", "", err
 	}
-	
+
 	// Generate new VAPID keys
 	vapidPrivate, vapidPublic, err := webpush.GenerateVAPIDKeys()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to generate VAPID keys: %v", err)
 	}
-	
+
 	// Ensure the public key is in the correct format
 	if !isValidVAPIDKey(vapidPublic) {
 		return "", "", fmt.Errorf("generated VAPID public key is not in the correct format")
 	}
-	
+
 	// Store the keys in the database
 	_, err = s.db.Exec(
 		"INSERT INTO vapid_keys (public_key, private_key) VALUES ($1, $2)",
@@ -87,7 +88,7 @@ func (s *Service) GenerateVAPIDKeys() (publicKey, privateKey string, err error) 
 	if err != nil {
 		return "", "", fmt.Errorf("failed to store VAPID keys: %v", err)
 	}
-	
+
 	return vapidPublic, vapidPrivate, nil
 }
 
@@ -96,43 +97,43 @@ func isValidVAPIDKey(key string) bool {
 	// VAPID public key should be a base64 URL-safe string
 	// It should decode to 65 bytes (uncompressed public key)
 	// and should start with "BP" when decoded (indicating it's a valid ECDSA P-256 public key)
-	
+
 	// Add padding if needed
 	padding := (4 - len(key)%4) % 4
 	key = key + strings.Repeat("=", padding)
-	
+
 	// Replace URL-safe characters
 	key = strings.ReplaceAll(key, "-", "+")
 	key = strings.ReplaceAll(key, "_", "/")
-	
+
 	// Decode the key
 	decoded, err := base64.StdEncoding.DecodeString(key)
 	if err != nil {
 		return false
 	}
-	
+
 	// Check length (should be 65 bytes for uncompressed public key)
 	if len(decoded) != 65 {
 		return false
 	}
-	
+
 	// Check if it starts with 0x04 (uncompressed public key)
 	if decoded[0] != 0x04 {
 		return false
 	}
-	
+
 	return true
 }
 
 // GetVAPIDKeys returns the stored VAPID keys
 func (s *Service) GetVAPIDKeys() (publicKey, privateKey string, err error) {
 	log.Printf("Attempting to retrieve VAPID keys from database...")
-	
+
 	var keys struct {
 		PublicKey  string `db:"public_key"`
 		PrivateKey string `db:"private_key"`
 	}
-	
+
 	err = s.db.QueryRow("SELECT public_key, private_key FROM vapid_keys LIMIT 1").Scan(&keys.PublicKey, &keys.PrivateKey)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -142,13 +143,13 @@ func (s *Service) GetVAPIDKeys() (publicKey, privateKey string, err error) {
 		log.Printf("Database error retrieving VAPID keys: %v", err)
 		return "", "", err
 	}
-	
+
 	// Verify the public key format
 	if !isValidVAPIDKey(keys.PublicKey) {
 		log.Printf("Stored VAPID public key is not in the correct format, generating new keys...")
 		return s.GenerateVAPIDKeys()
 	}
-	
+
 	log.Printf("Successfully retrieved VAPID keys from database")
 	return keys.PublicKey, keys.PrivateKey, nil
 }
@@ -257,14 +258,14 @@ func (s *Service) SendToAll(message string) error {
 	for i, sub := range subs {
 		log.Printf("Processing subscription %d/%d (endpoint: %s)", i+1, len(subs), sub.Endpoint)
 		sendStart := time.Now()
-		
+
 		if err := s.SendNotification(sub, message); err != nil {
-			log.Printf("Failed to send to subscription %d/%d (endpoint: %s): %v", 
+			log.Printf("Failed to send to subscription %d/%d (endpoint: %s): %v",
 				i+1, len(subs), sub.Endpoint, err)
 			failureCount++
 			lastErr = err
 		} else {
-			log.Printf("Successfully sent to subscription %d/%d (endpoint: %s) in %v", 
+			log.Printf("Successfully sent to subscription %d/%d (endpoint: %s) in %v",
 				i+1, len(subs), sub.Endpoint, time.Since(sendStart))
 			successCount++
 		}
@@ -272,11 +273,11 @@ func (s *Service) SendToAll(message string) error {
 
 	totalDuration := time.Since(startTime)
 	log.Printf("SendToAll completed in %v", totalDuration)
-	log.Printf("Results: %d successful, %d failed out of %d total subscriptions", 
+	log.Printf("Results: %d successful, %d failed out of %d total subscriptions",
 		successCount, failureCount, len(subs))
 
 	if failureCount > 0 {
-		return fmt.Errorf("some notifications failed (%d/%d): last error: %v", 
+		return fmt.Errorf("some notifications failed (%d/%d): last error: %v",
 			failureCount, len(subs), lastErr)
 	}
 	return nil
@@ -285,13 +286,13 @@ func (s *Service) SendToAll(message string) error {
 // ListVAPIDKeys returns all VAPID keys in the database (for debugging)
 func (s *Service) ListVAPIDKeys() error {
 	log.Printf("Listing all VAPID keys in database...")
-	
+
 	rows, err := s.db.Query("SELECT public_key, private_key FROM vapid_keys")
 	if err != nil {
 		return fmt.Errorf("error querying VAPID keys: %v", err)
 	}
 	defer rows.Close()
-	
+
 	var count int
 	for rows.Next() {
 		var publicKey, privateKey string
@@ -301,13 +302,13 @@ func (s *Service) ListVAPIDKeys() error {
 		count++
 		log.Printf("VAPID Key #%d:", count)
 		log.Printf("  Public Key:  %s", publicKey)
-		log.Printf("  Private Key: %s", privateKey[:10] + "..." + privateKey[len(privateKey)-10:]) // Only show part of private key for security
+		log.Printf("  Private Key: %s", privateKey[:10]+"..."+privateKey[len(privateKey)-10:]) // Only show part of private key for security
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("error iterating VAPID key rows: %v", err)
 	}
-	
+
 	log.Printf("Found %d VAPID key(s) in database", count)
 	return nil
 }
@@ -315,13 +316,13 @@ func (s *Service) ListVAPIDKeys() error {
 // ResetVAPIDKeys deletes existing VAPID keys and generates new ones
 func (s *Service) ResetVAPIDKeys() (publicKey, privateKey string, err error) {
 	log.Printf("Resetting VAPID keys...")
-	
+
 	// Delete existing keys
 	_, err = s.db.Exec("DELETE FROM vapid_keys")
 	if err != nil {
 		return "", "", fmt.Errorf("failed to delete existing VAPID keys: %v", err)
 	}
-	
+
 	// Generate new keys
 	return s.GenerateVAPIDKeys()
-} 
+}

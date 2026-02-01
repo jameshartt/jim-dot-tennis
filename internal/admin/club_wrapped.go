@@ -700,7 +700,7 @@ func (h *ClubWrappedHandler) calculateClubFixtureBreakdown(ctx context.Context, 
 		for clubRows.Next() {
 			var id int
 			var name string
-			clubRows.Scan(&id, &name)
+			_ = clubRows.Scan(&id, &name)
 			log.Printf("Club ID: %d, Name: '%s'", id, name)
 		}
 	}
@@ -708,7 +708,7 @@ func (h *ClubWrappedHandler) calculateClubFixtureBreakdown(ctx context.Context, 
 	// Debug: Check total fixtures
 	totalFixturesQuery := `SELECT COUNT(*) FROM fixtures WHERE status = 'Completed'`
 	var totalFixtures int
-	h.service.db.QueryRowContext(ctx, totalFixturesQuery).Scan(&totalFixtures)
+	_ = h.service.db.QueryRowContext(ctx, totalFixturesQuery).Scan(&totalFixtures)
 	log.Printf("=== DEBUG: Total completed fixtures: %d ===", totalFixtures)
 
 	// Simplified approach - let's get ALL completed fixtures first

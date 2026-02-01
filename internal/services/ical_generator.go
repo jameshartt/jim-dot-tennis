@@ -10,15 +10,15 @@ import (
 
 // ICalEvent contains the data needed to generate an .ics calendar event
 type ICalEvent struct {
-	FixtureID     uint
-	Summary       string    // e.g., "Tennis: St Ann's A vs Hove B"
-	StartTime     time.Time
-	EndTime       time.Time
-	Location      string    // Full address
-	Latitude      *float64
-	Longitude     *float64
-	Description   string    // Division, week, teams, venue details
-	URL           string    // Google Maps URL or club website
+	FixtureID   uint
+	Summary     string // e.g., "Tennis: St Ann's A vs Hove B"
+	StartTime   time.Time
+	EndTime     time.Time
+	Location    string // Full address
+	Latitude    *float64
+	Longitude   *float64
+	Description string // Division, week, teams, venue details
+	URL         string // Google Maps URL or club website
 }
 
 // GenerateICalEvent generates an .ics file content string for a fixture

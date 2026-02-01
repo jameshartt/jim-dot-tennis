@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"fmt"
-	"sort"
 
 	"jim-dot-tennis/internal/models"
 )
@@ -25,12 +24,6 @@ type DuplicatePlayerWarning struct {
 	PlayerID   string   `json:"player_id"`
 	PlayerName string   `json:"player_name"`
 	Matchups   []string `json:"matchups"` // List of matchup types where this player appears
-}
-
-// FixtureDetailWithMatchups represents fixture detail with matchups and players
-type FixtureDetailWithMatchups struct {
-	FixtureDetail       FixtureDetail        `json:"fixture_detail"`
-	MatchupsWithPlayers []MatchupWithPlayers `json:"matchups_with_players"`
 }
 
 // detectDuplicatePlayersInMatchups checks for players assigned to multiple matchups
@@ -81,19 +74,6 @@ func getMatchupOrder(matchupType models.MatchupType) int {
 	default:
 		return 4 // Unknown types go last
 	}
-}
-
-// CreateMatchup creates a new matchup for a fixture
-func (s *Service) CreateMatchup(fixtureID uint, matchupType models.MatchupType) (*models.Matchup, error) {
-	ctx := context.Background()
-
-	// Determine the managing team ID
-	managingTeamID, err := s.determineManagingTeamID(ctx, fixtureID)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.CreateMatchupWithTeam(fixtureID, matchupType, managingTeamID)
 }
 
 // CreateMatchupWithTeam creates a new matchup with explicit managing team ID (for derby matches)
@@ -191,55 +171,6 @@ func (s *Service) GetOrCreateMatchupWithTeam(fixtureID uint, matchupType models.
 	return s.CreateMatchupWithTeam(fixtureID, matchupType, managingTeamID)
 }
 
-// UpdateMatchupPlayers updates the players assigned to a matchup
-func (s *Service) UpdateMatchupPlayers(matchupID uint, homePlayer1ID, homePlayer2ID, awayPlayer1ID, awayPlayer2ID string) error {
-	ctx := context.Background()
-
-	// Clear existing players
-	err := s.matchupRepository.ClearPlayers(ctx, matchupID)
-	if err != nil {
-		return err
-	}
-
-	// Add home players
-	if homePlayer1ID != "" {
-		err = s.matchupRepository.AddPlayer(ctx, matchupID, homePlayer1ID, true)
-		if err != nil {
-			return err
-		}
-	}
-	if homePlayer2ID != "" {
-		err = s.matchupRepository.AddPlayer(ctx, matchupID, homePlayer2ID, true)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Add away players
-	if awayPlayer1ID != "" {
-		err = s.matchupRepository.AddPlayer(ctx, matchupID, awayPlayer1ID, false)
-		if err != nil {
-			return err
-		}
-	}
-	if awayPlayer2ID != "" {
-		err = s.matchupRepository.AddPlayer(ctx, matchupID, awayPlayer2ID, false)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Update status to Playing if all 4 players are assigned
-	if homePlayer1ID != "" && homePlayer2ID != "" && awayPlayer1ID != "" && awayPlayer2ID != "" {
-		err = s.matchupRepository.UpdateStatus(ctx, matchupID, models.Playing)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // UpdateStAnnsMatchupPlayers updates St Ann's players for a matchup, determining if they're home or away
 func (s *Service) UpdateStAnnsMatchupPlayers(matchupID uint, fixtureID uint, stAnnsPlayer1ID, stAnnsPlayer2ID string) error {
 	ctx := context.Background()
@@ -311,52 +242,6 @@ func (s *Service) UpdateStAnnsMatchupPlayers(matchupID uint, fixtureID uint, stA
 	}
 
 	return nil
-}
-
-// GetFixtureWithMatchups gets fixture details including matchups and their players
-func (s *Service) GetFixtureWithMatchups(fixtureID uint) (*FixtureDetailWithMatchups, error) {
-	ctx := context.Background()
-
-	// Get basic fixture detail
-	fixtureDetail, err := s.GetFixtureDetail(fixtureID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get matchups for this fixture
-	matchups, err := s.matchupRepository.FindByFixture(ctx, fixtureID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get players for each matchup
-	var matchupsWithPlayers []MatchupWithPlayers
-	for _, matchup := range matchups {
-		matchupPlayers, err := s.matchupRepository.FindPlayersInMatchup(ctx, matchup.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		var playersWithInfo []MatchupPlayerWithInfo
-		for _, mp := range matchupPlayers {
-			if player, err := s.playerRepository.FindByID(ctx, mp.PlayerID); err == nil {
-				playersWithInfo = append(playersWithInfo, MatchupPlayerWithInfo{
-					MatchupPlayer: mp,
-					Player:        *player,
-				})
-			}
-		}
-
-		matchupsWithPlayers = append(matchupsWithPlayers, MatchupWithPlayers{
-			Matchup: matchup,
-			Players: playersWithInfo,
-		})
-	}
-
-	return &FixtureDetailWithMatchups{
-		FixtureDetail:       *fixtureDetail,
-		MatchupsWithPlayers: matchupsWithPlayers,
-	}, nil
 }
 
 // GetAvailablePlayersForMatchup gets available players for a specific matchup
@@ -504,11 +389,4 @@ func (s *Service) RemovePlayerFromMatchup(matchupID uint, playerID string) error
 	}
 
 	return nil
-}
-
-// sortMatchupsWithPlayers sorts matchups in the desired order using sort package
-func sortMatchupsWithPlayers(matchupsWithPlayers []MatchupWithPlayers) {
-	sort.Slice(matchupsWithPlayers, func(i, j int) bool {
-		return getMatchupOrder(matchupsWithPlayers[i].Matchup.Type) < getMatchupOrder(matchupsWithPlayers[j].Matchup.Type)
-	})
 }

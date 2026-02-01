@@ -7,7 +7,8 @@
   "complexity": "S",
   "parallelisable": true,
   "dependencies": ["WI-022"],
-  "status": "not_started",
+  "status": "completed",
+  "completed_date": "2026-02-01",
   "phase": "Phase 5: Code Quality & Tooling",
   "acceptance_criteria": [
     "gofmt -l . reports zero files (all files already formatted)",

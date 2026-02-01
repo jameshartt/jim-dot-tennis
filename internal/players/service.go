@@ -114,25 +114,6 @@ func (s *Service) GetFantasyMatchByToken(authToken string) (*FantasyMatchDetail,
 	}, nil
 }
 
-// GenerateFantasyMatchForPlayer creates a new random fantasy match and returns its auth token
-func (s *Service) GenerateFantasyMatchForPlayer() (string, error) {
-	ctx := context.Background()
-
-	// Generate one random match
-	if err := s.fantasyRepository.GenerateRandomMatches(ctx, 1); err != nil {
-		return "", fmt.Errorf("failed to generate fantasy match: %w", err)
-	}
-
-	// Get the most recently created active match
-	activeMatches, err := s.fantasyRepository.FindActive(ctx)
-	if err != nil || len(activeMatches) == 0 {
-		return "", fmt.Errorf("failed to retrieve generated match")
-	}
-
-	// Return the auth token of the most recent match
-	return activeMatches[0].AuthToken, nil
-}
-
 // FantasyMatchDetail contains all details about a fantasy mixed doubles match
 type FantasyMatchDetail struct {
 	Match      models.FantasyMixedDoubles `json:"match"`
@@ -351,18 +332,18 @@ func (s *Service) RequestPreferredName(playerID string, preferredName string) er
 
 // PlayerUpcomingFixture represents upcoming fixture information for a player (privacy-focused)
 type PlayerUpcomingFixture struct {
-	FixtureID          uint      `json:"fixture_id"`
-	ScheduledDate      time.Time `json:"scheduled_date"`
-	Division           string    `json:"division"`             // e.g. "Div. 1", "Div. 2"
-	WeekNumber         int       `json:"week_number"`          // e.g. 1, 2, 3
-	IsHome             bool      `json:"is_home"`              // Whether player's team is at home
-	IsAway             bool      `json:"is_away"`              // Whether player's team is away
-	IsDerby            bool      `json:"is_derby"`             // Whether both teams are from same club
-	MyTeam             string    `json:"my_team"`              // The team the player is playing FOR
-	OpponentTeam       string    `json:"opponent_team"`        // The opposing team name (no player names)
-	VenueHint          string    `json:"venue_hint"`           // General location hint if available
-	VenueClubName      string    `json:"venue_club_name"`      // Resolved venue club name
-	IsVenueOverridden  bool      `json:"is_venue_overridden"`  // Whether venue has been overridden
+	FixtureID         uint      `json:"fixture_id"`
+	ScheduledDate     time.Time `json:"scheduled_date"`
+	Division          string    `json:"division"`            // e.g. "Div. 1", "Div. 2"
+	WeekNumber        int       `json:"week_number"`         // e.g. 1, 2, 3
+	IsHome            bool      `json:"is_home"`             // Whether player's team is at home
+	IsAway            bool      `json:"is_away"`             // Whether player's team is away
+	IsDerby           bool      `json:"is_derby"`            // Whether both teams are from same club
+	MyTeam            string    `json:"my_team"`             // The team the player is playing FOR
+	OpponentTeam      string    `json:"opponent_team"`       // The opposing team name (no player names)
+	VenueHint         string    `json:"venue_hint"`          // General location hint if available
+	VenueClubName     string    `json:"venue_club_name"`     // Resolved venue club name
+	IsVenueOverridden bool      `json:"is_venue_overridden"` // Whether venue has been overridden
 }
 
 // GetPlayerUpcomingFixtures retrieves upcoming fixtures where the player has been selected

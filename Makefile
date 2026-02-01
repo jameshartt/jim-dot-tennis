@@ -1,5 +1,6 @@
 .PHONY: build run stop clean backup logs restart build-local run-local local \
-	build-tmx courthive courthive-up courthive-down courthive-restart courthive-logs
+	build-tmx courthive courthive-up courthive-down courthive-restart courthive-logs \
+	vet fmt fmt-fix imports imports-fix lint deadcode tidy check
 
 # Docker compose command
 DOCKER_COMPOSE = docker compose
@@ -123,6 +124,69 @@ ps:
 
 # Follow the TDD development workflow
 dev: build run logs
+
+# ============================================================
+# Go Tooling (runs inside Docker - no local Go required)
+# ============================================================
+
+# Go image (matches Dockerfile builder stage)
+GO_IMAGE = golang:1.25-alpine
+
+# Docker run for tools that need CGO (vet, deadcode, mod tidy - anything that type-checks sqlite)
+DOCKER_GO_CGO = docker run --rm -v $$(pwd):/app -w /app $(GO_IMAGE) sh -c \
+	"apk add --no-cache gcc musl-dev sqlite-dev build-base > /dev/null 2>&1 && CGO_ENABLED=1
+
+# Docker run for text-only tools (gofmt, goimports - no compilation needed)
+DOCKER_GO = docker run --rm -v $$(pwd):/app -w /app $(GO_IMAGE)
+
+# Run go vet (static analysis)
+vet:
+	@echo "Running go vet..."
+	@$(DOCKER_GO_CGO) go vet ./..."
+
+# Check formatting (list unformatted files)
+fmt:
+	@echo "Checking formatting..."
+	@$(DOCKER_GO) gofmt -l .
+
+# Fix formatting in-place
+fmt-fix:
+	@echo "Fixing formatting..."
+	@$(DOCKER_GO) gofmt -w .
+
+# Check import ordering (list files with import issues)
+imports:
+	@echo "Checking imports..."
+	@$(DOCKER_GO) sh -c "go install golang.org/x/tools/cmd/goimports@latest && goimports -l -local jim-dot-tennis ."
+
+# Fix import ordering in-place
+imports-fix:
+	@echo "Fixing imports..."
+	@$(DOCKER_GO) sh -c "go install golang.org/x/tools/cmd/goimports@latest && goimports -w -local jim-dot-tennis ."
+
+# Run golangci-lint (comprehensive linting)
+lint:
+	@echo "Running golangci-lint..."
+	@docker run --rm -v $$(pwd):/app -w /app -e GOFLAGS=-buildvcs=false $(GO_IMAGE) sh -c \
+		"apk add --no-cache gcc musl-dev sqlite-dev build-base git > /dev/null 2>&1 && CGO_ENABLED=1 go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && golangci-lint run ./..."
+
+# Run dead code detection
+deadcode:
+	@echo "Running deadcode analysis..."
+	@$(DOCKER_GO_CGO) go install golang.org/x/tools/cmd/deadcode@latest && deadcode ./..."
+
+# Run go mod tidy
+tidy:
+	@echo "Running go mod tidy..."
+	@$(DOCKER_GO_CGO) go mod tidy"
+
+# Run all read-only checks
+check: vet fmt lint deadcode
+	@echo "All checks complete."
+
+# ============================================================
+# CourtHive
+# ============================================================
 
 # CourtHive compose file
 COURTHIVE_COMPOSE = $(DOCKER_COMPOSE) -f docker-compose.courthive.yml

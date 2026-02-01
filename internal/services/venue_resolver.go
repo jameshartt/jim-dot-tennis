@@ -3,6 +3,8 @@ package services
 import (
 	"context"
 	"database/sql"
+	"fmt"
+
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
 )
@@ -19,10 +21,10 @@ type VenueResolver struct {
 
 // VenueResolution contains the resolved venue information
 type VenueResolution struct {
-	Club             *models.Club  `json:"club"`
-	IsOverridden     bool          `json:"is_overridden"`
-	OverrideReason   string        `json:"override_reason,omitempty"`
-	OverrideType     string        `json:"override_type,omitempty"` // "fixture" or "date_range"
+	Club           *models.Club `json:"club"`
+	IsOverridden   bool         `json:"is_overridden"`
+	OverrideReason string       `json:"override_reason,omitempty"`
+	OverrideType   string       `json:"override_type,omitempty"` // "fixture" or "date_range"
 }
 
 // NewVenueResolver creates a new venue resolver
@@ -68,8 +70,7 @@ func (vr *VenueResolver) ResolveFixtureVenue(ctx context.Context, fixture *model
 	// 3. Check for active date-range override for the home team's club
 	override, err := vr.venueOverrideRepository.FindActiveForClubOnDate(ctx, homeClub.ID, fixture.ScheduledDate)
 	if err != nil && err != sql.ErrNoRows {
-		// If there's an actual error (not just "no rows"), we still fall through to default
-		// but log it via the caller
+		return nil, fmt.Errorf("failed to check venue override: %w", err)
 	}
 	if err == nil && override != nil {
 		venueClub, err := vr.clubRepository.FindByID(ctx, override.VenueClubID)

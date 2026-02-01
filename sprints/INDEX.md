@@ -4,15 +4,17 @@ This file provides a quick reference to all sprints and their status.
 
 ## Active Sprints
 
+None currently active.
+
+## Completed Sprints
+
 ### Sprint 004: Spring Clean: Go Tooling, Dead Code, Linting & Environment Update
-- **Status**: Planned
-- **Duration**: Short sprint (Feb 1-3, 2026)
-- **Work Items**: 6 (WI-022 to WI-027)
+- **Status**: Completed (closed 2026-02-01)
+- **Duration**: Short sprint (Feb 1, 2026)
+- **Work Items**: 6 (WI-022 to WI-027) - all completed
 - **Goal**: Update Go/Docker versions, add tooling targets, remove dead code, fix linting, standardise formatting, clean dependencies
 - **Directory**: `sprint-004/`
 - **Summary**: [sprint-004/SUMMARY.md](sprint-004/SUMMARY.md)
-
-## Completed Sprints
 
 ### Sprint 003: Admin Polish: Dashboard, Divisions, Users & Service Refactor
 - **Status**: Completed (closed 2026-02-01)
@@ -56,7 +58,7 @@ This file provides a quick reference to all sprints and their status.
 
 | Sprint | Work Items | Completed | In Progress | Blocked | Success Rate |
 |--------|-----------|-----------|-------------|---------|--------------|
-| 004 | 6 | 0 | 0 | 0 | - |
+| 004 | 6 | 6 | 0 | 0 | 100% |
 | 003 | 5 | 5 | 0 | 0 | 100% |
 | 002 | 4 | 4 | 0 | 0 | 100% |
 | 001 | 12 | 5 | 0 | 0 | 42% (6 carried to sprint-pwa) |

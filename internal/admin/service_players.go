@@ -27,27 +27,6 @@ func (s *Service) GetPlayers() ([]models.Player, error) {
 	return players, nil
 }
 
-// GetFilteredPlayers retrieves players based on search query
-func (s *Service) GetFilteredPlayers(query string, activeFilter string, seasonID uint) ([]models.Player, error) {
-	ctx := context.Background()
-
-	var players []models.Player
-	var err error
-
-	// Just search based on query, ignore activeFilter as it's no longer relevant
-	if query != "" {
-		players, err = s.playerRepository.SearchPlayers(ctx, query)
-	} else {
-		players, err = s.playerRepository.FindAll(ctx)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return players, nil
-}
-
 // GetFilteredPlayersWithAvailability retrieves players with availability information
 // Supports additional filters: teamID (specific team) and divisionID
 func (s *Service) GetFilteredPlayersWithAvailability(query string, activeFilter string, seasonID uint, teamIDs []uint, divisionIDs []uint) ([]PlayerWithAvailabilityInfo, error) {

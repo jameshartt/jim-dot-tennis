@@ -5,13 +5,14 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"jim-dot-tennis/internal/database"
-	"jim-dot-tennis/internal/models"
-	"jim-dot-tennis/internal/repository"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
+
+	"jim-dot-tennis/internal/database"
+	"jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/repository"
 
 	"github.com/PuerkitoBio/goquery"
 )

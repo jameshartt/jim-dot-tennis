@@ -117,7 +117,6 @@ func (h *SeasonsHandler) handleSeasonsList(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-
 // handleCreateSeason handles POST request to create a new season
 func (h *SeasonsHandler) handleCreateSeason(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")

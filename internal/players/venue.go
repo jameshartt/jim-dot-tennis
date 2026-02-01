@@ -10,26 +10,26 @@ import (
 
 // FixtureVenueDetail contains all the data needed for the player-facing fixture venue page
 type FixtureVenueDetail struct {
-	Fixture         *models.Fixture  `json:"fixture"`
-	HomeTeam        *models.Team     `json:"home_team"`
-	AwayTeam        *models.Team     `json:"away_team"`
-	Division        *models.Division `json:"division"`
-	WeekNumber      int              `json:"week_number"`
-	VenueClub       *models.Club     `json:"venue_club"`
-	IsOverridden    bool             `json:"is_overridden"`
-	OverrideReason  string           `json:"override_reason,omitempty"`
+	Fixture         *models.Fixture      `json:"fixture"`
+	HomeTeam        *models.Team         `json:"home_team"`
+	AwayTeam        *models.Team         `json:"away_team"`
+	Division        *models.Division     `json:"division"`
+	WeekNumber      int                  `json:"week_number"`
+	VenueClub       *models.Club         `json:"venue_club"`
+	IsOverridden    bool                 `json:"is_overridden"`
+	OverrideReason  string               `json:"override_reason,omitempty"`
 	SelectedPlayers []SelectedPlayerInfo `json:"selected_players,omitempty"`
-	PlayerTeamName  string           `json:"player_team_name"` // The viewing player's team
-	IsHome          bool             `json:"is_home"`
+	PlayerTeamName  string               `json:"player_team_name"` // The viewing player's team
+	IsHome          bool                 `json:"is_home"`
 }
 
 // SelectedPlayerInfo contains privacy-focused player info for the venue page
 type SelectedPlayerInfo struct {
-	FirstName    string `json:"first_name"`
-	LastInitial  string `json:"last_initial"`
-	IsHome       bool   `json:"is_home"`
-	IsViewingPlayer bool `json:"is_viewing_player"`
-	FullName     string `json:"full_name,omitempty"` // Only set for the viewing player
+	FirstName       string `json:"first_name"`
+	LastInitial     string `json:"last_initial"`
+	IsHome          bool   `json:"is_home"`
+	IsViewingPlayer bool   `json:"is_viewing_player"`
+	FullName        string `json:"full_name,omitempty"` // Only set for the viewing player
 }
 
 // GetFixtureVenueDetail retrieves comprehensive venue detail for a fixture

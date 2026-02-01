@@ -701,6 +701,7 @@ func filterPlayerNames(names []string) []string {
 		"St Ann's",
 	}
 
+	hasLetter := regexp.MustCompile(`[a-zA-Z]`)
 	var filtered []string
 	for _, name := range names {
 		shouldExclude := false
@@ -714,7 +715,7 @@ func filterPlayerNames(names []string) []string {
 		// Also exclude if it's too short or contains suspicious patterns
 		if !shouldExclude && len(strings.TrimSpace(name)) > 2 {
 			// Check if it looks like a real name (has at least one letter)
-			if matched, _ := regexp.MatchString(`[a-zA-Z]`, name); matched {
+			if hasLetter.MatchString(name) {
 				filtered = append(filtered, strings.TrimSpace(name))
 			}
 		}

@@ -7,7 +7,8 @@
   "complexity": "S",
   "parallelisable": true,
   "dependencies": [],
-  "status": "not_started",
+  "status": "completed",
+  "completed_date": "2026-02-01",
   "phase": "Phase 5: Code Quality & Tooling",
   "acceptance_criteria": [
     "Dockerfile builder stage updated from golang:1.24.1-alpine to golang:1.25-alpine (or latest 1.25.x)",

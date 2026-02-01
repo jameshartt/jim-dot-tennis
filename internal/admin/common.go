@@ -166,7 +166,7 @@ func parseIDFromPath(path, prefix string) (uint, error) {
 func renderFallbackHTML(w http.ResponseWriter, title, heading, message, backLink string) {
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`
+	if _, err := w.Write([]byte(`
 	<!DOCTYPE html>
 	<html>
 	<head><title>` + title + `</title></head>
@@ -176,7 +176,9 @@ func renderFallbackHTML(w http.ResponseWriter, title, heading, message, backLink
 		<a href="` + backLink + `">` + backLink + `</a>
 	</body>
 	</html>
-	`))
+	`)); err != nil {
+		log.Printf("Failed to write fallback HTML response: %v", err)
+	}
 }
 
 // logAndError logs an error and sends HTTP error response

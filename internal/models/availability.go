@@ -63,34 +63,3 @@ type PlayerFixtureAvailability struct {
 	CreatedAt time.Time          `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time          `json:"updated_at" db:"updated_at"`
 }
-
-// Helper functions for determining effective availability
-
-// CalculateAvailabilityForFixture determines a player's effective availability for a fixture
-// by considering fixture-specific availability, date exceptions, and general day-of-week availability
-func CalculateAvailabilityForFixture(playerID string, fixtureID uint, fixtureDate time.Time) AvailabilityStatus {
-	// Note: This would be implemented with actual database queries in a real application
-	// This is a placeholder function that shows the logic flow
-
-	// 1. Check for fixture-specific availability first (highest priority)
-	// fixtureAvailability := GetPlayerFixtureAvailability(playerID, fixtureID)
-	// if fixtureAvailability != Unknown {
-	//    return fixtureAvailability
-	// }
-
-	// 2. Check for date-specific exceptions
-	// exception := GetPlayerDateException(playerID, fixtureDate)
-	// if exception != nil {
-	//    return exception.Status
-	// }
-
-	// 3. Fall back to general day-of-week availability
-	// dayOfWeek := fixtureDate.Weekday().String()
-	// generalAvailability := GetPlayerGeneralAvailability(playerID, dayOfWeek)
-	// if generalAvailability != nil {
-	//    return generalAvailability.Status
-	// }
-
-	// 4. Default to Unknown if nothing is specified
-	return Unknown
-}

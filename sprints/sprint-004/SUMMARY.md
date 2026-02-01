@@ -6,7 +6,7 @@
 
 **Duration**: Short sprint (Feb 1-3, 2026)
 
-**Status**: Planned
+**Status**: Completed (closed 2026-02-01)
 
 ## Focus Areas
 
@@ -21,12 +21,12 @@
 
 | ID | Title | Priority | Complexity | Dependencies | Status |
 |----|-------|----------|------------|--------------|--------|
-| WI-022 | Add Go tooling Makefile targets via Docker | High | S | - | Not Started |
-| WI-023 | Dead code detection and removal | High | M | WI-022 | Not Started |
-| WI-024 | Static analysis and linting fixes | High | L | WI-022, WI-023 | Not Started |
-| WI-025 | Code formatting standardisation (gofmt/goimports) | Medium | S | WI-022 | Not Started |
-| WI-026 | Module dependency cleanup (go mod tidy) | Medium | S | WI-022, WI-023 | Not Started |
-| WI-027 | Update Go version and Docker base images | High | S | - | Not Started |
+| WI-022 | Add Go tooling Makefile targets via Docker | High | S | - | Completed |
+| WI-023 | Dead code detection and removal | High | M | WI-022 | Completed |
+| WI-024 | Static analysis and linting fixes | High | L | WI-022, WI-023 | Completed |
+| WI-025 | Code formatting standardisation (gofmt/goimports) | Medium | S | WI-022 | Completed |
+| WI-026 | Module dependency cleanup (go mod tidy) | Medium | S | WI-022, WI-023 | Completed |
+| WI-027 | Update Go version and Docker base images | High | S | - | Completed |
 
 ## Work Item Details
 
@@ -98,3 +98,34 @@ The project uses Go 1.24.1 but Go 1.25 is the current stable release (1.25.6 ava
 
 ### No Functional Changes
 This is a pure code quality and infrastructure sprint. No features are added, no behaviour changes. All routes, pages, and interactions remain identical.
+
+## Outcomes
+
+### WI-027: Go version updated from 1.24.1 to 1.25
+- Dockerfile builder stage: `golang:1.24.1-alpine` -> `golang:1.25-alpine`
+- go.mod directive updated, `toolchain` directive removed (handled by Go 1.25)
+
+### WI-022: 10 Makefile targets added
+- `make vet`, `make fmt`, `make fmt-fix`, `make imports`, `make imports-fix`, `make lint`, `make deadcode`, `make tidy`, `make check`
+- All run inside Docker containers — no local Go installation required
+- `make check` runs vet + fmt + lint + deadcode in sequence
+
+### WI-025: 14 files reformatted
+- gofmt and goimports applied across the entire codebase
+- Import groups standardised: stdlib / external / internal
+
+### WI-023: 18 dead functions and 2 dead types removed
+- Removed from: service.go, auth/service.go, auth/middleware.go, models/availability.go, players/service.go, players/availability.go, services/matchcard_parser.go, services/nonce_extractor.go
+- 10 admin service domain files cleaned (service_fantasy.go, service_fixture_players.go, service_fixtures.go, service_matchups.go, service_players.go, service_seasons.go, service_teams.go, service_users_sessions.go, selection_overview.go, team_eligibility.go)
+- deadcode tool now reports zero findings
+
+### WI-026: Dependencies confirmed clean
+- `go mod tidy` produced no changes beyond the Go version update
+- All dependencies are explicitly listed and used
+
+### WI-024: Linting established with zero findings
+- `.golangci.yml` created with 11 enabled linters (errcheck, govet, staticcheck, ineffassign, unused, gosimple, typecheck, misspell, goconst, gofmt, goimports)
+- 3 staticcheck issues fixed (unused append result, regexp in loop, empty branch)
+- errcheck exclusions configured for standard patterns (tx.Rollback, json.Encode, w.Write)
+- gosimple fix (unnecessary fmt.Sprintf)
+- `make lint` now runs clean

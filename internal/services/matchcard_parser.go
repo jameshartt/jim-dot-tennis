@@ -432,9 +432,3 @@ func (p *MatchCardParser) parseTeamScores(row *goquery.Selection) ([]int, int) {
 
 	return teamScores, setsWon
 }
-
-// parseScores extracts individual set scores and calculates sets won from a table row
-// This is the legacy method - keeping for backward compatibility
-func (p *MatchCardParser) parseScores(row *goquery.Selection) ([]int, int) {
-	return p.parseTeamScores(row)
-}

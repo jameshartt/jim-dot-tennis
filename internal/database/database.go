@@ -13,7 +13,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"          // PostgreSQL driver
+	_ "github.com/lib/pq"           // PostgreSQL driver
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
 )
 
@@ -86,10 +86,10 @@ func (db *DB) Close() error {
 // ExecuteMigrations runs the database migrations
 func (db *DB) ExecuteMigrations(migrationsPath string) error {
 	log.Printf("Running migrations from: %s", migrationsPath)
-	
+
 	var driver database.Driver
 	var err error
-	
+
 	switch db.DriverName() {
 	case "postgres":
 		driver, err = postgres.WithInstance(db.DB.DB, &postgres.Config{})
@@ -98,30 +98,30 @@ func (db *DB) ExecuteMigrations(migrationsPath string) error {
 	default:
 		return fmt.Errorf("unsupported database driver for migrations: %s", db.DriverName())
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to create migration driver: %w", err)
 	}
-	
+
 	// Convert to absolute path for file:// URL
 	absPath, err := filepath.Abs(migrationsPath)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute migrations path: %w", err)
 	}
-	
+
 	// Create proper file:// URL without escaping path separators
 	sourceURL := fmt.Sprintf("file://%s", absPath)
 	m, err := migrate.NewWithDatabaseInstance(sourceURL, db.DriverName(), driver)
 	if err != nil {
 		return fmt.Errorf("failed to create migration instance: %w", err)
 	}
-	
+
 	// Check if the database is in a dirty state
 	version, dirty, err := m.Version()
 	if err != nil && err != migrate.ErrNilVersion {
 		return fmt.Errorf("failed to get migration version: %w", err)
 	}
-	
+
 	// If the database is in a dirty state, force the version
 	if dirty {
 		log.Printf("Database is in a dirty state at version %d. Forcing version.", version)
@@ -129,7 +129,7 @@ func (db *DB) ExecuteMigrations(migrationsPath string) error {
 			return fmt.Errorf("failed to force migration version: %w", err)
 		}
 	}
-	
+
 	// Run migrations
 	if err := m.Up(); err != nil {
 		if err == migrate.ErrNoChange {
@@ -138,7 +138,7 @@ func (db *DB) ExecuteMigrations(migrationsPath string) error {
 		}
 		return fmt.Errorf("failed to apply migrations: %w", err)
 	}
-	
+
 	log.Println("Migrations applied successfully")
 	return nil
-} 
+}

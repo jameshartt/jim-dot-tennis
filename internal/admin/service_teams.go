@@ -45,12 +45,6 @@ func (s *Service) CreateTeam(team *models.Team) error {
 	return s.teamRepository.Create(ctx, team)
 }
 
-// GetTeams retrieves all teams for admin management
-func (s *Service) GetTeams() (interface{}, error) {
-	// TODO: Implement team retrieval from database
-	return nil, nil
-}
-
 // GetStAnnsTeams retrieves teams for St. Ann's club with related data
 func (s *Service) GetStAnnsTeams() (*models.Club, []TeamWithRelations, error) {
 	ctx := context.Background()
@@ -362,12 +356,6 @@ func (s *Service) AddPlayersToTeam(teamID uint, playerIDs []string) error {
 	}
 
 	return nil
-}
-
-// GetAllTeams retrieves all teams
-func (s *Service) GetAllTeams() ([]models.Team, error) {
-	ctx := context.Background()
-	return s.teamRepository.FindAll(ctx)
 }
 
 // GetTeamsBySeason retrieves all teams for a specific season

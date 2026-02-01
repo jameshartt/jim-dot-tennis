@@ -17,16 +17,6 @@ type FantasyDoublesDetail struct {
 	TeamBMan   models.ProTennisPlayer     `json:"team_b_man"`
 }
 
-// GetFantasyDoubles retrieves all fantasy doubles pairings
-func (s *Service) GetFantasyDoubles() ([]models.FantasyMixedDoubles, error) {
-	return s.fantasyRepository.FindAll(context.Background())
-}
-
-// GetActiveFantasyDoubles retrieves active fantasy doubles pairings
-func (s *Service) GetActiveFantasyDoubles() ([]models.FantasyMixedDoubles, error) {
-	return s.fantasyRepository.FindActive(context.Background())
-}
-
 // GetUnassignedFantasyDoubles retrieves fantasy doubles pairings that are not assigned to any player
 // or are assigned to the specified player (to allow changing current assignment)
 func (s *Service) GetUnassignedFantasyDoubles(currentPlayerID string) ([]models.FantasyMixedDoubles, error) {
@@ -119,11 +109,6 @@ func (s *Service) CreateFantasyDoubles(teamAWomanID, teamAManID, teamBWomanID, t
 	}
 
 	return fantasyMatch, nil
-}
-
-// GetFantasyDoublesByID retrieves a fantasy doubles pairing by ID
-func (s *Service) GetFantasyDoublesByID(id uint) (*models.FantasyMixedDoubles, error) {
-	return s.fantasyRepository.FindByID(context.Background(), id)
 }
 
 // GetFantasyDoublesDetailByID retrieves detailed fantasy doubles information including player names

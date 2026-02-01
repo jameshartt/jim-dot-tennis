@@ -25,19 +25,6 @@ func (s *Service) GetAllUsers() ([]models.User, error) {
 	return users, err
 }
 
-// GetUserByID retrieves a single user by ID
-func (s *Service) GetUserByID(id int64) (*models.User, error) {
-	var user models.User
-	err := s.db.Get(&user, `
-		SELECT id, username, password_hash, role, player_id, is_active, created_at, last_login_at
-		FROM users WHERE id = ?
-	`, id)
-	if err != nil {
-		return nil, err
-	}
-	return &user, nil
-}
-
 // CreateUser creates a new user with a hashed password
 func (s *Service) CreateUser(username, password string, role models.Role) (int64, error) {
 	hashedPassword, err := hashPassword(password)

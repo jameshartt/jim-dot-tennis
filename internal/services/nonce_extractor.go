@@ -285,8 +285,3 @@ func (n *NonceExtractor) extractNonceFromDataAttributes(doc *goquery.Document) s
 
 	return nonce
 }
-
-// IsNonceExpired checks if a nonce result has expired
-func (n *NonceResult) IsNonceExpired() bool {
-	return time.Now().After(n.ExpiresAt)
-}

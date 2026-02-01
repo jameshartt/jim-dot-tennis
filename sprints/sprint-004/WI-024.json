@@ -7,7 +7,8 @@
   "complexity": "L",
   "parallelisable": false,
   "dependencies": ["WI-022", "WI-023"],
-  "status": "not_started",
+  "status": "completed",
+  "completed_date": "2026-02-01",
   "phase": "Phase 5: Code Quality & Tooling",
   "acceptance_criteria": [
     "golangci-lint runs clean with zero errors",
