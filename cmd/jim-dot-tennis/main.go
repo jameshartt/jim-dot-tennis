@@ -110,6 +110,9 @@ func main() {
 	// Players routes (protected)
 	playersHandler.RegisterRoutes(mux, authMiddleware)
 
+	// Public player-facing routes (standings, etc.)
+	playersHandler.RegisterPublicRoutes(mux)
+
 	// Public routes
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {

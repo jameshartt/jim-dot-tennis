@@ -380,7 +380,7 @@
                                                 Importing...
                                             </span>
                                         </button>
-                                        <a href="/admin" class="btn btn-secondary">← Back to Dashboard</a>
+                                        <a href="/admin/league" class="btn btn-secondary">← Back to Dashboard</a>
                                     </div>
                                 </form>
                             </div>
@@ -441,7 +441,7 @@
                 form.removeAttribute('hx-target');
                 form.removeAttribute('hx-swap');
                 form.setAttribute('method', 'POST');
-                form.setAttribute('action', '/admin/match-card-import');
+                form.setAttribute('action', '/admin/league/match-card-import');
                 showStatus('⚠️ Using fallback mode - page will reload after import', 'warning');
             }
             

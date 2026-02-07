@@ -44,6 +44,19 @@ func parseTemplate(templateDir, templateName string) (*template.Template, error)
 		"addFloat": func(a float64, b float64) float64 {
 			return a + b
 		},
+		"add": func(a, b int) int {
+			return a + b
+		},
+		"sub": func(a, b int) int {
+			return a - b
+		},
+		"gt": func(a, b int) bool {
+			return a > b
+		},
+		"lt": func(a, b int) bool {
+			return a < b
+		},
+		"printf": fmt.Sprintf,
 	})
 
 	return tmpl.ParseFiles(templatePath)

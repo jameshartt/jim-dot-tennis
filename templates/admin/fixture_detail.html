@@ -32,6 +32,7 @@
             <div class="action-bar">
                 <h2>Fixture Information</h2>
                 <div class="action-buttons">
+                    <a href="/admin/league/fixtures/{{.FixtureDetail.ID}}/results" class="btn-edit">{{if eq .FixtureDetail.Status "Completed"}}📊 Edit Results{{else}}📊 Enter Results{{end}}</a>
                     {{if ne .FixtureDetail.Status "Completed"}}
                         <a href="/admin/league/fixtures/{{.FixtureDetail.ID}}/edit" class="btn-edit">📅 Edit Schedule</a>
                     {{end}}
@@ -62,6 +63,13 @@
                 </div>
 
                 {{template "admin/partials/derby_management.html" .}}
+
+                <!-- Weather widget (lazy loaded) -->
+                <div id="weather-widget-container"
+                     hx-get="/admin/league/fixtures/{{.FixtureDetail.ID}}/weather"
+                     hx-trigger="load"
+                     hx-swap="innerHTML">
+                </div>
 
                 {{if .FixtureDetail.VenueClub}}
                 <div class="detail-section venue-section" style="margin-bottom: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid var(--secondary-color, #2ecc71);">

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match History - Jim.Tennis</title>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #e8f5e8 0%, #f8f9fa 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .history-container { max-width: 900px; margin: 0 auto; }
+
+        .header-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 25px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .header-card h1 { font-size: 24px; color: #2c5530; }
+        .back-link {
+            color: #4a7c59;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .back-link:hover { text-decoration: underline; }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            padding: 15px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #2c5530;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+        .stat-card.wins .stat-value { color: #27ae60; }
+        .stat-card.losses .stat-value { color: #e74c3c; }
+        .stat-card.draws .stat-value { color: #f39c12; }
+
+        .controls-bar {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            padding: 12px 16px;
+            margin-bottom: 20px;
+        }
+        .season-select {
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .match-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+
+        .match-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            padding: 16px;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 12px;
+            align-items: center;
+        }
+        .match-date {
+            text-align: center;
+            min-width: 60px;
+        }
+        .match-date .day { font-size: 20px; font-weight: 700; color: #2c5530; }
+        .match-date .month { font-size: 11px; color: #999; text-transform: uppercase; }
+
+        .match-info { min-width: 0; }
+        .match-type { font-size: 12px; color: #999; text-transform: uppercase; margin-bottom: 2px; }
+        .match-teams { font-size: 14px; font-weight: 600; color: #333; margin-bottom: 4px; }
+        .match-details { font-size: 13px; color: #666; }
+        .match-details span { margin-right: 12px; }
+
+        .match-result {
+            min-width: 50px;
+            text-align: center;
+        }
+        .result-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .result-win { background: #d4edda; color: #155724; }
+        .result-loss { background: #f8d7da; color: #721c24; }
+        .result-draw { background: #fff3cd; color: #856404; }
+
+        .match-score {
+            font-size: 13px;
+            color: #555;
+            margin-top: 4px;
+        }
+
+        .empty-state {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            padding: 40px;
+            text-align: center;
+            color: #999;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px 0;
+            color: #999;
+            font-size: 14px;
+        }
+
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .match-card { grid-template-columns: 1fr; }
+            .match-date { text-align: left; }
+            .match-result { text-align: left; }
+        }
+    </style>
+</head>
+<body>
+    <div class="history-container">
+        <div class="header-card">
+            <div>
+                <h1>Match History</h1>
+                <div style="color: #666; font-size: 14px; margin-top: 4px;">
+                    {{.Player.FirstName}} {{.Player.LastName}}
+                </div>
+            </div>
+            <a href="/my-profile/{{.AuthToken}}" class="back-link">← Back to Profile</a>
+        </div>
+
+        {{if .Stats}}
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-value">{{.Stats.TotalMatches}}</div>
+                <div class="stat-label">Played</div>
+            </div>
+            <div class="stat-card wins">
+                <div class="stat-value">{{.Stats.Wins}}</div>
+                <div class="stat-label">Won</div>
+            </div>
+            <div class="stat-card losses">
+                <div class="stat-value">{{.Stats.Losses}}</div>
+                <div class="stat-label">Lost</div>
+            </div>
+            <div class="stat-card draws">
+                <div class="stat-value">{{.Stats.Draws}}</div>
+                <div class="stat-label">Drawn</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{printf "%.0f" .Stats.WinRate}}%</div>
+                <div class="stat-label">Win Rate</div>
+            </div>
+        </div>
+        {{end}}
+
+        <div class="controls-bar">
+            <select class="season-select" onchange="window.location.href='/my-profile/{{.AuthToken}}/history?season='+this.value">
+                <option value="">All Seasons</option>
+                {{range .Seasons}}
+                <option value="{{.ID}}" {{if $.SelectedSeasonID}}{{if eq .ID $.SelectedSeasonID}}selected{{end}}{{end}}>{{.Name}}</option>
+                {{end}}
+            </select>
+        </div>
+
+        {{if .Records}}
+        <div class="match-list">
+            {{range .Records}}
+            <div class="match-card">
+                <div class="match-date">
+                    <div class="day">{{.FixtureDate.Format "2"}}</div>
+                    <div class="month">{{.FixtureDate.Format "Jan"}}</div>
+                </div>
+                <div class="match-info">
+                    <div class="match-type">{{.DivisionName}} &middot; {{.MatchupType}}</div>
+                    <div class="match-teams">{{.HomeTeamName}} vs {{.AwayTeamName}}</div>
+                    <div class="match-details">
+                        {{if .PartnerName}}<span>Partner: {{.PartnerName}}</span>{{end}}
+                        {{if .OpponentNames}}<span>vs {{.OpponentNames}}</span>{{end}}
+                    </div>
+                    {{if .SetScores}}<div class="match-score">{{.SetScores}}</div>{{end}}
+                </div>
+                <div class="match-result">
+                    {{if .WonMatch}}
+                        <span class="result-badge result-win">W</span>
+                    {{else if .DrawnMatch}}
+                        <span class="result-badge result-draw">D</span>
+                    {{else}}
+                        <span class="result-badge result-loss">L</span>
+                    {{end}}
+                </div>
+            </div>
+            {{end}}
+        </div>
+        {{else}}
+        <div class="empty-state">
+            <p>No completed matches found.</p>
+            <p style="margin-top: 8px;">Match history will appear here once fixtures with your results are completed.</p>
+        </div>
+        {{end}}
+    </div>
+
+    <footer>&copy; {{currentYear}} Jim.Tennis</footer>
+</body>
+</html>

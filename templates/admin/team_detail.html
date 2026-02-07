@@ -908,7 +908,7 @@
                         const isDerby = this.dataset.isDerby === 'true';
                         const managingTeamId = this.dataset.managingTeam;
                         
-                        let url = `/admin/fixtures/${fixtureId}?from=team&teamId={{$.TeamDetail.ID}}&teamName=${teamName}`;
+                        let url = `/admin/league/fixtures/${fixtureId}?from=team&teamId={{$.TeamDetail.ID}}&teamName=${teamName}`;
                         
                         // For derby matches, add managing team context
                         if (isDerby && managingTeamId) {

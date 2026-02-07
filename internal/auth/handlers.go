@@ -140,8 +140,8 @@ func (h *Handler) LoginHandler() http.HandlerFunc {
 				redirectTo = h.redirectPath
 			}
 			if redirectTo == "" {
-				log.Printf("WARNING: redirectPath is empty, defaulting to /admin")
-				redirectTo = "/admin"
+				log.Printf("WARNING: redirectPath is empty, defaulting to /admin/league")
+				redirectTo = "/admin/league"
 			}
 
 			log.Printf("Login successful for user: %s, redirecting to: %s", username, redirectTo)

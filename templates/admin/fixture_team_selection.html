@@ -1284,7 +1284,7 @@
                 bodyParams += '&managing_team_id=' + MANAGING_TEAM_ID;
             }
             
-            fetch('/admin/fixtures/' + FIXTURE_ID + '/matchup-selection', {
+            fetch('/admin/league/fixtures/' + FIXTURE_ID + '/matchup-selection', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -1754,7 +1754,7 @@
                     bodyParams += '&managing_team_id=' + MANAGING_TEAM_ID;
                 }
                 
-                fetch('/admin/fixtures/' + FIXTURE_ID + '/matchup-selection', {
+                fetch('/admin/league/fixtures/' + FIXTURE_ID + '/matchup-selection', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
@@ -1771,7 +1771,7 @@
                 const form = document.createElement('form');
                 form.method = 'post';
                 form.style.display = 'none';
-                form.action = '/admin/fixtures/' + FIXTURE_ID + '/team-selection';
+                form.action = '/admin/league/fixtures/' + FIXTURE_ID + '/team-selection';
                 
                 // Set HTMX attributes to match the template forms
                 form.setAttribute('hx-post', form.action);
@@ -1834,7 +1834,7 @@
                 bodyParams += '&managing_team_id=' + MANAGING_TEAM_ID;
             }
             
-            fetch('/admin/fixtures/' + FIXTURE_ID + '/team-selection', {
+            fetch('/admin/league/fixtures/' + FIXTURE_ID + '/team-selection', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -1850,7 +1850,7 @@
                 bodyParams += '&managing_team_id=' + MANAGING_TEAM_ID;
             }
             
-            fetch('/admin/fixtures/' + FIXTURE_ID + '/matchup-selection', {
+            fetch('/admin/league/fixtures/' + FIXTURE_ID + '/matchup-selection', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',

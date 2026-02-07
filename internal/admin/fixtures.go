@@ -39,6 +39,16 @@ func (h *FixturesHandler) HandleFixtures(w http.ResponseWriter, r *http.Request)
 
 	// Check if this is a specific fixture detail request
 	if strings.Contains(r.URL.Path, "/fixtures/") && r.URL.Path != "/admin/league/fixtures/" {
+		// Check if this is a results entry request
+		if strings.HasSuffix(r.URL.Path, "/results") {
+			h.handleResults(w, r)
+			return
+		}
+		// Check if this is a weather request
+		if strings.HasSuffix(r.URL.Path, "/weather") {
+			h.handleWeather(w, r)
+			return
+		}
 		// Check if this is a calendar download request
 		if strings.HasSuffix(r.URL.Path, "/calendar.ics") {
 			h.handleCalendarDownload(w, r)
@@ -1518,4 +1528,70 @@ func (h *FixturesHandler) handleCalendarDownload(w http.ResponseWriter, r *http.
 	if _, err := w.Write([]byte(icalContent)); err != nil {
 		log.Printf("Failed to write calendar download response: %v", err)
 	}
+}
+
+// handleWeather handles HTMX lazy-loaded weather widget requests
+func (h *FixturesHandler) handleWeather(w http.ResponseWriter, r *http.Request) {
+	// Extract fixture ID from URL path, removing the "/weather" suffix
+	path := strings.TrimSuffix(r.URL.Path, "/weather")
+	fixtureID, err := parseIDFromPath(path, "/admin/league/fixtures/")
+	if err != nil {
+		w.WriteHeader(http.StatusOK) // Don't error on weather failure
+		return
+	}
+
+	ctx := context.Background()
+
+	// Get fixture
+	fixture, err := h.service.fixtureRepository.FindByID(ctx, fixtureID)
+	if err != nil {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Check if fixture is within 7 days
+	if time.Until(fixture.ScheduledDate) > 7*24*time.Hour || fixture.ScheduledDate.Before(time.Now().Truncate(24*time.Hour)) {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Resolve venue to get coordinates
+	venueResolver := services.NewVenueResolver(h.service.clubRepository, h.service.teamRepository, h.service.venueOverrideRepository)
+	resolution, err := venueResolver.ResolveFixtureVenue(ctx, fixture)
+	if err != nil || resolution.Club == nil || resolution.Club.Latitude == nil || resolution.Club.Longitude == nil {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Get weather forecast
+	weather, err := h.service.weatherService.GetForecastForDate(
+		*resolution.Club.Latitude,
+		*resolution.Club.Longitude,
+		fixture.ScheduledDate,
+	)
+	if err != nil || weather == nil {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Render weather widget partial
+	tmpl, err := parseTemplate(h.templateDir, "admin/partials/weather_widget.html")
+	if err != nil {
+		log.Printf("Error parsing weather widget template: %v", err)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	if err := tmpl.Execute(w, map[string]interface{}{
+		"Weather": weather,
+	}); err != nil {
+		log.Printf("Error executing weather widget template: %v", err)
+	}
+}
+
+// handleResults delegates to the ResultsHandler
+func (h *FixturesHandler) handleResults(w http.ResponseWriter, r *http.Request) {
+	resultsHandler := NewResultsHandler(h.service, h.templateDir)
+	resultsHandler.HandleResults(w, r)
 }

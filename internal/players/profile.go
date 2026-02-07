@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"jim-dot-tennis/internal/auth"
@@ -55,6 +56,8 @@ func (h *ProfileHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case action == "" && r.Method == http.MethodGet:
 		h.handleProfileGet(w, r, &player, authToken)
+	case action == "history" && r.Method == http.MethodGet:
+		h.handleMatchHistory(w, r, &player, authToken)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -90,6 +93,59 @@ func (h *ProfileHandler) handleProfileGet(w http.ResponseWriter, r *http.Request
 		"UpcomingFixtures": profileData.UpcomingFixtures,
 		"AvailStats":       profileData.AvailabilityStats,
 		"AuthToken":        authToken,
+	}); err != nil {
+		logAndError(w, err.Error(), err, http.StatusInternalServerError)
+	}
+}
+
+// handleMatchHistory displays the match history page for a player
+func (h *ProfileHandler) handleMatchHistory(w http.ResponseWriter, r *http.Request, player *models.Player, authToken string) {
+	// Optional season filter
+	var seasonID *uint
+	seasonParam := r.URL.Query().Get("season")
+	if seasonParam != "" {
+		sid, err := strconv.ParseUint(seasonParam, 10, 32)
+		if err == nil {
+			s := uint(sid)
+			seasonID = &s
+		}
+	}
+
+	records, stats, err := h.service.GetPlayerMatchHistory(player.ID, seasonID)
+	if err != nil {
+		log.Printf("Failed to load match history for player %s: %v", player.ID, err)
+		http.Error(w, "Failed to load match history", http.StatusInternalServerError)
+		return
+	}
+
+	// Get all seasons for the selector
+	allSeasons, _ := h.service.seasonRepository.FindAll(r.Context())
+
+	// Get active season for default
+	activeSeason, _ := h.service.seasonRepository.FindActive(r.Context())
+
+	tmpl, err := parseTemplate(h.templateDir, "players/match_history.html")
+	if err != nil {
+		log.Printf("Error parsing match history template: %v", err)
+		renderFallbackHTML(w, "Match History", "Match History",
+			"Match history page - template error",
+			fmt.Sprintf("/my-profile/%s", authToken))
+		return
+	}
+
+	var selectedSeasonID uint
+	if seasonID != nil {
+		selectedSeasonID = *seasonID
+	}
+
+	if err := renderTemplate(w, tmpl, map[string]interface{}{
+		"Player":           player,
+		"Records":          records,
+		"Stats":            stats,
+		"AuthToken":        authToken,
+		"Seasons":          allSeasons,
+		"ActiveSeason":     activeSeason,
+		"SelectedSeasonID": selectedSeasonID,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}

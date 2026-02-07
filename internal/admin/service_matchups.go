@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"jim-dot-tennis/internal/models"
 )
@@ -365,6 +366,111 @@ func (s *Service) AddPlayerToMatchup(matchupID uint, playerID string, fixtureID 
 	}
 
 	return nil
+}
+
+// SaveMatchupResults saves scores for all matchups in a fixture
+func (s *Service) SaveMatchupResults(fixtureID uint, entries []MatchupScoreEntry) error {
+	ctx := context.Background()
+
+	for _, entry := range entries {
+		matchup, err := s.matchupRepository.FindByID(ctx, entry.MatchupID)
+		if err != nil {
+			return fmt.Errorf("matchup %d not found: %w", entry.MatchupID, err)
+		}
+
+		if entry.Conceded {
+			// Handle conceded matchup
+			concededBy := entry.ConcededBy
+			matchup.ConcededBy = &concededBy
+			matchup.Status = models.Defaulted
+			// Conceding side gets 0 points, other side gets 2
+			if concededBy == models.ConcededHome {
+				matchup.HomeScore = 0
+				matchup.AwayScore = 2
+			} else {
+				matchup.HomeScore = 2
+				matchup.AwayScore = 0
+			}
+			// Clear set scores
+			matchup.HomeSet1 = nil
+			matchup.AwaySet1 = nil
+			matchup.HomeSet2 = nil
+			matchup.AwaySet2 = nil
+			matchup.HomeSet3 = nil
+			matchup.AwaySet3 = nil
+		} else {
+			// Set scores
+			matchup.HomeSet1 = entry.HomeSet1
+			matchup.AwaySet1 = entry.AwaySet1
+			matchup.HomeSet2 = entry.HomeSet2
+			matchup.AwaySet2 = entry.AwaySet2
+			matchup.HomeSet3 = entry.HomeSet3
+			matchup.AwaySet3 = entry.AwaySet3
+			matchup.Status = models.Finished
+			matchup.ConcededBy = nil
+
+			// Calculate HomeScore/AwayScore from sets won
+			homeSetsWon, awaySetsWon := countSetsWon(entry)
+			if homeSetsWon > awaySetsWon {
+				matchup.HomeScore = 2
+				matchup.AwayScore = 0
+			} else if awaySetsWon > homeSetsWon {
+				matchup.HomeScore = 0
+				matchup.AwayScore = 2
+			} else {
+				matchup.HomeScore = 1
+				matchup.AwayScore = 1
+			}
+		}
+
+		if err := s.matchupRepository.Update(ctx, matchup); err != nil {
+			return fmt.Errorf("failed to update matchup %d: %w", entry.MatchupID, err)
+		}
+	}
+
+	return nil
+}
+
+// CompleteFixtureWithResults marks a fixture as completed
+func (s *Service) CompleteFixtureWithResults(fixtureID uint) error {
+	ctx := context.Background()
+
+	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
+	if err != nil {
+		return fmt.Errorf("fixture not found: %w", err)
+	}
+
+	fixture.Status = models.Completed
+	completedDate := time.Now()
+	fixture.CompletedDate = &completedDate
+
+	return s.fixtureRepository.Update(ctx, fixture)
+}
+
+// countSetsWon counts sets won by each side from a score entry
+func countSetsWon(entry MatchupScoreEntry) (homeSetsWon, awaySetsWon int) {
+	if entry.HomeSet1 != nil && entry.AwaySet1 != nil {
+		if *entry.HomeSet1 > *entry.AwaySet1 {
+			homeSetsWon++
+		} else if *entry.AwaySet1 > *entry.HomeSet1 {
+			awaySetsWon++
+		}
+	}
+	if entry.HomeSet2 != nil && entry.AwaySet2 != nil {
+		if *entry.HomeSet2 > *entry.AwaySet2 {
+			homeSetsWon++
+		} else if *entry.AwaySet2 > *entry.HomeSet2 {
+			awaySetsWon++
+		}
+	}
+	if entry.HomeSet3 != nil && entry.AwaySet3 != nil {
+		if *entry.HomeSet3 > *entry.AwaySet3 {
+			homeSetsWon++
+		} else if *entry.AwaySet3 > *entry.HomeSet3 {
+			awaySetsWon++
+		}
+	}
+	return
 }
 
 // RemovePlayerFromMatchup removes a single player from a matchup

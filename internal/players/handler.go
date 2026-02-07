@@ -15,6 +15,7 @@ type Handler struct {
 	// Sub-handlers for different domains
 	availability *AvailabilityHandler
 	profile      *ProfileHandler
+	standings    *StandingsHandler
 }
 
 // New creates a new players handler
@@ -26,6 +27,7 @@ func New(db *database.DB, templateDir string) *Handler {
 		templateDir:  templateDir,
 		availability: NewAvailabilityHandler(service, templateDir),
 		profile:      NewProfileHandler(service, templateDir),
+		standings:    NewStandingsHandler(service, templateDir),
 	}
 }
 
@@ -42,4 +44,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	mux.Handle("/my-profile/", authMiddleware.RequireFantasyTokenAuth(
 		http.HandlerFunc(h.profile.HandleProfile),
 	))
+}
+
+// RegisterPublicRoutes registers public-facing player routes (no auth required)
+func (h *Handler) RegisterPublicRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("/standings", h.standings.HandleStandings)
+	mux.HandleFunc("/standings/", h.standings.HandleStandings)
 }

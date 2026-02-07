@@ -24,6 +24,7 @@ type Service struct {
 	divisionRepository      repository.DivisionRepository
 	weekRepository          repository.WeekRepository
 	clubRepository          repository.ClubRepository
+	matchupRepository       repository.MatchupRepository
 	venueOverrideRepository repository.VenueOverrideRepository
 }
 
@@ -41,6 +42,7 @@ func NewService(db *database.DB) *Service {
 		divisionRepository:      repository.NewDivisionRepository(db),
 		weekRepository:          repository.NewWeekRepository(db),
 		clubRepository:          repository.NewClubRepository(db),
+		matchupRepository:       repository.NewMatchupRepository(db),
 		venueOverrideRepository: repository.NewVenueOverrideRepository(db),
 	}
 }
@@ -850,4 +852,175 @@ func (s *Service) DeleteAvailabilityException(playerID string, startDateStr, end
 	}
 
 	return nil
+}
+
+// PlayerMatchRecord represents a single match record for a player
+type PlayerMatchRecord struct {
+	FixtureDate   time.Time `json:"fixture_date"`
+	DivisionName  string    `json:"division_name"`
+	MatchupType   string    `json:"matchup_type"`
+	PartnerName   string    `json:"partner_name"`
+	OpponentNames string    `json:"opponent_names"`
+	SetScores     string    `json:"set_scores"`
+	IsHome        bool      `json:"is_home"`
+	WonMatch      bool      `json:"won_match"`
+	DrawnMatch    bool      `json:"drawn_match"`
+	HomeTeamName  string    `json:"home_team_name"`
+	AwayTeamName  string    `json:"away_team_name"`
+}
+
+// PlayerMatchStats aggregates match statistics
+type PlayerMatchStats struct {
+	TotalMatches int     `json:"total_matches"`
+	Wins         int     `json:"wins"`
+	Losses       int     `json:"losses"`
+	Draws        int     `json:"draws"`
+	WinRate      float64 `json:"win_rate"`
+}
+
+// GetPlayerMatchHistory retrieves completed match records for a player
+func (s *Service) GetPlayerMatchHistory(playerID string, seasonID *uint) ([]PlayerMatchRecord, *PlayerMatchStats, error) {
+	ctx := context.Background()
+
+	// Build the query based on season filter
+	query := `
+		SELECT
+			f.scheduled_date,
+			COALESCE(d.name, '') AS division_name,
+			m.type AS matchup_type,
+			m.home_score,
+			m.away_score,
+			m.home_set1, m.away_set1,
+			m.home_set2, m.away_set2,
+			m.home_set3, m.away_set3,
+			mp.is_home,
+			m.id AS matchup_id,
+			f.id AS fixture_id,
+			COALESCE(ht.name, '') AS home_team_name,
+			COALESCE(at2.name, '') AS away_team_name
+		FROM matchup_players mp
+		JOIN matchups m ON mp.matchup_id = m.id
+		JOIN fixtures f ON m.fixture_id = f.id
+		LEFT JOIN divisions d ON f.division_id = d.id
+		LEFT JOIN teams ht ON f.home_team_id = ht.id
+		LEFT JOIN teams at2 ON f.away_team_id = at2.id
+		WHERE mp.player_id = ?
+		AND m.status = 'Finished'
+		AND f.status = 'Completed'
+	`
+
+	args := []interface{}{playerID}
+	if seasonID != nil {
+		query += " AND f.season_id = ?"
+		args = append(args, *seasonID)
+	}
+	query += " ORDER BY f.scheduled_date DESC, m.type ASC"
+
+	type matchRow struct {
+		ScheduledDate time.Time `db:"scheduled_date"`
+		DivisionName  string    `db:"division_name"`
+		MatchupType   string    `db:"matchup_type"`
+		HomeScore     int       `db:"home_score"`
+		AwayScore     int       `db:"away_score"`
+		HomeSet1      *int      `db:"home_set1"`
+		AwaySet1      *int      `db:"away_set1"`
+		HomeSet2      *int      `db:"home_set2"`
+		AwaySet2      *int      `db:"away_set2"`
+		HomeSet3      *int      `db:"home_set3"`
+		AwaySet3      *int      `db:"away_set3"`
+		IsHome        bool      `db:"is_home"`
+		MatchupID     uint      `db:"matchup_id"`
+		FixtureID     uint      `db:"fixture_id"`
+		HomeTeamName  string    `db:"home_team_name"`
+		AwayTeamName  string    `db:"away_team_name"`
+	}
+
+	var rows []matchRow
+	if err := s.db.SelectContext(ctx, &rows, query, args...); err != nil {
+		return nil, nil, fmt.Errorf("failed to query match history: %w", err)
+	}
+
+	var records []PlayerMatchRecord
+	stats := &PlayerMatchStats{}
+
+	for _, row := range rows {
+		// Format set scores
+		setScores := ""
+		if row.HomeSet1 != nil && row.AwaySet1 != nil {
+			setScores = fmt.Sprintf("%d-%d", *row.HomeSet1, *row.AwaySet1)
+		}
+		if row.HomeSet2 != nil && row.AwaySet2 != nil {
+			setScores += fmt.Sprintf(", %d-%d", *row.HomeSet2, *row.AwaySet2)
+		}
+		if row.HomeSet3 != nil && row.AwaySet3 != nil {
+			setScores += fmt.Sprintf(", %d-%d", *row.HomeSet3, *row.AwaySet3)
+		}
+
+		// Find partner and opponents
+		allPlayers, _ := s.matchupRepository.FindPlayersInMatchup(ctx, row.MatchupID)
+		partnerName := ""
+		var opponentNames []string
+		for _, mp := range allPlayers {
+			if mp.PlayerID == playerID {
+				continue
+			}
+			p, err := s.playerRepository.FindByID(ctx, mp.PlayerID)
+			if err != nil {
+				continue
+			}
+			name := p.FirstName + " " + p.LastName
+			if mp.IsHome == row.IsHome {
+				partnerName = name
+			} else {
+				opponentNames = append(opponentNames, name)
+			}
+		}
+		opponents := ""
+		if len(opponentNames) > 0 {
+			opponents = opponentNames[0]
+			if len(opponentNames) > 1 {
+				opponents += " & " + opponentNames[1]
+			}
+		}
+
+		// Determine win/loss/draw
+		wonMatch := false
+		drawnMatch := false
+		if row.IsHome {
+			wonMatch = row.HomeScore > row.AwayScore
+			drawnMatch = row.HomeScore == row.AwayScore
+		} else {
+			wonMatch = row.AwayScore > row.HomeScore
+			drawnMatch = row.HomeScore == row.AwayScore
+		}
+
+		records = append(records, PlayerMatchRecord{
+			FixtureDate:   row.ScheduledDate,
+			DivisionName:  row.DivisionName,
+			MatchupType:   row.MatchupType,
+			PartnerName:   partnerName,
+			OpponentNames: opponents,
+			SetScores:     setScores,
+			IsHome:        row.IsHome,
+			WonMatch:      wonMatch,
+			DrawnMatch:    drawnMatch,
+			HomeTeamName:  row.HomeTeamName,
+			AwayTeamName:  row.AwayTeamName,
+		})
+
+		stats.TotalMatches++
+		if wonMatch {
+			stats.Wins++
+		} else if drawnMatch {
+			stats.Draws++
+		} else {
+			stats.Losses++
+		}
+	}
+
+	if stats.TotalMatches > 0 {
+		stats.WinRate = float64(stats.Wins) / float64(stats.TotalMatches) * 100
+	}
+
+	return records, stats, nil
 }

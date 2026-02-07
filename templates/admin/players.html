@@ -464,7 +464,7 @@
             button.innerHTML = '⏳ Generating...';
             
             try {
-                const response = await fetch(`/admin/players/${playerID}/generate-availability-url`, {
+                const response = await fetch(`/admin/league/players/${playerID}/generate-availability-url`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -518,7 +518,7 @@
             button.innerHTML = '⏳ Getting URL...';
             
             try {
-                const response = await fetch(`/admin/players/${playerID}/availability-url`, {
+                const response = await fetch(`/admin/league/players/${playerID}/availability-url`, {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',

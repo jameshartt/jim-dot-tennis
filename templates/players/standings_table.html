@@ -1,0 +1,48 @@
+{{range .Divisions}}
+{{if eq .DivisionID $.ActiveDivisionID}}
+<div class="standings-card">
+    <h2>{{.DivisionName}}</h2>
+    {{if .Teams}}
+    <table class="standings-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Team</th>
+                <th>P</th>
+                <th>W</th>
+                <th>D</th>
+                <th>L</th>
+                <th>RF</th>
+                <th>RA</th>
+                <th>RD</th>
+                <th>Pts</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range $i, $team := .Teams}}
+            <tr {{if $team.IsStAnns}}class="st-anns-row"{{end}}>
+                <td>{{add $i 1}}</td>
+                <td>{{$team.TeamName}}</td>
+                <td>{{$team.Played}}</td>
+                <td>{{$team.Won}}</td>
+                <td>{{$team.Drawn}}</td>
+                <td>{{$team.Lost}}</td>
+                <td>{{$team.RubberFor}}</td>
+                <td>{{$team.RubberAgainst}}</td>
+                <td>
+                    {{$rd := sub $team.RubberFor $team.RubberAgainst}}
+                    {{if gt $rd 0}}<span class="rd-positive">+{{$rd}}</span>
+                    {{else if lt $rd 0}}<span class="rd-negative">{{$rd}}</span>
+                    {{else}}<span class="rd-neutral">0</span>{{end}}
+                </td>
+                <td>{{$team.LeaguePoints}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div class="empty-state">No completed fixtures yet for this division.</div>
+    {{end}}
+</div>
+{{end}}
+{{end}}

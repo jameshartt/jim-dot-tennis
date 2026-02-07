@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{if .IsEdit}}Edit{{else}}Enter{{end}} Results - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .results-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+        .admin-header {
+            background: var(--primary-color, #2c5530);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            font-size: 0.9rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover { color: white; }
+
+        .fixture-header-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        .fixture-header-card h1 {
+            font-size: 1.5rem;
+            color: #2c5530;
+            margin-bottom: 0.5rem;
+        }
+        .fixture-header-card .teams {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+        .fixture-header-card .meta {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .matchup-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .matchup-card h3 {
+            color: #2c5530;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            border-bottom: 2px solid #e8f5e8;
+            padding-bottom: 0.5rem;
+        }
+
+        .players-info {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 1rem;
+        }
+        .players-info .home-players { color: #2c5530; font-weight: 600; }
+        .players-info .away-players { color: #7c4a2c; font-weight: 600; }
+
+        .set-row {
+            display: grid;
+            grid-template-columns: auto 1fr auto 1fr;
+            gap: 0.75rem;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+        .set-label {
+            font-weight: 600;
+            color: #333;
+            min-width: 50px;
+        }
+        .score-input {
+            width: 60px;
+            padding: 0.5rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .score-input:focus {
+            border-color: #4a7c59;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(74,124,89,0.2);
+        }
+        .score-input.error {
+            border-color: #e74c3c;
+        }
+        .score-separator {
+            text-align: center;
+            font-weight: 700;
+            color: #999;
+        }
+
+        .set3-toggle {
+            margin: 0.5rem 0;
+        }
+        .set3-toggle label {
+            cursor: pointer;
+            color: #4a7c59;
+            font-size: 0.9rem;
+        }
+
+        .conceded-section {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #eee;
+        }
+        .conceded-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .conceded-select {
+            padding: 0.4rem 0.75rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .error-msg {
+            color: #e74c3c;
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+
+        .submit-bar {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .btn-submit {
+            background: #2c5530;
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-submit:hover { background: #1e3a22; }
+        .btn-cancel {
+            background: #f8f9fa;
+            color: #333;
+            border: 2px solid #ddd;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            text-decoration: none;
+        }
+        .btn-cancel:hover { background: #e9ecef; }
+
+        .hidden { display: none; }
+
+        @media (max-width: 600px) {
+            .set-row {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+            .set-row .set-label {
+                grid-column: 1 / -1;
+            }
+            .score-input { width: 100%; }
+            .submit-bar { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="breadcrumb">
+            <a href="/admin/league">Admin Dashboard</a> &gt;
+            <a href="/admin/league/fixtures">Fixtures</a> &gt;
+            <a href="/admin/league/fixtures/{{.FixtureDetail.ID}}">Fixture Detail</a> &gt;
+            {{if .IsEdit}}Edit Results{{else}}Enter Results{{end}}
+        </div>
+    </header>
+
+    <main class="results-container">
+        <div class="fixture-header-card">
+            <h1>{{if .FixtureDetail.Division}}{{.FixtureDetail.Division.Name}}{{end}} {{if .FixtureDetail.Week}}- Week {{.FixtureDetail.Week.WeekNumber}}{{end}}</h1>
+            <div class="teams">
+                {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}
+                vs
+                {{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}
+            </div>
+            <div class="meta">
+                {{.FixtureDetail.ScheduledDate.Format "Monday 2 January 2006"}}
+                &middot;
+                <span class="status-badge" style="display: inline-block; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.8rem; background: #e8f5e8; color: #2c5530;">{{.FixtureDetail.Status}}</span>
+            </div>
+        </div>
+
+        <form method="POST" action="/admin/league/fixtures/{{.FixtureDetail.ID}}/results">
+            {{range .Matchups}}
+            <div class="matchup-card" id="matchup-{{.Matchup.ID}}">
+                <h3>{{.Matchup.Type}}</h3>
+
+                {{if .Players}}
+                <div class="players-info">
+                    {{range .Players}}
+                        {{if .MatchupPlayer.IsHome}}
+                            <span class="home-players">{{.Player.FirstName}} {{.Player.LastName}}</span>
+                        {{end}}
+                    {{end}}
+                    vs
+                    {{range .Players}}
+                        {{if not .MatchupPlayer.IsHome}}
+                            <span class="away-players">{{.Player.FirstName}} {{.Player.LastName}}</span>
+                        {{end}}
+                    {{end}}
+                </div>
+                {{end}}
+
+                <div class="scores-section" id="scores_{{.Matchup.ID}}">
+                    <!-- Set 1 -->
+                    <div class="set-row">
+                        <span class="set-label">Set 1</span>
+                        <input type="number" name="matchup_{{.Matchup.ID}}_home_set1" class="score-input" min="0" max="7" placeholder="H"
+                               value="{{if .Matchup.HomeSet1}}{{derefInt .Matchup.HomeSet1}}{{end}}">
+                        <span class="score-separator">-</span>
+                        <input type="number" name="matchup_{{.Matchup.ID}}_away_set1" class="score-input" min="0" max="7" placeholder="A"
+                               value="{{if .Matchup.AwaySet1}}{{derefInt .Matchup.AwaySet1}}{{end}}">
+                    </div>
+                    {{with index $.Errors (printf "matchup_%d_set1" .Matchup.ID)}}
+                        <div class="error-msg">{{.}}</div>
+                    {{end}}
+
+                    <!-- Set 2 -->
+                    <div class="set-row">
+                        <span class="set-label">Set 2</span>
+                        <input type="number" name="matchup_{{.Matchup.ID}}_home_set2" class="score-input" min="0" max="7" placeholder="H"
+                               value="{{if .Matchup.HomeSet2}}{{derefInt .Matchup.HomeSet2}}{{end}}">
+                        <span class="score-separator">-</span>
+                        <input type="number" name="matchup_{{.Matchup.ID}}_away_set2" class="score-input" min="0" max="7" placeholder="A"
+                               value="{{if .Matchup.AwaySet2}}{{derefInt .Matchup.AwaySet2}}{{end}}">
+                    </div>
+                    {{with index $.Errors (printf "matchup_%d_set2" .Matchup.ID)}}
+                        <div class="error-msg">{{.}}</div>
+                    {{end}}
+
+                    <!-- Set 3 (optional) -->
+                    <div class="set3-toggle">
+                        <label>
+                            <input type="checkbox" class="set3-checkbox" data-matchup="{{.Matchup.ID}}"
+                                   {{if or .Matchup.HomeSet3 .Matchup.AwaySet3}}checked{{end}}>
+                            3rd set played
+                        </label>
+                    </div>
+                    <div class="set3-fields {{if not (or .Matchup.HomeSet3 .Matchup.AwaySet3)}}hidden{{end}}" id="set3_{{.Matchup.ID}}">
+                        <div class="set-row">
+                            <span class="set-label">Set 3</span>
+                            <input type="number" name="matchup_{{.Matchup.ID}}_home_set3" class="score-input" min="0" max="7" placeholder="H"
+                                   value="{{if .Matchup.HomeSet3}}{{derefInt .Matchup.HomeSet3}}{{end}}">
+                            <span class="score-separator">-</span>
+                            <input type="number" name="matchup_{{.Matchup.ID}}_away_set3" class="score-input" min="0" max="7" placeholder="A"
+                                   value="{{if .Matchup.AwaySet3}}{{derefInt .Matchup.AwaySet3}}{{end}}">
+                        </div>
+                        {{with index $.Errors (printf "matchup_%d_set3" .Matchup.ID)}}
+                            <div class="error-msg">{{.}}</div>
+                        {{end}}
+                    </div>
+                </div>
+
+                <!-- Conceded toggle -->
+                <div class="conceded-section">
+                    <div class="conceded-toggle">
+                        <label>
+                            <input type="checkbox" name="matchup_{{.Matchup.ID}}_conceded" value="true"
+                                   class="conceded-checkbox" data-matchup="{{.Matchup.ID}}"
+                                   {{if .Matchup.ConcededBy}}checked{{end}}>
+                            Matchup conceded
+                        </label>
+                        <select name="matchup_{{.Matchup.ID}}_conceded_by" class="conceded-select {{if not .Matchup.ConcededBy}}hidden{{end}}" id="conceded_by_{{.Matchup.ID}}">
+                            <option value="">-- Who conceded? --</option>
+                            <option value="Home" {{if eq .Matchup.HomeScore 0}}{{if eq .Matchup.AwayScore 2}}{{if .Matchup.ConcededBy}}selected{{end}}{{end}}{{end}}>Home</option>
+                            <option value="Away" {{if eq .Matchup.AwayScore 0}}{{if eq .Matchup.HomeScore 2}}{{if .Matchup.ConcededBy}}selected{{end}}{{end}}{{end}}>Away</option>
+                        </select>
+                    </div>
+                    {{with index $.Errors (printf "matchup_%d" .Matchup.ID)}}
+                        <div class="error-msg">{{.}}</div>
+                    {{end}}
+                </div>
+            </div>
+            {{end}}
+
+            <div class="submit-bar">
+                <a href="/admin/league/fixtures/{{.FixtureDetail.ID}}" class="btn-cancel">Cancel</a>
+                <button type="submit" class="btn-submit">
+                    {{if .IsEdit}}Update Results{{else}}Save Results & Complete Fixture{{end}}
+                </button>
+            </div>
+        </form>
+    </main>
+
+    <footer style="text-align: center; padding: 2rem 0; color: #999; font-size: 0.875rem;">
+        &copy; {{currentYear}} Jim.Tennis
+    </footer>
+
+    <script>
+        // Toggle set 3 visibility
+        document.querySelectorAll('.set3-checkbox').forEach(function(cb) {
+            cb.addEventListener('change', function() {
+                var matchupId = this.dataset.matchup;
+                var fields = document.getElementById('set3_' + matchupId);
+                if (this.checked) {
+                    fields.classList.remove('hidden');
+                } else {
+                    fields.classList.add('hidden');
+                    // Clear set 3 inputs
+                    fields.querySelectorAll('input[type="number"]').forEach(function(input) {
+                        input.value = '';
+                    });
+                }
+            });
+        });
+
+        // Toggle conceded section
+        document.querySelectorAll('.conceded-checkbox').forEach(function(cb) {
+            cb.addEventListener('change', function() {
+                var matchupId = this.dataset.matchup;
+                var select = document.getElementById('conceded_by_' + matchupId);
+                var scores = document.getElementById('scores_' + matchupId);
+                if (this.checked) {
+                    select.classList.remove('hidden');
+                    scores.classList.add('hidden');
+                } else {
+                    select.classList.add('hidden');
+                    select.value = '';
+                    scores.classList.remove('hidden');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

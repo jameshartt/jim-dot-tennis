@@ -1,0 +1,14 @@
+{{if .Weather}}
+<div class="weather-widget">
+    <div class="weather-icon">{{.Weather.Icon}}</div>
+    <div class="weather-info">
+        <div class="weather-desc">{{.Weather.Description}}</div>
+        <div class="weather-temp">{{printf "%.0f" .Weather.TemperatureMin}}°C - {{printf "%.0f" .Weather.TemperatureMax}}°C</div>
+        <div class="weather-rain">💧 {{.Weather.PrecipitationPercent}}% chance of rain</div>
+    </div>
+</div>
+{{else}}
+<div class="weather-widget weather-unavailable">
+    <span class="weather-na">Weather forecast not available</span>
+</div>
+{{end}}

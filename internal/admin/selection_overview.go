@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"html/template"
 	"log"
 	"net/http"
 	"strconv"
@@ -101,17 +100,7 @@ func (h *SelectionOverviewHandler) handleOverviewPage(w http.ResponseWriter, r *
 	}
 
 	// Load and execute template
-	tmpl, err := template.New("selection_overview.html").Funcs(template.FuncMap{
-		"currentYear": func() int {
-			return 2024
-		},
-		"add": func(a, b int) int {
-			return a + b
-		},
-		"sub": func(a, b int) int {
-			return a - b
-		},
-	}).ParseFiles(h.templateDir + "/admin/selection_overview.html")
+	tmpl, err := parseTemplate(h.templateDir, "admin/selection_overview.html")
 	if err != nil {
 		log.Printf("Error parsing template: %v", err)
 		http.Error(w, "Template error", http.StatusInternalServerError)
@@ -172,17 +161,7 @@ func (h *SelectionOverviewHandler) handleRefresh(w http.ResponseWriter, r *http.
 	}
 
 	// Load and execute partial template
-	tmpl, err := template.New("selection_overview_content.html").Funcs(template.FuncMap{
-		"currentYear": func() int {
-			return 2024
-		},
-		"add": func(a, b int) int {
-			return a + b
-		},
-		"sub": func(a, b int) int {
-			return a - b
-		},
-	}).ParseFiles(h.templateDir + "/admin/partials/selection_overview_content.html")
+	tmpl, err := parseTemplate(h.templateDir, "admin/partials/selection_overview_content.html")
 	if err != nil {
 		log.Printf("Error parsing template: %v", err)
 		http.Error(w, "Template error", http.StatusInternalServerError)

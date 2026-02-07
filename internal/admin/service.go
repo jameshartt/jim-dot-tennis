@@ -7,6 +7,7 @@ import (
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
+	"jim-dot-tennis/internal/services"
 )
 
 // Service handles admin business logic
@@ -25,6 +26,7 @@ type Service struct {
 	tennisPlayerRepository  repository.ProTennisPlayerRepository
 	availabilityRepository  repository.AvailabilityRepository
 	venueOverrideRepository repository.VenueOverrideRepository
+	weatherService          *services.WeatherService
 	teamEligibilityService  *TeamEligibilityService
 }
 
@@ -45,6 +47,7 @@ func NewService(db *database.DB) *Service {
 		tennisPlayerRepository:  repository.NewProTennisPlayerRepository(db),
 		availabilityRepository:  repository.NewAvailabilityRepository(db),
 		venueOverrideRepository: repository.NewVenueOverrideRepository(db),
+		weatherService:          services.NewWeatherService(),
 	}
 
 	// Initialize team eligibility service with reference to the main service

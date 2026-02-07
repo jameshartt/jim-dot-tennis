@@ -95,6 +95,15 @@ func parseTemplate(templateDir, templatePath string) (*template.Template, error)
 			}
 			return 0
 		},
+		"derefInt": func(i *int) int {
+			if i != nil {
+				return *i
+			}
+			return 0
+		},
+		"sub": func(a, b int) int {
+			return a - b
+		},
 	}
 
 	// Parse template with function map
