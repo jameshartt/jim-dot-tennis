@@ -170,6 +170,26 @@
         <div class="container">
             <div class="action-bar">
                 <h2>All Clubs <span class="club-count">({{len .Clubs}})</span></h2>
+                <button type="button" class="btn-save" onclick="document.getElementById('create-club-form').style.display='block'">+ Create Club</button>
+            </div>
+
+            {{if .Success}}
+            <div class="success-message" style="background:#d4edda;color:#155724;padding:0.75rem 1rem;border-radius:6px;margin-bottom:1.5rem;border:1px solid #c3e6cb;">{{.Success}}</div>
+            {{end}}
+
+            <div id="create-club-form" style="display:none;background:white;border-radius:8px;padding:1.5rem;margin-bottom:2rem;box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+                <h3 style="margin:0 0 1rem 0;color:var(--primary-color);">Create New Club</h3>
+                <form method="POST" action="/admin/league/clubs/">
+                    <input type="hidden" name="action" value="create">
+                    <div style="display:flex;gap:1rem;align-items:end;">
+                        <div style="flex:1;">
+                            <label for="create-name" style="display:block;margin-bottom:0.35rem;font-weight:600;font-size:0.9rem;color:#495057;">Club Name *</label>
+                            <input type="text" id="create-name" name="name" required style="width:100%;padding:0.5rem 0.75rem;border:1px solid #ced4da;border-radius:4px;font-size:0.95rem;box-sizing:border-box;">
+                        </div>
+                        <button type="submit" class="btn-save" style="background:var(--primary-color);color:white;padding:0.6rem 1.5rem;border:none;border-radius:4px;font-size:1rem;cursor:pointer;">Create</button>
+                        <button type="button" style="padding:0.6rem 1rem;border:1px solid #ced4da;border-radius:4px;background:white;cursor:pointer;" onclick="document.getElementById('create-club-form').style.display='none'">Cancel</button>
+                    </div>
+                </form>
             </div>
 
             {{if .Clubs}}

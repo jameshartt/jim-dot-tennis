@@ -51,8 +51,8 @@ None currently active.
 
 ### Sprint 005: Club & Away Team Management
 - **Focus**: Full management of clubs and away teams (non-St Ann's teams)
-- **Items**: 5 (WI-028 to WI-032)
-- **Key Features**: Club CRUD, club-to-teams navigation, away team management interface, division assignment & active status, season transition review
+- **Items**: 6 (WI-028 to WI-032, WI-042)
+- **Key Features**: Club CRUD, club-to-teams navigation, away team management interface, division assignment & active status, season transition review, safe season deletion
 - **Directory**: `sprint-005/`
 - **Summary**: [sprint-005/SUMMARY.md](sprint-005/SUMMARY.md)
 - **Dependencies**: WI-030→WI-028, WI-031→WI-030, WI-032→WI-031

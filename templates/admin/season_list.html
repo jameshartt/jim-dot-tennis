@@ -191,6 +191,10 @@
                 <button onclick="showCreateSeasonModal()" class="btn-add">➕ Create Season</button>
             </div>
 
+            {{if .Success}}
+            <div style="background:#d4edda;color:#155724;padding:0.75rem 1rem;border-radius:6px;margin-bottom:1.5rem;border:1px solid #c3e6cb;">{{.Success}}</div>
+            {{end}}
+
             {{if .Seasons}}
             <div class="table-container">
                 <table class="seasons-table">
@@ -249,10 +253,14 @@
                             </td>
                             <td>
                                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                    <a href="/admin/league/seasons/setup?id={{.Season.ID}}" class="btn-setup">⚙️ Setup</a>
+                                    <a href="/admin/league/seasons/setup?id={{.Season.ID}}" class="btn-setup">Setup</a>
                                     {{if not .Season.IsActive}}
                                     <form method="POST" action="/admin/league/seasons/set-active?id={{.Season.ID}}" style="display: inline;">
                                         <button type="submit" class="btn-set-active">Set Active</button>
+                                    </form>
+                                    <form method="POST" action="/admin/league/seasons/delete" style="display: inline;" onsubmit="return confirm('Delete {{.Season.Name}} and ALL its data ({{.Stats.TeamCount}} teams, {{.Stats.FixtureCount}} fixtures, {{.Stats.DivisionCount}} divisions, {{.WeekCount}} weeks)? This cannot be undone.');">
+                                        <input type="hidden" name="season_id" value="{{.Season.ID}}">
+                                        <button type="submit" style="background:#dc3545;color:white;padding:0.4rem 0.8rem;border:none;border-radius:4px;cursor:pointer;font-size:0.85rem;">Delete</button>
                                     </form>
                                     {{end}}
                                 </div>

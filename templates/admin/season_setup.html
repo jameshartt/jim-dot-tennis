@@ -199,11 +199,13 @@
             <div class="season-header">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
                     <h2 style="margin: 0;">{{.Season.Name}}</h2>
-                    {{if not .SetupData.Divisions}}
-                    <button onclick="showCopyModal()" style="background: var(--primary-color); color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
-                        📋 Copy from Previous Season
-                    </button>
-                    {{end}}
+                    <div style="display:flex;gap:0.75rem;">
+                        {{if .SetupData.Divisions}}
+                        <a href="/admin/league/seasons/review-away-teams?id={{.Season.ID}}" style="background: #17a2b8; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; text-decoration: none;">Review Away Teams</a>
+                        {{else}}
+                        <button onclick="showCopyModal()" style="background: var(--primary-color); color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">Copy from Previous Season</button>
+                        {{end}}
+                    </div>
                 </div>
                 <div class="season-info">
                     <div class="season-info-item">

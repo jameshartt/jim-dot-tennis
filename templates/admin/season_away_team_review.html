@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Away Team Review - {{.Season.Name}} - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            border: 1px solid #c3e6cb;
+        }
+        .info-banner {
+            background: #cce5ff;
+            color: #004085;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            border: 1px solid #b8daff;
+            font-size: 0.9rem;
+        }
+        .review-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .review-section h2 {
+            margin: 0 0 1rem 0;
+            color: #495057;
+            font-size: 1.2rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--primary-color);
+        }
+        .review-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .review-table th,
+        .review-table td {
+            padding: 0.6rem 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .review-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #495057;
+        }
+        .review-table .team-inactive {
+            opacity: 0.5;
+        }
+        .prev-division {
+            color: #6c757d;
+            font-size: 0.85rem;
+        }
+        .changed-badge {
+            display: inline-block;
+            background: #ffc107;
+            color: #212529;
+            padding: 0.1rem 0.35rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            margin-left: 0.3rem;
+        }
+        .new-badge {
+            display: inline-block;
+            background: #17a2b8;
+            color: white;
+            padding: 0.1rem 0.35rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            margin-left: 0.3rem;
+        }
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e9ecef;
+        }
+        .btn-save {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.6rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .btn-save:hover { opacity: 0.9; }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-secondary:hover { opacity: 0.9; }
+        .add-team-row {
+            background: #f0f9ff;
+        }
+        .add-team-row td {
+            padding: 0.5rem 0.75rem;
+        }
+        @media (max-width: 768px) {
+            .col-prev { display: none; }
+            .col-club { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin/league/dashboard">Admin Dashboard</a> &gt;
+                <a href="/admin/league/seasons">Seasons</a> &gt;
+                <a href="/admin/league/seasons/setup?id={{.Season.ID}}">Setup</a> &gt;
+                Away Team Review
+            </div>
+            <h1>Away Team Review &mdash; {{.Season.Name}}</h1>
+        </div>
+    </header>
+
+    <main class="admin-content">
+        <div class="container">
+
+            {{if .Success}}
+            <div class="success-message">{{.Success}}</div>
+            {{end}}
+
+            <div class="info-banner">
+                Review the away teams for {{.Season.Name}}. Adjust divisions, toggle active status, or add new teams. Uncheck "Active" to mark teams that have disbanded or left the league. Changes are applied when you click "Save Changes".
+            </div>
+
+            <form method="POST" action="/admin/league/seasons/review-away-teams">
+                <input type="hidden" name="season_id" value="{{.Season.ID}}">
+
+                <div class="review-section">
+                    <h2>Away Teams ({{len .ReviewData.Teams}})</h2>
+
+                    {{if .ReviewData.Teams}}
+                    <table class="review-table">
+                        <thead>
+                            <tr>
+                                <th>Active</th>
+                                <th>Team</th>
+                                <th class="col-club">Club</th>
+                                <th class="col-prev">Previous Division</th>
+                                <th>Division</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .ReviewData.Teams}}
+                            <input type="hidden" name="review_team_ids" value="{{.Team.ID}}">
+                            <tr {{if not .Team.Active}}class="team-inactive"{{end}}>
+                                <td>
+                                    <input type="checkbox" name="team_{{.Team.ID}}_active" {{if .Team.Active}}checked{{end}}>
+                                </td>
+                                <td>
+                                    {{.Team.Name}}
+                                    {{if .IsNew}}<span class="new-badge">NEW</span>{{end}}
+                                </td>
+                                <td class="col-club">{{.ClubName}}</td>
+                                <td class="col-prev">
+                                    {{if .IsNew}}
+                                        <span style="color:#17a2b8;font-style:italic;">New team</span>
+                                    {{else}}
+                                        <span class="prev-division">{{.PreviousDivision}}</span>
+                                        {{if ne .PreviousDivision .CurrentDivision}}<span class="changed-badge">MOVED</span>{{end}}
+                                    {{end}}
+                                </td>
+                                <td>
+                                    {{$teamDivID := .Team.DivisionID}}
+                                    <select name="team_{{.Team.ID}}_division" style="padding:0.35rem 0.5rem;border:1px solid #ced4da;border-radius:4px;font-size:0.9rem;">
+                                        {{range $.Divisions}}
+                                        <option value="{{.ID}}" {{if eq .ID $teamDivID}}selected{{end}}>{{.Name}}</option>
+                                        {{end}}
+                                    </select>
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                    {{else}}
+                    <p style="text-align:center;color:#6c757d;padding:2rem;">No away teams found for this season.</p>
+                    {{end}}
+                </div>
+
+                <!-- Add New Teams Section -->
+                <div class="review-section">
+                    <h2>Add New Teams</h2>
+                    <p style="color:#6c757d;font-size:0.9rem;margin-bottom:1rem;">Add teams that have joined the league this season.</p>
+
+                    <div id="new-teams-container">
+                        <table class="review-table" id="new-teams-table">
+                            <thead>
+                                <tr>
+                                    <th>Team Name</th>
+                                    <th>Club</th>
+                                    <th>Division</th>
+                                    <th style="width:60px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="new-teams-body">
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="button" onclick="addNewTeamRow()" class="btn-secondary" style="margin-top:0.75rem;">+ Add Team</button>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-save">Save Changes</button>
+                    <a href="/admin/league/seasons/setup?id={{.Season.ID}}" class="btn-secondary">Back to Season Setup</a>
+                </div>
+            </form>
+
+        </div>
+    </main>
+
+    <script>
+        function addNewTeamRow() {
+            var tbody = document.getElementById('new-teams-body');
+            var row = document.createElement('tr');
+            row.className = 'add-team-row';
+            row.innerHTML = '<td><input type="text" name="new_team_name" placeholder="e.g., Dyke A" style="width:100%;padding:0.4rem;border:1px solid #ced4da;border-radius:4px;box-sizing:border-box;"></td>' +
+                '<td><select name="new_team_club" style="width:100%;padding:0.4rem;border:1px solid #ced4da;border-radius:4px;">' +
+                '<option value="">Select Club</option>' +
+                {{range .Clubs}}'<option value="{{.ID}}">{{.Name}}</option>' +{{end}}
+                '</select></td>' +
+                '<td><select name="new_team_division" style="width:100%;padding:0.4rem;border:1px solid #ced4da;border-radius:4px;">' +
+                '<option value="">Select Division</option>' +
+                {{range .Divisions}}'<option value="{{.ID}}">{{.Name}}</option>' +{{end}}
+                '</select></td>' +
+                '<td><button type="button" onclick="this.closest(\'tr\').remove()" style="background:#dc3545;color:white;border:none;padding:0.3rem 0.6rem;border-radius:4px;cursor:pointer;">X</button></td>';
+            tbody.appendChild(row);
+        }
+    </script>
+</body>
+</html>

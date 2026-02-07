@@ -78,6 +78,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/league/sessions/", h.sessions.HandleSessions)
 	adminMux.HandleFunc("/admin/league/teams", h.teams.HandleTeams)
 	adminMux.HandleFunc("/admin/league/teams/", h.teams.HandleTeams)
+	adminMux.HandleFunc("/admin/league/teams/away", h.teams.HandleAwayTeams)
+	adminMux.HandleFunc("/admin/league/teams/away/", h.teams.HandleAwayTeams)
+	adminMux.HandleFunc("/admin/league/teams/toggle-active/", h.teams.HandleToggleActive)
 	adminMux.HandleFunc("/admin/league/clubs", h.clubs.HandleClubs)
 	adminMux.HandleFunc("/admin/league/clubs/", h.clubs.HandleClubs)
 
@@ -101,12 +104,15 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/league/seasons", h.seasons.HandleSeasons)
 	adminMux.HandleFunc("/admin/league/seasons/", h.seasons.HandleSeasons)
 	adminMux.HandleFunc("/admin/league/seasons/set-active", h.seasons.HandleSetActiveSeason)
+	adminMux.HandleFunc("/admin/league/seasons/delete", h.seasons.HandleDeleteSeason)
 	adminMux.HandleFunc("/admin/league/seasons/setup", h.seasonSetup.HandleSeasonSetup)
 	adminMux.HandleFunc("/admin/league/seasons/move-team", h.seasonSetup.HandleMoveTeam)
 	adminMux.HandleFunc("/admin/league/seasons/copy-from-previous", h.seasonSetup.HandleCopyFromPreviousSeason)
+	adminMux.HandleFunc("/admin/league/seasons/review-away-teams", h.seasonSetup.HandleReviewAwayTeams)
 
 	// Division management routes
 	adminMux.HandleFunc("/admin/league/divisions/", h.divisions.HandleDivisionEdit)
+	adminMux.HandleFunc("/admin/league/divisions/review", h.teams.HandleDivisionReview)
 
 	// Selection overview routes
 	adminMux.HandleFunc("/admin/league/selection-overview", h.selectionOverview.HandleSelectionOverview)

@@ -1,0 +1,63 @@
+{
+  "id": "WI-042",
+  "title": "Season deletion with cascading cleanup",
+  "description": "Add the ability to completely delete a season and all its dependent entities. This is useful during season setup when a copy or configuration goes wrong and the admin wants to start fresh. To prevent accidental data loss, deletion is only allowed for seasons that have zero completed fixtures (i.e. seasons still being set up). The deletion cascades through all season-dependent tables in the correct order.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [],
+  "phase": "Phase 6: Admin Tooling and Dashboard",
+  "acceptance_criteria": [
+    "Season can be deleted from the season management page",
+    "Deletion is blocked if the season has any completed fixtures",
+    "Clear error message shown when deletion is blocked explaining why",
+    "Confirmation dialog warns about the irreversible nature of the operation",
+    "All season-dependent data is cleaned up in correct order: fixture-related data, fixtures, player_teams, captains, player_divisions, player_general_availability, weeks, teams, divisions, league_seasons, then the season itself",
+    "Active season cannot be deleted (must deactivate first)",
+    "After successful deletion, admin is redirected to seasons list with success message",
+    "Deletion count summary shown (e.g. 'Deleted season X along with Y teams, Z fixtures')"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/admin/seasons.go",
+      "internal/admin/service_seasons.go",
+      "internal/repository/season.go",
+      "templates/admin/seasons.html"
+    ],
+    "routes_to_add": [
+      "POST /admin/league/seasons/delete"
+    ],
+    "cascade_order": [
+      "1. player_availability, availability_time_slots, player_fixture_availability (by fixture_id via fixtures.season_id)",
+      "2. matchup_players (by matchup_id via matchups.fixture_id via fixtures.season_id)",
+      "3. matchups (by fixture_id via fixtures.season_id)",
+      "4. fixture_players (by fixture_id via fixtures.season_id)",
+      "5. fixtures (by season_id)",
+      "6. player_teams (by season_id)",
+      "7. captains (by season_id)",
+      "8. player_divisions (by season_id)",
+      "9. player_general_availability (by season_id)",
+      "10. weeks (by season_id)",
+      "11. teams (by season_id)",
+      "12. divisions (by season_id)",
+      "13. league_seasons (by season_id)",
+      "14. seasons (the record itself)"
+    ],
+    "safety_checks": [
+      "Reject if season is currently active",
+      "Reject if any fixtures for this season have status = 'completed'",
+      "Use a database transaction so deletion is atomic"
+    ]
+  },
+  "testing_requirements": [
+    "Deleting a season with no fixtures succeeds and removes all related data",
+    "Deleting a season with non-completed fixtures succeeds",
+    "Deleting a season with completed fixtures is blocked",
+    "Deleting the active season is blocked",
+    "After deletion, no orphaned data remains in any dependent table"
+  ],
+  "context": {
+    "user_story": "As an administrator, I want to delete a season that is still being set up so I can start fresh if the copy or configuration went wrong"
+  }
+}

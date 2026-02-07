@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.TeamDetail.Name}} - Away Team - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header {
+            background: #6c757d;
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+        .away-badge {
+            display: inline-block;
+            background: #495057;
+            color: white;
+            padding: 0.15rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            border: 1px solid #c3e6cb;
+        }
+        .form-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-section h2 {
+            margin: 0 0 1.5rem 0;
+            color: #495057;
+            font-size: 1.2rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid #6c757d;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem 1.5rem;
+        }
+        .form-group {
+            margin-bottom: 0.5rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.35rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #495057;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            box-sizing: border-box;
+        }
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e9ecef;
+        }
+        .btn-save {
+            background: #6c757d;
+            color: white;
+            padding: 0.6rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .btn-save:hover { opacity: 0.9; }
+        .btn-back {
+            color: #6c757d;
+            text-decoration: none;
+            padding: 0.6rem 1rem;
+        }
+        .info-card {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .info-card strong { color: #495057; }
+        .fixtures-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .fixtures-table th, .fixtures-table td {
+            padding: 0.5rem;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .fixtures-table th { font-weight: 600; background: #f8f9fa; }
+        @media (max-width: 768px) {
+            .form-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin/league/dashboard">Admin Dashboard</a> &gt; <a href="/admin/league/teams">Teams</a> &gt; <a href="/admin/league/teams/away">Away</a> &gt; {{.TeamDetail.Name}}
+            </div>
+            <h1>{{.TeamDetail.Name}} <span class="away-badge">AWAY</span></h1>
+        </div>
+    </header>
+
+    <main class="admin-content">
+        <div class="container">
+
+            {{if .Success}}
+            <div class="success-message">{{.Success}}</div>
+            {{end}}
+
+            <!-- Team Info -->
+            <div class="form-section">
+                <h2>Team Information</h2>
+                <div class="info-card">
+                    <p><strong>Club:</strong> {{if .TeamDetail.Club}}{{.TeamDetail.Club.Name}}{{else}}Unknown{{end}}</p>
+                    <p><strong>Division:</strong> {{if .TeamDetail.Division}}{{.TeamDetail.Division.Name}}{{else}}Unknown{{end}}</p>
+                    <p><strong>Season:</strong> {{if .TeamDetail.Season}}{{.TeamDetail.Season.Name}}{{else}}Unknown{{end}}</p>
+                    <p><strong>Status:</strong>
+                        {{if .TeamDetail.Active}}
+                            <span style="color:#28a745;font-weight:600;">Active</span>
+                        {{else}}
+                            <span style="color:#dc3545;font-weight:600;">Inactive</span>
+                        {{end}}
+                    </p>
+                </div>
+                <div style="display:flex;gap:1rem;align-items:center;margin-top:1rem;">
+                    <form method="POST" action="/admin/league/teams/toggle-active/{{.TeamDetail.ID}}" style="margin:0;">
+                        {{if .TeamDetail.Active}}
+                        <button type="submit" style="background:#ffc107;color:#212529;padding:0.5rem 1rem;border:none;border-radius:4px;cursor:pointer;font-size:0.9rem;">Mark Inactive</button>
+                        {{else}}
+                        <button type="submit" style="background:#28a745;color:white;padding:0.5rem 1rem;border:none;border-radius:4px;cursor:pointer;font-size:0.9rem;">Mark Active</button>
+                        {{end}}
+                    </form>
+                    <span style="color:#6c757d;font-size:0.85rem;">{{if .TeamDetail.Active}}Deactivate this team to exclude it from scheduling.{{else}}Reactivate this team to include it in scheduling.{{end}}</span>
+                </div>
+                <p style="color:#6c757d;font-size:0.9rem;font-style:italic;margin-top:1rem;">Away teams do not have player or captain management. Only St Ann's teams have rosters.</p>
+            </div>
+
+            <!-- Edit Away Team -->
+            <form method="POST" action="/admin/league/teams/away/{{.TeamDetail.ID}}">
+                <div class="form-section">
+                    <h2>Edit Team</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="name">Team Name</label>
+                            <input type="text" id="name" name="name" value="{{.TeamDetail.Name}}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="club_id">Club</label>
+                            <select id="club_id" name="club_id">
+                                {{range $.Clubs}}
+                                <option value="{{.ID}}" {{if eq .ID $.TeamDetail.ClubID}}selected{{end}}>{{.Name}}</option>
+                                {{end}}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="division_id">Division</label>
+                            <select id="division_id" name="division_id">
+                                {{range $.Divisions}}
+                                <option value="{{.ID}}" {{if eq .ID $.TeamDetail.DivisionID}}selected{{end}}>{{.Name}}</option>
+                                {{end}}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-save">Save Changes</button>
+                        <a href="/admin/league/teams/away" class="btn-back">Back to Away Teams</a>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Upcoming Fixtures -->
+            <div class="form-section">
+                <h2>Fixtures</h2>
+                {{if .UpcomingFixtures}}
+                <table class="fixtures-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Opponent</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .UpcomingFixtures}}
+                        <tr>
+                            <td>{{.ScheduledDate.Format "Mon 2 Jan 2006"}}</td>
+                            <td>
+                                {{if eq .HomeTeamID $.TeamDetail.ID}}Away{{else}}Home{{end}}
+                            </td>
+                            <td>{{.Status}}</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+                {{else}}
+                <p style="color:#6c757d;text-align:center;padding:1rem;">No upcoming fixtures.</p>
+                {{end}}
+            </div>
+
+            <!-- Delete Section -->
+            <div class="form-section" style="border:1px solid #f5c6cb;">
+                <h2 style="color:#dc3545;border-bottom-color:#dc3545;">Danger Zone</h2>
+                <p style="color:#6c757d;margin-bottom:1rem;">Deleting this team will remove it permanently.</p>
+                <form method="POST" action="/admin/league/teams/away/{{.TeamDetail.ID}}/delete" onsubmit="return confirm('Are you sure you want to delete {{.TeamDetail.Name}}? This cannot be undone.');">
+                    <button type="submit" style="background:#dc3545;color:white;padding:0.6rem 1.5rem;border:none;border-radius:4px;font-size:1rem;cursor:pointer;">Delete Team</button>
+                </form>
+            </div>
+
+        </div>
+    </main>
+</body>
+</html>

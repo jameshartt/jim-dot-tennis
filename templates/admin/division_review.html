@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Division Review - {{.Season.Name}} - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            border: 1px solid #c3e6cb;
+        }
+        .division-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .division-section h3 {
+            margin: 0 0 1rem 0;
+            color: #495057;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary-color);
+        }
+        .review-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .review-table th,
+        .review-table td {
+            padding: 0.6rem 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .review-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .review-table .team-inactive {
+            opacity: 0.5;
+        }
+        .inactive-badge {
+            display: inline-block;
+            background: #dc3545;
+            color: white;
+            padding: 0.1rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+        .club-label {
+            color: #6c757d;
+            font-size: 0.85rem;
+        }
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e9ecef;
+        }
+        .btn-save {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.6rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .btn-save:hover { opacity: 0.9; }
+        .btn-back {
+            color: #6c757d;
+            text-decoration: none;
+            padding: 0.6rem 1rem;
+        }
+        .empty-division {
+            color: #6c757d;
+            font-style: italic;
+            padding: 1rem;
+            text-align: center;
+        }
+        @media (max-width: 600px) {
+            .col-club { display: none; }
+            .col-players { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin/league/dashboard">Admin Dashboard</a> &gt; <a href="/admin/league/teams/away">Away Teams</a> &gt; Division Review
+            </div>
+            <h1>Division Review &mdash; {{.Season.Name}}</h1>
+        </div>
+    </header>
+
+    <main class="admin-content">
+        <div class="container">
+
+            {{if .Success}}
+            <div class="success-message">{{.Success}}</div>
+            {{end}}
+
+            <form method="POST" action="/admin/league/divisions/review">
+                {{if .SetupData}}
+                    {{range .SetupData.Divisions}}
+                    <div class="division-section">
+                        <h3>{{.Division.Name}} ({{.TeamCount}} team{{if ne .TeamCount 1}}s{{end}})</h3>
+                        {{if .Teams}}
+                        <table class="review-table">
+                            <thead>
+                                <tr>
+                                    <th>Team</th>
+                                    <th class="col-club">Club</th>
+                                    <th class="col-players">Players</th>
+                                    <th>Division</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{range .Teams}}
+                                <tr {{if not .Team.Active}}class="team-inactive"{{end}}>
+                                    <td>
+                                        {{.Team.Name}}
+                                        {{if not .Team.Active}}<span class="inactive-badge">INACTIVE</span>{{end}}
+                                    </td>
+                                    <td class="col-club"><span class="club-label">{{.Club.Name}}</span></td>
+                                    <td class="col-players">{{.PlayerCount}}</td>
+                                    <td>
+                                        {{$teamDivID := .Team.DivisionID}}
+                                        <select name="team_{{.Team.ID}}_division" style="padding:0.35rem 0.5rem;border:1px solid #ced4da;border-radius:4px;">
+                                            {{range $.Divisions}}
+                                            <option value="{{.ID}}" {{if eq .ID $teamDivID}}selected{{end}}>{{.Name}}</option>
+                                            {{end}}
+                                        </select>
+                                    </td>
+                                </tr>
+                                {{end}}
+                            </tbody>
+                        </table>
+                        {{else}}
+                        <p class="empty-division">No teams in this division.</p>
+                        {{end}}
+                    </div>
+                    {{end}}
+                {{else}}
+                <p style="text-align:center;color:#6c757d;padding:2rem;">No division data available for this season.</p>
+                {{end}}
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-save">Save Division Assignments</button>
+                    <a href="/admin/league/teams/away" class="btn-back">Back to Away Teams</a>
+                </div>
+            </form>
+
+        </div>
+    </main>
+</body>
+</html>

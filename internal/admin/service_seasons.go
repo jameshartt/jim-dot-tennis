@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/repository"
 )
 
 // SeasonStats holds statistics for a season
@@ -250,6 +251,44 @@ func (s *Service) GetSeasonSetupData(seasonID uint) (*SeasonSetupData, error) {
 	}
 
 	return setupData, nil
+}
+
+// DeleteSeason deletes a season and all dependent data after safety checks
+func (s *Service) DeleteSeason(seasonID uint) (*repository.SeasonDeletionStats, error) {
+	ctx := context.Background()
+
+	// Get the season
+	season, err := s.seasonRepository.FindByID(ctx, seasonID)
+	if err != nil {
+		return nil, fmt.Errorf("season not found: %w", err)
+	}
+
+	// Safety: cannot delete the active season
+	if season.IsActive {
+		return nil, fmt.Errorf("cannot delete the active season — deactivate it first")
+	}
+
+	// Safety: cannot delete if there are completed fixtures
+	fixtures, err := s.fixtureRepository.FindBySeason(ctx, seasonID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check fixtures: %w", err)
+	}
+	for _, f := range fixtures {
+		if f.Status == models.Completed {
+			return nil, fmt.Errorf("cannot delete season with completed fixtures — this season has match results that would be lost")
+		}
+	}
+
+	// Perform cascading delete
+	stats, err := s.seasonRepository.DeleteCascade(ctx, seasonID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete season: %w", err)
+	}
+
+	log.Printf("Deleted season '%s' (ID %d): %d fixtures, %d teams, %d divisions, %d weeks, %d player assignments, %d captains",
+		season.Name, seasonID, stats.Fixtures, stats.Teams, stats.Divisions, stats.Weeks, stats.Players, stats.Captains)
+
+	return stats, nil
 }
 
 // MoveTeamToDivision promotes/demotes a team to a different division

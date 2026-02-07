@@ -368,6 +368,83 @@
 
             </form>
 
+            <!-- Teams Section (WI-029) -->
+            <div class="form-section">
+                <h2>Teams</h2>
+                {{if .ClubTeams}}
+                    {{range .ClubTeams}}
+                    <div style="margin-bottom:1.5rem;">
+                        <h3 style="font-size:1rem;color:#495057;margin:0 0 0.75rem 0;">{{if .Season}}{{.Season.Name}}{{else}}Unknown Season{{end}}</h3>
+                        <table class="clubs-table" style="margin-bottom:0;">
+                            <thead>
+                                <tr>
+                                    <th>Team Name</th>
+                                    <th>Division</th>
+                                    {{if (index .Teams 0).IsStAnns}}<th>Players</th>{{end}}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{range .Teams}}
+                                <tr onclick="window.location.href='/admin/league/teams/{{.ID}}'" style="cursor:pointer;">
+                                    <td style="font-weight:600;color:var(--primary-color);">{{.Name}}</td>
+                                    <td>{{.DivisionName}}</td>
+                                    {{if .IsStAnns}}<td>{{.PlayerCount}}</td>{{end}}
+                                </tr>
+                                {{end}}
+                            </tbody>
+                        </table>
+                    </div>
+                    {{end}}
+                {{else}}
+                    <p style="color:#6c757d;text-align:center;padding:2rem;">This club has no teams yet.</p>
+                {{end}}
+
+                {{if .ActiveSeason}}
+                <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #e9ecef;">
+                    <button type="button" class="btn-save" onclick="document.getElementById('add-team-form').style.display='block'" style="font-size:0.9rem;padding:0.4rem 1rem;">+ Add Team</button>
+                    <div id="add-team-form" style="display:none;margin-top:1rem;">
+                        <form method="POST" action="/admin/league/teams/">
+                            <input type="hidden" name="action" value="create">
+                            <input type="hidden" name="club_id" value="{{$.Club.ID}}">
+                            <div style="display:flex;gap:1rem;align-items:end;flex-wrap:wrap;">
+                                <div style="flex:1;min-width:150px;">
+                                    <label style="display:block;margin-bottom:0.35rem;font-weight:600;font-size:0.9rem;">Team Name</label>
+                                    <input type="text" name="name" required style="width:100%;padding:0.5rem;border:1px solid #ced4da;border-radius:4px;box-sizing:border-box;">
+                                </div>
+                                <div style="min-width:150px;">
+                                    <label style="display:block;margin-bottom:0.35rem;font-weight:600;font-size:0.9rem;">Division</label>
+                                    <select name="division_id" required style="width:100%;padding:0.5rem;border:1px solid #ced4da;border-radius:4px;">
+                                        {{range $.Divisions}}
+                                        <option value="{{.ID}}">{{.Name}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn-save" style="font-size:0.9rem;padding:0.5rem 1rem;">Create Team</button>
+                                <button type="button" style="padding:0.5rem 1rem;border:1px solid #ced4da;border-radius:4px;background:white;cursor:pointer;font-size:0.9rem;" onclick="document.getElementById('add-team-form').style.display='none'">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+
+            <!-- Delete Club Section (WI-028) -->
+            <div class="form-section" style="border:1px solid #f5c6cb;">
+                <h2 style="color:#dc3545;border-bottom-color:#dc3545;">Danger Zone</h2>
+                <p style="color:#6c757d;margin-bottom:1rem;">Deleting a club will also remove all its teams. This action cannot be undone.</p>
+                {{if .Dependencies}}
+                <p style="color:#495057;margin-bottom:1rem;">
+                    This club has <strong>{{.Dependencies.TeamCount}} team(s)</strong> and <strong>{{.Dependencies.FixtureCount}} fixture(s)</strong>.
+                </p>
+                {{end}}
+                <form method="POST" action="/admin/league/clubs/{{.Club.ID}}/delete" onsubmit="return confirm('Are you sure you want to delete {{.Club.Name}}?{{if .Dependencies}}{{if gt .Dependencies.FixtureCount 0}} This club has {{.Dependencies.FixtureCount}} fixtures that will be affected.{{end}}{{end}} This cannot be undone.');">
+                    {{if .Dependencies}}{{if gt .Dependencies.FixtureCount 0}}
+                    <input type="hidden" name="force" value="true">
+                    {{end}}{{end}}
+                    <button type="submit" style="background:#dc3545;color:white;padding:0.6rem 1.5rem;border:none;border-radius:4px;font-size:1rem;cursor:pointer;font-weight:500;">Delete Club</button>
+                </form>
+            </div>
+
         </div>
     </main>
 </body>

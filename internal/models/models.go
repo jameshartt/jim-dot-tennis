@@ -160,6 +160,7 @@ type Team struct {
 	ClubID     uint         `json:"club_id" db:"club_id"` // Team belongs to a club
 	DivisionID uint         `json:"division_id" db:"division_id"`
 	SeasonID   uint         `json:"season_id" db:"season_id"` // Reference to season
+	Active     bool         `json:"active" db:"active"`       // Whether team is active (inactive preserved for history)
 	CreatedAt  time.Time    `json:"created_at" db:"created_at"`
 	UpdatedAt  time.Time    `json:"updated_at" db:"updated_at"`
 	Players    []PlayerTeam `json:"players,omitempty"`

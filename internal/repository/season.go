@@ -2,11 +2,22 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 )
+
+// SeasonDeletionStats holds counts of entities removed during a cascading delete
+type SeasonDeletionStats struct {
+	Fixtures   int
+	Teams      int
+	Divisions  int
+	Weeks      int
+	Players    int // player_teams rows
+	Captains   int
+}
 
 // SeasonRepository defines the interface for season data access
 type SeasonRepository interface {
@@ -16,6 +27,7 @@ type SeasonRepository interface {
 	Create(ctx context.Context, season *models.Season) error
 	Update(ctx context.Context, season *models.Season) error
 	Delete(ctx context.Context, id uint) error
+	DeleteCascade(ctx context.Context, id uint) (*SeasonDeletionStats, error)
 
 	// Season-specific queries
 	FindActive(ctx context.Context) (*models.Season, error)
@@ -102,6 +114,75 @@ func (r *seasonRepository) Update(ctx context.Context, season *models.Season) er
 func (r *seasonRepository) Delete(ctx context.Context, id uint) error {
 	_, err := r.db.ExecContext(ctx, `DELETE FROM seasons WHERE id = ?`, id)
 	return err
+}
+
+// DeleteCascade removes a season and all dependent data in a transaction
+func (r *seasonRepository) DeleteCascade(ctx context.Context, id uint) (*SeasonDeletionStats, error) {
+	stats := &SeasonDeletionStats{}
+
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Collect stats before deleting
+	tx.GetContext(ctx, &stats.Fixtures, `SELECT COUNT(*) FROM fixtures WHERE season_id = ?`, id)
+	tx.GetContext(ctx, &stats.Teams, `SELECT COUNT(*) FROM teams WHERE season_id = ?`, id)
+	tx.GetContext(ctx, &stats.Divisions, `SELECT COUNT(*) FROM divisions WHERE season_id = ?`, id)
+	tx.GetContext(ctx, &stats.Weeks, `SELECT COUNT(*) FROM weeks WHERE season_id = ?`, id)
+	tx.GetContext(ctx, &stats.Players, `SELECT COUNT(*) FROM player_teams WHERE season_id = ?`, id)
+	tx.GetContext(ctx, &stats.Captains, `SELECT COUNT(*) FROM captains WHERE season_id = ?`, id)
+
+	// Level 1: Delete fixture-related data (joined through fixtures)
+	tx.ExecContext(ctx, `
+		DELETE FROM player_availability WHERE fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
+	`, id)
+	tx.ExecContext(ctx, `
+		DELETE FROM availability_time_slots WHERE fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
+	`, id)
+	tx.ExecContext(ctx, `
+		DELETE FROM player_fixture_availability WHERE fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
+	`, id)
+	tx.ExecContext(ctx, `
+		DELETE FROM matchup_players WHERE matchup_id IN (
+			SELECT id FROM matchups WHERE fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
+		)
+	`, id)
+	tx.ExecContext(ctx, `
+		DELETE FROM matchups WHERE fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
+	`, id)
+	tx.ExecContext(ctx, `
+		DELETE FROM fixture_players WHERE fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
+	`, id)
+
+	// Level 2: Delete fixtures and team assignments
+	if _, err := tx.ExecContext(ctx, `DELETE FROM fixtures WHERE season_id = ?`, id); err != nil {
+		return nil, fmt.Errorf("failed to delete fixtures: %w", err)
+	}
+	tx.ExecContext(ctx, `DELETE FROM player_teams WHERE season_id = ?`, id)
+	tx.ExecContext(ctx, `DELETE FROM captains WHERE season_id = ?`, id)
+
+	// Level 3: Delete structural data
+	tx.ExecContext(ctx, `DELETE FROM player_divisions WHERE season_id = ?`, id)
+	tx.ExecContext(ctx, `DELETE FROM player_general_availability WHERE season_id = ?`, id)
+	tx.ExecContext(ctx, `DELETE FROM weeks WHERE season_id = ?`, id)
+	tx.ExecContext(ctx, `DELETE FROM teams WHERE season_id = ?`, id)
+	tx.ExecContext(ctx, `DELETE FROM divisions WHERE season_id = ?`, id)
+
+	// Level 4: Delete relationships
+	tx.ExecContext(ctx, `DELETE FROM league_seasons WHERE season_id = ?`, id)
+
+	// Level 5: Delete the season itself
+	if _, err := tx.ExecContext(ctx, `DELETE FROM seasons WHERE id = ?`, id); err != nil {
+		return nil, fmt.Errorf("failed to delete season: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return stats, nil
 }
 
 // FindActive retrieves the currently active season

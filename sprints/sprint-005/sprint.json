@@ -12,7 +12,8 @@
       "Away team management interface",
       "Club-to-teams navigation",
       "Away team division assignment and status",
-      "Season transition review for away teams"
+      "Season transition review for away teams",
+      "Safe season deletion with cascading cleanup"
     ],
     "phases_addressed": [
       "Phase 6: Admin Tooling and Dashboard"
@@ -22,7 +23,8 @@
       "WI-029",
       "WI-030",
       "WI-031",
-      "WI-032"
+      "WI-032",
+      "WI-042"
     ],
     "completed_items": [],
     "deferred_items": {}

@@ -106,15 +106,45 @@ func (h *SeasonsHandler) handleSeasonsList(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	successMsg := ""
+	if r.URL.Query().Get("deleted") == "true" {
+		successMsg = "Season deleted successfully along with all associated data."
+	}
+
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
 		"User":         user,
 		"Seasons":      seasonsWithStats,
 		"ActiveSeason": activeSeason,
 		"CurrentYear":  time.Now().Year(),
+		"Success":      successMsg,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
+}
+
+// HandleDeleteSeason handles POST request to delete a season with cascading cleanup
+func (h *SeasonsHandler) HandleDeleteSeason(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	seasonIDStr := r.FormValue("season_id")
+	seasonID, err := strconv.ParseUint(seasonIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid season ID", http.StatusBadRequest)
+		return
+	}
+
+	stats, err := h.service.DeleteSeason(uint(seasonID))
+	if err != nil {
+		logAndError(w, err.Error(), err, http.StatusBadRequest)
+		return
+	}
+
+	_ = stats // stats used for logging in service layer
+	http.Redirect(w, r, "/admin/league/seasons?deleted=true", http.StatusSeeOther)
 }
 
 // handleCreateSeason handles POST request to create a new season

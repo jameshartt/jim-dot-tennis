@@ -70,7 +70,7 @@ func NewTeamRepository(db *database.DB) TeamRepository {
 func (r *teamRepository) FindAll(ctx context.Context) ([]models.Team, error) {
 	var teams []models.Team
 	err := r.db.SelectContext(ctx, &teams, `
-		SELECT id, name, club_id, division_id, season_id, created_at, updated_at
+		SELECT id, name, club_id, division_id, season_id, active, created_at, updated_at
 		FROM teams 
 		ORDER BY club_id ASC, division_id ASC, name ASC
 	`)
@@ -81,7 +81,7 @@ func (r *teamRepository) FindAll(ctx context.Context) ([]models.Team, error) {
 func (r *teamRepository) FindByID(ctx context.Context, id uint) (*models.Team, error) {
 	var team models.Team
 	err := r.db.GetContext(ctx, &team, `
-		SELECT id, name, club_id, division_id, season_id, created_at, updated_at
+		SELECT id, name, club_id, division_id, season_id, active, created_at, updated_at
 		FROM teams 
 		WHERE id = ?
 	`, id)
@@ -97,9 +97,13 @@ func (r *teamRepository) Create(ctx context.Context, team *models.Team) error {
 	team.CreatedAt = now
 	team.UpdatedAt = now
 
+	if !team.Active {
+		team.Active = true // Default new teams to active
+	}
+
 	result, err := r.db.NamedExecContext(ctx, `
-		INSERT INTO teams (name, club_id, division_id, season_id, created_at, updated_at)
-		VALUES (:name, :club_id, :division_id, :season_id, :created_at, :updated_at)
+		INSERT INTO teams (name, club_id, division_id, season_id, active, created_at, updated_at)
+		VALUES (:name, :club_id, :division_id, :season_id, :active, :created_at, :updated_at)
 	`, team)
 
 	if err != nil {
@@ -119,9 +123,9 @@ func (r *teamRepository) Update(ctx context.Context, team *models.Team) error {
 	team.UpdatedAt = time.Now()
 
 	_, err := r.db.NamedExecContext(ctx, `
-		UPDATE teams 
-		SET name = :name, club_id = :club_id, division_id = :division_id, 
-		    season_id = :season_id, updated_at = :updated_at
+		UPDATE teams
+		SET name = :name, club_id = :club_id, division_id = :division_id,
+		    season_id = :season_id, active = :active, updated_at = :updated_at
 		WHERE id = :id
 	`, team)
 
@@ -138,7 +142,7 @@ func (r *teamRepository) Delete(ctx context.Context, id uint) error {
 func (r *teamRepository) FindByClub(ctx context.Context, clubID uint) ([]models.Team, error) {
 	var teams []models.Team
 	err := r.db.SelectContext(ctx, &teams, `
-		SELECT id, name, club_id, division_id, season_id, created_at, updated_at
+		SELECT id, name, club_id, division_id, season_id, active, created_at, updated_at
 		FROM teams 
 		WHERE club_id = ?
 		ORDER BY season_id DESC, division_id ASC, name ASC
@@ -150,7 +154,7 @@ func (r *teamRepository) FindByClub(ctx context.Context, clubID uint) ([]models.
 func (r *teamRepository) FindByDivision(ctx context.Context, divisionID uint) ([]models.Team, error) {
 	var teams []models.Team
 	err := r.db.SelectContext(ctx, &teams, `
-		SELECT id, name, club_id, division_id, season_id, created_at, updated_at
+		SELECT id, name, club_id, division_id, season_id, active, created_at, updated_at
 		FROM teams 
 		WHERE division_id = ?
 		ORDER BY name ASC
@@ -162,7 +166,7 @@ func (r *teamRepository) FindByDivision(ctx context.Context, divisionID uint) ([
 func (r *teamRepository) FindBySeason(ctx context.Context, seasonID uint) ([]models.Team, error) {
 	var teams []models.Team
 	err := r.db.SelectContext(ctx, &teams, `
-		SELECT id, name, club_id, division_id, season_id, created_at, updated_at
+		SELECT id, name, club_id, division_id, season_id, active, created_at, updated_at
 		FROM teams 
 		WHERE season_id = ?
 		ORDER BY club_id ASC, division_id ASC, name ASC
@@ -174,7 +178,7 @@ func (r *teamRepository) FindBySeason(ctx context.Context, seasonID uint) ([]mod
 func (r *teamRepository) FindByClubAndSeason(ctx context.Context, clubID, seasonID uint) ([]models.Team, error) {
 	var teams []models.Team
 	err := r.db.SelectContext(ctx, &teams, `
-		SELECT id, name, club_id, division_id, season_id, created_at, updated_at
+		SELECT id, name, club_id, division_id, season_id, active, created_at, updated_at
 		FROM teams 
 		WHERE club_id = ? AND season_id = ?
 		ORDER BY division_id ASC, name ASC
@@ -186,7 +190,7 @@ func (r *teamRepository) FindByClubAndSeason(ctx context.Context, clubID, season
 func (r *teamRepository) FindByDivisionAndSeason(ctx context.Context, divisionID, seasonID uint) ([]models.Team, error) {
 	var teams []models.Team
 	err := r.db.SelectContext(ctx, &teams, `
-		SELECT id, name, club_id, division_id, season_id, created_at, updated_at
+		SELECT id, name, club_id, division_id, season_id, active, created_at, updated_at
 		FROM teams 
 		WHERE division_id = ? AND season_id = ?
 		ORDER BY name ASC
@@ -198,7 +202,7 @@ func (r *teamRepository) FindByDivisionAndSeason(ctx context.Context, divisionID
 func (r *teamRepository) FindByName(ctx context.Context, name string) ([]models.Team, error) {
 	var teams []models.Team
 	err := r.db.SelectContext(ctx, &teams, `
-		SELECT id, name, club_id, division_id, season_id, created_at, updated_at
+		SELECT id, name, club_id, division_id, season_id, active, created_at, updated_at
 		FROM teams 
 		WHERE name = ?
 		ORDER BY season_id DESC, club_id ASC, division_id ASC
@@ -211,7 +215,7 @@ func (r *teamRepository) FindByNameLike(ctx context.Context, name string) ([]mod
 	var teams []models.Team
 	searchPattern := "%" + name + "%"
 	err := r.db.SelectContext(ctx, &teams, `
-		SELECT id, name, club_id, division_id, season_id, created_at, updated_at
+		SELECT id, name, club_id, division_id, season_id, active, created_at, updated_at
 		FROM teams 
 		WHERE name LIKE ?
 		ORDER BY name ASC
@@ -434,7 +438,7 @@ func (r *teamRepository) FindOrCreateByNameAndClubAndSeason(
 	// Try to find existing team
 	var team models.Team
 	err := r.db.GetContext(ctx, &team, `
-		SELECT id, name, club_id, division_id, season_id, created_at, updated_at
+		SELECT id, name, club_id, division_id, season_id, active, created_at, updated_at
 		FROM teams
 		WHERE name = ? AND club_id = ? AND season_id = ?
 	`, name, clubID, seasonID)
@@ -468,7 +472,7 @@ func (r *teamRepository) FindOrCreateByNameAndClubAndSeason(
 func (r *teamRepository) FindByNameAndSeason(ctx context.Context, name string, seasonID uint) ([]models.Team, error) {
 	var teams []models.Team
 	err := r.db.SelectContext(ctx, &teams, `
-		SELECT id, name, club_id, division_id, season_id, created_at, updated_at
+		SELECT id, name, club_id, division_id, season_id, active, created_at, updated_at
 		FROM teams
 		WHERE name = ? AND season_id = ?
 		ORDER BY name ASC

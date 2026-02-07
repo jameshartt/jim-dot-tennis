@@ -363,3 +363,202 @@ func (s *Service) GetTeamsBySeason(seasonID uint) ([]models.Team, error) {
 	ctx := context.Background()
 	return s.teamRepository.FindBySeason(ctx, seasonID)
 }
+
+// GetTeamByID retrieves a team by its ID
+func (s *Service) GetTeamByID(teamID uint) (*models.Team, error) {
+	ctx := context.Background()
+	return s.teamRepository.FindByID(ctx, teamID)
+}
+
+// UpdateTeam updates a team record
+func (s *Service) UpdateTeam(team *models.Team) error {
+	ctx := context.Background()
+	return s.teamRepository.Update(ctx, team)
+}
+
+// DeleteTeam deletes a team by ID
+func (s *Service) DeleteTeam(teamID uint) error {
+	ctx := context.Background()
+	return s.teamRepository.Delete(ctx, teamID)
+}
+
+// IsStAnnsClub checks if a club ID belongs to St Ann's
+func (s *Service) IsStAnnsClub(clubID uint) bool {
+	ctx := context.Background()
+	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil || len(clubs) == 0 {
+		return false
+	}
+	return clubs[0].ID == clubID
+}
+
+// GetAwayTeams retrieves all non-St Ann's teams grouped by club
+func (s *Service) GetAwayTeams() ([]AwayTeamGroupedByClub, error) {
+	ctx := context.Background()
+
+	// Find St. Ann's club ID
+	stAnnsClubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil {
+		return nil, err
+	}
+	stAnnsID := uint(0)
+	if len(stAnnsClubs) > 0 {
+		stAnnsID = stAnnsClubs[0].ID
+	}
+
+	// Get active season
+	activeSeason, _ := s.seasonRepository.FindActive(ctx)
+	if activeSeason == nil {
+		return nil, nil
+	}
+
+	// Get all teams for the active season
+	allTeams, err := s.teamRepository.FindBySeason(ctx, activeSeason.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Group non-St Ann's teams by club
+	clubMap := make(map[uint]*AwayTeamGroupedByClub)
+	clubOrder := []uint{}
+
+	for _, team := range allTeams {
+		if team.ClubID == stAnnsID {
+			continue // Skip St Ann's teams
+		}
+
+		if _, exists := clubMap[team.ClubID]; !exists {
+			club, _ := s.clubRepository.FindByID(ctx, team.ClubID)
+			clubName := "Unknown Club"
+			if club != nil {
+				clubName = club.Name
+			}
+			clubMap[team.ClubID] = &AwayTeamGroupedByClub{
+				ClubID:   team.ClubID,
+				ClubName: clubName,
+			}
+			clubOrder = append(clubOrder, team.ClubID)
+		}
+
+		divName := ""
+		if div, err := s.divisionRepository.FindByID(ctx, team.DivisionID); err == nil {
+			divName = div.Name
+		}
+
+		clubMap[team.ClubID].Teams = append(clubMap[team.ClubID].Teams, AwayTeamInfo{
+			Team:         team,
+			DivisionName: divName,
+		})
+	}
+
+	var result []AwayTeamGroupedByClub
+	for _, cid := range clubOrder {
+		result = append(result, *clubMap[cid])
+	}
+
+	return result, nil
+}
+
+// AwayTeamInfo represents an away team with display info
+type AwayTeamInfo struct {
+	models.Team
+	DivisionName string
+}
+
+// AwayTeamGroupedByClub groups away teams by their club
+type AwayTeamGroupedByClub struct {
+	ClubID   uint
+	ClubName string
+	Teams    []AwayTeamInfo
+}
+
+// AwayTeamReviewItem represents a single away team for the post-copy review
+type AwayTeamReviewItem struct {
+	Team             models.Team
+	ClubName         string
+	CurrentDivision  string
+	PreviousDivision string // empty if team didn't exist in previous season
+	IsNew            bool   // true if no match found in previous season
+}
+
+// AwayTeamReviewData holds all data for the away team review page
+type AwayTeamReviewData struct {
+	Teams []AwayTeamReviewItem
+}
+
+// GetAwayTeamReviewData builds review data comparing away teams between current and previous season
+func (s *Service) GetAwayTeamReviewData(seasonID uint) (*AwayTeamReviewData, error) {
+	ctx := context.Background()
+
+	// Find St Ann's club ID
+	stAnnsClubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	if err != nil {
+		return nil, err
+	}
+	stAnnsID := uint(0)
+	if len(stAnnsClubs) > 0 {
+		stAnnsID = stAnnsClubs[0].ID
+	}
+
+	// Get the season to find previous year
+	season, err := s.seasonRepository.FindByID(ctx, seasonID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get all teams for this season
+	allTeams, err := s.teamRepository.FindBySeason(ctx, seasonID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get previous season teams for comparison
+	previousYear := season.Year - 1
+	prevSeasons, _ := s.seasonRepository.FindByYear(ctx, previousYear)
+	prevTeamMap := make(map[string]string) // "clubID-name" -> division name
+	if len(prevSeasons) > 0 {
+		prevTeams, _ := s.teamRepository.FindBySeason(ctx, prevSeasons[0].ID)
+		for _, pt := range prevTeams {
+			if pt.ClubID == stAnnsID {
+				continue
+			}
+			divName := ""
+			if div, err := s.divisionRepository.FindByID(ctx, pt.DivisionID); err == nil {
+				divName = div.Name
+			}
+			key := fmt.Sprintf("%d-%s", pt.ClubID, pt.Name)
+			prevTeamMap[key] = divName
+		}
+	}
+
+	// Build review items for away teams only
+	var items []AwayTeamReviewItem
+	for _, team := range allTeams {
+		if team.ClubID == stAnnsID {
+			continue
+		}
+
+		clubName := "Unknown Club"
+		if club, err := s.clubRepository.FindByID(ctx, team.ClubID); err == nil {
+			clubName = club.Name
+		}
+
+		currentDiv := ""
+		if div, err := s.divisionRepository.FindByID(ctx, team.DivisionID); err == nil {
+			currentDiv = div.Name
+		}
+
+		key := fmt.Sprintf("%d-%s", team.ClubID, team.Name)
+		prevDiv, hadPrev := prevTeamMap[key]
+
+		items = append(items, AwayTeamReviewItem{
+			Team:             team,
+			ClubName:         clubName,
+			CurrentDivision:  currentDiv,
+			PreviousDivision: prevDiv,
+			IsNew:            !hadPrev,
+		})
+	}
+
+	return &AwayTeamReviewData{Teams: items}, nil
+}

@@ -181,9 +181,15 @@
 
     <main class="admin-content">
         <div class="container">
+            <!-- Tab Navigation -->
+            <div style="display:flex;gap:0;margin-bottom:2rem;border-bottom:2px solid #e9ecef;">
+                <a href="/admin/league/teams" style="padding:0.75rem 1.5rem;font-weight:600;color:white;background:var(--primary-color);border-radius:4px 4px 0 0;text-decoration:none;">Our Teams</a>
+                <a href="/admin/league/teams/away" style="padding:0.75rem 1.5rem;font-weight:500;color:#6c757d;text-decoration:none;">Away Teams</a>
+            </div>
+
             <div class="action-bar">
                 <h2>St. Ann's Teams</h2>
-                <button onclick="showCreateTeamModal()" class="btn-add" style="background: var(--primary-color); color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">➕ Create Team</button>
+                <button onclick="showCreateTeamModal()" class="btn-add" style="background: var(--primary-color); color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">+ Create Team</button>
             </div>
 
             {{if .Club}}
