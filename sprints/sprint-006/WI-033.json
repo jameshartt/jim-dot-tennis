@@ -1,0 +1,56 @@
+{
+  "id": "WI-033",
+  "title": "Captain selection overview dashboard",
+  "description": "Complete the deferred WI-008 from Sprint 001. Build a cross-division selection overview that shows captains which players have been selected for which fixtures across all divisions. This prevents double-selection of players and gives captains visibility into availability gaps. The hierarchical selection model (Division 1 picks first) means lower division captains need to see who's already taken.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 2: Captain Selection Tools",
+  "acceptance_criteria": [
+    "Dashboard shows all divisions' selections for a given week",
+    "Players selected in higher divisions are clearly marked as unavailable",
+    "Captain can see which players remain available across their team",
+    "Division hierarchy is visually clear (Div 1 > Div 2 > Div 3 > Div 4)",
+    "Accessible from admin and captain-facing interfaces",
+    "Responsive layout works on mobile devices",
+    "Filters by week and season"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/admin/selection_overview.html"
+    ],
+    "files_to_modify": [
+      "internal/admin/selection.go",
+      "internal/admin/service_selection.go",
+      "internal/admin/handler.go"
+    ],
+    "routes_to_add": [
+      "GET /admin/league/selection-overview"
+    ],
+    "existing_code": "Selection handler and service already exist from Sprint 001 partial implementation. The fixture_players table tracks player assignments. The selection_overview route may already be registered.",
+    "approach": [
+      "1. Review existing selection handler and service code",
+      "2. Query fixture_players grouped by division and week",
+      "3. Build template showing grid of divisions x players",
+      "4. Add filtering by week/season",
+      "5. Highlight conflicts (player selected in multiple divisions)"
+    ]
+  },
+  "testing_requirements": [
+    "View shows correct selections across all 4 divisions",
+    "Players selected in Div 1 shown as unavailable in Div 2/3/4",
+    "Week filtering works correctly",
+    "Empty state shown when no selections made",
+    "Mobile layout is usable"
+  ],
+  "context": {
+    "user_story": "As a captain, I want to see which players have already been selected by other divisions so I can make informed selection decisions without double-booking players",
+    "related_docs": [
+      "docs/user_experience_requirements.md",
+      "docs/project_overview.md"
+    ],
+    "carried_from": "WI-008 (Sprint 001, deferred)"
+  }
+}

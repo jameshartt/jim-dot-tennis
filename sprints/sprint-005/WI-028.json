@@ -1,0 +1,59 @@
+{
+  "id": "WI-028",
+  "title": "Club CRUD - add and remove clubs",
+  "description": "The admin club management page currently supports listing and editing clubs but has no way to create new clubs or delete existing ones. Add create and delete functionality. Club deletion must check for dependent teams and fixtures and warn the administrator before proceeding. Creation should include at minimum a name and allow the rest to be filled in later via the existing edit form.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 6: Admin Tooling and Dashboard",
+  "acceptance_criteria": [
+    "Admin can create a new club from the clubs list page",
+    "Create form requires club name at minimum",
+    "After creation, redirects to club detail page for further editing",
+    "Admin can delete a club from the club detail page",
+    "Delete shows confirmation dialog listing dependent teams and fixtures",
+    "Delete is blocked if club has teams with fixtures in any season (soft block with override)",
+    "Delete removes club and cascades to teams if confirmed",
+    "Success and error messages displayed via existing flash message pattern",
+    "Club list updates immediately after create or delete"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/admin/clubs.go",
+      "internal/admin/handler.go",
+      "internal/admin/service_clubs.go",
+      "internal/repository/club.go",
+      "templates/admin/clubs.html",
+      "templates/admin/club_detail.html"
+    ],
+    "routes_to_add": [
+      "POST /admin/league/clubs/ (action=create)",
+      "POST /admin/league/clubs/{id}/delete"
+    ],
+    "approach": [
+      "1. Add 'Create Club' button and modal to clubs.html (follow existing create team pattern)",
+      "2. Add handleClubCreate handler in clubs.go",
+      "3. Add 'Delete Club' button with confirmation to club_detail.html",
+      "4. Add handleClubDelete handler with dependency checking",
+      "5. Add service methods for create and delete with dependency lookup",
+      "6. Repository already has Create() and Delete() methods - verify they work"
+    ],
+    "existing_code": "ClubRepository already has Create() and Delete() methods. The clubs.go handler has handleClubsList and handleClubDetailGet/handleClubUpdate. Follow the same patterns used in team creation (teams.go handleTeamsPost)."
+  },
+  "testing_requirements": [
+    "Create a new club with just a name",
+    "Verify club appears in list immediately",
+    "Edit newly created club to add details",
+    "Attempt to delete club with no teams - succeeds",
+    "Attempt to delete club with teams/fixtures - shows warning",
+    "Override delete for club with dependents - cascades correctly"
+  ],
+  "context": {
+    "user_story": "As an administrator, I want to add new clubs that join the league and remove clubs that leave, so the club list stays current across seasons",
+    "related_docs": [
+      "docs/project_overview.md"
+    ]
+  }
+}

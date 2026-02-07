@@ -49,10 +49,29 @@ None currently active.
 - **Directory**: `sprint-pwa/`
 - **Summary**: [sprint-pwa/SUMMARY.md](sprint-pwa/SUMMARY.md)
 
-### Sprint 005: Team Selection Optimization (Planned)
-- **Focus**: Advanced captain tools
-- **Estimated Items**: 6-8
-- **Key Features**: Auto-suggestions, player statistics, historical performance
+### Sprint 005: Club & Away Team Management
+- **Focus**: Full management of clubs and away teams (non-St Ann's teams)
+- **Items**: 5 (WI-028 to WI-032)
+- **Key Features**: Club CRUD, club-to-teams navigation, away team management interface, division assignment & active status, season transition review
+- **Directory**: `sprint-005/`
+- **Summary**: [sprint-005/SUMMARY.md](sprint-005/SUMMARY.md)
+- **Dependencies**: WI-030→WI-028, WI-031→WI-030, WI-032→WI-031
+
+### Sprint 006: Match Day - Results, Standings & Captain Tools
+- **Focus**: Complete the match day lifecycle
+- **Items**: 5 (WI-033 to WI-037)
+- **Key Features**: Captain selection overview (deferred WI-008), match result entry, player-facing standings, match history & player stats, fixture weather
+- **Directory**: `sprint-006/`
+- **Summary**: [sprint-006/SUMMARY.md](sprint-006/SUMMARY.md)
+- **Dependencies**: WI-036 depends on WI-034 (match history needs result entry)
+
+### Sprint 007: Communication & Project Maintenance
+- **Focus**: Expand communication channels and keep project infrastructure current
+- **Items**: 4 (WI-038 to WI-041)
+- **Key Features**: Email notification infrastructure, notification preferences UI, CLAUDE.md update, season transition tooling
+- **Directory**: `sprint-007/`
+- **Summary**: [sprint-007/SUMMARY.md](sprint-007/SUMMARY.md)
+- **Dependencies**: WI-039 depends on WI-038 (preferences needs email infrastructure)
 
 ## Sprint Metrics
 

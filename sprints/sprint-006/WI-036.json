@@ -1,0 +1,54 @@
+{
+  "id": "WI-036",
+  "title": "Match history and player statistics view",
+  "description": "Build a view showing completed match history and basic player statistics. Players should be able to see their own match history (fixtures played, results) and basic statistics (matches played, win rate). This builds on the match result data entered via WI-034.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-034"],
+  "phase": "Phase 5: Fixture and Venue Management",
+  "acceptance_criteria": [
+    "Player can view their own match history on their profile page",
+    "History shows fixture date, opponent, venue, and result",
+    "Basic statistics displayed: matches played, wins, losses",
+    "Statistics broken down by matchup type (Men's, Women's, Mixed) if available",
+    "Season filter to view history by season",
+    "Accessible from player profile page",
+    "Empty state shown gracefully when no match history exists"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/players/match_history.html"
+    ],
+    "files_to_modify": [
+      "internal/players/handler.go",
+      "templates/players/profile.html",
+      "internal/repository/matchup_repository.go",
+      "internal/repository/fixture_repository.go"
+    ],
+    "routes_to_add": [
+      "GET /my-profile/{token}/history"
+    ],
+    "approach": [
+      "1. Query fixture_players joined with matchups and fixtures for a given player",
+      "2. Aggregate win/loss statistics",
+      "3. Build match history template with results list",
+      "4. Add statistics summary to player profile page",
+      "5. Link from profile to full history view"
+    ]
+  },
+  "testing_requirements": [
+    "Match history displays correct fixtures and results",
+    "Statistics calculations are accurate",
+    "Season filtering works",
+    "Empty state handles gracefully for new players",
+    "Profile page shows statistics summary"
+  ],
+  "context": {
+    "user_story": "As a player, I want to see my match history and statistics so I can track my playing record through the season",
+    "related_docs": [
+      "docs/user_experience_requirements.md"
+    ]
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "id": "WI-038",
+  "title": "Email notification infrastructure",
+  "description": "Set up email sending capability for the application. The UX requirements reference multiple notification channels (push, email) but only push notifications have been planned (Sprint PWA). Email provides a reliable fallback for players who don't use PWA/push. Implementation should support transactional emails with templates for common notifications (selection confirmations, availability reminders, fixture updates).",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 4: PWA and Push Notifications",
+  "acceptance_criteria": [
+    "Email sending service with configurable SMTP or API provider",
+    "HTML email templates for: selection confirmation, availability reminder, fixture update",
+    "Plain text fallback for all email templates",
+    "Email addresses stored for players (new field or linked to user accounts)",
+    "Send email function callable from other services",
+    "Email delivery logging for debugging",
+    "Environment-based configuration (SMTP host, port, credentials)",
+    "Rate limiting to prevent accidental bulk sends"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "internal/services/email_service.go",
+      "internal/services/email_templates.go",
+      "templates/email/selection_confirmation.html",
+      "templates/email/availability_reminder.html",
+      "templates/email/fixture_update.html"
+    ],
+    "files_to_modify": [
+      "internal/models/player.go",
+      "internal/repository/player_repository.go",
+      "cmd/jim-dot-tennis/main.go"
+    ],
+    "schema_changes": "Add email column to players table if not present",
+    "approach": [
+      "1. Add email field to player model and migration",
+      "2. Create email service with SMTP and API provider support",
+      "3. Build HTML email templates with Go html/template",
+      "4. Add plain text versions of all templates",
+      "5. Wire email service into main application",
+      "6. Add environment variable configuration for email provider",
+      "7. Add rate limiting and delivery logging"
+    ],
+    "provider_options": {
+      "smtp": "Standard SMTP (works with any email provider)",
+      "recommended_api": "Resend or Postmark (simple API, generous free tiers)"
+    }
+  },
+  "testing_requirements": [
+    "Emails send successfully via configured provider",
+    "HTML templates render correctly in major email clients",
+    "Plain text fallback works",
+    "Rate limiting prevents excessive sends",
+    "Missing email address handled gracefully",
+    "Environment configuration validated on startup"
+  ],
+  "context": {
+    "user_story": "As an administrator, I want the system to send email notifications so players who don't use push notifications can still receive important updates",
+    "related_docs": [
+      "docs/user_experience_requirements.md",
+      "docs/technical_implementation_plan.md"
+    ]
+  }
+}

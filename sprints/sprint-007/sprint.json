@@ -1,0 +1,29 @@
+{
+  "sprint": {
+    "id": "sprint-007",
+    "name": "Communication & Project Maintenance",
+    "goal": "Expand communication channels beyond push notifications with email support and user preferences, update project documentation to reflect current state, and build tooling for season transitions",
+    "start_date": null,
+    "end_date": null,
+    "duration_weeks": 2,
+    "status": "planned",
+    "focus_areas": [
+      "Email notification infrastructure",
+      "Notification preferences management",
+      "Project documentation updates",
+      "Season transition tooling"
+    ],
+    "phases_addressed": [
+      "Phase 4: PWA and Push Notifications",
+      "Phase 7: Code Quality and Go Tooling"
+    ],
+    "work_items": [
+      "WI-038",
+      "WI-039",
+      "WI-040",
+      "WI-041"
+    ],
+    "completed_items": [],
+    "deferred_items": {}
+  }
+}

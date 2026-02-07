@@ -1,0 +1,68 @@
+{
+  "id": "WI-030",
+  "title": "Away team management interface",
+  "description": "Add a section to the team admin for managing away teams (non-St Ann's teams). These are teams from other clubs that St Ann's plays against. As a matter of principle, we do not store other clubs' players - so away teams have a subset of the functionality available for St Ann's teams. The interface should allow creating, editing, and deleting away teams, assigning them to clubs and divisions, but NOT managing players or captains. A clear visual distinction should separate away teams from St Ann's teams. Access via a toggle/tab on the existing teams page.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": ["WI-028"],
+  "phase": "Phase 6: Admin Tooling and Dashboard",
+  "acceptance_criteria": [
+    "Teams page has a toggle or tab: 'Our Teams' (St Ann's) and 'Away Teams' (all other clubs)",
+    "Away teams listed grouped by club, then by division",
+    "Away team list shows: team name, club, division, season",
+    "Can create away team: select club, enter name, select division, select season",
+    "Can edit away team: change name, division, club assignment",
+    "Can delete away team with confirmation",
+    "Away team detail page shows team info and upcoming fixtures only",
+    "Away team detail does NOT show player management or captain management sections",
+    "Visual distinction between home and away team pages (e.g., different header colour, badge, or icon)",
+    "Guard: prevent adding players or captains to away teams via URL manipulation"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/admin/away_teams.html",
+      "templates/admin/away_team_detail.html"
+    ],
+    "files_to_modify": [
+      "internal/admin/teams.go",
+      "internal/admin/handler.go",
+      "internal/admin/service_teams.go",
+      "templates/admin/teams.html"
+    ],
+    "routes_to_add": [
+      "GET /admin/league/teams/away",
+      "POST /admin/league/teams/away (action=create)",
+      "GET /admin/league/teams/away/{id}",
+      "POST /admin/league/teams/away/{id}",
+      "POST /admin/league/teams/away/{id}/delete"
+    ],
+    "approach": [
+      "1. Add tab navigation to teams.html (Our Teams / Away Teams)",
+      "2. Create away_teams.html listing non-St Ann's teams grouped by club",
+      "3. Add create away team form with club dropdown, name, division, season",
+      "4. Create away_team_detail.html with edit form and fixtures section only",
+      "5. Add server-side guard in add-players and add-captain handlers to reject away teams",
+      "6. The team model doesn't need changes - distinction is by ClubID (St Ann's vs others)"
+    ],
+    "key_design_decision": "The home/away distinction is NOT stored as a field on the team. It is derived from whether the team's ClubID matches the St Ann's club ID. This keeps the data model clean and avoids duplication."
+  },
+  "testing_requirements": [
+    "Tab toggle switches between Our Teams and Away Teams views",
+    "Away team creation works with all required fields",
+    "Away team edit updates name, division, and club",
+    "Away team delete works with confirmation",
+    "Away team detail shows fixtures but NOT player/captain sections",
+    "Attempting to add players to away team via URL returns error",
+    "Attempting to add captains to away team via URL returns error",
+    "Mobile layout works for both tabs"
+  ],
+  "context": {
+    "user_story": "As an administrator, I want to manage the teams from other clubs that we play against, without needing to track their individual players, so our fixture scheduling and division structure stays accurate",
+    "related_docs": [
+      "docs/project_overview.md",
+      "docs/user_experience_requirements.md"
+    ]
+  }
+}

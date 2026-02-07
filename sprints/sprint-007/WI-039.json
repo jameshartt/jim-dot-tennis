@@ -1,0 +1,59 @@
+{
+  "id": "WI-039",
+  "title": "Notification preferences management UI",
+  "description": "Build a player-facing notification preferences page where users can choose their preferred notification channels (push, email) and configure what types of notifications they receive. This complements Sprint PWA's push notification subscription (WI-004) and the email infrastructure (WI-038) by giving users control over their notification experience.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-038"],
+  "phase": "Phase 4: PWA and Push Notifications",
+  "acceptance_criteria": [
+    "Player can access notification preferences from their profile",
+    "Toggle push notifications on/off",
+    "Toggle email notifications on/off",
+    "Configure per-type preferences: selection confirmations, availability reminders, fixture updates",
+    "Preferences saved to database and respected by notification services",
+    "Default preferences set for new players (all enabled)",
+    "HTMX-powered toggles for instant feedback",
+    "Mobile-friendly preferences layout"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/players/notification_preferences.html",
+      "internal/players/notifications.go"
+    ],
+    "files_to_modify": [
+      "internal/players/handler.go",
+      "templates/players/profile.html",
+      "internal/repository/player_repository.go"
+    ],
+    "schema_changes": "New notification_preferences table (player_id, channel, notification_type, enabled)",
+    "routes_to_add": [
+      "GET /my-profile/{token}/notifications",
+      "POST /my-profile/{token}/notifications"
+    ],
+    "approach": [
+      "1. Create notification_preferences migration",
+      "2. Build preferences repository methods",
+      "3. Create preferences handler with GET (view) and POST (update)",
+      "4. Build HTMX-powered toggle UI",
+      "5. Add link from player profile to preferences",
+      "6. Wire preferences into push and email notification services"
+    ]
+  },
+  "testing_requirements": [
+    "Preferences save and load correctly",
+    "Push notification service respects preferences",
+    "Email service respects preferences",
+    "Default preferences work for new players",
+    "HTMX toggles provide instant visual feedback",
+    "Mobile layout is usable"
+  ],
+  "context": {
+    "user_story": "As a player, I want to control what notifications I receive and how I receive them so I'm not overwhelmed but still stay informed about important updates",
+    "related_docs": [
+      "docs/user_experience_requirements.md"
+    ]
+  }
+}

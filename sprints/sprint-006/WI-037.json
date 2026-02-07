@@ -1,0 +1,56 @@
+{
+  "id": "WI-037",
+  "title": "Fixture weather information",
+  "description": "Display weather forecast information on fixture detail pages for upcoming outdoor matches. Venues already have geocoding data from Sprint 002's club infrastructure, so weather API lookups can use existing lat/lng coordinates. Implementation should be lightweight - fetch and cache weather data, display on fixture pages.",
+  "type": "feature",
+  "priority": "low",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 5: Fixture and Venue Management",
+  "acceptance_criteria": [
+    "Upcoming fixtures show weather forecast on detail page",
+    "Weather based on venue location (using existing geocoding data)",
+    "Shows temperature, conditions, and rain probability",
+    "Weather only shown for fixtures within the next 7 days (forecast accuracy limit)",
+    "Graceful fallback when weather data unavailable",
+    "Weather data cached to avoid excessive API calls",
+    "Does not slow down fixture page load (async or cached)"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "internal/services/weather_service.go"
+    ],
+    "files_to_modify": [
+      "templates/players/fixture_detail.html",
+      "templates/admin/fixture_detail.html",
+      "internal/players/handler.go"
+    ],
+    "approach": [
+      "1. Choose weather API (Open-Meteo is free, no API key required)",
+      "2. Create weather service that fetches forecast by lat/lng",
+      "3. Cache weather responses (1-hour TTL) to reduce API calls",
+      "4. Add weather widget to fixture detail templates",
+      "5. Only fetch for fixtures within 7-day forecast window",
+      "6. Use HTMX lazy loading so weather doesn't block page render"
+    ],
+    "api_options": {
+      "recommended": "Open-Meteo (https://open-meteo.com/) - free, no API key, supports lat/lng lookup",
+      "alternative": "OpenWeatherMap - requires free API key, more features"
+    },
+    "existing_data": "Clubs already have latitude and longitude from Sprint 002 migration 018 (enrich clubs)"
+  },
+  "testing_requirements": [
+    "Weather displays for fixtures with geocoded venues",
+    "No weather shown for fixtures more than 7 days away",
+    "Graceful handling when API is unreachable",
+    "Cache prevents excessive API calls",
+    "Page still loads normally if weather fetch fails"
+  ],
+  "context": {
+    "user_story": "As a player, I want to see the weather forecast for my upcoming fixture so I can prepare appropriately for outdoor play",
+    "related_docs": [
+      "docs/user_experience_requirements.md"
+    ]
+  }
+}

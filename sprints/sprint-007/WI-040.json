@@ -1,0 +1,56 @@
+{
+  "id": "WI-040",
+  "title": "Update CLAUDE.md to reflect current project state",
+  "description": "The CLAUDE.md file at the project root is stale and does not reflect changes from Sprints 001-004. It still references Go 1.24+, doesn't mention the Sprint 003 service refactor (12 domain-specific service files), new admin routes (users, sessions, divisions), Sprint 004 Makefile targets, or the venue/club infrastructure from Sprint 002. This work item updates CLAUDE.md to be an accurate reference for AI agents working on the codebase.",
+  "type": "documentation",
+  "priority": "high",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 7: Code Quality and Go Tooling",
+  "acceptance_criteria": [
+    "Go version updated to 1.25",
+    "New Makefile targets documented (vet, fmt, lint, deadcode, check, etc.)",
+    "Service layer refactor reflected (12 domain-specific files listed)",
+    "New admin routes documented (divisions, users, sessions)",
+    "Venue/club infrastructure mentioned (scraper, venue resolver, iCal)",
+    "Player availability exceptions table documented",
+    "New migrations (018, 019) referenced",
+    "Architecture overview accurately reflects current codebase",
+    "CourtHive integration mentioned if relevant"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "CLAUDE.md"
+    ],
+    "sections_to_update": [
+      "Key Technical Stack - Go version",
+      "Development Commands - add new Makefile targets",
+      "Architecture Overview / Application Structure - service files",
+      "Database Schema - new tables and migrations",
+      "Adding a New Admin Feature - updated patterns"
+    ],
+    "approach": [
+      "1. Read current CLAUDE.md",
+      "2. Cross-reference with actual codebase state",
+      "3. Update Go version references",
+      "4. Add Sprint 004 Makefile targets to Development Commands",
+      "5. Update Architecture section with service layer changes",
+      "6. Add new database tables and migrations",
+      "7. Update admin routes list"
+    ]
+  },
+  "testing_requirements": [
+    "All file paths referenced in CLAUDE.md exist",
+    "All Makefile targets mentioned actually work",
+    "Go version matches go.mod",
+    "Service file list matches actual files in internal/admin/"
+  ],
+  "context": {
+    "user_story": "As a developer or AI agent, I want CLAUDE.md to accurately describe the current project so I can work effectively without outdated assumptions",
+    "related_docs": [
+      "docs/project_overview.md",
+      "docs/docker_setup.md"
+    ]
+  }
+}

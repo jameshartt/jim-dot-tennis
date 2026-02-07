@@ -1,0 +1,30 @@
+{
+  "sprint": {
+    "id": "sprint-005",
+    "name": "Club & Away Team Management",
+    "goal": "Enable full management of clubs and away teams (non-St Ann's teams) through the admin interface, including club CRUD, away team lifecycle management, division assignment, and season transition review",
+    "start_date": null,
+    "end_date": null,
+    "duration_weeks": 2,
+    "status": "planned",
+    "focus_areas": [
+      "Club creation and deletion",
+      "Away team management interface",
+      "Club-to-teams navigation",
+      "Away team division assignment and status",
+      "Season transition review for away teams"
+    ],
+    "phases_addressed": [
+      "Phase 6: Admin Tooling and Dashboard"
+    ],
+    "work_items": [
+      "WI-028",
+      "WI-029",
+      "WI-030",
+      "WI-031",
+      "WI-032"
+    ],
+    "completed_items": [],
+    "deferred_items": {}
+  }
+}

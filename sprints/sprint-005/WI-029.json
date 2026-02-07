@@ -1,0 +1,52 @@
+{
+  "id": "WI-029",
+  "title": "Club detail page - teams section with navigation",
+  "description": "The club detail page currently shows only venue/contact information with an edit form. It should also display the club's teams, grouped by season and division. This provides a natural navigation path: Clubs → Club Detail → Club's Teams. For St Ann's, this links to the existing team detail pages. For away clubs, it links to the away team management (WI-030). Include a button to create a new team for the club directly from this page.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 6: Admin Tooling and Dashboard",
+  "acceptance_criteria": [
+    "Club detail page shows a 'Teams' section below the edit form",
+    "Teams grouped by season (active season first) and showing division",
+    "Each team row shows: team name, division, season, player count (St Ann's only)",
+    "Team names are clickable links to team detail page",
+    "St Ann's teams link to existing team detail with full functionality",
+    "Away teams link to away team detail (subset functionality from WI-030)",
+    "Add Team button visible for creating a new team for this club",
+    "Add Team pre-selects the current club in the creation form",
+    "Empty state message when club has no teams"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/admin/clubs.go",
+      "internal/admin/service_clubs.go",
+      "templates/admin/club_detail.html"
+    ],
+    "approach": [
+      "1. Modify handleClubDetailGet to also fetch teams via FindByClub or FindByClubAndSeason",
+      "2. Pass teams data to template alongside existing club data",
+      "3. Add teams section to club_detail.html below the edit form",
+      "4. Group teams by season using template logic",
+      "5. Conditionally show player count only for St Ann's teams (ClubID check)",
+      "6. Add 'Add Team' button that opens create form with club pre-selected"
+    ],
+    "existing_code": "ClubRepository has FindWithTeams() and TeamRepository has FindByClub() and FindByClubAndSeason(). The team list pattern from teams.html can be reused."
+  },
+  "testing_requirements": [
+    "Club page shows teams for a club with teams",
+    "Club page shows empty state for club with no teams",
+    "Teams grouped correctly by season",
+    "St Ann's teams show player count, away teams don't",
+    "Team links navigate to correct detail pages",
+    "Add Team button works and pre-selects the club"
+  ],
+  "context": {
+    "user_story": "As an administrator, I want to see a club's teams directly from the club page so I can quickly navigate between club details and their team management",
+    "related_docs": [
+      "docs/project_overview.md"
+    ]
+  }
+}

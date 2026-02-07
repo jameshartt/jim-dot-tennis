@@ -1,0 +1,65 @@
+{
+  "id": "WI-032",
+  "title": "Season transition review for away teams",
+  "description": "After using the existing 'Copy from Previous Season' functionality, the admin needs a review step specifically for away teams. The copy brings forward all teams, but between seasons: some teams get promoted/relegated (moved to different divisions), some teams disband (should be marked inactive), and some new teams join the league (need to be created). Build a post-copy review workflow that presents all away teams and lets the admin confirm, adjust, or remove them for the new season.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-031"],
+  "phase": "Phase 6: Admin Tooling and Dashboard",
+  "acceptance_criteria": [
+    "After season copy completes, admin is prompted to review away teams",
+    "Review screen shows all copied away teams grouped by club and division",
+    "Each team can be: confirmed, moved to different division, or marked inactive",
+    "New teams can be added during the review (for teams joining the league)",
+    "Review shows side-by-side comparison with previous season where teams were",
+    "Changes applied in bulk when admin confirms the review",
+    "Review can be accessed again later from season setup page",
+    "Existing season copy functionality is not modified - review is an additional step",
+    "Works correctly with the active/inactive status from WI-031"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/admin/season_away_team_review.html"
+    ],
+    "files_to_modify": [
+      "internal/admin/season_setup.go",
+      "internal/admin/handler.go",
+      "internal/admin/service_seasons.go",
+      "internal/admin/service_teams.go"
+    ],
+    "routes_to_add": [
+      "GET /admin/league/seasons/{id}/review-away-teams",
+      "POST /admin/league/seasons/{id}/review-away-teams"
+    ],
+    "approach": [
+      "1. After CopyFromPreviousSeason completes, redirect to review page instead of setup",
+      "2. Review page queries all non-St Ann's teams for the new season",
+      "3. Also queries previous season teams for comparison",
+      "4. Display side-by-side: previous division → current division for each team",
+      "5. Allow inline editing: division dropdown, active toggle, delete button",
+      "6. Allow adding new teams inline",
+      "7. Bulk submit applies all changes",
+      "8. Add link from season setup page to access review later"
+    ],
+    "existing_code": "Season copy is in service_seasons.go CopyFromPreviousSeason(). The redirect after copy is in season_setup.go handleCopyFromPrevious(). The review page is purely additive - no changes to copy logic."
+  },
+  "testing_requirements": [
+    "Season copy still works as before",
+    "Review page shows all away teams from new season",
+    "Previous season comparison is accurate",
+    "Moving a team to different division works",
+    "Marking a team inactive works",
+    "Adding a new team during review works",
+    "Bulk confirm applies all changes correctly",
+    "Review can be re-accessed from season setup"
+  ],
+  "context": {
+    "user_story": "As an administrator, I want to review and adjust away teams after copying a season, so I can account for promotions, relegations, new teams, and disbanded teams before the season begins",
+    "related_docs": [
+      "docs/project_overview.md",
+      "docs/database_reset_guide.md"
+    ]
+  }
+}

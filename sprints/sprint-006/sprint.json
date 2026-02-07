@@ -1,0 +1,31 @@
+{
+  "sprint": {
+    "id": "sprint-006",
+    "name": "Match Day: Results, Standings & Captain Tools",
+    "goal": "Complete the match day lifecycle from captain selection overview through match result recording, player-facing league standings, and fixture enrichment with weather and history",
+    "start_date": null,
+    "end_date": null,
+    "duration_weeks": 2,
+    "status": "planned",
+    "focus_areas": [
+      "Captain selection overview",
+      "Match result entry and recording",
+      "Player-facing league standings",
+      "Match history and player statistics",
+      "Fixture weather information"
+    ],
+    "phases_addressed": [
+      "Phase 2: Captain Selection Tools",
+      "Phase 5: Fixture and Venue Management"
+    ],
+    "work_items": [
+      "WI-033",
+      "WI-034",
+      "WI-035",
+      "WI-036",
+      "WI-037"
+    ],
+    "completed_items": [],
+    "deferred_items": {}
+  }
+}

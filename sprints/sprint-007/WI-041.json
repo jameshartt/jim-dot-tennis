@@ -1,0 +1,61 @@
+{
+  "id": "WI-041",
+  "title": "Season transition and data management tools",
+  "description": "Build admin tooling for transitioning between seasons. The current system has one season (2025) but will need to support new seasons as the league progresses. This includes creating a new season, copying division structure, resetting team rosters if needed, archiving previous season data, and ensuring the admin UI handles multi-season data gracefully.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 6: Admin Tooling and Dashboard",
+  "acceptance_criteria": [
+    "Admin can create a new season with start/end dates",
+    "Division structure can be copied from previous season",
+    "Week schedule generated automatically for new season",
+    "Previous season data remains accessible (read-only archive)",
+    "Active season switch in admin dashboard",
+    "Player rosters carried forward with option to reset availability",
+    "Clear confirmation before destructive operations",
+    "Season filtering throughout admin and player UIs continues to work"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/admin/season_setup.html",
+      "internal/admin/season_transition.go"
+    ],
+    "files_to_modify": [
+      "internal/admin/handler.go",
+      "internal/admin/service_seasons.go",
+      "internal/repository/season_repository.go",
+      "internal/repository/week_repository.go"
+    ],
+    "routes_to_add": [
+      "GET /admin/league/seasons/new",
+      "POST /admin/league/seasons/new",
+      "POST /admin/league/seasons/{id}/activate"
+    ],
+    "approach": [
+      "1. Review existing season and week models/repositories",
+      "2. Build season creation form with date range and division copy option",
+      "3. Implement automatic week generation based on season dates",
+      "4. Add season activation/deactivation toggle",
+      "5. Ensure all queries respect active season filter",
+      "6. Test with multi-season data"
+    ]
+  },
+  "testing_requirements": [
+    "New season creates with correct date range",
+    "Division structure copies accurately from previous season",
+    "Weeks generate correctly (18 weeks)",
+    "Season switching works throughout admin UI",
+    "Player-facing views show correct active season",
+    "Previous season data remains accessible"
+  ],
+  "context": {
+    "user_story": "As an administrator, I want to set up a new season efficiently so the league can transition smoothly from one year to the next without losing historical data",
+    "related_docs": [
+      "docs/database_reset_guide.md",
+      "docs/project_overview.md"
+    ]
+  }
+}

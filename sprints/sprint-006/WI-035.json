@@ -1,0 +1,58 @@
+{
+  "id": "WI-035",
+  "title": "Player-facing league standings and points table",
+  "description": "Create a player-facing view of the league standings and points table. The admin interface already has a points table tool, but players currently have no way to see league standings. This should show division-by-division standings with team rankings, points, wins, losses, and draws.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 5: Fixture and Venue Management",
+  "acceptance_criteria": [
+    "Player-accessible standings page (no login required or token-based access)",
+    "Shows standings per division",
+    "Displays team name, played, won, lost, drawn, points",
+    "Division selector or tabs for switching between divisions",
+    "Current season shown by default with option to view previous seasons",
+    "Mobile-responsive table layout",
+    "St Ann's teams highlighted for easy identification",
+    "Data sourced from existing match results and points calculations"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/players/standings.html",
+      "internal/players/standings.go"
+    ],
+    "files_to_modify": [
+      "internal/players/handler.go",
+      "internal/repository/matchup_repository.go"
+    ],
+    "routes_to_add": [
+      "GET /standings",
+      "GET /standings/{division_id}"
+    ],
+    "approach": [
+      "1. Review existing admin points table service for data logic",
+      "2. Create player-facing standings handler",
+      "3. Query match results aggregated by team and division",
+      "4. Build responsive standings template with division tabs",
+      "5. Highlight St Ann's teams in the table",
+      "6. Add season selector"
+    ]
+  },
+  "testing_requirements": [
+    "Standings show correct points calculations",
+    "All 4 divisions display correctly",
+    "St Ann's teams are visually highlighted",
+    "Season switching works",
+    "Page loads quickly with all fixture data",
+    "Mobile layout is readable"
+  ],
+  "context": {
+    "user_story": "As a player, I want to see the current league standings so I know how my team is performing in the division",
+    "related_docs": [
+      "docs/user_experience_requirements.md",
+      "docs/project_overview.md"
+    ]
+  }
+}

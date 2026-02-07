@@ -1,0 +1,61 @@
+{
+  "id": "WI-034",
+  "title": "Match result entry UX for captains",
+  "description": "Build a captain-facing interface for recording match results after fixtures are played. Each fixture contains matchups (Men's Doubles, Women's Doubles, Mixed Doubles) and each matchup needs score entry. The interface should support standard tennis scoring and validate inputs. Results feed into the points table.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 5: Fixture and Venue Management",
+  "acceptance_criteria": [
+    "Captain can select a completed fixture and enter results",
+    "Score entry supports standard doubles format (sets and games)",
+    "Each matchup type (Men's, Women's, Mixed) has its own score entry",
+    "Basic score validation (valid tennis scores)",
+    "Results saved to database via matchup records",
+    "Confirmation screen before final submission",
+    "Results visible on fixture detail page after submission",
+    "Captain can edit previously submitted results",
+    "HTMX-powered form for smooth interaction without page reloads"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/admin/match_result_entry.html",
+      "internal/admin/results.go"
+    ],
+    "files_to_modify": [
+      "internal/admin/handler.go",
+      "internal/admin/service_matchups.go",
+      "internal/repository/matchup_repository.go"
+    ],
+    "routes_to_add": [
+      "GET /admin/league/fixtures/{id}/results",
+      "POST /admin/league/fixtures/{id}/results"
+    ],
+    "schema_changes": "None expected - matchup table already has score fields",
+    "approach": [
+      "1. Review matchup model and repository for existing score fields",
+      "2. Create results handler with GET (form) and POST (submit) handlers",
+      "3. Build HTMX-powered form with per-matchup score entry",
+      "4. Add tennis score validation (sets, games, tiebreaks)",
+      "5. Save results and update fixture status",
+      "6. Display results on fixture detail page"
+    ]
+  },
+  "testing_requirements": [
+    "Score entry works for all matchup types",
+    "Invalid scores are rejected with clear error messages",
+    "Results persist correctly in database",
+    "Editing existing results works",
+    "Results display correctly on fixture detail page",
+    "Mobile-friendly score entry form"
+  ],
+  "context": {
+    "user_story": "As a team captain, I want to record match results after a fixture so the league standings are kept up to date",
+    "related_docs": [
+      "docs/technical_implementation_plan.md",
+      "docs/user_experience_requirements.md"
+    ]
+  }
+}
