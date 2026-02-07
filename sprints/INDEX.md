@@ -8,6 +8,22 @@ None currently active.
 
 ## Completed Sprints
 
+### Sprint 006: Match Day - Results, Standings & Captain Tools
+- **Status**: Completed (closed 2026-02-07)
+- **Duration**: Short sprint (Feb 7, 2026)
+- **Work Items**: 5 (WI-033 to WI-037) - all completed
+- **Goal**: Complete the match day lifecycle from captain selection overview through match result recording, player-facing league standings, and fixture enrichment with weather and history
+- **Directory**: `sprint-006/`
+- **Summary**: [sprint-006/SUMMARY.md](sprint-006/SUMMARY.md)
+
+### Sprint 005: Club & Away Team Management
+- **Status**: Completed (closed 2026-02-07)
+- **Duration**: Short sprint (Feb 7, 2026)
+- **Work Items**: 6 (WI-028 to WI-032, WI-042) - all completed
+- **Goal**: Enable full management of clubs and away teams through the admin interface
+- **Directory**: `sprint-005/`
+- **Summary**: [sprint-005/SUMMARY.md](sprint-005/SUMMARY.md)
+
 ### Sprint 004: Spring Clean: Go Tooling, Dead Code, Linting & Environment Update
 - **Status**: Completed (closed 2026-02-01)
 - **Duration**: Short sprint (Feb 1, 2026)
@@ -49,22 +65,6 @@ None currently active.
 - **Directory**: `sprint-pwa/`
 - **Summary**: [sprint-pwa/SUMMARY.md](sprint-pwa/SUMMARY.md)
 
-### Sprint 005: Club & Away Team Management
-- **Focus**: Full management of clubs and away teams (non-St Ann's teams)
-- **Items**: 6 (WI-028 to WI-032, WI-042)
-- **Key Features**: Club CRUD, club-to-teams navigation, away team management interface, division assignment & active status, season transition review, safe season deletion
-- **Directory**: `sprint-005/`
-- **Summary**: [sprint-005/SUMMARY.md](sprint-005/SUMMARY.md)
-- **Dependencies**: WI-030→WI-028, WI-031→WI-030, WI-032→WI-031
-
-### Sprint 006: Match Day - Results, Standings & Captain Tools
-- **Focus**: Complete the match day lifecycle
-- **Items**: 5 (WI-033 to WI-037)
-- **Key Features**: Captain selection overview (deferred WI-008), match result entry, player-facing standings, match history & player stats, fixture weather
-- **Directory**: `sprint-006/`
-- **Summary**: [sprint-006/SUMMARY.md](sprint-006/SUMMARY.md)
-- **Dependencies**: WI-036 depends on WI-034 (match history needs result entry)
-
 ### Sprint 007: Communication & Project Maintenance
 - **Focus**: Expand communication channels and keep project infrastructure current
 - **Items**: 4 (WI-038 to WI-041)
@@ -77,6 +77,8 @@ None currently active.
 
 | Sprint | Work Items | Completed | In Progress | Blocked | Success Rate |
 |--------|-----------|-----------|-------------|---------|--------------|
+| 006 | 5 | 5 | 0 | 0 | 100% |
+| 005 | 6 | 6 | 0 | 0 | 100% |
 | 004 | 6 | 6 | 0 | 0 | 100% |
 | 003 | 5 | 5 | 0 | 0 | 100% |
 | 002 | 4 | 4 | 0 | 0 | 100% |

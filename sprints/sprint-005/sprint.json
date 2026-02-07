@@ -6,7 +6,7 @@
     "start_date": null,
     "end_date": null,
     "duration_weeks": 2,
-    "status": "planned",
+    "status": "completed",
     "focus_areas": [
       "Club creation and deletion",
       "Away team management interface",
@@ -26,7 +26,7 @@
       "WI-032",
       "WI-042"
     ],
-    "completed_items": [],
+    "completed_items": ["WI-028", "WI-029", "WI-030", "WI-031", "WI-032", "WI-042"],
     "deferred_items": {}
   }
 }

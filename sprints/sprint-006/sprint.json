@@ -6,7 +6,7 @@
     "start_date": null,
     "end_date": null,
     "duration_weeks": 2,
-    "status": "planned",
+    "status": "completed",
     "focus_areas": [
       "Captain selection overview",
       "Match result entry and recording",
@@ -25,7 +25,7 @@
       "WI-036",
       "WI-037"
     ],
-    "completed_items": [],
+    "completed_items": ["WI-033", "WI-034", "WI-035", "WI-036", "WI-037"],
     "deferred_items": {}
   }
 }
