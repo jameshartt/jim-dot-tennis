@@ -6,7 +6,7 @@ Jim.Tennis is an internal tool for St Ann's Tennis Club to facilitate team manag
 ## Core Goals
 
 1. **Availability Management**
-   - Allow players to update their own availability
+   - Allow players to update their own availability via availability exceptions ("Mark Time Away")
    - Enable captains to manage availability for players who cannot interact with the tool
    - Create an extremely intuitive and user-friendly experience for updating availability
 
@@ -16,14 +16,29 @@ Jim.Tennis is an internal tool for St Ann's Tennis Club to facilitate team manag
    - Automate and simplify the process of player selection based on availability
 
 3. **Fixture Management**
-   - Provide clear scheduling of upcoming fixtures
+   - Provide clear scheduling of upcoming fixtures with detailed fixture views
    - Track match details, locations, and results
-   - Streamline communication about matches
+   - Streamline communication about matches via WhatsApp sharing
+   - Provide iCal calendar feeds for fixture subscriptions
 
-4. **Notifications & Communication**
+4. **Venue & Club Infrastructure**
+   - Maintain venue and club data via BHPLTA scraper integration
+   - Provide player-facing venue pages with maps and directions
+   - Support venue overrides for fixtures played at non-default locations
+
+5. **Notifications & Communication**
    - Implement push notifications through PWA capabilities
    - Remind players about upcoming fixtures and availability deadlines
    - Facilitate easy sharing of information within existing communication channels (e.g., WhatsApp)
+
+## Technical Stack
+
+- **Go 1.25** (server-side application)
+- **SQLite** (default) or **PostgreSQL**
+- **Server-side rendered HTML templates** with **HTMX**
+- **Progressive Web App (PWA)** with push notification support
+- **Docker** for production deployment and Go tooling
+- **Static analysis & formatting** via Docker-based Go tooling (vet, lint, fmt, deadcode, imports)
 
 ## Technical Approach
 
@@ -41,6 +56,11 @@ Jim.Tennis is an internal tool for St Ann's Tennis Club to facilitate team manag
    - Design for minimal friction in all user interactions
    - Seamlessly integrate with existing communication workflows (WhatsApp)
 
+4. **Code Quality**
+   - Docker-based Go tooling with 9 Makefile targets (vet, fmt, fmt-fix, imports, imports-fix, lint, deadcode, tidy, check)
+   - Static analysis via `.golangci.yml` configuration with 11 linters enabled
+   - Consistent code formatting enforced across the codebase
+
 ## Target Users
 
 1. **Team Captains**
@@ -53,13 +73,47 @@ Jim.Tennis is an internal tool for St Ann's Tennis Club to facilitate team manag
    - Require notifications about selection status and upcoming fixtures
    - May vary in technical proficiency (app must be accessible to all skill levels)
 
+3. **Administrators**
+   - Manage clubs, divisions, users, and sessions through the admin dashboard
+   - Import and maintain venue/club data from the BHPLTA website
+   - Full user management with CRUD operations and session revocation
+
 ## Current Development Status
 
-The current codebase includes models for the Parks League structure:
-- Leagues, divisions, seasons
-- Clubs, teams, players
-- Fixtures, matchups
-- Availability tracking
-- Messaging and notification systems
+### Completed (Sprints 001-004)
 
-The focus is now on implementing a user-friendly interface to make these features accessible and intuitive for all users. 
+**Sprint 001 - Player Experience & Fixtures:**
+- Player profile views and availability exception handling ("Mark Time Away")
+- Fixture details and listing pages
+- WhatsApp sharing for fixtures
+- General availability preferences (implemented then removed from UI; backend remains)
+
+**Sprint 002 - Venue & Club Infrastructure:**
+- Venue and club data pipeline with BHPLTA scraper
+- Admin club management pages
+- Venue resolver service for mapping fixtures to venues
+- Player-facing venue page with embedded map and directions
+- iCal calendar feed generation for fixture subscriptions
+- Venue overrides for fixtures at non-default locations
+- Season filtering fixes across admin UI
+
+**Sprint 003 - Admin Tooling & Refactoring:**
+- Admin dashboard reorganization with stat cards and 4 grouped quick action categories
+- Division editing with play_day correction
+- Full user management CRUD (create, read, update, delete)
+- Session management with revoke capabilities
+- Major `service.go` refactor (3,871 lines to 117 lines, split into 12 domain-specific service files)
+
+**Sprint 004 - Code Quality & Tooling:**
+- Docker-based Go tooling with 9 Makefile targets (vet, fmt, fmt-fix, imports, imports-fix, lint, deadcode, tidy, check)
+- Dead code removal (18 functions, 2 types removed)
+- Static analysis configuration via `.golangci.yml` (11 linters enabled)
+- Code formatting standardization across the codebase
+- Go version upgrade from 1.24.1 to 1.25
+- Docker Alpine image updates
+
+### Planned (Sprint PWA)
+
+- Push notifications pipeline
+- PWA installation prompt for mobile users
+- Offline availability management with background sync

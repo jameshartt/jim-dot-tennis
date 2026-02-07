@@ -62,6 +62,56 @@ The deployment sets up:
 - HTTPS configuration with Caddy (if domain provided)
 - Automatic database backups
 
+### Services
+
+The production deployment comprises multiple services orchestrated via Docker Compose:
+
+| Service | Description | Compose File |
+|---------|-------------|--------------|
+| **jim-dot-tennis** (app) | Go 1.25 web application serving the league management UI | `docker-compose.yml` |
+| **backup** | Alpine-based container performing daily SQLite backups with 30-day retention | `docker-compose.yml` |
+| **import** | On-demand tools container for match card and club data imports | `docker-compose.yml` (tools profile) |
+| **competition-factory-server** | CourtHive API server (Node.js) for tournament management | `docker-compose.courthive.yml` |
+| **TMX frontend** | Static tournament management UI served via Caddy | `docker-compose.courthive.yml` |
+| **courthive-public** | Public-facing CourtHive UI served via Caddy | `docker-compose.courthive.yml` |
+| **Redis** | In-memory data store used by the CourtHive server (`redis:7-alpine`) | `docker-compose.courthive.yml` |
+| **Caddy** | Reverse proxy handling SSL termination and routing for all services (`caddy:2-alpine`) | `docker-compose.courthive.yml` |
+
+The base `docker-compose.yml` runs jim-dot-tennis standalone. The full CourtHive stack uses `docker-compose.courthive.yml`, which includes all of the above services on a shared `tennis-network` bridge network.
+
+### CourtHive Stack Management
+
+The Makefile provides dedicated targets for managing the CourtHive stack:
+
+```bash
+make courthive           # Build TMX frontend and start the full CourtHive stack
+make courthive-up        # Start the CourtHive stack without rebuilding TMX
+make courthive-down      # Stop the CourtHive stack
+make courthive-restart   # Restart the CourtHive stack
+make courthive-logs      # View CourtHive stack logs
+make build-tmx           # Build TMX frontend only
+```
+
+### Admin Routes
+
+The application exposes the following admin routes (all under `/admin/league/`, protected by session-based auth with admin role):
+
+- **Dashboard**: `/admin/league/dashboard`
+- **Players**: `/admin/league/players`, `/admin/league/players/filter`
+- **Fixtures**: `/admin/league/fixtures`, `/admin/league/fixtures/week-overview`
+- **Teams**: `/admin/league/teams`
+- **Clubs**: `/admin/league/clubs`
+- **Divisions**: `/admin/league/divisions/` (division editing -- added in Sprint 003)
+- **Users**: `/admin/league/users` (user CRUD management -- added in Sprint 003)
+- **Sessions**: `/admin/league/sessions` (session management -- added in Sprint 003)
+- **Seasons**: `/admin/league/seasons`, `/admin/league/seasons/set-active`, `/admin/league/seasons/setup`, `/admin/league/seasons/move-team`, `/admin/league/seasons/copy-from-previous`
+- **Selection Overview**: `/admin/league/selection-overview`
+- **Points Table**: `/admin/league/points-table`
+- **Match Card Import**: `/admin/league/match-card-import`
+- **Club Data Import**: `/admin/league/club-data-import`
+- **Club Wrapped**: `/admin/league/wrapped` (also has public route at `/club/wrapped`)
+- **Preferred Names**: `/admin/league/preferred-names` (approvals, history, approve/reject)
+
 ## Manual Server Setup (Optional)
 
 If you prefer to set up the server manually or want to understand what the server setup script does, you can:
@@ -155,7 +205,17 @@ ssh user@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose up -d"
 
 When upgrading the Go version in the Dockerfile, follow these steps:
 
-### Recent Upgrade: Go 1.18 → 1.24.1 (June 2025)
+### Recent Upgrade: Go 1.24.1 -> 1.25 (Sprint 004)
+
+This documents the upgrade from Go 1.24.1 to Go 1.25 completed in Sprint 004:
+
+**Changes Made:**
+- Updated `FROM golang:1.24.1-alpine AS builder` to `FROM golang:1.25-alpine AS builder`
+- Updated runtime image remains `FROM alpine:latest`
+- Updated Go tooling image in Makefile to `golang:1.25-alpine`
+- Updated `go.mod` module directive to `go 1.25.0`
+
+### Previous Upgrade: Go 1.18 -> 1.24.1 (June 2025)
 
 This documents the successful upgrade from Go 1.18 to Go 1.24.1 that was completed:
 
@@ -191,10 +251,16 @@ Edit the Go version in the Dockerfile:
 
 ```dockerfile
 # Change from:
-FROM golang:1.18-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 # To (example):
-FROM golang:1.24.1-alpine AS builder
+FROM golang:1.26-alpine AS builder
+```
+
+Also update the Go tooling image in the Makefile:
+
+```makefile
+GO_IMAGE = golang:1.26-alpine
 ```
 
 ### Step 2: Handle SQLite Compatibility (if using CGO)
@@ -228,6 +294,36 @@ ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose logs app | ta
 # Verify new image was built
 ssh root@your-droplet-ip "docker images | grep jim-dot-tennis"
 ```
+
+## Go Tooling (Docker-based)
+
+Sprint 004 added 9 Makefile targets that run Go tooling inside Docker containers, so no local Go installation is required. These use the `golang:1.25-alpine` image to match the Dockerfile builder stage.
+
+### Read-only Checks
+
+```bash
+make vet          # Run go vet (static analysis, requires CGO for SQLite)
+make fmt          # Check formatting (list unformatted files)
+make lint         # Run golangci-lint (comprehensive linting, requires CGO)
+make deadcode     # Run dead code detection (requires CGO)
+make check        # Run all read-only checks (vet + fmt + lint + deadcode)
+```
+
+### Auto-fix Targets
+
+```bash
+make fmt-fix      # Fix formatting in-place
+make imports      # Check import ordering
+make imports-fix  # Fix import ordering in-place
+```
+
+### Module Management
+
+```bash
+make tidy         # Run go mod tidy (requires CGO for SQLite dependency resolution)
+```
+
+Tools that need to compile code with SQLite (vet, deadcode, lint, tidy) run with CGO enabled and install `gcc musl-dev sqlite-dev build-base` inside the container. Text-only tools (fmt, imports) run without CGO for speed.
 
 ## Useful Management Commands
 
@@ -431,10 +527,10 @@ If the application is running slowly:
    ssh root@your-droplet-ip "docker stats"
    ```
 
- 3. Check application-specific logs for errors:
-    ```bash
-    ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose logs app | grep -i error"
-    ```
+3. Check application-specific logs for errors:
+   ```bash
+   ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose logs app | grep -i error"
+   ```
 
 ## Quick Reference Commands
 

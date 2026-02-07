@@ -4,6 +4,7 @@
 **Domain:** jim.tennis
 **SSH:** `ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64`
 **Path:** `/opt/jim-dot-tennis/`
+**Go Version:** 1.25 (Sprint 004)
 
 ---
 
@@ -147,10 +148,10 @@ async function createAdminUser() {
     };
 
     await db.put(email, user);
-    console.log('✅ User created: ' + email);
+    console.log('User created: ' + email);
     await db.close();
   } catch (error) {
-    console.error('❌ Error:', error.message);
+    console.error('Error:', error.message);
   }
 }
 
@@ -175,6 +176,89 @@ ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker run --rm -v jim-dot-
 # CourtHive data backup
 ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker run --rm -v courthive-data:/data alpine tar czf - -C /data ." > ~/backups/courthive-$(date +%Y%m%d).tar.gz
 ```
+
+---
+
+## Go Tooling (Sprint 004)
+
+All commands run inside Docker (no local Go install required). Uses `golang:1.25-alpine`.
+
+```bash
+# Static analysis
+make vet              # go vet ./...
+
+# Formatting
+make fmt              # Check formatting (list unformatted files)
+make fmt-fix          # Fix formatting in-place
+
+# Import ordering
+make imports          # Check import ordering
+make imports-fix      # Fix import ordering in-place
+
+# Linting
+make lint             # golangci-lint run ./...
+
+# Dead code detection
+make deadcode         # Find unreachable functions
+
+# Module maintenance
+make tidy             # go mod tidy
+
+# Run all read-only checks at once
+make check            # Runs: vet, fmt, lint, deadcode
+```
+
+---
+
+## Admin Routes
+
+### Core Admin (all under `/admin/league/`)
+
+| Route | Purpose |
+|---|---|
+| `/admin/league/dashboard` | Dashboard - stat cards, quick actions (4 categories: League Management, Results & Standings, Season Tools, System) |
+| `/admin/league/players` | Player management, filtering |
+| `/admin/league/fixtures` | Fixture management, week overview |
+| `/admin/league/teams` | Team management |
+| `/admin/league/clubs` | Club management |
+| `/admin/league/divisions/` | Division editing (Sprint 003) |
+| `/admin/league/users` | User management - list, create, toggle active, password reset (Sprint 003) |
+| `/admin/league/sessions` | Session management - view active, revoke (Sprint 003) |
+| `/admin/league/points-table` | Points/standings table |
+| `/admin/league/match-card-import` | BHPLTA match card import |
+| `/admin/league/club-data-import` | Club data import |
+| `/admin/league/seasons` | Season management, set active |
+| `/admin/league/seasons/setup` | Season setup wizard |
+| `/admin/league/selection-overview` | Selection overview |
+| `/admin/league/wrapped` | Club Wrapped / season summary |
+| `/admin/league/preferred-names` | Preferred name approvals |
+
+### Public Routes
+
+| Route | Purpose |
+|---|---|
+| `/club/wrapped` | Public Season Wrapped (access-cookie protected) |
+
+---
+
+## Service Architecture (Sprint 003)
+
+`service.go` was split into 12 domain-specific files in `internal/admin/`:
+
+| File | Domain |
+|---|---|
+| `service_dashboard.go` | Dashboard stats and overview |
+| `service_players.go` | Player CRUD and queries |
+| `service_fixtures.go` | Fixture management |
+| `service_fixture_players.go` | Player-fixture assignments |
+| `service_teams.go` | Team operations |
+| `service_matchups.go` | Matchup logic |
+| `service_seasons.go` | Season management |
+| `service_divisions.go` | Division operations |
+| `service_clubs.go` | Club management |
+| `service_fantasy.go` | Fantasy league |
+| `service_users_sessions.go` | User and session management |
+| `service_selection.go` | Team selection logic |
 
 ---
 

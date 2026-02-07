@@ -7,16 +7,49 @@ This document provides a complete guide for resetting the database state on the 
 The database reset process involves:
 1. Stopping the application
 2. Removing the existing database volume
-3. Starting the application to recreate the volume and run migrations
+3. Starting the application to recreate the volume and run all 19 migrations
 4. Running the populate-db script to import all data
 5. Restarting the application
 
 ## Prerequisites
 
 - SSH access to the DigitalOcean droplet (root@144.126.228.64)
-- Local development environment with Go installed
+- Local development environment with Go 1.25+ installed
 - CSV fixture files in `pdf_output/` directory
 - Players HTML file in `players-import/players.html`
+
+## Database Schema Overview
+
+The application uses 19 sequential migrations (001-019) that build out the following structure:
+
+**Core Hierarchy:**
+- Season -> Weeks (1-18 per season)
+- League -> Divisions -> Teams
+- Club -> Teams -> Players
+
+**Fixtures & Results:**
+- Fixtures (links Team, Week, Division, Season)
+- Matchups (Men's/Women's/Mixed doubles within a Fixture)
+
+**Availability System (Migration 002):**
+- `player_general_availability` - default day-of-week availability
+- `player_availability_exceptions` - date-range overrides ("Mark Time Away" feature)
+- `player_fixture_availability` - fixture-specific availability
+- `player_availability` / `availability_time_slots` - time-slot-based availability
+
+**Club Infrastructure (Migration 018):**
+- Enriched clubs table with geocoding (latitude, longitude), address fields, court surface/count, parking info, transport info, tips, and Google Maps URLs
+
+**Venue Overrides (Migration 019):**
+- `venue_overrides` - date-range venue displacement records (when a club is displaced from their home venue)
+- Per-fixture `venue_club_id` on fixtures table for one-off venue changes
+
+**Authentication & Notifications:**
+- `users`, `sessions` - user authentication with session management
+- `push_subscriptions`, `vapid_keys` - PWA push notification support
+
+**BHPLTA Integration:**
+- `tennis_players` - external player database from BHPLTA
 
 ## Complete Reset Process
 
@@ -38,11 +71,13 @@ ssh root@144.126.228.64 "docker volume ls | grep jim-dot-tennis"
 ssh root@144.126.228.64 "docker volume rm jim-dot-tennis-data"
 ```
 
-**⚠️ WARNING**: This permanently deletes all database data including:
-- All fixtures and results
-- Player records
-- User accounts
-- Push notification subscriptions
+**WARNING**: This permanently deletes all database data including:
+- All fixtures, matchups, and results
+- Player records and availability data (general, fixture-specific, and time-away exceptions)
+- Club/venue data including geocoding and infrastructure details
+- Venue overrides (fixture-specific and date-range)
+- User accounts and sessions
+- Push notification subscriptions and VAPID keys
 - All application data
 
 ### Step 3: Clean Up Migration Files (if needed)
@@ -62,12 +97,12 @@ ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && rm -f migrations/004_add_push
 ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker-compose up -d"
 ```
 
-This creates a new empty database volume and runs migrations.
+This creates a new empty database volume and runs all 19 migrations.
 
 ### Step 5: Build and Transfer populate-db Tool
 
 ```bash
-# Build the populate-db tool locally
+# Build the populate-db tool locally (requires Go 1.25+)
 go build -o populate-db ./cmd/populate-db
 
 # Transfer the binary to the server
@@ -148,6 +183,39 @@ After successful import, you should have:
 - 402 Fixtures
 - 88 Players
 
+Additional tables created by migrations (populated through app usage):
+- `player_availability_exceptions` (Mark Time Away feature)
+- `venue_overrides` (club venue displacement records)
+- `matchups` (match results from BHPLTA import)
+- `push_subscriptions`, `vapid_keys` (push notification registrations)
+- `users`, `sessions` (authentication data)
+
+## Migrations Summary
+
+The application runs 19 migrations on startup:
+
+| Migration | Description |
+|-----------|-------------|
+| 001 | Initial schema (seasons, weeks, leagues, divisions, clubs, teams, players, fixtures) |
+| 002 | Player availability system (general, exceptions, fixture-specific, time slots) |
+| 003 | Push notification tables |
+| 004 | Auth tables (users, sessions) |
+| 005 | Fixture players (player-to-fixture assignments) |
+| 006 | Tennis players (external BHPLTA player database) |
+| 007 | Fantasy match flag on players |
+| 008 | Update availability statuses (add IfNeeded status) |
+| 009 | Drop legacy contact fields |
+| 010 | Add managing team to matchups |
+| 011 | Add managing team to fixture players |
+| 012 | Match card fields |
+| 013 | Preferred names for players |
+| 014 | Fixture rescheduling support |
+| 015 | Gender field on players |
+| 016 | Reporting privacy for players |
+| 017 | Conceded-by field on matchups |
+| 018 | Enrich clubs with venue data (geocoding, court info, transport, tips) |
+| 019 | Venue overrides (per-fixture and date-range venue displacement) |
+
 ## Troubleshooting
 
 ### Migration Errors
@@ -194,55 +262,58 @@ For future reference, here's the complete reset in one script:
 #!/bin/bash
 # Quick database reset script
 
-echo "🛑 Stopping application..."
+echo "Stopping application..."
 ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker-compose down"
 
-echo "🗑️ Removing database volume..."
+echo "Removing database volume..."
 ssh root@144.126.228.64 "docker volume rm jim-dot-tennis-data"
 
-echo "🧹 Cleaning migration files..."
+echo "Cleaning migration files..."
 ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && find migrations/ -name '*003_messages_notifications*' -delete"
 ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && rm -f migrations/004_add_push_notification_tables.*"
 
-echo "🚀 Starting application..."
+echo "Starting application..."
 ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker-compose up -d"
 
-echo "⏳ Waiting for startup..."
+echo "Waiting for startup..."
 sleep 10
 
-echo "🔧 Building populate tool..."
+echo "Building populate tool (requires Go 1.25+)..."
 go build -o populate-db ./cmd/populate-db
 
-echo "📤 Transferring files..."
+echo "Transferring files..."
 scp populate-db root@144.126.228.64:/opt/jim-dot-tennis/
 scp -r pdf_output/ root@144.126.228.64:/opt/jim-dot-tennis/
 scp -r players-import/ root@144.126.228.64:/opt/jim-dot-tennis/
 
-echo "🛑 Stopping app for import..."
+echo "Stopping app for import..."
 ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker-compose stop app"
 
-echo "📊 Importing data..."
+echo "Importing data..."
 ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && chmod +x populate-db && ./populate-db -db-path /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db -csv-dir pdf_output -players-file players-import/players.html -verbose"
 
-echo "🚀 Starting application..."
+echo "Starting application..."
 ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker-compose up -d"
 
-echo "✅ Database reset complete!"
+echo "Database reset complete!"
 ```
 
 ## Security Notes
 
-- The database reset removes all user accounts and authentication data
-- Push notification subscriptions are lost and need to be re-registered
+- The database reset removes all user accounts and authentication data (users and sessions tables)
+- Push notification subscriptions and VAPID keys are lost and need to be re-registered
+- Player availability exceptions (Mark Time Away entries) will be lost
+- Venue override configurations will need to be re-entered
 - Any custom data or manual entries will be lost
 - Always backup important data before running a reset
 
 ## Last Reset
 
-**Date**: June 7, 2025  
-**Go Version**: 1.24.1  
-**Status**: ✅ Successful  
-**Data Imported**: 
+**Date**: June 7, 2025
+**Go Version**: 1.25
+**Migrations**: 19 (001-019)
+**Status**: Successful
+**Data Imported**:
 - 402 fixtures across 4 divisions
 - 88 St Ann's players
-- Complete 2025 season structure 
+- Complete 2025 season structure

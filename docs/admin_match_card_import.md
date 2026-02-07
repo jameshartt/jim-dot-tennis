@@ -11,7 +11,7 @@ The Admin Match Card Import feature provides a user-friendly web interface for i
 The match card import functionality is available to admin users through:
 
 - **URL**: `/admin/match-card-import`
-- **Navigation**: Admin Dashboard → Quick Actions → "🎾 Match Card Import"
+- **Navigation**: Admin Dashboard → Results & Standings → "🎾 Match Card Import"
 
 ## Features
 
@@ -45,7 +45,7 @@ The match card import functionality is available to admin users through:
 
 1. **Navigate to Import Page**
    - Go to Admin Dashboard
-   - Click "🎾 Match Card Import" in Quick Actions
+   - Click "🎾 Match Card Import" under Results & Standings
 
 2. **Configure Import Parameters**
    - **Week**: Select week 1-18 from dropdown

@@ -7,6 +7,8 @@ This document explains how to use Docker for developing, testing, and deploying 
 - [Docker](https://docs.docker.com/get-docker/)
 - [Docker Compose](https://docs.docker.com/compose/install/)
 
+No local Go installation is required. All Go tooling (building, formatting, linting, static analysis) runs inside Docker containers using the `golang:1.25-alpine` image.
+
 ## Quick Start
 
 The simplest way to get started is using our Makefile:
@@ -24,17 +26,38 @@ The application will be available at http://localhost:8080
 
 ## Docker Components
 
-The Docker setup includes:
+### Core Stack (`docker-compose.yml`)
 
-1. **Application Container** - Runs the Go web application
-2. **Backup Container** - Automatically backs up the SQLite database
+1. **Application Container** - Runs the Go 1.25 web application (multi-stage build: `golang:1.25-alpine` builder, `alpine:latest` runtime)
+2. **Import Container** - On-demand container for running import utilities (profile: `tools`)
+3. **Backup Container** - Automatically backs up the SQLite database using `alpine:latest`
+
+### CourtHive Stack (`docker-compose.courthive.yml`)
+
+The CourtHive compose file extends the deployment with additional services for tournament management:
+
+1. **jim-dot-tennis app** - The core Go application
+2. **competition-factory-server** - CourtHive API server (NestJS)
+3. **TMX Frontend** - Tournament management interface (served via Caddy from pre-built static files)
+4. **courthive-public** - Public-facing CourtHive site (served via Caddy)
+5. **Redis** - `redis:7-alpine` for CourtHive caching and session storage
+6. **Caddy** - `caddy:2-alpine` reverse proxy with automatic SSL
+7. **Backup** - Database backup service
 
 ## Docker Volumes
 
-The setup uses two Docker volumes:
+The core setup uses two Docker volumes:
 
 1. `jim-dot-tennis-data` - Stores the SQLite database
 2. `jim-dot-tennis-backups` - Stores database backups
+
+The CourtHive stack adds additional volumes:
+
+3. `courthive-redis-data` - Redis persistence
+4. `courthive-data` - CourtHive server data
+5. `courthive-cache` - CourtHive tracker cache
+6. `caddy-data` - Caddy TLS certificates and data
+7. `caddy-config` - Caddy configuration
 
 ## Common Operations
 
@@ -54,6 +77,39 @@ make clean      # Stop and remove volumes (CAUTION: Deletes data)
 # Manage backups
 make backup         # Create a manual backup
 make export-backup  # Export latest backup to ./exported-backups
+```
+
+## Go Tooling (Docker-based)
+
+All Go tooling runs inside Docker containers using the `golang:1.25-alpine` image, so no local Go installation is required. Tools that need CGO (for SQLite type-checking) automatically install the necessary build dependencies inside the container.
+
+### Code Quality Checks
+
+```bash
+make vet         # Run go vet static analysis
+make fmt         # Check formatting (lists unformatted files)
+make fmt-fix     # Fix formatting in-place
+make imports     # Check import ordering (uses goimports)
+make imports-fix # Fix import ordering in-place
+make lint        # Run golangci-lint (11 linters configured in .golangci.yml)
+make deadcode    # Run dead code detection
+make tidy        # Run go mod tidy
+make check       # Run all read-only checks (vet, fmt, lint, deadcode)
+```
+
+The `make lint` target runs golangci-lint with 11 linters enabled: errcheck, govet, staticcheck, ineffassign, unused, gosimple, typecheck, misspell, goconst, gofmt, and goimports. Configuration is in `.golangci.yml`.
+
+## CourtHive Operations
+
+The Makefile provides targets for managing the full CourtHive stack:
+
+```bash
+make build-tmx        # Build TMX frontend (requires pnpm in ../TMX)
+make courthive        # Build TMX and start the full CourtHive stack
+make courthive-up     # Start the CourtHive stack without rebuilding TMX
+make courthive-down   # Stop the CourtHive stack
+make courthive-restart # Restart the CourtHive stack
+make courthive-logs   # View CourtHive stack logs
 ```
 
 ## Development Workflow
@@ -147,7 +203,7 @@ docker run --rm -v jim-dot-tennis-data:/data alpine ls -la /data
 
 # List backup volume contents
 docker run --rm -v jim-dot-tennis-backups:/backups alpine ls -la /backups
-``` 
+```
 
 ## Environment Variables (.env)
 

@@ -4,7 +4,7 @@ This document outlines the technical approach for implementing the Jim.Tennis ap
 
 ## Architecture Overview
 
-The application will follow a server-side rendered architecture with minimal client-side JavaScript:
+The application follows a server-side rendered architecture with minimal client-side JavaScript:
 
 ```
 ┌───────────────────┐       ┌────────────────┐      ┌────────────────┐
@@ -26,11 +26,12 @@ The application will follow a server-side rendered architecture with minimal cli
 ## Technology Stack
 
 1. **Backend**
-   - Go (main server language)
-   - Chi or Gin for HTTP routing
+   - Go 1.25 (main server language)
+   - Chi for HTTP routing
    - HTML templates with server-side rendering
    - SQLite for database (lightweight, easy deployment)
    - Background task processing for notifications
+   - `.golangci.yml` with 11 linters for static analysis
 
 2. **Frontend**
    - HTMX for dynamic content without heavy JavaScript
@@ -44,13 +45,13 @@ The application will follow a server-side rendered architecture with minimal cli
    - Local storage for client-side state persistence
 
 4. **Infrastructure**
-   - Simple deployment as a single binary
+   - Docker with Alpine for production deployment
    - SQLite database file
    - Static files served directly
 
 ## Implementation Phases
 
-### Phase 1: Core Infrastructure (Current Stage)
+### Phase 1: Core Infrastructure (Complete)
 
 - [x] Database schema design
 - [x] Data models and relationships
@@ -61,22 +62,22 @@ The application will follow a server-side rendered architecture with minimal cli
 - [x] Routing architecture
 - [x] Hosting on somewhere with ssl on jim.tennis
 
-### Phase 2: Captain Selection Tools
+### Phase 2: Captain Selection Tools (Mostly Complete)
 
 - [x] Division-based access control
 - [x] Available player listings
 - [x] Team selection interface
 - [ ] Selection confirmation and notifications
-- [ ] Selection overview across divisions
+- [~] Selection overview across divisions (WI-008 deferred)
 - [x] Player status tracking
-- [x] Summary of fixture sharing for Whatsapp
+- [x] Summary of fixture sharing for WhatsApp
 
-### Phase 3: Player Availability Management
+### Phase 3: Player Availability Management (Mostly Complete)
 
-- [ ] Player profile views
+- [x] Player profile views (Sprint 001 WI-001)
 - [x] Availability form (calendar-based)
-- [ ] Availability exception handling
-- [ ] General availability settings
+- [x] Availability exception handling (Sprint 001 WI-003 - "Mark Time Away")
+- [x] General availability settings (backend implemented; removed from UI)
 
 ### Phase 4: PWA and Push Notifications
 
@@ -86,23 +87,42 @@ The application will follow a server-side rendered architecture with minimal cli
 - [ ] Installation flow
 - [ ] Background sync for submissions
 
-### Phase 5: Fixture Result Management
+### Phase 5: Fixture and Venue Management (Partially Complete)
 
-- [ ] Fixture listing and details
+- [x] Fixture listing and details (Sprint 001 WI-011)
 - [x] Match result entry/importation from match cards
-- [ ] Venue management with maps
+- [x] Venue management with maps, directions, iCal feeds, and venue overrides (Sprint 002 WI-014)
 - [ ] Fixture reminder system
+
+### Phase 6: Admin Tooling and Dashboard (Complete)
+
+- [x] Admin dashboard reorganisation with 4 grouped quick action categories (Sprint 003)
+- [x] Division editing with play_day correction (Sprint 003)
+- [x] Full user management CRUD (Sprint 003)
+- [x] Session management with revoke capabilities (Sprint 003)
+- [x] Club/venue infrastructure with BHPLTA scraper (Sprint 002)
+- [x] Season filtering fixes (Sprint 002)
+
+### Phase 7: Code Quality and Go Tooling (Complete)
+
+- [x] Service.go refactor: 3871 to 117 lines, split into 12 domain-specific files (Sprint 003)
+- [x] 9 Makefile targets for vet, fmt, lint, deadcode, etc. (Sprint 004)
+- [x] Dead code removal via static analysis (Sprint 004)
+- [x] Code formatting enforcement (Sprint 004)
+- [x] Go version upgrade: 1.24.1 to 1.25 (Sprint 004)
+- [x] Docker Alpine base image updates (Sprint 004)
+- [x] `.golangci.yml` with 11 linters (Sprint 004)
 
 ## Technical Considerations
 
 ### Server-Side Rendering Strategy
 
-All primary rendering will occur on the server, with HTMX providing dynamic content updates without page reloads:
+All primary rendering occurs on the server, with HTMX providing dynamic content updates without page reloads:
 
 ```html
 <!-- Example of HTMX approach -->
-<button hx-post="/availability/update" 
-        hx-target="#availability-status" 
+<button hx-post="/availability/update"
+        hx-target="#availability-status"
         hx-swap="outerHTML"
         hx-vals='{"fixture_id": 123, "status": "Available"}'>
     I'm Available
@@ -113,7 +133,7 @@ This approach keeps the client-side code minimal while providing a dynamic, resp
 
 ### Database Access Pattern
 
-Data access will follow a repository pattern:
+Data access follows a repository pattern:
 
 ```go
 // Example repository pattern
@@ -164,4 +184,4 @@ Push notifications will be implemented using the Web Push API:
 3. **Hosting Requirements**
    - Small VPS or similar
    - HTTPS for PWA and push notification support
-   - Sufficient storage for database and logs 
+   - Sufficient storage for database and logs

@@ -1,6 +1,22 @@
 # DigitalOcean Monitoring and Management
 
-This guide covers monitoring, scaling, and managing your Jim.Tennis application on DigitalOcean.
+This guide covers monitoring, scaling, and managing the Jim.Tennis stack on DigitalOcean.
+
+## Stack Overview
+
+The production deployment (via `docker-compose.courthive.yml`) runs the following services:
+
+| Service | Container | Port | Type |
+|---|---|---|---|
+| jim-dot-tennis | `jim-dot-tennis` | 8080 | Go application |
+| competition-factory-server | `courthive-server` | 8383 | NestJS application |
+| TMX Frontend | (static, served by Caddy) | — | Static files |
+| courthive-public | (static, served by Caddy) | — | Static files |
+| Redis | `courthive-redis` | 6379 | Cache (used by courthive-server) |
+| Caddy | `tennis-caddy` | 80, 443 | Reverse proxy / TLS |
+| backup | `jim-dot-tennis-backup` | — | Scheduled SQLite backup |
+
+All services are networked via the `tennis-network` bridge.
 
 ## Basic Monitoring with DigitalOcean
 
@@ -48,6 +64,8 @@ services:
       - '--web.enable-lifecycle'
     ports:
       - "9090:9090"
+    networks:
+      - tennis-network
 
   grafana:
     image: grafana/grafana:latest
@@ -59,6 +77,8 @@ services:
       - "3000:3000"
     depends_on:
       - prometheus
+    networks:
+      - tennis-network
 
 volumes:
   prometheus-data:
@@ -81,7 +101,7 @@ scrape_configs:
 
   - job_name: 'caddy'
     static_configs:
-      - targets: ['caddy:2019']
+      - targets: ['tennis-caddy:2019']
 
   - job_name: 'node'
     static_configs:
@@ -90,7 +110,26 @@ scrape_configs:
   - job_name: 'docker'
     static_configs:
       - targets: ['docker-exporter:9323']
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
 ```
+
+> **Note:** To scrape Redis metrics, add a `redis-exporter` service to your override file:
+>
+> ```yaml
+> redis-exporter:
+>   image: oliver006/redis_exporter:latest
+>   container_name: redis-exporter
+>   restart: unless-stopped
+>   environment:
+>     - REDIS_ADDR=redis://courthive-redis:6379
+>   ports:
+>     - "9121:9121"
+>   networks:
+>     - tennis-network
+> ```
 
 3. Add node-exporter to monitor the system:
 
@@ -109,6 +148,8 @@ node-exporter:
     - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
   ports:
     - "9100:9100"
+  networks:
+    - tennis-network
 ```
 
 4. Access Grafana at http://your-droplet-ip:3000 (default credentials: admin/admin)
@@ -225,10 +266,11 @@ curl -X POST \
 
 ### Application Not Accessible
 
-1. Check if containers are running:
+1. Check if all containers are running:
    ```bash
    docker ps
    ```
+   Verify that the following containers are up and healthy: `jim-dot-tennis`, `courthive-server`, `courthive-redis`, `tennis-caddy`.
 
 2. Check firewall settings:
    ```bash
@@ -237,7 +279,19 @@ curl -X POST \
 
 3. Verify Caddy logs:
    ```bash
-   docker logs jim-dot-tennis-caddy
+   docker logs tennis-caddy
+   ```
+
+4. If only specific routes are failing, check the relevant upstream service:
+   ```bash
+   # jim-dot-tennis (main site, catch-all routes)
+   docker logs jim-dot-tennis
+
+   # courthive-server (/api/courthive/* and /socket.io/*)
+   docker logs courthive-server
+
+   # Redis (if courthive-server is failing)
+   docker logs courthive-redis
    ```
 
 ### High CPU or Memory Usage
@@ -247,9 +301,11 @@ curl -X POST \
    docker stats
    ```
 
-2. Check application logs for issues:
+2. Check application logs for the relevant service:
    ```bash
    docker logs jim-dot-tennis
+   docker logs courthive-server
+   docker logs courthive-redis
    ```
 
 3. Consider scaling up your droplet if consistently high

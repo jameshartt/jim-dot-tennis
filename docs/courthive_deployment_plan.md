@@ -713,7 +713,7 @@ For actual working configurations:
 ### jim-dot-tennis (Existing Application)
 
 **Technology Stack:**
-- **Language:** Go 1.24.1
+- **Language:** Go 1.25
 - **Database:** SQLite3 (with file-based storage)
 - **Web Framework:** Chi/Gin for HTTP routing
 - **Templating:** Server-side HTML templates
@@ -723,14 +723,16 @@ For actual working configurations:
 
 **Current Routes:**
 - `/` - Public home/login
-- `/admin/*` - Admin interfaces for fixtures, teams, players
+- `/admin/league/*` - Admin interfaces (dashboard, fixtures, teams, players, divisions, users, sessions, seasons, clubs, match-card-import, points-table, wrapped, selection-overview, preferred-names)
 - `/players/*` - Player availability management
 - `/static/*` - Static assets (CSS, JS, images)
+
+*Note: Admin routes were migrated from `/admin/*` to `/admin/league/*` during Phase 1 (CourtHive integration). Division editing, user management, and session management routes were added in Sprint 003.*
 
 **Current Port:** 8080 (behind Caddy on 80/443)
 
 **Key Files:**
-- `Dockerfile` - Go application container
+- `Dockerfile` - Go application container (uses `golang:1.25-alpine` builder, updated in Sprint 004)
 - `docker-compose.yml` - Orchestration with backup container
 - Deployment script at `scripts/deploy-digitalocean.sh`
 
@@ -873,13 +875,33 @@ Static File Serving (via Caddy/Nginx):
 | `/` | jim-dot-tennis | Landing/login page |
 | `/calendar/*` | jim-dot-tennis | Calendar and availability |
 | `/teams/*` | jim-dot-tennis | Team management |
-| `/admin/league/*` | jim-dot-tennis | League administration |
+| `/admin/league/*` | jim-dot-tennis | League administration (see detail below) |
 | `/players/*` | jim-dot-tennis | Player management |
 | `/static/*` | jim-dot-tennis | Static assets for league app |
 | `/tournaments/*` | TMX (static) | Tournament admin interface |
 | `/public/*` | courthive-public (static) | Public tournament viewer |
 | `/api/courthive/*` | competition-factory-server | CourtHive API endpoints |
 | `/socket.io/*` | competition-factory-server | WebSocket connections |
+
+**jim-dot-tennis admin routes** (`/admin/league/*`):
+
+| Route | Description |
+|-------|-------------|
+| `/admin/league/dashboard` | Admin dashboard |
+| `/admin/league/players` | Player management |
+| `/admin/league/fixtures` | Fixture management |
+| `/admin/league/teams` | Team management |
+| `/admin/league/clubs` | Club management |
+| `/admin/league/divisions/` | Division editing (Sprint 003) |
+| `/admin/league/users` | User management (Sprint 003) |
+| `/admin/league/sessions` | Session management (Sprint 003) |
+| `/admin/league/seasons` | Season management |
+| `/admin/league/match-card-import` | Match card import |
+| `/admin/league/club-data-import` | Club data import |
+| `/admin/league/points-table` | Points table |
+| `/admin/league/wrapped` | Club wrapped |
+| `/admin/league/selection-overview` | Selection overview |
+| `/admin/league/preferred-names` | Preferred name approvals |
 
 ### Route Migration Plan
 
