@@ -1,0 +1,45 @@
+{
+  "id": "WI-046",
+  "title": "Playwright test helpers and fixtures",
+  "description": "Create reusable test helper functions for authentication, HTMX interaction waiting, navigation, and common assertions. Also create Playwright test fixtures that provide auto-login capability for tests that need authenticated access.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": ["WI-043"],
+  "phase": "Phase 8: Automated Testing",
+  "acceptance_criteria": [
+    "auth.ts provides loginAsAdmin(page) helper that authenticates and lands on dashboard",
+    "htmx.ts provides waitForHtmxSettle(page) helper that waits for htmx:afterSettle event",
+    "navigation.ts provides helpers to navigate to admin sections",
+    "assertions.ts provides common assertion helpers (page title, flash messages, table row count)",
+    "test-fixtures.ts provides Playwright test fixtures with auto-login before each test",
+    "All helpers can be imported by any test file"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/helpers/auth.ts",
+      "tests/e2e/helpers/htmx.ts",
+      "tests/e2e/helpers/navigation.ts",
+      "tests/e2e/helpers/assertions.ts",
+      "tests/e2e/fixtures/test-fixtures.ts"
+    ],
+    "files_to_modify": [],
+    "approach": [
+      "1. Create auth.ts with loginAsAdmin() that POSTs form data to /login, waits for redirect",
+      "2. Create htmx.ts with waitForHtmxSettle() that listens for htmx:afterSettle DOM event",
+      "3. Create navigation.ts with helpers for admin sidebar navigation",
+      "4. Create assertions.ts with helpers for common patterns (table rows, flash messages)",
+      "5. Create test-fixtures.ts that extends Playwright's test.extend() with auto-login fixture"
+    ],
+    "existing_code": "Login form uses form fields 'username' and 'password' (see internal/auth/handlers.go). HTMX fires htmx:afterSettle after content swaps."
+  },
+  "testing_requirements": [
+    "loginAsAdmin() successfully authenticates and reaches /admin/league/dashboard",
+    "HTMX wait helper correctly waits for dynamic content updates",
+    "Test fixtures can be used in test files via import"
+  ],
+  "context": {
+    "user_story": "As a test author, I want reusable helpers so I can write tests quickly without repeating boilerplate code"
+  }
+}

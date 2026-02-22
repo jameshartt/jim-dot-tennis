@@ -1,0 +1,55 @@
+{
+  "id": "WI-051",
+  "title": "Admin CRUD page tests",
+  "description": "Create Playwright tests for each admin entity page: players, clubs, teams, fixtures, divisions, seasons, and users. Each test file verifies the page loads correctly, data displays from the seed, and HTMX-powered interactions (filtering, inline editing) work.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": true,
+  "dependencies": ["WI-048"],
+  "phase": "Phase 8: Automated Testing",
+  "acceptance_criteria": [
+    "tests/e2e/admin/players.spec.ts: list players, view player detail, edit player",
+    "tests/e2e/admin/clubs.spec.ts: list clubs, view club detail",
+    "tests/e2e/admin/teams.spec.ts: list teams, away teams tab",
+    "tests/e2e/admin/fixtures.spec.ts: list fixtures, view fixture detail, fixture editing",
+    "tests/e2e/admin/divisions.spec.ts: division management page loads",
+    "tests/e2e/admin/seasons.spec.ts: season list and season setup pages load",
+    "tests/e2e/admin/users.spec.ts: user management and session management pages load",
+    "Every admin page has at least a 'loads without error' test",
+    "CRUD operations that exist are tested (create, read, update)",
+    "HTMX-powered interactions (filtering, inline editing) are covered",
+    "No individual test takes longer than 10 seconds"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/admin/players.spec.ts",
+      "tests/e2e/admin/clubs.spec.ts",
+      "tests/e2e/admin/teams.spec.ts",
+      "tests/e2e/admin/fixtures.spec.ts",
+      "tests/e2e/admin/divisions.spec.ts",
+      "tests/e2e/admin/seasons.spec.ts",
+      "tests/e2e/admin/users.spec.ts"
+    ],
+    "files_to_modify": [],
+    "approach": [
+      "1. Use auto-login fixture from test-fixtures.ts for all tests",
+      "2. For each entity: test list page loads, verify seeded data appears in table",
+      "3. For entities with detail pages: click on item, verify detail page renders",
+      "4. For entities with edit forms: fill form, submit, verify success (HTMX)",
+      "5. Test HTMX filtering on list pages (season/division filters)",
+      "6. Test away teams tab on teams page",
+      "7. Test fixture detail with team selection view"
+    ],
+    "existing_code": "Admin handlers in internal/admin/: players.go, clubs.go, teams.go, fixtures.go, divisions.go, seasons.go, users.go, sessions.go. Templates in templates/admin/ for each entity."
+  },
+  "testing_requirements": [
+    "Every admin page renders without 500 errors",
+    "Seeded data is visible in list/table views",
+    "CRUD operations complete successfully where implemented",
+    "Each test file is independently runnable"
+  ],
+  "context": {
+    "user_story": "As a developer, I want tests for every admin page so I can safely modify any page without fear of breaking others"
+  }
+}

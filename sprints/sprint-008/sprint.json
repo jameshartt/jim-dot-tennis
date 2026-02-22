@@ -1,0 +1,32 @@
+{
+  "sprint": {
+    "id": "sprint-008",
+    "name": "E2E Test Infrastructure",
+    "goal": "Stand up Playwright browser testing infrastructure with Docker Compose test profile, database seeding, test helpers, and Makefile integration so E2E tests can be written and run with a single make command",
+    "start_date": null,
+    "end_date": null,
+    "duration_weeks": 2,
+    "status": "planned",
+    "focus_areas": [
+      "Playwright project scaffolding",
+      "Docker Compose test profile",
+      "Test database seeding",
+      "Test helpers and fixtures",
+      "Makefile integration",
+      "Infrastructure validation"
+    ],
+    "phases_addressed": [
+      "Phase 8: Automated Testing"
+    ],
+    "work_items": [
+      "WI-043",
+      "WI-044",
+      "WI-045",
+      "WI-046",
+      "WI-047",
+      "WI-048"
+    ],
+    "completed_items": [],
+    "deferred_items": {}
+  }
+}

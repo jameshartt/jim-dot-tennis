@@ -1,0 +1,45 @@
+{
+  "id": "WI-050",
+  "title": "Admin dashboard and navigation tests",
+  "description": "Create Playwright tests for the admin dashboard page and navigation system. Verify the dashboard loads with correct stats, all sidebar navigation links work, every admin section is reachable, and HTMX-powered filters function correctly.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": ["WI-048"],
+  "phase": "Phase 8: Automated Testing",
+  "acceptance_criteria": [
+    "Test: dashboard loads at /admin/league/dashboard with stats/overview data",
+    "Test: dashboard data reflects seeded test data correctly",
+    "Test: all sidebar navigation links are present and clickable",
+    "Test: each admin section is reachable from navigation (no 404s or 500s)",
+    "Test: season/week filter dropdowns work (HTMX interaction)",
+    "Test: breadcrumb navigation works where present",
+    "All navigation links verified: dashboard, players, fixtures, teams, clubs, divisions, seasons, users, sessions, points-table, selection-overview, match-card-import, wrapped, preferred-names"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/admin/dashboard.spec.ts",
+      "tests/e2e/admin/navigation.spec.ts"
+    ],
+    "files_to_modify": [],
+    "approach": [
+      "1. Use auto-login fixture from test-fixtures.ts for all tests",
+      "2. Dashboard test: navigate to /admin/league/dashboard, assert key elements present",
+      "3. Dashboard data test: verify seeded data appears (player count, fixture count, etc.)",
+      "4. Navigation test: iterate over all sidebar links, click each, assert 200 response",
+      "5. HTMX filter test: change season/week dropdown, wait for htmx:afterSettle, verify content updates",
+      "6. Breadcrumb test: navigate to detail page, verify breadcrumb trail, click breadcrumb to go back"
+    ],
+    "existing_code": "Admin routes registered in internal/admin/handler.go. Dashboard handler at internal/admin/dashboard.go. Layout template at templates/layout.html contains sidebar navigation."
+  },
+  "testing_requirements": [
+    "Dashboard renders with correct seeded data",
+    "All 14+ admin navigation links load without error (no 404s/500s)",
+    "HTMX filter interactions wait correctly (no flaky timing issues)",
+    "Navigation tests verify both link presence and page loading"
+  ],
+  "context": {
+    "user_story": "As a developer, I want dashboard and navigation tests so I can detect broken links and rendering issues immediately"
+  }
+}

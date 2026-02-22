@@ -1,0 +1,46 @@
+{
+  "id": "WI-044",
+  "title": "Docker Compose test profile",
+  "description": "Add an e2e service to docker-compose.yml under a test profile that runs Playwright tests against the app container. Use the official Playwright Docker image, mount the tests/e2e/ directory, wait for app health check, and persist test results to the host.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": ["WI-043"],
+  "phase": "Phase 8: Automated Testing",
+  "acceptance_criteria": [
+    "docker-compose.yml contains e2e service under profiles: [\"test\"]",
+    "e2e service uses mcr.microsoft.com/playwright Docker image",
+    "e2e service mounts tests/e2e/ directory",
+    "e2e service depends on app with health check wait (condition: service_healthy)",
+    "docker compose --profile test run --rm e2e runs Playwright tests against the app",
+    "Test results persist on host at tests/e2e/test-results/",
+    "App container is healthy before tests start"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "Dockerfile.e2e"
+    ],
+    "files_to_modify": [
+      "docker-compose.yml"
+    ],
+    "approach": [
+      "1. Create Dockerfile.e2e based on mcr.microsoft.com/playwright:v1.50.0-noble",
+      "2. Add npm install layer for caching node_modules",
+      "3. Add e2e service to docker-compose.yml with profiles: [\"test\"]",
+      "4. Mount tests/e2e/ as working directory",
+      "5. Mount test-results/ volume for persistent output",
+      "6. Set depends_on with condition: service_healthy for app",
+      "7. Default command: npx playwright test"
+    ],
+    "existing_code": "docker-compose.yml already has app service with health check on port 8080"
+  },
+  "testing_requirements": [
+    "docker compose --profile test up e2e builds and starts successfully",
+    "e2e container waits for app to be healthy before running",
+    "Test results appear in tests/e2e/test-results/ on the host"
+  ],
+  "context": {
+    "user_story": "As a developer, I want to run browser tests with a single docker compose command so I don't need local Node.js or Go installed"
+  }
+}

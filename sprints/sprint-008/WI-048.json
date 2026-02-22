@@ -1,0 +1,47 @@
+{
+  "id": "WI-048",
+  "title": "Smoke test to validate infrastructure",
+  "description": "Create a smoke test spec file that validates the entire testing infrastructure works end-to-end: app starts, database is seeded, Playwright can connect, pages load, and authentication works. This is the final validation that all infrastructure pieces (WI-043 through WI-047) integrate correctly.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "S",
+  "parallelisable": false,
+  "dependencies": ["WI-044", "WI-045", "WI-046", "WI-047"],
+  "phase": "Phase 8: Automated Testing",
+  "acceptance_criteria": [
+    "tests/e2e/smoke.spec.ts contains 5 smoke tests",
+    "Test: homepage loads at / with 200 status",
+    "Test: login page loads at /login with login form visible",
+    "Test: login with valid seeded credentials redirects to admin dashboard",
+    "Test: login with invalid credentials shows error message",
+    "Test: unauthenticated GET /admin/league/dashboard redirects to /login",
+    "make test-e2e passes all 5 smoke tests",
+    "Test results appear in JSON output",
+    "Screenshots captured on any failure",
+    "Full smoke test run completes in under 30 seconds"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/smoke.spec.ts"
+    ],
+    "files_to_modify": [],
+    "approach": [
+      "1. Import test from @playwright/test",
+      "2. Write test for homepage GET / returns 200 and contains expected content",
+      "3. Write test for login page GET /login shows form with username/password fields",
+      "4. Write test for valid login: POST /login with testadmin credentials, verify redirect to /admin/league/dashboard",
+      "5. Write test for invalid login: POST /login with wrong password, verify error message shown",
+      "6. Write test for auth redirect: GET /admin/league/dashboard without session cookie, verify redirect to /login"
+    ],
+    "existing_code": "Login form fields are 'username' and 'password'. Successful login redirects to /admin/league/dashboard. Auth middleware redirects unauthenticated users to /login."
+  },
+  "testing_requirements": [
+    "All 5 smoke tests pass on first run",
+    "Tests are not flaky (pass reliably on repeated runs)",
+    "JSON reporter captures all test outcomes",
+    "Total execution time under 30 seconds"
+  ],
+  "context": {
+    "user_story": "As a developer, I want a smoke test that validates the entire testing stack works so I have confidence before writing more tests"
+  }
+}

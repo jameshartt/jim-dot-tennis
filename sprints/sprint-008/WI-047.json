@@ -1,0 +1,46 @@
+{
+  "id": "WI-047",
+  "title": "Makefile test targets",
+  "description": "Add E2E test Makefile targets that wrap Docker Compose commands for running tests, re-running failures, filtering tests, viewing reports, and cleaning up test artifacts. These serve as the primary developer-facing interface for the testing infrastructure.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": ["WI-044"],
+  "phase": "Phase 8: Automated Testing",
+  "acceptance_criteria": [
+    "make test-e2e runs the full E2E test suite in Docker",
+    "make test-e2e-headed runs tests with visible browser (for debugging)",
+    "make test-e2e-grep FILTER=<pattern> runs only tests matching the pattern",
+    "make test-e2e-failed re-runs only last-failed tests",
+    "make test-e2e-report opens the HTML test report",
+    "make test-e2e-results outputs JSON results for Claude to parse",
+    "make test-e2e-clean tears down test containers and removes volumes"
+  ],
+  "technical_notes": {
+    "files_to_create": [],
+    "files_to_modify": [
+      "Makefile"
+    ],
+    "approach": [
+      "1. Add test-e2e target: docker compose --profile test run --rm e2e",
+      "2. Add test-e2e-headed target: pass --headed flag via environment",
+      "3. Add test-e2e-grep target: pass --grep $(FILTER) to Playwright",
+      "4. Add test-e2e-failed target: pass --last-failed flag to Playwright",
+      "5. Add test-e2e-report target: open tests/e2e/playwright-report/index.html",
+      "6. Add test-e2e-results target: cat tests/e2e/test-results/results.json",
+      "7. Add test-e2e-clean target: docker compose --profile test down -v",
+      "8. Add all new targets to .PHONY declaration"
+    ],
+    "existing_code": "Makefile already uses docker compose pattern (DOCKER_COMPOSE variable) and has Go tooling targets that run inside Docker"
+  },
+  "testing_requirements": [
+    "All make targets execute without errors",
+    "make test-e2e starts app, seeds database, runs tests end-to-end",
+    "make test-e2e-failed correctly filters to only previously failed tests",
+    "make test-e2e-results outputs valid JSON"
+  ],
+  "context": {
+    "user_story": "As a developer, I want simple make commands to run tests so I don't need to remember Docker Compose flags"
+  }
+}

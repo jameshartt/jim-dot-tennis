@@ -1,0 +1,48 @@
+{
+  "id": "WI-045",
+  "title": "Test database seeding",
+  "description": "Create a SQL seed script and shell runner that populate the test database with realistic data for E2E testing. Include an admin user, season/weeks, league structure, clubs, teams, players, availability records, fixtures with matchups, and fantasy mixed doubles entries with auth tokens for token-based auth testing.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 8: Automated Testing",
+  "acceptance_criteria": [
+    "tests/e2e/fixtures/seed.sql creates a complete, consistent test dataset",
+    "Admin user seeded with username 'testadmin' and bcrypt-hashed password",
+    "Season with weeks, league, divisions, clubs, teams, and players all seeded",
+    "Player availability records created for testing availability flows",
+    "Fantasy mixed doubles entries with auth tokens for token-based auth testing",
+    "At least one fixture with matchups seeded",
+    "tests/e2e/fixtures/seed.sh waits for app health, copies and runs seed.sql in container",
+    "Seed script is idempotent (uses INSERT OR REPLACE / ON CONFLICT)"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/fixtures/seed.sql",
+      "tests/e2e/fixtures/seed.sh"
+    ],
+    "files_to_modify": [],
+    "approach": [
+      "1. Study migration files to understand exact table schemas",
+      "2. Create seed.sql with INSERT OR REPLACE statements for idempotency",
+      "3. Seed admin user with bcrypt hash (use golang.org/x/crypto/bcrypt format)",
+      "4. Seed complete hierarchy: season > weeks > league > divisions > clubs > teams > players",
+      "5. Create player_availability records for availability form testing",
+      "6. Create fantasy_mixed_doubles entries with known auth_tokens for token auth",
+      "7. Create fixtures with matchups for result entry testing",
+      "8. Write seed.sh that waits for app health check, then runs seed.sql via sqlite3"
+    ],
+    "existing_code": "Reference migrations/004_create_auth_tables.up.sql for users schema, migrations/006_create_tennis_players.up.sql for fantasy/tennis_players tables"
+  },
+  "testing_requirements": [
+    "Running seed.sh populates all tables without errors",
+    "Admin login works with seeded credentials after seeding",
+    "Token-based player auth works with seeded auth tokens",
+    "Running seed.sh twice produces no errors (idempotent)"
+  ],
+  "context": {
+    "user_story": "As a test author, I want a pre-populated database with realistic data so my tests have consistent, predictable data to work with"
+  }
+}

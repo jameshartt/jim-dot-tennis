@@ -1,0 +1,51 @@
+{
+  "id": "WI-054",
+  "title": "Complex workflow tests",
+  "description": "Create Playwright tests for complex multi-step admin workflows that span multiple pages and involve data flowing between views. Cover team selection (assigning players to fixtures across divisions), match result entry (recording scores and verifying standings updates), and fixture management (create/edit lifecycle).",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": true,
+  "dependencies": ["WI-051"],
+  "phase": "Phase 8: Automated Testing",
+  "acceptance_criteria": [
+    "Test: team selection workflow - navigate to fixture, select team, assign players from available list",
+    "Test: selection overview shows cross-division player assignments correctly",
+    "Test: player selected in higher division is marked unavailable in lower division",
+    "Test: match result entry - enter scores for a fixture via form",
+    "Test: after entering match result, standings page reflects updated points",
+    "Test: match history page shows the newly entered result",
+    "Test: fixture management - view fixture detail with all sections rendered",
+    "Test: fixture editing workflow saves changes correctly",
+    "All multi-step workflows complete without errors",
+    "HTMX partial page updates work correctly throughout all workflows"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/workflows/team-selection.spec.ts",
+      "tests/e2e/workflows/match-results.spec.ts",
+      "tests/e2e/workflows/fixture-management.spec.ts"
+    ],
+    "files_to_modify": [],
+    "approach": [
+      "1. Team selection test: login as admin, navigate to fixture, open team selection, assign players, verify assignment saved",
+      "2. Selection overview test: after assigning players, check /admin/league/selection-overview shows assignments across divisions",
+      "3. Cross-division conflict test: assign player in Div 1, check they appear unavailable in Div 2 selection",
+      "4. Match result test: navigate to fixture detail, enter match scores in form, submit, verify saved",
+      "5. Standings verification: after entering result, navigate to standings/points-table, verify updated values",
+      "6. Match history test: check match history page reflects the new result",
+      "7. Fixture management test: navigate to fixture list, open fixture detail, verify all sections render",
+      "8. Use waitForHtmxSettle() helper throughout for HTMX interactions"
+    ],
+    "existing_code": "Team selection at internal/admin/fixtures.go and templates/admin/fixture_team_selection.html. Match results at internal/admin/fixtures.go. Selection overview at internal/admin/selection.go. Points table at internal/admin/points.go."
+  },
+  "testing_requirements": [
+    "Multi-step workflows complete without navigation errors",
+    "Data flows correctly between pages (e.g., result entry to standings update)",
+    "HTMX partial updates work correctly (no full page reloads where not expected)",
+    "Test isolation: each workflow test manages its own state"
+  ],
+  "context": {
+    "user_story": "As a developer, I want workflow tests so I can verify that complex multi-page operations work correctly end-to-end"
+  }
+}

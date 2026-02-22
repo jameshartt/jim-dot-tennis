@@ -1,0 +1,30 @@
+{
+  "sprint": {
+    "id": "sprint-009",
+    "name": "Core E2E Test Suite",
+    "goal": "Test all critical user flows including authentication, admin dashboard and CRUD pages, player-facing pages, and data-heavy reporting pages with comprehensive Playwright browser tests",
+    "start_date": null,
+    "end_date": null,
+    "duration_weeks": 2,
+    "status": "planned",
+    "focus_areas": [
+      "Authentication flow testing",
+      "Admin dashboard and navigation",
+      "Admin CRUD page coverage",
+      "Player-facing page testing",
+      "Points table and standings"
+    ],
+    "phases_addressed": [
+      "Phase 8: Automated Testing"
+    ],
+    "work_items": [
+      "WI-049",
+      "WI-050",
+      "WI-051",
+      "WI-052",
+      "WI-053"
+    ],
+    "completed_items": [],
+    "deferred_items": {}
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "id": "WI-056",
+  "title": "Test reporting and Claude integration",
+  "description": "Create a results parsing script that transforms Playwright JSON output into a Claude-friendly format, and document the complete testing workflow. The parse script should output test summary stats, failed test names with file:line references, failure messages, and screenshot paths so Claude can diagnose and fix failures.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": ["WI-047"],
+  "phase": "Phase 8: Automated Testing",
+  "acceptance_criteria": [
+    "tests/e2e/scripts/parse-results.sh parses Playwright JSON output",
+    "Script outputs: total tests, passed count, failed count, skipped count",
+    "Script lists each failed test with file path and line number",
+    "Script outputs failure error messages for each failed test",
+    "Script outputs screenshot file paths for failed tests",
+    "make test-e2e-results uses the parse script for formatted output",
+    "tests/e2e/README.md documents complete testing workflow",
+    "README covers: running tests, re-running failures, filtering, feeding results to Claude"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/scripts/parse-results.sh",
+      "tests/e2e/README.md"
+    ],
+    "files_to_modify": [
+      "Makefile"
+    ],
+    "approach": [
+      "1. Create parse-results.sh that reads Playwright JSON reporter output",
+      "2. Use jq to extract test results: name, status, duration, error message",
+      "3. Format output with sections: SUMMARY, PASSED, FAILED (with details), SKIPPED",
+      "4. For failed tests, include: file:line, test title, error message, screenshot path",
+      "5. Update Makefile test-e2e-results target to pipe JSON through parse script",
+      "6. Write README.md with sections: Prerequisites, Running Tests, Re-running Failures, Filtering Tests, Viewing Reports, Feeding Results to Claude, Troubleshooting"
+    ],
+    "existing_code": "Makefile test targets defined in WI-047. Playwright JSON reporter outputs to test-results/ directory."
+  },
+  "testing_requirements": [
+    "parse-results.sh handles both all-passing and some-failing scenarios",
+    "Output format is clear and parseable by both humans and Claude",
+    "README instructions are accurate and complete",
+    "make test-e2e-results works end-to-end"
+  ],
+  "context": {
+    "user_story": "As a developer, I want to feed test results directly to Claude so it can diagnose failures and suggest fixes without me having to interpret the output"
+  }
+}

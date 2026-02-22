@@ -1,0 +1,47 @@
+{
+  "id": "WI-049",
+  "title": "Authentication flow tests",
+  "description": "Create comprehensive Playwright tests covering all authentication flows: valid login, invalid login (wrong password, empty fields), logout, session persistence, protected route access, and rate limiting. These tests validate the auth system works correctly from the browser perspective.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": ["WI-048"],
+  "phase": "Phase 8: Automated Testing",
+  "acceptance_criteria": [
+    "Test: valid credentials login redirects to admin dashboard",
+    "Test: wrong password shows error message and preserves username in form",
+    "Test: empty username/password fields show validation error",
+    "Test: logout clears session and redirects to login page",
+    "Test: refreshing page after login maintains session (session persistence)",
+    "Test: accessing protected route without auth redirects to login",
+    "Test: 5+ rapid failed login attempts trigger rate limit message",
+    "All auth tests run in under 15 seconds total"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/auth.spec.ts"
+    ],
+    "files_to_modify": [],
+    "approach": [
+      "1. Import test helpers for login from helpers/auth.ts",
+      "2. Test valid login: fill form, submit, assert redirect to /admin/league/dashboard",
+      "3. Test invalid login: fill wrong password, submit, assert error message visible, username preserved",
+      "4. Test empty fields: submit empty form, assert validation error",
+      "5. Test logout: login first, navigate to /logout, assert redirect to /login, assert session cleared",
+      "6. Test session persistence: login, navigate away, come back, assert still authenticated",
+      "7. Test protected route: navigate to /admin/league/dashboard without auth, assert redirect to /login",
+      "8. Test rate limiting: submit 6 rapid failed logins, assert rate limit error message"
+    ],
+    "existing_code": "Login handler at internal/auth/handlers.go uses form fields 'username' and 'password'. Rate limiting: 5 attempts per 15 minutes (internal/auth/service.go). Login errors displayed in template."
+  },
+  "testing_requirements": [
+    "All 7 auth test cases pass reliably",
+    "Tests are independent (each test manages its own auth state)",
+    "Rate limit test doesn't affect other tests (test isolation)",
+    "Total auth test execution under 15 seconds"
+  ],
+  "context": {
+    "user_story": "As a developer, I want auth flow tests so I can confidently refactor authentication without breaking login/logout"
+  }
+}

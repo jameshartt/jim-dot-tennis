@@ -73,6 +73,30 @@ None currently active.
 - **Summary**: [sprint-007/SUMMARY.md](sprint-007/SUMMARY.md)
 - **Dependencies**: WI-039 depends on WI-038 (preferences needs email infrastructure)
 
+### Sprint 008: E2E Test Infrastructure
+- **Focus**: Playwright browser testing infrastructure with Docker Compose
+- **Items**: 6 (WI-043 to WI-048)
+- **Key Features**: Playwright scaffolding, Docker test profile, database seeding, test helpers, Makefile targets, smoke tests
+- **Directory**: `sprint-008/`
+- **Summary**: [sprint-008/SUMMARY.md](sprint-008/SUMMARY.md)
+- **Dependencies**: WI-048 depends on WI-044, WI-045, WI-046, WI-047
+
+### Sprint 009: Core E2E Test Suite
+- **Focus**: Comprehensive browser tests for all critical user flows
+- **Items**: 5 (WI-049 to WI-053)
+- **Key Features**: Auth flow tests, admin dashboard/navigation, admin CRUD pages, player-facing pages, points table/standings
+- **Directory**: `sprint-009/`
+- **Summary**: [sprint-009/SUMMARY.md](sprint-009/SUMMARY.md)
+- **Dependencies**: All items depend on WI-048 (Sprint 008)
+
+### Sprint 010: Advanced E2E & Accessibility
+- **Focus**: Complex workflows, accessibility auditing, and test reporting
+- **Items**: 3 (WI-054 to WI-056)
+- **Key Features**: Team selection/match result workflows, axe-core a11y testing, responsive testing, Claude-parseable test output
+- **Directory**: `sprint-010/`
+- **Summary**: [sprint-010/SUMMARY.md](sprint-010/SUMMARY.md)
+- **Dependencies**: WI-054 depends on WI-051 (Sprint 009)
+
 ## Sprint Metrics
 
 | Sprint | Work Items | Completed | In Progress | Blocked | Success Rate |

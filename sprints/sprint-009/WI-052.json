@@ -1,0 +1,50 @@
+{
+  "id": "WI-052",
+  "title": "Player-facing page tests",
+  "description": "Create Playwright tests for all player-facing pages: availability form with token-based auth, player profile, public standings, and match history. Test both the token-based authentication flow and the HTMX-powered availability form submission.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": ["WI-048"],
+  "phase": "Phase 8: Automated Testing",
+  "acceptance_criteria": [
+    "Test: token-based access to /my-availability/{token} works with valid seeded token",
+    "Test: invalid token shows error page",
+    "Test: availability form loads with correct weeks displayed",
+    "Test: submitting availability via HTMX saves correctly",
+    "Test: availability state persists on page reload",
+    "Test: /my-profile/{token} loads with player details",
+    "Test: /standings page loads without authentication (public)",
+    "Test: standings table displays correct data from seed",
+    "Test: match history page loads with seeded match data"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/players/availability.spec.ts",
+      "tests/e2e/players/profile.spec.ts",
+      "tests/e2e/players/standings.spec.ts",
+      "tests/e2e/players/match-history.spec.ts"
+    ],
+    "files_to_modify": [],
+    "approach": [
+      "1. Use seeded auth token to access /my-availability/{token}",
+      "2. Test availability form: check weeks displayed, toggle availability, submit, verify saved",
+      "3. Test persistence: submit availability, reload page, verify selections persist",
+      "4. Test invalid token: navigate to /my-availability/invalid-token-123, assert error",
+      "5. Test profile: navigate to /my-profile/{token}, verify player name and details shown",
+      "6. Test public standings: navigate to /standings without auth, verify table renders",
+      "7. Test match history: use token to access match history, verify seeded data shows"
+    ],
+    "existing_code": "Player handlers in internal/players/. Token auth middleware in internal/auth/middleware.go. Templates in templates/players/: availability.html, profile.html, standings.html, match_history.html."
+  },
+  "testing_requirements": [
+    "Token-based authentication works for all player pages",
+    "HTMX availability submission saves and round-trips correctly",
+    "Public standings page is accessible without any authentication",
+    "All player page tests are independent of admin auth"
+  ],
+  "context": {
+    "user_story": "As a developer, I want player page tests so I can verify the token-based auth and HTMX availability flow work correctly"
+  }
+}

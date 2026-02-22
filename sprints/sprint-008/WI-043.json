@@ -1,0 +1,48 @@
+{
+  "id": "WI-043",
+  "title": "Playwright project scaffolding",
+  "description": "Create the Playwright project structure in tests/e2e/ with package.json, playwright.config.ts, tsconfig.json, and .gitignore. Configure for maximum speed: Chromium-only, parallel workers, JSON + HTML reporters, 30s timeout, retry on CI, screenshot on failure, and --last-failed support.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [],
+  "phase": "Phase 8: Automated Testing",
+  "acceptance_criteria": [
+    "tests/e2e/ directory exists with package.json, playwright.config.ts, tsconfig.json",
+    "package.json includes @playwright/test and typescript as dependencies",
+    "playwright.config.ts targets Chromium only for fastest execution",
+    "Parallel workers configured (half CPU count)",
+    "JSON and HTML reporters both enabled",
+    "30s default timeout with retry 1 on CI",
+    "Screenshots captured on test failure",
+    ".gitignore excludes node_modules/, test-results/, playwright-report/"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/package.json",
+      "tests/e2e/playwright.config.ts",
+      "tests/e2e/tsconfig.json",
+      "tests/e2e/.gitignore"
+    ],
+    "files_to_modify": [],
+    "approach": [
+      "1. Create tests/e2e/ directory",
+      "2. Initialize package.json with @playwright/test, typescript dependencies",
+      "3. Configure playwright.config.ts with baseURL http://app:8080 (Docker network)",
+      "4. Set projects to Chromium only (fastest single-browser execution)",
+      "5. Enable JSON reporter (for Claude parsing) and HTML reporter (for human review)",
+      "6. Configure --last-failed support (built-in since Playwright 1.44)",
+      "7. Add tsconfig.json for TypeScript compilation",
+      "8. Add .gitignore for generated files"
+    ]
+  },
+  "testing_requirements": [
+    "npx playwright test can be invoked without errors (even with 0 test files)",
+    "TypeScript compilation succeeds",
+    "Config validates correctly"
+  ],
+  "context": {
+    "user_story": "As a developer, I want a properly configured Playwright project so I can write fast, reliable browser tests"
+  }
+}

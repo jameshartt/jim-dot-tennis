@@ -1,0 +1,51 @@
+{
+  "id": "WI-055",
+  "title": "Accessibility and responsive tests",
+  "description": "Add automated accessibility auditing using @axe-core/playwright and responsive design tests at mobile and tablet viewports. Test key pages for WCAG compliance, colour contrast, ARIA labels, keyboard navigation, and usability across breakpoints.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": ["WI-048"],
+  "phase": "Phase 8: Automated Testing",
+  "acceptance_criteria": [
+    "tests/e2e/accessibility.spec.ts tests key pages with axe-core",
+    "Accessibility tested on: login, dashboard, player availability, standings",
+    "No critical or serious a11y violations on tested pages",
+    "Colour contrast violations flagged",
+    "ARIA labels and keyboard navigation checked",
+    "tests/e2e/responsive.spec.ts tests key pages at mobile (375px) and tablet (768px)",
+    "Navigation menu works at all breakpoints",
+    "Key pages are usable at mobile and tablet sizes",
+    "@axe-core/playwright added to package.json"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/accessibility.spec.ts",
+      "tests/e2e/responsive.spec.ts"
+    ],
+    "files_to_modify": [
+      "tests/e2e/package.json"
+    ],
+    "approach": [
+      "1. Add @axe-core/playwright to package.json dependencies",
+      "2. Accessibility test: import AxeBuilder from @axe-core/playwright",
+      "3. For each key page: navigate, run axe analysis, assert no critical/serious violations",
+      "4. Test pages: /login, /admin/league/dashboard, /my-availability/{token}, /standings",
+      "5. Responsive test: set viewport to 375x812 (mobile), test navigation, key pages",
+      "6. Responsive test: set viewport to 768x1024 (tablet), test navigation, key pages",
+      "7. Verify hamburger menu / responsive nav works at mobile breakpoint",
+      "8. Verify tables and forms are usable at narrow viewports"
+    ],
+    "existing_code": "Layout template at templates/layout.html defines the responsive structure. Navigation likely in layout.html header/sidebar."
+  },
+  "testing_requirements": [
+    "Axe-core produces no critical accessibility violations",
+    "Key pages render correctly at 375px mobile viewport",
+    "Key pages render correctly at 768px tablet viewport",
+    "Navigation is accessible and usable at all tested viewports"
+  ],
+  "context": {
+    "user_story": "As a developer, I want automated accessibility and responsive tests so I can catch a11y regressions and layout breakages early"
+  }
+}

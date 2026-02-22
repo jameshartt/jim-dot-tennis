@@ -1,0 +1,44 @@
+{
+  "id": "WI-053",
+  "title": "Points table and standings tests",
+  "description": "Create Playwright tests for the admin points table and club wrapped pages. Test data-heavy rendering with seeded fixture results, division and season filtering, and the password-protected public wrapped page.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": ["WI-048"],
+  "phase": "Phase 8: Automated Testing",
+  "acceptance_criteria": [
+    "Test: admin points table loads at /admin/league/points-table",
+    "Test: points table displays data from seeded fixture results",
+    "Test: division filter on points table works (HTMX)",
+    "Test: season filter on points table works (HTMX)",
+    "Test: club wrapped page loads at /admin/league/wrapped",
+    "Test: public /club/wrapped page password protection works",
+    "Filtering produces correct subsets of data"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/admin/points-table.spec.ts",
+      "tests/e2e/admin/wrapped.spec.ts"
+    ],
+    "files_to_modify": [],
+    "approach": [
+      "1. Use auto-login fixture for admin pages",
+      "2. Points table: navigate, verify table renders with seeded data",
+      "3. Division filter: change dropdown, wait for HTMX settle, verify filtered data",
+      "4. Season filter: change dropdown, wait for HTMX settle, verify filtered data",
+      "5. Admin wrapped: navigate, verify page loads with club data",
+      "6. Public wrapped: navigate to /club/wrapped, verify password prompt, enter password, verify content"
+    ],
+    "existing_code": "Points handler at internal/admin/points.go. Wrapped handler at internal/admin/wrapped.go. Public wrapped has lightweight password from WRAPPED_ACCESS_PASSWORD env var."
+  },
+  "testing_requirements": [
+    "Data-heavy pages render correctly with test seed data",
+    "HTMX filters update content correctly without full page reload",
+    "Password protection on public wrapped page works"
+  ],
+  "context": {
+    "user_story": "As a developer, I want tests for data-heavy pages so I can verify aggregation and filtering work correctly after schema or query changes"
+  }
+}

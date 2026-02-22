@@ -1,0 +1,27 @@
+{
+  "sprint": {
+    "id": "sprint-010",
+    "name": "Advanced E2E & Accessibility",
+    "goal": "Cover complex multi-step admin workflows (team selection, match results, fixture management), add automated accessibility and responsive testing, and finalize test reporting with Claude-parseable output",
+    "start_date": null,
+    "end_date": null,
+    "duration_weeks": 2,
+    "status": "planned",
+    "focus_areas": [
+      "Complex workflow testing",
+      "Accessibility auditing",
+      "Responsive design testing",
+      "Test reporting and Claude integration"
+    ],
+    "phases_addressed": [
+      "Phase 8: Automated Testing"
+    ],
+    "work_items": [
+      "WI-054",
+      "WI-055",
+      "WI-056"
+    ],
+    "completed_items": [],
+    "deferred_items": {}
+  }
+}
