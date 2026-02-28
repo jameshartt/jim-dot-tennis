@@ -196,11 +196,15 @@ test-e2e:
 	$(DOCKER_COMPOSE) --profile test build e2e
 	$(DOCKER_COMPOSE) --profile test run --rm e2e
 
-# Run E2E tests with visible browser (requires X11/Wayland forwarding)
+# Run E2E tests with visible browser (forwards host X11 display into container)
 test-e2e-headed:
 	@echo "Running E2E tests (headed)..."
+	xhost +local:docker 2>/dev/null || true
 	$(DOCKER_COMPOSE) --profile test build e2e
-	$(DOCKER_COMPOSE) --profile test run --rm e2e \
+	$(DOCKER_COMPOSE) --profile test run --rm \
+		-e DISPLAY=$(DISPLAY) \
+		-v /tmp/.X11-unix:/tmp/.X11-unix \
+		e2e \
 		sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --headed"
 
 # Run E2E tests matching a grep pattern (usage: make test-e2e-grep FILTER="login")
