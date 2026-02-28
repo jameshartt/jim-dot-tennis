@@ -1,0 +1,17 @@
+FROM mcr.microsoft.com/playwright:v1.58.2-noble
+
+# Install sqlite3 for database seeding
+RUN apt-get update && apt-get install -y --no-install-recommends sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app/tests
+
+# Copy package files and install dependencies (cached layer)
+COPY tests/e2e/package.json ./
+RUN npm install
+
+# Copy all test files
+COPY tests/e2e/ ./
+
+# Default: seed the database and run tests
+CMD ["sh", "-c", "sh /app/tests/fixtures/seed.sh && npx playwright test"]

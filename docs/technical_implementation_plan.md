@@ -154,6 +154,15 @@ Push notifications will be implemented using the Web Push API:
 4. Service worker displays notifications even when app is closed
 
 
+### Phase 8: Automated E2E Testing (Complete)
+
+- [x] Playwright project scaffolding with TypeScript, Chromium-only for speed (Sprint 008)
+- [x] Docker Compose test profile (`Dockerfile.e2e`, `e2e` service under `profiles: ["test"]`) (Sprint 008)
+- [x] Test database seeding with idempotent SQL (admin user, full data hierarchy) (Sprint 008)
+- [x] Reusable test helpers: auth, HTMX waiting, navigation, assertions (Sprint 008)
+- [x] 7 Makefile targets: `test-e2e`, `test-e2e-grep`, `test-e2e-failed`, `test-e2e-report`, `test-e2e-results`, `test-e2e-headed`, `test-e2e-clean` (Sprint 008)
+- [x] Smoke test suite with 5 tests validating the full stack (Sprint 008)
+
 ## Testing Strategy
 
 1. **Unit Testing**
@@ -166,9 +175,13 @@ Push notifications will be implemented using the Web Push API:
    - Database interactions
    - Authentication flows
 
-3. **End-to-End Testing**
-   - Critical user journeys
-   - Form submissions and validations
+3. **End-to-End Testing (Playwright)** *(Sprint 008)*
+   - Runs in Docker via `make test-e2e` - no local Node.js or Go required
+   - Chromium-only, parallel workers, JSON + HTML reporters
+   - SQL-seeded database with realistic test data
+   - Reusable helpers for admin login, HTMX settling, and navigation
+   - `--last-failed` support for fast iteration on failures
+   - Critical user journeys: homepage, login, admin dashboard access control
 
 ## Deployment Considerations
 

@@ -18,6 +18,12 @@ services:
       - DB_TYPE=sqlite3
       - DB_PATH=/app/data/tennis.db
       - WRAPPED_ACCESS_PASSWORD=${WRAPPED_ACCESS_PASSWORD}
+    networks:
+      default:
+        # "app" is an HSTS-preloaded TLD (.app) — Chromium unconditionally
+        # upgrades http://app:* to HTTPS. Use "webapp" alias for E2E tests.
+        aliases:
+          - webapp
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
       interval: 30s
@@ -37,6 +43,23 @@ services:
       - ./scripts:/app/scripts
     working_dir: /app
     command: ["bash"]
+
+  e2e:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    profiles: ["test"]
+    depends_on:
+      app:
+        condition: service_healthy
+    volumes:
+      - tennis-data:/data
+      - ./tests/e2e/test-results:/app/tests/test-results
+      - ./tests/e2e/playwright-report:/app/tests/playwright-report
+    environment:
+      - PLAYWRIGHT_BASE_URL=http://webapp:8080
+    # Default: seed database and run all tests
+    command: sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test"
 
   backup:
     image: alpine:latest

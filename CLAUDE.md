@@ -48,6 +48,25 @@ make app-logs        # View app logs only
 make backup          # Create manual backup
 ```
 
+### E2E Testing (Playwright in Docker)
+```bash
+make test-e2e              # Run full E2E test suite
+make test-e2e-grep FILTER="login"  # Run tests matching pattern
+make test-e2e-failed       # Re-run only previously failed tests
+make test-e2e-report       # Open HTML test report
+make test-e2e-results      # Output JSON results
+make test-e2e-clean        # Tear down test containers and clean artifacts
+
+# Test infrastructure:
+# - tests/e2e/              Playwright project root
+# - tests/e2e/helpers/      Reusable helpers (auth, htmx, navigation, assertions)
+# - tests/e2e/fixtures/     Seed data (seed.sql) and test fixtures (test-fixtures.ts)
+# - tests/e2e/smoke.spec.ts Smoke tests validating the full stack
+# - Dockerfile.e2e          Playwright container (includes sqlite3 for seeding)
+# - Seeded admin: testadmin / testpassword123
+# - Seeded fantasy token: Sabalenka_Djokovic_Gauff_Sinner
+```
+
 ### Utility Commands
 ```bash
 # Build all utility tools
@@ -98,6 +117,11 @@ The codebase follows a clean layered architecture:
 - `webpush/`: Push notification service
 
 **migrations/**: SQL migration files (up/down pairs)
+
+**tests/e2e/**: Playwright E2E browser tests
+- `helpers/`: Reusable test helpers (auth, htmx, navigation, assertions)
+- `fixtures/`: SQL seed data and Playwright test fixtures
+- `*.spec.ts`: Test spec files
 
 **templates/**: HTML templates for server-side rendering
 - `admin/`: Admin interface templates

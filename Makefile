@@ -1,6 +1,8 @@
 .PHONY: build run stop clean backup logs restart build-local run-local local \
 	build-tmx courthive courthive-up courthive-down courthive-restart courthive-logs \
-	vet fmt fmt-fix imports imports-fix lint deadcode tidy check
+	vet fmt fmt-fix imports imports-fix lint deadcode tidy check \
+	test-e2e test-e2e-headed test-e2e-grep test-e2e-failed \
+	test-e2e-report test-e2e-results test-e2e-clean
 
 # Docker compose command
 DOCKER_COMPOSE = docker compose
@@ -183,6 +185,54 @@ tidy:
 # Run all read-only checks
 check: vet fmt lint deadcode
 	@echo "All checks complete."
+
+# ============================================================
+# E2E Testing (Playwright in Docker - no local Node.js required)
+# ============================================================
+
+# Run the full E2E test suite
+test-e2e:
+	@echo "Running E2E tests..."
+	$(DOCKER_COMPOSE) --profile test build e2e
+	$(DOCKER_COMPOSE) --profile test run --rm e2e
+
+# Run E2E tests with visible browser (requires X11/Wayland forwarding)
+test-e2e-headed:
+	@echo "Running E2E tests (headed)..."
+	$(DOCKER_COMPOSE) --profile test build e2e
+	$(DOCKER_COMPOSE) --profile test run --rm e2e \
+		sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --headed"
+
+# Run E2E tests matching a grep pattern (usage: make test-e2e-grep FILTER="login")
+test-e2e-grep:
+	@echo "Running E2E tests matching: $(FILTER)..."
+	$(DOCKER_COMPOSE) --profile test build e2e
+	$(DOCKER_COMPOSE) --profile test run --rm e2e \
+		sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --grep '$(FILTER)'"
+
+# Re-run only previously failed tests
+test-e2e-failed:
+	@echo "Re-running failed E2E tests..."
+	$(DOCKER_COMPOSE) --profile test run --rm e2e \
+		sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --last-failed"
+
+# Open the HTML test report
+test-e2e-report:
+	@echo "Opening E2E test report..."
+	@open tests/e2e/playwright-report/index.html 2>/dev/null || \
+		xdg-open tests/e2e/playwright-report/index.html 2>/dev/null || \
+		echo "Report available at: tests/e2e/playwright-report/index.html"
+
+# Output JSON test results (for parsing by CI or Claude)
+test-e2e-results:
+	@cat tests/e2e/test-results/results.json 2>/dev/null || \
+		echo '{"error": "No test results found. Run make test-e2e first."}'
+
+# Tear down test containers and clean up volumes
+test-e2e-clean:
+	@echo "Cleaning up E2E test environment..."
+	$(DOCKER_COMPOSE) --profile test down -v
+	rm -rf tests/e2e/test-results tests/e2e/playwright-report
 
 # ============================================================
 # CourtHive

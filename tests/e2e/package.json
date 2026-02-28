@@ -1,0 +1,15 @@
+{
+  "name": "jim-dot-tennis-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:failed": "playwright test --last-failed",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2",
+    "typescript": "^5.7.0"
+  }
+}

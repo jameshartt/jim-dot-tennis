@@ -80,7 +80,7 @@ Jim.Tennis is an internal tool for St Ann's Tennis Club to facilitate team manag
 
 ## Current Development Status
 
-### Completed (Sprints 001-004)
+### Completed (Sprints 001-004, 005-008)
 
 **Sprint 001 - Player Experience & Fixtures:**
 - Player profile views and availability exception handling ("Mark Time Away")
@@ -111,6 +111,21 @@ Jim.Tennis is an internal tool for St Ann's Tennis Club to facilitate team manag
 - Code formatting standardization across the codebase
 - Go version upgrade from 1.24.1 to 1.25
 - Docker Alpine image updates
+
+**Sprint 005 - Club & Away Team Management:**
+- Club and away team management features
+
+**Sprint 006 - Match Results & Standings:**
+- Match results, standings, match history, weather integration
+- Admin URL routing fixes
+
+**Sprint 008 - E2E Test Infrastructure:**
+- Playwright browser testing infrastructure with Docker Compose test profile
+- Test database seeding with realistic data (admin user, seasons, leagues, clubs, teams, players, fixtures)
+- Reusable test helpers for authentication, HTMX waiting, navigation, and assertions
+- 7 Makefile targets for running, filtering, and reporting E2E tests
+- Smoke test suite validating the full testing stack (5 tests)
+- No local Node.js or Go installation required - runs entirely in Docker
 
 ### Planned (Sprint PWA)
 

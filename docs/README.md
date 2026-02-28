@@ -65,6 +65,19 @@ Static analysis and formatting are run via Docker-based Go tooling (see `Makefil
 - `make deadcode` - Dead code detection
 - `make check` - Run all of the above
 
+### E2E Testing
+
+Browser-based end-to-end tests use Playwright running inside Docker (no local Node.js required):
+
+- `make test-e2e` - Run the full E2E test suite
+- `make test-e2e-grep FILTER="login"` - Run tests matching a pattern
+- `make test-e2e-failed` - Re-run only previously failed tests
+- `make test-e2e-report` - Open the HTML test report
+- `make test-e2e-results` - Output JSON results (for CI/Claude parsing)
+- `make test-e2e-clean` - Tear down test containers and clean artifacts
+
+Test infrastructure lives in `tests/e2e/` with reusable helpers (`helpers/`), test fixtures (`fixtures/`), and SQL seed data for consistent test state.
+
 ### PWA
 
 The application is a Progressive Web App. Push notification delivery is planned but not yet implemented; the subscription management infrastructure (`internal/webpush/`) is in place.
