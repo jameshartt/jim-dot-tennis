@@ -228,10 +228,17 @@ test-e2e-report:
 		xdg-open tests/e2e/playwright-report/index.html 2>/dev/null || \
 		echo "Report available at: tests/e2e/playwright-report/index.html"
 
-# Output JSON test results (for parsing by CI or Claude)
+# Output formatted test results (for parsing by CI or Claude)
 test-e2e-results:
-	@cat tests/e2e/test-results/results.json 2>/dev/null || \
-		echo '{"error": "No test results found. Run make test-e2e first."}'
+	@if [ -f tests/e2e/test-results/results.json ]; then \
+		if command -v node >/dev/null 2>&1; then \
+			node tests/e2e/scripts/parse-results.mjs tests/e2e/test-results/results.json; \
+		else \
+			cat tests/e2e/test-results/results.json; \
+		fi; \
+	else \
+		echo "No test results found. Run make test-e2e first."; \
+	fi
 
 # Tear down test containers and clean up volumes
 test-e2e-clean:

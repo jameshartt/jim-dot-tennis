@@ -57,17 +57,21 @@ make test-e2e-headed WORKERS=3     # Headed mode with 3 browser tabs
 make test-e2e-grep FILTER="login"  # Run tests matching pattern
 make test-e2e-failed               # Re-run only previously failed tests
 make test-e2e-report               # Open HTML test report
-make test-e2e-results              # Output JSON results
+make test-e2e-results              # Formatted test summary (Claude-friendly)
 make test-e2e-clean                # Tear down test containers and clean artifacts
 
 # Test infrastructure:
-# - tests/e2e/              Playwright project root (104 tests across 16 spec files)
+# - tests/e2e/              Playwright project root (146 tests across 19 spec files)
 # - tests/e2e/helpers/      Reusable helpers (auth, htmx, navigation, assertions)
 # - tests/e2e/fixtures/     Seed data (seed.sql) and test fixtures (test-fixtures.ts)
 # - tests/e2e/admin/        Admin page specs (dashboard, navigation, CRUD, points, wrapped)
 # - tests/e2e/players/      Player page specs (availability, profile, standings)
+# - tests/e2e/workflows/    Multi-step workflow specs (team selection, match results, fixtures)
+# - tests/e2e/accessibility.spec.ts  axe-core WCAG 2.0 A/AA audits
+# - tests/e2e/responsive.spec.ts     Mobile (375×812) and tablet (768×1024) viewport tests
 # - tests/e2e/smoke.spec.ts Smoke tests validating the full stack
 # - tests/e2e/auth.spec.ts  Authentication flow tests (login, logout, rate limit)
+# - tests/e2e/scripts/parse-results.mjs  JSON results → Claude-friendly summary
 # - tests/e2e/global-setup.ts  Shared auth session via storageState
 # - Dockerfile.e2e          Playwright container (includes sqlite3 for seeding)
 # - Seeded admin: testadmin / testpassword123
@@ -125,10 +129,14 @@ The codebase follows a clean layered architecture:
 
 **migrations/**: SQL migration files (up/down pairs)
 
-**tests/e2e/**: Playwright E2E browser tests
+**tests/e2e/**: Playwright E2E browser tests (146 tests across 19 spec files)
 - `helpers/`: Reusable test helpers (auth, htmx, navigation, assertions)
 - `fixtures/`: SQL seed data and Playwright test fixtures
-- `*.spec.ts`: Test spec files
+- `admin/`, `players/`: Page-level spec files
+- `workflows/`: Multi-step workflow specs (team selection, match results, fixture management)
+- `accessibility.spec.ts`: axe-core WCAG audits
+- `responsive.spec.ts`: Mobile/tablet viewport tests
+- `scripts/parse-results.mjs`: JSON results → Claude-friendly summary
 
 **templates/**: HTML templates for server-side rendering
 - `admin/`: Admin interface templates

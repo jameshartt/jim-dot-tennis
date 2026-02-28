@@ -6,7 +6,7 @@
     "start_date": null,
     "end_date": null,
     "duration_weeks": 2,
-    "status": "planned",
+    "status": "complete",
     "focus_areas": [
       "Complex workflow testing",
       "Accessibility auditing",
@@ -21,7 +21,7 @@
       "WI-055",
       "WI-056"
     ],
-    "completed_items": [],
+    "completed_items": ["WI-054", "WI-055", "WI-056"],
     "deferred_items": {}
   }
 }

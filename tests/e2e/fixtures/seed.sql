@@ -118,12 +118,23 @@ VALUES
 -- ============================================================
 -- Matchups for fixture 1 (Div 1: St Ann's A vs Hove Park A)
 -- ============================================================
-INSERT OR REPLACE INTO matchups (id, fixture_id, type, status, home_score, away_score)
+INSERT OR REPLACE INTO matchups (id, fixture_id, type, status, home_score, away_score, notes, created_at, updated_at)
 VALUES
-  (1, 1, 'Mens',      'Pending', 0, 0),
-  (2, 1, 'Womens',    'Pending', 0, 0),
-  (3, 1, '1st Mixed', 'Pending', 0, 0),
-  (4, 1, '2nd Mixed', 'Pending', 0, 0);
+  (1, 1, 'Mens',      'Pending', 0, 0, '', '2025-01-01 00:00:00', '2025-01-01 00:00:00'),
+  (2, 1, 'Womens',    'Pending', 0, 0, '', '2025-01-01 00:00:00', '2025-01-01 00:00:00'),
+  (3, 1, '1st Mixed', 'Pending', 0, 0, '', '2025-01-01 00:00:00', '2025-01-01 00:00:00'),
+  (4, 1, '2nd Mixed', 'Pending', 0, 0, '', '2025-01-01 00:00:00', '2025-01-01 00:00:00');
+
+-- ============================================================
+-- Matchups for fixture 2 (Div 2: St Ann's B vs Hove Park B)
+-- Used for destructive match result entry tests
+-- ============================================================
+INSERT OR REPLACE INTO matchups (id, fixture_id, type, status, home_score, away_score, notes, created_at, updated_at)
+VALUES
+  (5, 2, 'Mens',      'Pending', 0, 0, '', '2025-01-01 00:00:00', '2025-01-01 00:00:00'),
+  (6, 2, 'Womens',    'Pending', 0, 0, '', '2025-01-01 00:00:00', '2025-01-01 00:00:00'),
+  (7, 2, '1st Mixed', 'Pending', 0, 0, '', '2025-01-01 00:00:00', '2025-01-01 00:00:00'),
+  (8, 2, '2nd Mixed', 'Pending', 0, 0, '', '2025-01-01 00:00:00', '2025-01-01 00:00:00');
 
 -- ============================================================
 -- Player availability (all Week 1 players available)

@@ -136,6 +136,14 @@ Jim.Tennis is an internal tool for St Ann's Tennis Club to facilitate team manag
 - Global auth setup with storageState for reliable, fast test execution
 - Anti-flakiness measures: 2 workers, 1 retry, auth fallback, auto-waiting assertions
 
+**Sprint 010 - Advanced E2E & Accessibility:**
+- 42 new E2E tests (146 total) covering complex multi-step workflows
+- Workflow tests: team selection, match result entry, fixture editing, selection overview
+- Automated accessibility auditing via axe-core (WCAG 2.0 A/AA on 8 pages)
+- Responsive viewport testing at mobile (375×812) and tablet (768×1024)
+- Claude-friendly test results parser (parse-results.mjs) and updated Makefile target
+- Comprehensive E2E testing documentation (README.md)
+
 ### Planned (Sprint PWA)
 
 - Push notifications pipeline

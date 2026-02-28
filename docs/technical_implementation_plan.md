@@ -167,6 +167,12 @@ Push notifications will be implemented using the Web Push API:
 - [x] Admin page coverage: dashboard, navigation, players, clubs, teams, fixtures, divisions, seasons, users, points table, wrapped (Sprint 009)
 - [x] Player-facing tests: availability (token auth), profile, match history, public standings (Sprint 009)
 - [x] Global auth setup with storageState and auth fallback for flake-free execution (Sprint 009)
+- [x] Complex workflow tests: team selection, match results, fixture management (Sprint 010)
+- [x] Automated accessibility auditing via @axe-core/playwright (WCAG 2.0 A/AA) (Sprint 010)
+- [x] Responsive viewport testing at mobile (375×812) and tablet (768×1024) (Sprint 010)
+- [x] Claude-friendly test results parser (parse-results.mjs) (Sprint 010)
+- [x] Comprehensive E2E testing documentation (Sprint 010)
+- [x] Full suite: 146 tests across 19 spec files (Sprint 010)
 
 ## Testing Strategy
 
