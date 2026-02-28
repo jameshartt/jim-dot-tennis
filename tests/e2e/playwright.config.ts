@@ -6,7 +6,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 1, // Retry once to handle transient SQLite locking
-  workers: 2, // Low worker count avoids SQLite locking and login rate limits
+  workers: process.env.WORKERS ? parseInt(process.env.WORKERS, 10) : 2,
   timeout: 30_000,
 
   globalSetup: "./global-setup.ts",

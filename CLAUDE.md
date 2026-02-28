@@ -50,12 +50,15 @@ make backup          # Create manual backup
 
 ### E2E Testing (Playwright in Docker)
 ```bash
-make test-e2e              # Run full E2E test suite
+make test-e2e                      # Run full E2E test suite (default: 2 workers)
+make test-e2e WORKERS=4            # Run with more parallel browser tabs
+make test-e2e-headed               # Headed mode (default: 1 worker/tab)
+make test-e2e-headed WORKERS=3     # Headed mode with 3 browser tabs
 make test-e2e-grep FILTER="login"  # Run tests matching pattern
-make test-e2e-failed       # Re-run only previously failed tests
-make test-e2e-report       # Open HTML test report
-make test-e2e-results      # Output JSON results
-make test-e2e-clean        # Tear down test containers and clean artifacts
+make test-e2e-failed               # Re-run only previously failed tests
+make test-e2e-report               # Open HTML test report
+make test-e2e-results              # Output JSON results
+make test-e2e-clean                # Tear down test containers and clean artifacts
 
 # Test infrastructure:
 # - tests/e2e/              Playwright project root (104 tests across 16 spec files)
