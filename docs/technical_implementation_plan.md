@@ -162,6 +162,11 @@ Push notifications will be implemented using the Web Push API:
 - [x] Reusable test helpers: auth, HTMX waiting, navigation, assertions (Sprint 008)
 - [x] 7 Makefile targets: `test-e2e`, `test-e2e-grep`, `test-e2e-failed`, `test-e2e-report`, `test-e2e-results`, `test-e2e-headed`, `test-e2e-clean` (Sprint 008)
 - [x] Smoke test suite with 5 tests validating the full stack (Sprint 008)
+- [x] Core E2E test suite: 104 tests across 15 spec files (Sprint 009)
+- [x] Authentication flow tests: login, logout, session, rate limiting, protected routes (Sprint 009)
+- [x] Admin page coverage: dashboard, navigation, players, clubs, teams, fixtures, divisions, seasons, users, points table, wrapped (Sprint 009)
+- [x] Player-facing tests: availability (token auth), profile, match history, public standings (Sprint 009)
+- [x] Global auth setup with storageState and auth fallback for flake-free execution (Sprint 009)
 
 ## Testing Strategy
 
@@ -175,13 +180,14 @@ Push notifications will be implemented using the Web Push API:
    - Database interactions
    - Authentication flows
 
-3. **End-to-End Testing (Playwright)** *(Sprint 008)*
+3. **End-to-End Testing (Playwright)** *(Sprints 008–009)*
    - Runs in Docker via `make test-e2e` - no local Node.js or Go required
-   - Chromium-only, parallel workers, JSON + HTML reporters
+   - Chromium-only, 2 parallel workers, JSON + HTML reporters
    - SQL-seeded database with realistic test data
+   - Global auth setup with storageState and login fallback for reliability
    - Reusable helpers for admin login, HTMX settling, and navigation
    - `--last-failed` support for fast iteration on failures
-   - Critical user journeys: homepage, login, admin dashboard access control
+   - 104 tests covering: auth flows, all admin CRUD pages, player availability/profile, public standings
 
 ## Deployment Considerations
 

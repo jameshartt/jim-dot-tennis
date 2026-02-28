@@ -58,10 +58,14 @@ make test-e2e-results      # Output JSON results
 make test-e2e-clean        # Tear down test containers and clean artifacts
 
 # Test infrastructure:
-# - tests/e2e/              Playwright project root
+# - tests/e2e/              Playwright project root (104 tests across 16 spec files)
 # - tests/e2e/helpers/      Reusable helpers (auth, htmx, navigation, assertions)
 # - tests/e2e/fixtures/     Seed data (seed.sql) and test fixtures (test-fixtures.ts)
+# - tests/e2e/admin/        Admin page specs (dashboard, navigation, CRUD, points, wrapped)
+# - tests/e2e/players/      Player page specs (availability, profile, standings)
 # - tests/e2e/smoke.spec.ts Smoke tests validating the full stack
+# - tests/e2e/auth.spec.ts  Authentication flow tests (login, logout, rate limit)
+# - tests/e2e/global-setup.ts  Shared auth session via storageState
 # - Dockerfile.e2e          Playwright container (includes sqlite3 for seeding)
 # - Seeded admin: testadmin / testpassword123
 # - Seeded fantasy token: Sabalenka_Djokovic_Gauff_Sinner

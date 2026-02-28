@@ -63,12 +63,12 @@ VALUES
   (2, 'Division 2', 2, 'Tuesday', 1, 1, 2);
 
 -- ============================================================
--- Clubs
+-- Clubs (include website and timestamps to avoid NULL scan errors)
 -- ============================================================
-INSERT OR REPLACE INTO clubs (id, name, address, postcode, latitude, longitude)
+INSERT OR REPLACE INTO clubs (id, name, address, postcode, latitude, longitude, website, phone_number, created_at, updated_at)
 VALUES
-  (1, 'St Ann''s Tennis Club', '10 Egremont Place, Brighton', 'BN2 0GA', 50.8284, -0.1225),
-  (2, 'Hove Park Tennis Club', 'Hove Park, Old Shoreham Rd, Hove', 'BN3 6HP', 50.8413, -0.1847);
+  (1, 'St Ann''s Tennis Club', '10 Egremont Place, Brighton', 'BN2 0GA', 50.8284, -0.1225, '', '', '2025-01-01 00:00:00', '2025-01-01 00:00:00'),
+  (2, 'Hove Park Tennis Club', 'Hove Park, Old Shoreham Rd, Hove', 'BN3 6HP', 50.8413, -0.1847, '', '', '2025-01-01 00:00:00', '2025-01-01 00:00:00');
 
 -- ============================================================
 -- Teams
@@ -110,10 +110,10 @@ VALUES
 -- ============================================================
 -- Fixtures (1 per division in Week 1)
 -- ============================================================
-INSERT OR REPLACE INTO fixtures (id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, venue_location, status)
+INSERT OR REPLACE INTO fixtures (id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, venue_location, status, notes, created_at, updated_at)
 VALUES
-  (1, 1, 3, 1, 1, 1, '2025-04-14 18:00:00', 'St Ann''s Tennis Club', 'Scheduled'),
-  (2, 2, 4, 2, 1, 1, '2025-04-15 18:00:00', 'St Ann''s Tennis Club', 'Scheduled');
+  (1, 1, 3, 1, 1, 1, '2025-04-14 18:00:00', 'St Ann''s Tennis Club', 'Scheduled', '', '2025-01-01 00:00:00', '2025-01-01 00:00:00'),
+  (2, 2, 4, 2, 1, 1, '2025-04-15 18:00:00', 'St Ann''s Tennis Club', 'Scheduled', '', '2025-01-01 00:00:00', '2025-01-01 00:00:00');
 
 -- ============================================================
 -- Matchups for fixture 1 (Div 1: St Ann's A vs Hove Park A)

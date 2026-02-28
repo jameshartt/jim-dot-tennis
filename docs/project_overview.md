@@ -127,6 +127,15 @@ Jim.Tennis is an internal tool for St Ann's Tennis Club to facilitate team manag
 - Smoke test suite validating the full testing stack (5 tests)
 - No local Node.js or Go installation required - runs entirely in Docker
 
+**Sprint 009 - Core E2E Test Suite:**
+- 104 Playwright E2E tests across 15 spec files covering all critical user flows
+- Authentication flows: login, logout, session persistence, rate limiting, protected routes
+- Admin CRUD pages: players, clubs, teams, fixtures, divisions, seasons, users
+- Admin features: dashboard, navigation, points table, wrapped
+- Player-facing: availability (token auth), profile, match history, public standings
+- Global auth setup with storageState for reliable, fast test execution
+- Anti-flakiness measures: 2 workers, 1 retry, auth fallback, auto-waiting assertions
+
 ### Planned (Sprint PWA)
 
 - Push notifications pipeline

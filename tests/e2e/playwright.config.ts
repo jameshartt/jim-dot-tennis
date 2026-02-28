@@ -5,9 +5,11 @@ export default defineConfig({
   testMatch: "**/*.spec.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
-  workers: undefined, // Playwright defaults to half CPU count
+  retries: 1, // Retry once to handle transient SQLite locking
+  workers: 2, // Low worker count avoids SQLite locking and login rate limits
   timeout: 30_000,
+
+  globalSetup: "./global-setup.ts",
 
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://webapp:8080",

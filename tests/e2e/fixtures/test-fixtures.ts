@@ -4,6 +4,10 @@ import { loginAsAdmin } from "../helpers/auth";
 /**
  * Extended test fixtures that provide auto-login capability.
  *
+ * Uses the storage state saved by global-setup.ts, with a fallback to
+ * direct login if the stored session is no longer valid. This prevents
+ * flakiness from SQLite locking invalidating sessions.
+ *
  * Usage:
  *   import { test, expect } from './fixtures/test-fixtures';
  *
@@ -13,16 +17,23 @@ import { loginAsAdmin } from "../helpers/auth";
  *   });
  */
 
-type TestFixtures = {
-  /** A Page instance already authenticated as the test admin user. */
-  adminPage: ReturnType<typeof base.extend> extends infer T ? T : never;
-};
-
 export const test = base.extend<{ adminPage: import("@playwright/test").Page }>(
   {
-    adminPage: async ({ page }, use) => {
-      await loginAsAdmin(page);
+    adminPage: async ({ browser }, use) => {
+      const context = await browser.newContext({
+        storageState: "auth-state.json",
+      });
+      const page = await context.newPage();
+
+      // Verify the stored session is still valid
+      const response = await page.goto("/admin/league/dashboard");
+      if (page.url().includes("/login")) {
+        // Session expired or was invalidated — login directly
+        await loginAsAdmin(page);
+      }
+
       await use(page);
+      await context.close();
     },
   },
 );
