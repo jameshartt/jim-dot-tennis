@@ -19,8 +19,11 @@ rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" internal/ root@144.126.
 rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" cmd/ root@144.126.228.64:/opt/jim-dot-tennis/cmd/
 rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" templates/ root@144.126.228.64:/opt/jim-dot-tennis/templates/
 rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" static/ root@144.126.228.64:/opt/jim-dot-tennis/static/
+rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" migrations/ root@144.126.228.64:/opt/jim-dot-tennis/migrations/
 ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker compose build app && docker compose up -d app"
 ```
+
+> **Do not forget `migrations/`!** Migrations are `COPY`'d into the Docker image at build time and run automatically on app startup. If new migrations exist in the source but are missing from the server, the build will bake in stale migration files and the app will fail with "no such column" errors at runtime.
 
 **Time:** ~2 minutes
 **Downtime:** ~10 seconds
@@ -327,6 +330,15 @@ ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker exec courthive-serve
 - courthive-public: ~20-40 seconds
 
 ---
+
+## Server Constraints
+
+The droplet is a **1 CPU / 1GB RAM** instance. Key operational constraints:
+
+- **Swap:** 2GB swap file at `/swapfile` (added 2026-03-02, persisted in `/etc/fstab`). Without swap, Docker builds can OOM and lock up the server.
+- **Docker builds must run one at a time.** Never run `docker compose build` (all services) — always build individually: `docker compose build app`, then `docker compose build courthive-server`. Parallel builds will peg the CPU at 100% and make SSH unresponsive.
+- **Stop containers before building** to free memory: `docker compose down` before `docker compose build`.
+- **If the server becomes unresponsive during a build**, the build is consuming all resources. Wait ~5-10 minutes or power cycle via the DigitalOcean dashboard.
 
 ## Resource Usage
 

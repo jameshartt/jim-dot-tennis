@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import Season Data - {{.Season.Name}} - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+
+        .season-header {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .season-header h2 {
+            margin: 0 0 0.5rem 0;
+            color: var(--primary-color);
+        }
+
+        .season-info {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            font-size: 0.9rem;
+            color: #495057;
+        }
+
+        .season-info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .season-info-label {
+            font-weight: 600;
+            color: #6c757d;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+
+        .form-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .form-section h3 {
+            margin: 0 0 1rem 0;
+            color: var(--primary-color);
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            cursor: pointer;
+            padding: 0.75rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            margin-top: 0.2rem;
+            cursor: pointer;
+        }
+
+        .checkbox-label strong {
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        .checkbox-label .help-text {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+
+        .url-group {
+            margin-top: 0.75rem;
+        }
+
+        .url-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .url-group input[type="text"] {
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+        }
+
+        .url-group input[type="text"]:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.15);
+        }
+
+        .url-group .help-text {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-top: 0.5rem;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+            margin-top: 2rem;
+        }
+
+        .btn {
+            padding: 0.6rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            opacity: 0.9;
+        }
+
+        .info-box {
+            background: #e7f3fe;
+            border-left: 4px solid #2196F3;
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: 0 4px 4px 0;
+            font-size: 0.9rem;
+            color: #1a5276;
+        }
+
+        @media (max-width: 768px) {
+            .season-info {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .form-actions {
+                flex-direction: column;
+            }
+
+            .btn {
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin/league">Admin Dashboard</a> &gt;
+                <a href="/admin/league/seasons">Seasons</a> &gt;
+                <a href="/admin/league/seasons/setup?id={{.Season.ID}}">Setup</a> &gt;
+                Import
+            </div>
+            <h1>Import Season Data</h1>
+        </div>
+    </header>
+
+    <main class="admin-content">
+        <div class="container">
+            <div class="season-header">
+                <h2>Copy from {{.PreviousYear}} Season &rarr; {{.Season.Name}}</h2>
+                <div class="season-info">
+                    <div class="season-info-item">
+                        <span class="season-info-label">Target Season</span>
+                        <span>{{.Season.Name}}</span>
+                    </div>
+                    <div class="season-info-item">
+                        <span class="season-info-label">Year</span>
+                        <span>{{.Season.Year}}</span>
+                    </div>
+                    <div class="season-info-item">
+                        <span class="season-info-label">Start Date</span>
+                        <span>{{.Season.StartDate.Format "02 Jan 2006"}}</span>
+                    </div>
+                    <div class="season-info-item">
+                        <span class="season-info-label">End Date</span>
+                        <span>{{.Season.EndDate.Format "02 Jan 2006"}}</span>
+                    </div>
+                </div>
+            </div>
+
+            <form method="POST" action="/admin/league/seasons/copy">
+                <input type="hidden" name="season_id" value="{{.Season.ID}}">
+
+                <div class="form-section">
+                    <h3>What to Copy</h3>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="copy_teams" checked>
+                            <div>
+                                <strong>Copy Teams with Players &amp; Captains</strong>
+                                <div class="help-text">Players and captains from matching teams in the {{.PreviousYear}} season will be copied to the new season.</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Import Fixtures from BHPLTA</h3>
+                    <div class="url-group">
+                        <label for="fixtures_url">BHPLTA Fixtures URL</label>
+                        <input type="text" id="fixtures_url" name="fixtures_url"
+                               value="https://www.bhplta.co.uk/bhplta_tables/fixtures/"
+                               placeholder="https://www.bhplta.co.uk/bhplta_tables/fixtures/">
+                        <div class="help-text">
+                            The BHPLTA fixtures page will be scraped to determine divisions, team assignments, and fixtures for the new season.
+                        </div>
+                    </div>
+                    <div class="info-box">
+                        <strong>How it works:</strong> Fixture data from the BHPLTA determines which teams are in which divisions for the new season. Teams will be placed in their correct {{.Season.Year}} divisions based on the fixture schedule, not copied from the {{.PreviousYear}} layout. Leave blank to use the traditional copy (same divisions as last year).
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <a href="/admin/league/seasons/setup?id={{.Season.ID}}" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Import Season Data</button>
+                </div>
+            </form>
+        </div>
+    </main>
+</body>
+</html>

@@ -313,6 +313,99 @@ func (h *SeasonSetupHandler) handleReviewAwayTeamsPost(w http.ResponseWriter, r 
 	http.Redirect(w, r, fmt.Sprintf("/admin/league/seasons/review-away-teams?id=%d&success=updated", seasonID), http.StatusSeeOther)
 }
 
+// HandleSeasonCopy renders the season copy/import page
+func (h *SeasonSetupHandler) HandleSeasonCopy(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		h.handleSeasonCopyGet(w, r)
+	case http.MethodPost:
+		h.handleSeasonCopyPost(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (h *SeasonSetupHandler) handleSeasonCopyGet(w http.ResponseWriter, r *http.Request) {
+	user, err := getUserFromContext(r)
+	if err != nil {
+		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
+		return
+	}
+
+	seasonIDStr := r.URL.Query().Get("id")
+	if seasonIDStr == "" {
+		http.Error(w, "Season ID required", http.StatusBadRequest)
+		return
+	}
+
+	seasonID, err := strconv.ParseUint(seasonIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid season ID", http.StatusBadRequest)
+		return
+	}
+
+	season, err := h.service.GetSeasonByID(uint(seasonID))
+	if err != nil {
+		logAndError(w, "Failed to load season", err, http.StatusNotFound)
+		return
+	}
+
+	data := map[string]interface{}{
+		"User":         user,
+		"Season":       season,
+		"PreviousYear": season.Year - 1,
+	}
+
+	tmpl, err := parseTemplate(h.templateDir, "admin/season_copy.html")
+	if err != nil {
+		logAndError(w, "Failed to parse template", err, http.StatusInternalServerError)
+		return
+	}
+
+	if err := renderTemplate(w, tmpl, data); err != nil {
+		logAndError(w, "Failed to render template", err, http.StatusInternalServerError)
+	}
+}
+
+func (h *SeasonSetupHandler) handleSeasonCopyPost(w http.ResponseWriter, r *http.Request) {
+	seasonID, _ := strconv.ParseUint(r.FormValue("season_id"), 10, 32)
+	fixturesURL := strings.TrimSpace(r.FormValue("fixtures_url"))
+	copyPlayers := r.FormValue("copy_teams") == "on"
+
+	if seasonID == 0 {
+		http.Error(w, "Season ID required", http.StatusBadRequest)
+		return
+	}
+
+	if fixturesURL != "" {
+		summary, err := h.service.CopyFromPreviousSeasonWithFixtures(uint(seasonID), fixturesURL, copyPlayers)
+		if err != nil {
+			logAndError(w, "Failed to import season data: "+err.Error(), err, http.StatusInternalServerError)
+			return
+		}
+
+		redirectURL := fmt.Sprintf(
+			"/admin/league/seasons/review-away-teams?id=%d&copied=true&divisions=%d&teams=%d&fixtures=%d&players=%d",
+			seasonID, summary.DivisionsCreated, summary.TeamsCreated, summary.FixturesCreated, summary.PlayersCopied)
+		http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+	} else {
+		// Fallback: existing plain copy (divisions always copied when no URL)
+		err := h.service.CopyFromPreviousSeason(uint(seasonID), true, copyPlayers)
+		if err != nil {
+			logAndError(w, "Failed to copy from previous season", err, http.StatusInternalServerError)
+			return
+		}
+
+		if copyPlayers {
+			redirectURL := fmt.Sprintf("/admin/league/seasons/review-away-teams?id=%d&copied=true", seasonID)
+			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+		} else {
+			redirectURL := fmt.Sprintf("/admin/league/seasons/setup?id=%d&copied=true", seasonID)
+			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+		}
+	}
+}
+
 // HandleMoveTeam handles promoting/demoting a team
 func (h *SeasonSetupHandler) HandleMoveTeam(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

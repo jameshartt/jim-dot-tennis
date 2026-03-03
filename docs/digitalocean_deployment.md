@@ -511,6 +511,62 @@ If you're experiencing database problems:
 
 3. If the database is missing or corrupted, restore from a backup as described above
 
+### Migration Mismatches ("no such column" errors)
+
+If pages fail with errors like `no such column: latitude`, the database schema is out of sync with the deployed code. This happens when new migration files are added locally but not transferred to the server before rebuilding.
+
+**Root cause:** The Dockerfile `COPY migrations/ ./migrations/` bakes migrations into the image at build time. If the `migrations/` directory on the server is stale, the image will contain old migrations, and the app won't apply the new schema changes on startup.
+
+**Fix:**
+```bash
+# 1. Rsync migrations to the server
+rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
+  ~/Development/Tennis/jim-dot-tennis/migrations/ root@144.126.228.64:/opt/jim-dot-tennis/migrations/
+
+# 2. Rebuild the Go app image to pick up new migrations
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "cd /opt/jim-dot-tennis && docker compose -f docker-compose.courthive.yml build app"
+
+# 3. Restart the app (migrations run automatically on startup)
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "cd /opt/jim-dot-tennis && docker compose -f docker-compose.courthive.yml up -d app"
+
+# 4. Verify migration version
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+  "sqlite3 /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db 'SELECT version, dirty FROM schema_migrations;'"
+```
+
+**Prevention:** Always include `migrations/` in the rsync step when deploying the Go application. See the quick reference for the complete rsync list.
+
+### Docker Build Hangs / Server Unresponsive
+
+The production droplet is **1 CPU / 1GB RAM**. Docker builds (especially Go compilation with CGO and Node.js `pnpm install`) are extremely resource-intensive and can make the server completely unresponsive.
+
+**Symptoms:** SSH connections time out, the site goes down, CPU pegged at 100% for 10-30+ minutes.
+
+**Prevention:**
+1. **Never build all services at once.** Always build one at a time:
+   ```bash
+   docker compose -f docker-compose.courthive.yml build app
+   docker compose -f docker-compose.courthive.yml build courthive-server
+   ```
+2. **Stop containers before building** to free memory:
+   ```bash
+   docker compose -f docker-compose.courthive.yml down
+   ```
+3. **Ensure swap is enabled** (2GB swap file was added 2026-03-02):
+   ```bash
+   swapon --show   # Should show /swapfile 2G
+   free -h         # Should show 2.0Gi swap
+   ```
+4. If swap is missing, recreate it:
+   ```bash
+   fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+   echo '/swapfile none swap sw 0 0' >> /etc/fstab
+   ```
+
+**Recovery:** If the server is unresponsive, power cycle via the DigitalOcean dashboard. Containers with `restart: unless-stopped` will come back up automatically.
+
 ### Performance Issues
 
 If the application is running slowly:

@@ -108,6 +108,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/league/seasons/setup", h.seasonSetup.HandleSeasonSetup)
 	adminMux.HandleFunc("/admin/league/seasons/move-team", h.seasonSetup.HandleMoveTeam)
 	adminMux.HandleFunc("/admin/league/seasons/copy-from-previous", h.seasonSetup.HandleCopyFromPreviousSeason)
+	adminMux.HandleFunc("/admin/league/seasons/copy", h.seasonSetup.HandleSeasonCopy)
 	adminMux.HandleFunc("/admin/league/seasons/review-away-teams", h.seasonSetup.HandleReviewAwayTeams)
 
 	// Division management routes
