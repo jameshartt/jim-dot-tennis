@@ -495,7 +495,7 @@ func (r *playerRepository) CountActiveInSeason(ctx context.Context, seasonID uin
 // CountAll returns the total number of players
 func (r *playerRepository) CountAll(ctx context.Context) (int, error) {
 	var count int
-	err := r.db.GetContext(ctx, &count, `SELECT COUNT(*) FROM players`)
+	err := r.db.GetContext(ctx, &count, `SELECT COUNT(*) FROM players WHERE is_active = TRUE`)
 	return count, err
 }
 
