@@ -25,6 +25,53 @@
       .btn-primary:hover {
         background-color: #2980b9 !important;
       }
+      .cards-row {
+        display: flex;
+        gap: 1.5rem;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .cards-row .card {
+        flex: 1;
+      }
+      @media (max-width: 640px) {
+        .cards-row {
+          flex-direction: column;
+        }
+      }
+      .tournament-list {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 1.5rem 0;
+      }
+      .tournament-item {
+        display: block;
+        padding: 1rem 1.5rem;
+        margin-bottom: 0.75rem;
+        border: 1px solid #e1e8ed;
+        border-radius: 8px;
+        text-decoration: none;
+        color: inherit;
+        transition: border-color 0.2s, box-shadow 0.2s;
+      }
+      .tournament-item:hover {
+        border-color: #3498db;
+        box-shadow: 0 2px 8px rgba(52, 152, 219, 0.15);
+      }
+      .tournament-item-name {
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: #2c3e50;
+      }
+      .tournament-item-meta {
+        font-size: 0.85rem;
+        color: #7f8c8d;
+        margin-top: 0.25rem;
+      }
+      .tournament-item-provider {
+        font-size: 0.8rem;
+        color: #95a5a6;
+      }
     </style>
 </head>
 <body>
@@ -35,7 +82,7 @@
                     <img src="/static/icon-192.svg" alt="Jim.Tennis Logo">
                 </a>
                 <div class="user-controls">
-                    <a href="/login" class="btn btn-sm">Login</a>
+                    <a href="/login" class="btn btn-sm">League Login</a>
                 </div>
             </div>
         </div>
@@ -44,21 +91,52 @@
     <main>
         <div class="container">
             <div style="text-align: center; padding: 3rem 1rem;">
-              <h1 style="font-size: 3rem; margin-bottom: 1rem; color: #2c3e50;">🎾 Jim.Tennis</h1>
+              <h1 style="font-size: 3rem; margin-bottom: 1rem; color: #2c3e50;">Jim.Tennis</h1>
               <p style="font-size: 1.25rem; color: #7f8c8d; margin-bottom: 3rem;">Tennis Tournament Management</p>
 
+              {{if .Tournaments}}
               <div class="card" style="max-width: 600px; margin: 0 auto;">
-                <h2 style="margin-bottom: 1.5rem;">View Tournaments</h2>
-                <p style="margin-bottom: 2rem; color: #555;">Browse and follow live tennis tournaments.</p>
-                <a href="/public" class="btn btn-primary" style="display: inline-block; background-color: #3498db; color: white; padding: 1rem 2rem; text-decoration: none; border-radius: 6px; font-size: 1.1rem; font-weight: 500; transition: background-color 0.3s;">
-                  View Public Tournaments →
-                </a>
+                <h2 style="margin-bottom: 1.5rem;">Tournaments</h2>
+                <ul class="tournament-list">
+                  {{range .Tournaments}}
+                  <li>
+                    <a href="/public/#/tournament/{{.CourthiveTournamentID}}" class="tournament-item">
+                      <div class="tournament-item-name">{{.Name}}</div>
+                      {{if or .StartDate .EndDate}}
+                      <div class="tournament-item-meta">
+                        {{.StartDate}}{{if and .StartDate .EndDate}} &ndash; {{end}}{{.EndDate}}
+                      </div>
+                      {{end}}
+                      {{if .ProviderName}}
+                      <div class="tournament-item-provider">{{.ProviderName}}</div>
+                      {{end}}
+                    </a>
+                  </li>
+                  {{end}}
+                </ul>
               </div>
+              {{else}}
+              <div class="card" style="max-width: 600px; margin: 0 auto;">
+                <h2 style="margin-bottom: 1.5rem;">Tournaments</h2>
+                <p style="color: #7f8c8d;">No tournaments currently listed.</p>
+              </div>
+              {{end}}
 
-              <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #e1e8ed;">
-                <p style="color: #95a5a6; font-size: 0.9rem;">
-                  Admin? <a href="/admin/league" style="color: #3498db;">Login here</a>
-                </p>
+              <div class="cards-row" style="margin-top: 1.5rem;">
+                <div class="card" style="text-align: center;">
+                  <h3 style="margin-bottom: 0.75rem; color: #2c3e50;">Tournament Admin</h3>
+                  <p style="margin-bottom: 1rem; color: #555; font-size: 0.95rem;">Manage draws, schedules, and scoring.</p>
+                  <a href="/tournaments" class="btn btn-primary" style="display: inline-block; background-color: #3498db; color: white; padding: 0.7rem 1.5rem; text-decoration: none; border-radius: 6px; font-size: 1rem; font-weight: 500; transition: background-color 0.3s;">
+                    Tournament Login
+                  </a>
+                </div>
+                <div class="card" style="text-align: center;">
+                  <h3 style="margin-bottom: 0.75rem; color: #2c3e50;">League Admin</h3>
+                  <p style="margin-bottom: 1rem; color: #555; font-size: 0.95rem;">Manage players, fixtures, and results.</p>
+                  <a href="/admin/league" class="btn btn-primary" style="display: inline-block; background-color: #3498db; color: white; padding: 0.7rem 1.5rem; text-decoration: none; border-radius: 6px; font-size: 1rem; font-weight: 500; transition: background-color 0.3s;">
+                    League Login
+                  </a>
+                </div>
               </div>
             </div>
         </div>

@@ -1,0 +1,43 @@
+{
+  "id": "WI-065",
+  "title": "Tournament provider and tournament repositories",
+  "description": "Create repository interfaces and SQLite implementations for tournament_providers and tournaments, following the existing repository pattern (e.g. division.go). Include standard CRUD plus domain-specific queries: visible tournaments ordered by display_order, tournaments by provider, and a FindByCourthiveTournamentID for sync upsert logic.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-064"],
+  "phase": "Phase 7: CourtHive Integration",
+  "acceptance_criteria": [
+    "TournamentProviderRepository interface with FindAll, FindByID, FindByAbbr, Create, Update, Delete",
+    "TournamentRepository interface with FindAll, FindByID, FindByProviderID, FindVisible, FindByCourthiveTournamentID, Create, Update, Delete",
+    "FindVisible returns tournaments where is_visible=TRUE ordered by display_order, start_date",
+    "SQLite implementations for both repositories",
+    "Repositories registered in the application wiring (main.go or wherever repositories are initialised)"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "internal/repository/tournament_provider.go",
+      "internal/repository/tournament.go"
+    ],
+    "files_to_modify": [
+      "cmd/jim-dot-tennis/main.go"
+    ],
+    "approach": [
+      "1. Follow the pattern from internal/repository/division.go",
+      "2. TournamentProviderRepository: standard CRUD + FindByAbbr for sync",
+      "3. TournamentRepository: standard CRUD + FindVisible (public index), FindByProviderID (admin list), FindByCourthiveTournamentID (upsert during sync)",
+      "4. Wire repositories into the app startup"
+    ]
+  },
+  "testing_requirements": [
+    "CRUD operations work correctly for both repositories",
+    "FindVisible only returns is_visible=TRUE tournaments in correct order",
+    "FindByAbbr returns nil/error for non-existent provider abbreviation",
+    "FindByCourthiveTournamentID returns nil/error for non-existent ID"
+  ],
+  "context": {
+    "user_story": "As a developer, I need data access layers for tournaments so the service and handler layers can read/write tournament data",
+    "related_docs": []
+  }
+}

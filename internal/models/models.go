@@ -340,6 +340,37 @@ type ProTennisPlayer struct {
 	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
 }
 
+// TournamentProvider represents a CourtHive provider organisation
+type TournamentProvider struct {
+	ID           uint      `json:"id" db:"id"`
+	Name         string    `json:"name" db:"name"`
+	ProviderAbbr string    `json:"provider_abbr" db:"provider_abbr"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+
+	// Not stored in DB — populated by queries
+	Tournaments    []Tournament `json:"tournaments,omitempty"`
+	TournamentCount int         `json:"tournament_count,omitempty" db:"tournament_count"`
+}
+
+// Tournament represents a tournament synced from CourtHive
+type Tournament struct {
+	ID                    uint      `json:"id" db:"id"`
+	Name                  string    `json:"name" db:"name"`
+	Description           string    `json:"description" db:"description"`
+	CourthiveTournamentID string    `json:"courthive_tournament_id" db:"courthive_tournament_id"`
+	ProviderID            uint      `json:"provider_id" db:"provider_id"`
+	StartDate             string    `json:"start_date" db:"start_date"`
+	EndDate               string    `json:"end_date" db:"end_date"`
+	IsVisible             bool      `json:"is_visible" db:"is_visible"`
+	DisplayOrder          int       `json:"display_order" db:"display_order"`
+	CreatedAt             time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at" db:"updated_at"`
+
+	// Not stored in DB — populated by joins
+	ProviderName string `json:"provider_name,omitempty" db:"provider_name"`
+}
+
 // FantasyMixedDoubles represents a fantasy mixed doubles match for player authentication
 type FantasyMixedDoubles struct {
 	ID           uint      `json:"id" db:"id"`

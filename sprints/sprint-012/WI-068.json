@@ -1,0 +1,54 @@
+{
+  "id": "WI-068",
+  "title": "Admin UI: tournament list, sync, and visibility management",
+  "description": "Create the main tournament admin page showing all tournaments grouped by provider, with a 'Sync from CourtHive' button per provider, visibility toggles, display order editing, and deep links to the CourtHive TMX admin for each tournament. This is the core admin interface for controlling which tournaments appear on the public index.",
+  "type": "feature",
+  "priority": "critical",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": ["WI-066", "WI-067"],
+  "phase": "Phase 7: CourtHive Integration",
+  "acceptance_criteria": [
+    "Admin route /admin/league/tournaments lists all tournaments grouped by provider",
+    "Each tournament row shows: name, dates, visibility status, display order, CourtHive ID (truncated)",
+    "Visibility toggle (checkbox or button) that updates is_visible via HTMX without full page reload",
+    "Display order editable inline or via edit form",
+    "'Sync from CourtHive' button per provider triggers SyncFromCourtHive and shows result summary (N new, N updated)",
+    "Each tournament row has a 'Manage in TMX' link opening /tournaments/#/tournament/{courthive_tournament_id}",
+    "Tournament status derived from dates: Upcoming (start > today), In Progress (start <= today <= end), Completed (end < today)",
+    "Can manually add a tournament (name, description, CourtHive ID, provider, visibility)",
+    "Can edit tournament details (name, description, display order, visibility)",
+    "Can delete a tournament entry",
+    "Routes protected by admin auth middleware"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/admin/tournaments.html",
+      "templates/admin/tournament_form.html"
+    ],
+    "files_to_modify": [
+      "internal/admin/tournaments.go",
+      "internal/admin/handler.go"
+    ],
+    "approach": [
+      "1. Tournament list page: query all tournaments with their providers, group in template",
+      "2. Sync button: POST /admin/league/tournaments/sync/{providerID} → calls SyncFromCourtHive → redirects with flash message",
+      "3. Visibility toggle: HTMX POST to /admin/league/tournaments/{id}/toggle-visibility, returns updated row",
+      "4. TMX deep link: anchor tag with target=_blank to /tournaments/#/tournament/{courthive_tournament_id}",
+      "5. Status badge: simple Go template logic comparing start_date/end_date to today",
+      "6. Manual add/edit form similar to other admin forms"
+    ]
+  },
+  "testing_requirements": [
+    "Sync button fetches from CourtHive and new tournaments appear in list",
+    "Toggling visibility updates the database and reflects immediately",
+    "TMX deep links are correct and open in new tab",
+    "Status badges show correct state based on dates",
+    "Manual add/edit/delete all work correctly",
+    "Page requires admin authentication"
+  ],
+  "context": {
+    "user_story": "As an admin, I want a single page where I can sync tournaments from CourtHive, control visibility, and jump into TMX for detailed tournament management",
+    "related_docs": []
+  }
+}

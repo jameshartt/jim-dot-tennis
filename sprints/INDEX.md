@@ -105,6 +105,14 @@ None currently active.
 - **Summary**: [sprint-011/SUMMARY.md](sprint-011/SUMMARY.md)
 - **Dependencies**: WI-059/060/061 depend on WI-057 (migration); WI-062 depends on WI-059+060; WI-063 depends on all
 
+### Sprint 012: CourtHive Tournament Integration
+- **Focus**: Integrate CourtHive tournament data into jim.tennis admin and public pages
+- **Items**: 7 (WI-064 to WI-070)
+- **Key Features**: Tournament provider CRUD, tournament sync from CourtHive calendar API, visibility toggle, dynamic index page with tournament links, TMX admin deep links
+- **Directory**: `sprint-012/`
+- **Summary**: [sprint-012/SUMMARY.md](sprint-012/SUMMARY.md)
+- **Dependencies**: WI-065 → WI-064; WI-066 → WI-065; WI-067/068 → WI-066; WI-069 → WI-065; WI-070 → WI-067+068+069
+
 ## Sprint Metrics
 
 | Sprint | Work Items | Completed | In Progress | Blocked | Success Rate |

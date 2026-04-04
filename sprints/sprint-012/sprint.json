@@ -1,0 +1,32 @@
+{
+  "sprint": {
+    "id": "sprint-012",
+    "name": "CourtHive Tournament Integration",
+    "goal": "Integrate CourtHive tournament data into jim.tennis with a provider/tournament CRUD admin interface, CourtHive sync, and a dynamic public-facing tournament listing on the index page",
+    "start_date": null,
+    "end_date": null,
+    "duration_weeks": 2,
+    "status": "planned",
+    "focus_areas": [
+      "Tournament provider management",
+      "Tournament CRUD and visibility control",
+      "CourtHive calendar API sync",
+      "Dynamic index page with tournament links",
+      "CourtHive admin (TMX) link from index"
+    ],
+    "phases_addressed": [
+      "Phase 7: CourtHive Integration"
+    ],
+    "work_items": [
+      "WI-064",
+      "WI-065",
+      "WI-066",
+      "WI-067",
+      "WI-068",
+      "WI-069",
+      "WI-070"
+    ],
+    "completed_items": [],
+    "deferred_items": {}
+  }
+}

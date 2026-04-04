@@ -29,11 +29,12 @@ type Handler struct {
 	seasonSetup       *SeasonSetupHandler
 	selectionOverview *SelectionOverviewHandler
 	divisions         *DivisionsHandler
+	tournaments       *TournamentsHandler
 }
 
 // New creates a new admin handler
-func New(db *database.DB, templateDir string) *Handler {
-	service := NewService(db)
+func New(db *database.DB, templateDir string, courthiveAPIURL string) *Handler {
+	service := NewService(db, courthiveAPIURL)
 
 	return &Handler{
 		service:           service,
@@ -53,6 +54,7 @@ func New(db *database.DB, templateDir string) *Handler {
 		seasonSetup:       NewSeasonSetupHandler(service, templateDir),
 		selectionOverview: NewSelectionOverviewHandler(service, templateDir),
 		divisions:         NewDivisionsHandler(service, templateDir),
+		tournaments:       NewTournamentsHandler(service, templateDir),
 	}
 }
 
@@ -114,6 +116,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	// Division management routes
 	adminMux.HandleFunc("/admin/league/divisions/", h.divisions.HandleDivisionEdit)
 	adminMux.HandleFunc("/admin/league/divisions/review", h.teams.HandleDivisionReview)
+
+	// Tournament management routes
+	adminMux.HandleFunc("/admin/league/tournaments", h.tournaments.HandleTournaments)
+	adminMux.HandleFunc("/admin/league/tournaments/providers", h.tournaments.HandleProviders)
+	adminMux.HandleFunc("/admin/league/tournaments/providers/", h.tournaments.HandleProviderEdit)
+	adminMux.HandleFunc("/admin/league/tournaments/edit/", h.tournaments.HandleTournamentEdit)
+	adminMux.HandleFunc("/admin/league/tournaments/toggle-visibility/", h.tournaments.HandleToggleVisibility)
+	adminMux.HandleFunc("/admin/league/tournaments/sync/", h.tournaments.HandleSync)
 
 	// Selection overview routes
 	adminMux.HandleFunc("/admin/league/selection-overview", h.selectionOverview.HandleSelectionOverview)

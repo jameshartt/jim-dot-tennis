@@ -1,0 +1,49 @@
+{
+  "id": "WI-067",
+  "title": "Admin UI: tournament providers CRUD",
+  "description": "Create admin pages for managing CourtHive tournament providers. A provider is simply a name and abbreviation (e.g. 'St Ann's Tennis Club' / 'STANN', 'Parks League Cup' / 'PLC'). The UI should be simple: a list page showing all providers, and an add/edit form. Each provider row should show the abbreviation and a link to manage its tournaments.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-066"],
+  "phase": "Phase 7: CourtHive Integration",
+  "acceptance_criteria": [
+    "Admin route /admin/league/tournaments/providers lists all providers",
+    "Each provider row shows name, abbreviation, tournament count, and edit/delete actions",
+    "Add provider form at /admin/league/tournaments/providers/new with name and abbreviation fields",
+    "Edit provider form at /admin/league/tournaments/providers/{id}/edit",
+    "Delete provider with confirmation (blocked if provider has tournaments)",
+    "Providers page linked from the admin sidebar/navigation",
+    "Routes protected by admin auth middleware"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "internal/admin/tournaments.go",
+      "templates/admin/tournament_providers.html",
+      "templates/admin/tournament_provider_form.html"
+    ],
+    "files_to_modify": [
+      "internal/admin/handler.go"
+    ],
+    "approach": [
+      "1. Create TournamentsHandler struct in internal/admin/tournaments.go",
+      "2. Register routes in handler.go under /admin/league/tournaments/",
+      "3. Provider list page: query all providers with tournament counts",
+      "4. Provider form: simple name + abbreviation fields",
+      "5. Delete guard: check if provider has any tournaments before allowing delete",
+      "6. Add navigation link to admin sidebar"
+    ]
+  },
+  "testing_requirements": [
+    "Can create a new provider with name and abbreviation",
+    "Cannot create provider with duplicate abbreviation",
+    "Can edit provider name and abbreviation",
+    "Cannot delete provider that has tournaments",
+    "Page requires admin authentication"
+  ],
+  "context": {
+    "user_story": "As an admin, I need to register CourtHive providers so I can sync and manage tournaments from each one",
+    "related_docs": []
+  }
+}

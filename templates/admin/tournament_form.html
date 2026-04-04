@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Tournament - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header { background: var(--primary-color); color: white; padding: 1rem 0; margin-bottom: 2rem; }
+        .breadcrumb { font-size: 0.9rem; margin-bottom: 0.5rem; }
+        .breadcrumb a { color: #ffffff80; text-decoration: none; }
+        .breadcrumb a:hover { color: white; }
+        .admin-content { padding: 0 1rem; }
+        .edit-form-card { background: white; border-radius: 8px; padding: 2rem; max-width: 700px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group.full-width { grid-column: 1 / -1; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: #495057; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #ced4da; border-radius: 4px; font-size: 1rem; box-sizing: border-box; }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        .form-check { display: flex; align-items: center; gap: 0.5rem; }
+        .form-check input { width: auto; }
+        .form-actions { display: flex; gap: 1rem; margin-top: 1.5rem; align-items: center; }
+        .btn-danger { background: #dc3545; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 4px; cursor: pointer; font-size: 0.95rem; }
+        .btn-danger:hover { background: #c82333; }
+        .spacer { flex: 1; }
+
+        @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin/league/dashboard">Admin Dashboard</a> &gt;
+                <a href="/admin/league/tournaments">Tournaments</a> &gt; Edit
+            </div>
+            <h1>Edit Tournament</h1>
+        </div>
+    </header>
+
+    <main class="admin-content">
+        <div class="container">
+            <div class="edit-form-card">
+                <h2>{{.Tournament.Name}}</h2>
+                <form method="POST" action="/admin/league/tournaments/edit/{{.Tournament.ID}}">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="name">Tournament Name *</label>
+                            <input type="text" id="name" name="name" value="{{.Tournament.Name}}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="provider_id">Provider</label>
+                            <select id="provider_id" name="provider_id" required>
+                                {{range .Providers}}
+                                <option value="{{.ID}}" {{if eq .ID $.Tournament.ProviderID}}selected{{end}}>{{.Name}}</option>
+                                {{end}}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="start_date">Start Date</label>
+                            <input type="date" id="start_date" name="start_date" value="{{.Tournament.StartDate}}">
+                        </div>
+                        <div class="form-group">
+                            <label for="end_date">End Date</label>
+                            <input type="date" id="end_date" name="end_date" value="{{.Tournament.EndDate}}">
+                        </div>
+                        <div class="form-group">
+                            <label for="courthive_tournament_id">CourtHive Tournament ID</label>
+                            <input type="text" id="courthive_tournament_id" name="courthive_tournament_id" value="{{.Tournament.CourthiveTournamentID}}">
+                        </div>
+                        <div class="form-group">
+                            <label for="display_order">Display Order</label>
+                            <input type="number" id="display_order" name="display_order" value="{{.Tournament.DisplayOrder}}" min="0">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="description">Description</label>
+                            <textarea id="description" name="description">{{.Tournament.Description}}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <div class="form-check">
+                                <input type="checkbox" id="is_visible" name="is_visible" {{if .Tournament.IsVisible}}checked{{end}}>
+                                <label for="is_visible" style="margin:0;font-weight:normal;">Visible on public page</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <a href="/admin/league/tournaments" class="btn btn-secondary">Cancel</a>
+                        <span class="spacer"></span>
+                        <button type="submit" name="action" value="delete" class="btn-danger" onclick="return confirm('Delete this tournament?')">Delete</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

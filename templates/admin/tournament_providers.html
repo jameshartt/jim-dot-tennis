@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tournament Providers - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        .admin-header { background: var(--primary-color); color: white; padding: 1rem 0; margin-bottom: 2rem; }
+        .breadcrumb { font-size: 0.9rem; margin-bottom: 0.5rem; }
+        .breadcrumb a { color: #ffffff80; text-decoration: none; }
+        .breadcrumb a:hover { color: white; }
+        .admin-content { padding: 0 1rem; }
+        .action-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
+        .providers-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .providers-table th, .providers-table td { padding: 1rem; text-align: left; border-bottom: 1px solid #e9ecef; }
+        .providers-table th { background: #f8f9fa; font-weight: 600; }
+        .providers-table tbody tr { transition: background-color 0.2s ease; }
+        .providers-table tbody tr:hover { background-color: #f8f9fa; }
+        .provider-name { font-weight: 600; color: var(--primary-color); }
+        .provider-abbr { font-family: monospace; background: #f1f3f5; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.9rem; }
+        .btn-actions { display: flex; gap: 0.5rem; }
+        .btn-edit, .btn-delete { padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-decoration: none; border: none; cursor: pointer; }
+        .btn-edit { background: #e9ecef; color: #495057; }
+        .btn-edit:hover { background: #dee2e6; }
+        .btn-delete { background: #f8d7da; color: #842029; }
+        .btn-delete:hover { background: #f5c2c7; }
+        .create-form { background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: none; }
+        .create-form h3 { margin: 0 0 1rem 0; color: var(--primary-color); }
+        .form-row { display: flex; gap: 1rem; align-items: end; flex-wrap: wrap; }
+        .form-group { flex: 1; min-width: 150px; }
+        .form-group label { display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.9rem; color: #495057; }
+        .form-group input { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #ced4da; border-radius: 4px; font-size: 0.95rem; box-sizing: border-box; }
+        .success-message { background: #d4edda; color: #155724; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1.5rem; border: 1px solid #c3e6cb; }
+        .error-message { background: #f8d7da; color: #842029; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1.5rem; border: 1px solid #f5c2c7; }
+        .count-badge { background: #e9ecef; padding: 0.15rem 0.5rem; border-radius: 10px; font-size: 0.85rem; color: #495057; }
+        .no-providers { text-align: center; padding: 3rem; color: #6c757d; }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin/league/dashboard">Admin Dashboard</a> &gt;
+                <a href="/admin/league/tournaments">Tournaments</a> &gt; Providers
+            </div>
+            <h1>Tournament Providers</h1>
+        </div>
+    </header>
+
+    <main class="admin-content">
+        <div class="container">
+            <div class="action-bar">
+                <h2>CourtHive Providers <span class="count-badge">{{len .Providers}}</span></h2>
+                <button type="button" class="btn-save" onclick="document.getElementById('create-form').style.display='block'">+ Add Provider</button>
+            </div>
+
+            {{if .Success}}<div class="success-message">{{.Success}}</div>{{end}}
+            {{if .Error}}<div class="error-message">{{.Error}}</div>{{end}}
+
+            <div id="create-form" class="create-form">
+                <h3>Add New Provider</h3>
+                <form method="POST" action="/admin/league/tournaments/providers">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="name">Provider Name</label>
+                            <input type="text" id="name" name="name" placeholder="e.g. St Ann's Tennis Club" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="provider_abbr">Abbreviation</label>
+                            <input type="text" id="provider_abbr" name="provider_abbr" placeholder="e.g. STANN" required>
+                        </div>
+                        <button type="submit" class="btn-save">Create</button>
+                        <button type="button" style="padding:0.6rem 1rem;border:1px solid #ced4da;border-radius:4px;background:white;cursor:pointer;" onclick="document.getElementById('create-form').style.display='none'">Cancel</button>
+                    </div>
+                </form>
+            </div>
+
+            {{if .Providers}}
+            <table class="providers-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Abbreviation</th>
+                        <th>Tournaments</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Providers}}
+                    <tr>
+                        <td><span class="provider-name">{{.Name}}</span></td>
+                        <td><span class="provider-abbr">{{.ProviderAbbr}}</span></td>
+                        <td><span class="count-badge">{{.TournamentCount}}</span></td>
+                        <td>
+                            <div class="btn-actions">
+                                <a href="/admin/league/tournaments/providers/{{.ID}}" class="btn-edit">Edit</a>
+                                <form method="POST" action="/admin/league/tournaments/providers/{{.ID}}" style="display:inline;" onsubmit="return confirm('Delete provider {{.Name}}?')">
+                                    <input type="hidden" name="action" value="delete">
+                                    <button type="submit" class="btn-delete">Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+            {{else}}
+            <div class="no-providers">
+                <h3>No Providers</h3>
+                <p>Add a CourtHive provider to get started syncing tournaments.</p>
+            </div>
+            {{end}}
+        </div>
+    </main>
+</body>
+</html>

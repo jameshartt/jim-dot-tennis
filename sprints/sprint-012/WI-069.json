@@ -1,0 +1,51 @@
+{
+  "id": "WI-069",
+  "title": "Dynamic index page with visible tournaments and CourtHive links",
+  "description": "Update the public index page (/) to dynamically display visible tournaments from the database, add a Tournament Admin link to the CourtHive TMX interface, and rename the existing login button to 'League Login'. The index handler must query visible tournaments and pass them to the template. Each tournament links to /public/#/tournament/{courthive_tournament_id}. The page should handle zero visible tournaments gracefully.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-065"],
+  "phase": "Phase 7: CourtHive Integration",
+  "acceptance_criteria": [
+    "Index page (/) queries visible tournaments ordered by display_order, then start_date",
+    "Each visible tournament rendered as a card/link with name, dates (if present), and status badge",
+    "Tournament links go to /public/#/tournament/{courthive_tournament_id}",
+    "Tournaments grouped by provider if multiple providers have visible tournaments, flat list if only one",
+    "Zero tournaments shows a friendly 'No tournaments currently listed' message",
+    "New 'Tournament Admin' card/link pointing to /tournaments (CourtHive TMX) — clearly labelled as tournament management login",
+    "Existing header 'Login' button renamed to 'League Login'",
+    "Existing footer 'Admin? Login here' renamed to 'League Admin? Login here'",
+    "Index Go handler updated to query tournaments and pass to template",
+    "Page remains fast — single DB query, no external API calls on page load"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "templates/index.html",
+      "cmd/jim-dot-tennis/main.go"
+    ],
+    "approach": [
+      "1. Update the / route handler to query visible tournaments via the service/repository",
+      "2. Pass tournaments slice to the template",
+      "3. Replace the static 'View Public Tournaments' card with a dynamic tournament list",
+      "4. Add a second card for 'Tournament Admin' linking to /tournaments",
+      "5. Rename login text in header and footer",
+      "6. Add date formatting helper to template functions if not already present",
+      "7. Derive status (Upcoming/In Progress/Completed) in the handler or template"
+    ]
+  },
+  "testing_requirements": [
+    "Index page renders with zero visible tournaments (shows friendly message)",
+    "Index page renders visible tournaments with correct links",
+    "Hidden tournaments do not appear on the index page",
+    "Tournament Admin link points to /tournaments",
+    "Login button says 'League Login'",
+    "Footer admin link says 'League Admin? Login here'",
+    "Page loads quickly with no external API calls"
+  ],
+  "context": {
+    "user_story": "As a visitor to jim.tennis, I want to see which tournaments are currently running and quickly access them, and as a tournament admin I want easy access to CourtHive TMX",
+    "related_docs": []
+  }
+}

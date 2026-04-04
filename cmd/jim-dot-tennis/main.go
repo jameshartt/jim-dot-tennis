@@ -12,6 +12,7 @@ import (
 	"jim-dot-tennis/internal/admin"
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/database"
+	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/players"
 	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/webpush"
@@ -74,7 +75,11 @@ func main() {
 	authHandler := auth.NewHandler(authService, templateDir, "/admin/league")
 
 	// Set up admin handlers
-	adminHandler := admin.New(db, templateDir)
+	courthiveAPIURL := os.Getenv("COURTHIVE_API_URL")
+	if courthiveAPIURL == "" {
+		courthiveAPIURL = "http://courthive-server:8383"
+	}
+	adminHandler := admin.New(db, templateDir, courthiveAPIURL)
 
 	// Set up players handlers
 	playersHandler := players.New(db, templateDir)
@@ -114,13 +119,23 @@ func main() {
 	playersHandler.RegisterPublicRoutes(mux)
 
 	// Public routes
+	tournamentRepo := repository.NewTournamentRepository(db)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			log.Printf("Not found: %s", r.URL.Path)
 			http.NotFound(w, r)
 			return
 		}
-		if err := templates.ExecuteTemplate(w, "index.html", nil); err != nil {
+
+		var visibleTournaments []models.Tournament
+		if tournaments, err := tournamentRepo.FindVisible(r.Context()); err == nil {
+			visibleTournaments = tournaments
+		}
+
+		data := map[string]interface{}{
+			"Tournaments": visibleTournaments,
+		}
+		if err := templates.ExecuteTemplate(w, "index.html", data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	})

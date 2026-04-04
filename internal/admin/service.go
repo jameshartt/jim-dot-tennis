@@ -25,29 +25,35 @@ type Service struct {
 	fantasyRepository       repository.FantasyMixedDoublesRepository
 	tennisPlayerRepository  repository.ProTennisPlayerRepository
 	availabilityRepository  repository.AvailabilityRepository
-	venueOverrideRepository repository.VenueOverrideRepository
-	weatherService          *services.WeatherService
-	teamEligibilityService  *TeamEligibilityService
+	venueOverrideRepository      repository.VenueOverrideRepository
+	tournamentProviderRepository repository.TournamentProviderRepository
+	tournamentRepository         repository.TournamentRepository
+	weatherService               *services.WeatherService
+	teamEligibilityService       *TeamEligibilityService
+	courthiveAPIURL              string
 }
 
 // NewService creates a new admin service
-func NewService(db *database.DB) *Service {
+func NewService(db *database.DB, courthiveAPIURL string) *Service {
 	service := &Service{
-		db:                      db,
-		loginAttemptRepository:  repository.NewLoginAttemptRepository(db),
-		playerRepository:        repository.NewPlayerRepository(db),
-		clubRepository:          repository.NewClubRepository(db),
-		fixtureRepository:       repository.NewFixtureRepository(db),
-		teamRepository:          repository.NewTeamRepository(db),
-		weekRepository:          repository.NewWeekRepository(db),
-		divisionRepository:      repository.NewDivisionRepository(db),
-		seasonRepository:        repository.NewSeasonRepository(db),
-		matchupRepository:       repository.NewMatchupRepository(db),
-		fantasyRepository:       repository.NewFantasyMixedDoublesRepository(db),
-		tennisPlayerRepository:  repository.NewProTennisPlayerRepository(db),
-		availabilityRepository:  repository.NewAvailabilityRepository(db),
-		venueOverrideRepository: repository.NewVenueOverrideRepository(db),
-		weatherService:          services.NewWeatherService(),
+		db:                           db,
+		loginAttemptRepository:       repository.NewLoginAttemptRepository(db),
+		playerRepository:             repository.NewPlayerRepository(db),
+		clubRepository:               repository.NewClubRepository(db),
+		fixtureRepository:            repository.NewFixtureRepository(db),
+		teamRepository:               repository.NewTeamRepository(db),
+		weekRepository:               repository.NewWeekRepository(db),
+		divisionRepository:           repository.NewDivisionRepository(db),
+		seasonRepository:             repository.NewSeasonRepository(db),
+		matchupRepository:            repository.NewMatchupRepository(db),
+		fantasyRepository:            repository.NewFantasyMixedDoublesRepository(db),
+		tennisPlayerRepository:       repository.NewProTennisPlayerRepository(db),
+		availabilityRepository:       repository.NewAvailabilityRepository(db),
+		venueOverrideRepository:      repository.NewVenueOverrideRepository(db),
+		tournamentProviderRepository: repository.NewTournamentProviderRepository(db),
+		tournamentRepository:         repository.NewTournamentRepository(db),
+		weatherService:               services.NewWeatherService(),
+		courthiveAPIURL:              courthiveAPIURL,
 	}
 
 	// Initialize team eligibility service with reference to the main service

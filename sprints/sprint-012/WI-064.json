@@ -1,0 +1,45 @@
+{
+  "id": "WI-064",
+  "title": "Database migration: tournament_providers and tournaments tables",
+  "description": "Create the database tables for tracking CourtHive tournament providers and their tournaments. Providers map to CourtHive provider abbreviations (e.g. St Ann's, Parks League Cup). Tournaments reference a provider and store the CourtHive tournament ID, with a visibility flag (hidden by default) to control what appears on the public index.",
+  "type": "feature",
+  "priority": "critical",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 7: CourtHive Integration",
+  "acceptance_criteria": [
+    "New migration creates tournament_providers table with id, name, provider_abbr (unique), created_at, updated_at",
+    "New migration creates tournaments table with id, name, description, courthive_tournament_id (unique), provider_id (FK), start_date, end_date, is_visible (default FALSE), display_order (default 0), created_at, updated_at",
+    "Down migration drops both tables in correct order (tournaments first, then providers)",
+    "Migration runs cleanly on existing database",
+    "Model structs added to internal/models/models.go: TournamentProvider and Tournament"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "migrations/022_create_tournament_tables.up.sql",
+      "migrations/022_create_tournament_tables.down.sql"
+    ],
+    "files_to_modify": [
+      "internal/models/models.go"
+    ],
+    "approach": [
+      "1. Create up migration with both tables, foreign key from tournaments.provider_id to tournament_providers.id",
+      "2. Add index on tournaments.is_visible for efficient public page queries",
+      "3. Add index on tournaments.courthive_tournament_id for sync lookups",
+      "4. Create down migration dropping tables in dependency order",
+      "5. Add TournamentProvider struct: ID, Name, ProviderAbbr, CreatedAt, UpdatedAt",
+      "6. Add Tournament struct: ID, Name, Description, CourthiveTournamentID, ProviderID, StartDate, EndDate, IsVisible, DisplayOrder, CreatedAt, UpdatedAt"
+    ]
+  },
+  "testing_requirements": [
+    "Migration applies cleanly to existing database",
+    "Down migration cleanly drops tables",
+    "Foreign key constraint enforced (cannot insert tournament with invalid provider_id)",
+    "Unique constraint on provider_abbr and courthive_tournament_id enforced"
+  ],
+  "context": {
+    "user_story": "As a system foundation, we need tables to store CourtHive provider and tournament data so the admin can manage which tournaments are publicly visible",
+    "related_docs": []
+  }
+}

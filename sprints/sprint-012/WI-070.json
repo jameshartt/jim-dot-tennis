@@ -1,0 +1,47 @@
+{
+  "id": "WI-070",
+  "title": "E2E tests for tournament provider and tournament management",
+  "description": "Add Playwright E2E tests covering the full tournament management workflow: provider CRUD, tournament CRUD, visibility toggle, and the dynamic index page rendering. Since the CourtHive API won't be available in the test environment, test the sync feature by seeding tournament data directly and verifying the admin UI displays it correctly. Also test that the index page correctly shows/hides tournaments based on visibility.",
+  "type": "test",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": ["WI-067", "WI-068", "WI-069"],
+  "phase": "Phase 7: CourtHive Integration",
+  "acceptance_criteria": [
+    "Test seed data includes tournament_providers and tournaments entries",
+    "Test: admin can create, edit, and delete a tournament provider",
+    "Test: admin can create, edit, and delete a tournament",
+    "Test: admin can toggle tournament visibility",
+    "Test: visible tournaments appear on the public index page with correct links",
+    "Test: hidden tournaments do not appear on the public index page",
+    "Test: Tournament Admin link appears on index page and points to /tournaments",
+    "Test: Login button text says 'League Login'",
+    "Tests follow existing patterns in tests/e2e/admin/ and tests/e2e/helpers/"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/admin/tournaments.spec.ts"
+    ],
+    "files_to_modify": [
+      "tests/e2e/fixtures/seed.sql"
+    ],
+    "approach": [
+      "1. Add tournament seed data to seed.sql: 2 providers, 3 tournaments (2 visible, 1 hidden)",
+      "2. Create tournaments.spec.ts following existing admin spec patterns",
+      "3. Test provider CRUD flow",
+      "4. Test tournament CRUD and visibility toggle flow",
+      "5. Test index page rendering from a non-authenticated context",
+      "6. Skip sync-from-CourtHive test (no CourtHive in test env) — or mock at network level if feasible"
+    ]
+  },
+  "testing_requirements": [
+    "All tests pass in the Docker-based E2E environment",
+    "Tests are independent and don't rely on test execution order",
+    "Seed data doesn't break existing tests"
+  ],
+  "context": {
+    "user_story": "As a developer, I need confidence that the tournament management features work end-to-end before deploying",
+    "related_docs": []
+  }
+}

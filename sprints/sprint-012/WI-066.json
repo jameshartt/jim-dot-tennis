@@ -1,0 +1,69 @@
+{
+  "id": "WI-066",
+  "title": "Tournament service layer with CourtHive sync",
+  "description": "Create service methods for tournament providers and tournaments, including a SyncFromCourtHive method that calls the CourtHive calendar API (POST /api/courthive/provider/calendar) for a given provider abbreviation, parses the response, and upserts tournaments into the local database. New tournaments default to is_visible=FALSE. Existing tournaments get their name, start_date, and end_date updated. Tournaments that no longer appear in the CourtHive calendar are left untouched (not deleted).",
+  "type": "feature",
+  "priority": "critical",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": ["WI-065"],
+  "phase": "Phase 7: CourtHive Integration",
+  "acceptance_criteria": [
+    "Service methods for provider CRUD (delegating to repository)",
+    "Service methods for tournament CRUD (delegating to repository)",
+    "SyncFromCourtHive(providerAbbr string) method that calls POST /api/courthive/provider/calendar",
+    "Sync correctly parses the calendar response JSON (tournaments array with tournamentId, tournament.tournamentName, tournament.startDate, tournament.endDate)",
+    "New tournaments inserted with is_visible=FALSE, display_order=0",
+    "Existing tournaments (matched by courthive_tournament_id) get name/dates updated, visibility unchanged",
+    "Sync returns a summary: count of new, updated, and unchanged tournaments",
+    "CourtHive API base URL is configurable via environment variable (COURTHIVE_API_URL, default http://courthive-server:8383)",
+    "HTTP client has reasonable timeout (10 seconds)",
+    "Errors from CourtHive API are wrapped with context and surfaced to the handler"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "internal/admin/service_tournaments.go"
+    ],
+    "files_to_modify": [
+      "internal/admin/service.go"
+    ],
+    "approach": [
+      "1. Add TournamentProviderRepository and TournamentRepository to the admin Service struct",
+      "2. Create service_tournaments.go following the pattern of service_divisions.go",
+      "3. For SyncFromCourtHive:",
+      "   a. Build request: POST to {COURTHIVE_API_URL}/provider/calendar with JSON body {providerAbbr: abbr}",
+      "   b. Parse response: extract tournaments[].tournamentId, tournaments[].tournament.{tournamentName, startDate, endDate}",
+      "   c. For each tournament, check if courthive_tournament_id exists in local DB",
+      "   d. If new: insert with provider_id, is_visible=FALSE",
+      "   e. If existing: update name and dates only",
+      "4. Add COURTHIVE_API_URL env var reading in main.go, pass to service"
+    ],
+    "courthive_calendar_response_shape": {
+      "success": true,
+      "calendar": {
+        "provider": {},
+        "tournaments": [
+          {
+            "tournamentId": "uuid-string",
+            "tournament": {
+              "tournamentName": "St Ann's Summer 2026",
+              "startDate": "2026-06-01",
+              "endDate": "2026-06-15"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "testing_requirements": [
+    "Sync inserts new tournaments with correct defaults",
+    "Sync updates existing tournaments without changing visibility",
+    "Sync handles empty calendar gracefully",
+    "Sync handles CourtHive API errors gracefully (returns error, no partial writes)",
+    "HTTP timeout works correctly"
+  ],
+  "context": {
+    "user_story": "As an admin, I want to pull the latest tournament list from CourtHive so I don't have to manually enter tournament IDs",
+    "related_docs": []
+  }
+}
