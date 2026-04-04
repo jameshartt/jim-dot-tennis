@@ -13,6 +13,7 @@ import (
 type PlayerRepository interface {
 	// Basic CRUD operations
 	FindAll(ctx context.Context) ([]models.Player, error)
+	FindAllIncludingInactive(ctx context.Context) ([]models.Player, error)
 	FindByID(ctx context.Context, id string) (*models.Player, error)
 	Create(ctx context.Context, player *models.Player) error
 	Update(ctx context.Context, player *models.Player) error
@@ -89,12 +90,24 @@ func NewPlayerRepository(db *database.DB) PlayerRepository {
 	}
 }
 
-// FindAll retrieves all players ordered by last name, first name
+// FindAll retrieves all active players ordered by last name, first name
 func (r *playerRepository) FindAll(ctx context.Context) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, created_at, updated_at
-		FROM players 
+		SELECT id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, is_active, created_at, updated_at
+		FROM players
+		WHERE is_active = TRUE
+		ORDER BY last_name ASC, first_name ASC
+	`)
+	return players, err
+}
+
+// FindAllIncludingInactive retrieves all players regardless of active status
+func (r *playerRepository) FindAllIncludingInactive(ctx context.Context) ([]models.Player, error) {
+	var players []models.Player
+	err := r.db.SelectContext(ctx, &players, `
+		SELECT id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, is_active, created_at, updated_at
+		FROM players
 		ORDER BY last_name ASC, first_name ASC
 	`)
 	return players, err
@@ -104,7 +117,7 @@ func (r *playerRepository) FindAll(ctx context.Context) ([]models.Player, error)
 func (r *playerRepository) FindByID(ctx context.Context, id string) (*models.Player, error) {
 	var player models.Player
 	err := r.db.GetContext(ctx, &player, `
-		SELECT id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, created_at, updated_at
+		SELECT id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, is_active, created_at, updated_at
 		FROM players 
 		WHERE id = ?
 	`, id)
@@ -121,8 +134,8 @@ func (r *playerRepository) Create(ctx context.Context, player *models.Player) er
 	player.UpdatedAt = now
 
 	_, err := r.db.NamedExecContext(ctx, `
-		INSERT INTO players (id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, created_at, updated_at)
-		VALUES (:id, :first_name, :last_name, :preferred_name, :gender, :reporting_privacy, :club_id, :fantasy_match_id, :created_at, :updated_at)
+		INSERT INTO players (id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, is_active, created_at, updated_at)
+		VALUES (:id, :first_name, :last_name, :preferred_name, :gender, :reporting_privacy, :club_id, :fantasy_match_id, :is_active, :created_at, :updated_at)
 	`, player)
 
 	return err
@@ -133,9 +146,10 @@ func (r *playerRepository) Update(ctx context.Context, player *models.Player) er
 	player.UpdatedAt = time.Now()
 
 	_, err := r.db.NamedExecContext(ctx, `
-		UPDATE players 
+		UPDATE players
 		SET first_name = :first_name, last_name = :last_name, preferred_name = :preferred_name, gender = :gender,
-		    reporting_privacy = :reporting_privacy, club_id = :club_id, fantasy_match_id = :fantasy_match_id, updated_at = :updated_at
+		    reporting_privacy = :reporting_privacy, club_id = :club_id, fantasy_match_id = :fantasy_match_id,
+		    is_active = :is_active, updated_at = :updated_at
 		WHERE id = :id
 	`, player)
 
@@ -148,13 +162,13 @@ func (r *playerRepository) Delete(ctx context.Context, id string) error {
 	return err
 }
 
-// FindByClub retrieves all players for a specific club
+// FindByClub retrieves all active players for a specific club
 func (r *playerRepository) FindByClub(ctx context.Context, clubID uint) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, created_at, updated_at
-		FROM players 
-		WHERE club_id = ?
+		SELECT id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, is_active, created_at, updated_at
+		FROM players
+		WHERE club_id = ? AND is_active = TRUE
 		ORDER BY last_name ASC, first_name ASC
 	`, clubID)
 	return players, err
@@ -164,7 +178,7 @@ func (r *playerRepository) FindByClub(ctx context.Context, clubID uint) ([]model
 func (r *playerRepository) FindByName(ctx context.Context, firstName, lastName string) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, created_at, updated_at
+		SELECT id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, is_active, created_at, updated_at
 		FROM players 
 		WHERE first_name = ? AND last_name = ?
 		ORDER BY created_at ASC
@@ -177,7 +191,7 @@ func (r *playerRepository) FindByNameLike(ctx context.Context, name string) ([]m
 	var players []models.Player
 	searchPattern := "%" + name + "%"
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, created_at, updated_at
+		SELECT id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, is_active, created_at, updated_at
 		FROM players 
 		WHERE first_name LIKE ? OR last_name LIKE ? OR (first_name || ' ' || last_name) LIKE ?
 		ORDER BY last_name ASC, first_name ASC
@@ -185,14 +199,14 @@ func (r *playerRepository) FindByNameLike(ctx context.Context, name string) ([]m
 	return players, err
 }
 
-// FindByTeam retrieves all players in a specific team for a season
+// FindByTeam retrieves all active players in a specific team for a season
 func (r *playerRepository) FindByTeam(ctx context.Context, teamID uint, seasonID uint) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy, p.club_id, p.fantasy_match_id, p.created_at, p.updated_at
+		SELECT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy, p.club_id, p.fantasy_match_id, p.is_active, p.created_at, p.updated_at
 		FROM players p
 		INNER JOIN player_teams pt ON p.id = pt.player_id
-		WHERE pt.team_id = ? AND pt.season_id = ?
+		WHERE pt.team_id = ? AND pt.season_id = ? AND p.is_active = TRUE
 		ORDER BY p.last_name ASC, p.first_name ASC
 	`, teamID, seasonID)
 	return players, err
@@ -232,46 +246,46 @@ func (r *playerRepository) IsPlayerInTeam(ctx context.Context, playerID string, 
 	return count > 0, err
 }
 
-// FindCaptains retrieves all players who are captains
+// FindCaptains retrieves all active players who are captains
 func (r *playerRepository) FindCaptains(ctx context.Context) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
 		SELECT DISTINCT p.id, p.first_name, p.last_name, p.club_id, p.created_at, p.updated_at
 		FROM players p
 		INNER JOIN captains c ON p.id = c.player_id
-		WHERE c.is_active = TRUE
+		WHERE c.is_active = TRUE AND p.is_active = TRUE
 		ORDER BY p.last_name ASC, p.first_name ASC
 	`)
 	return players, err
 }
 
-// FindCaptainsByRole retrieves all players who are captains with a specific role
+// FindCaptainsByRole retrieves all active players who are captains with a specific role
 func (r *playerRepository) FindCaptainsByRole(ctx context.Context, role models.CaptainRole) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
 		SELECT DISTINCT p.id, p.first_name, p.last_name, p.club_id, p.created_at, p.updated_at
 		FROM players p
 		INNER JOIN captains c ON p.id = c.player_id
-		WHERE c.role = ? AND c.is_active = TRUE
+		WHERE c.role = ? AND c.is_active = TRUE AND p.is_active = TRUE
 		ORDER BY p.last_name ASC, p.first_name ASC
 	`, string(role))
 	return players, err
 }
 
-// FindCaptainsByTeam retrieves all captains for a specific team and season
+// FindCaptainsByTeam retrieves all active captains for a specific team and season
 func (r *playerRepository) FindCaptainsByTeam(ctx context.Context, teamID uint, seasonID uint) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
 		SELECT p.id, p.first_name, p.last_name, p.club_id, p.created_at, p.updated_at
 		FROM players p
 		INNER JOIN captains c ON p.id = c.player_id
-		WHERE c.team_id = ? AND c.season_id = ? AND c.is_active = TRUE
+		WHERE c.team_id = ? AND c.season_id = ? AND c.is_active = TRUE AND p.is_active = TRUE
 		ORDER BY p.last_name ASC, p.first_name ASC
 	`, teamID, seasonID)
 	return players, err
 }
 
-// FindCaptainsByClub retrieves all captains for a specific club and season
+// FindCaptainsByClub retrieves all active captains for a specific club and season
 func (r *playerRepository) FindCaptainsByClub(ctx context.Context, clubID uint, seasonID uint) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
@@ -279,7 +293,7 @@ func (r *playerRepository) FindCaptainsByClub(ctx context.Context, clubID uint, 
 		FROM players p
 		INNER JOIN captains c ON p.id = c.player_id
 		INNER JOIN teams t ON c.team_id = t.id
-		WHERE t.club_id = ? AND c.season_id = ? AND c.is_active = TRUE
+		WHERE t.club_id = ? AND c.season_id = ? AND c.is_active = TRUE AND p.is_active = TRUE
 		ORDER BY p.last_name ASC, p.first_name ASC
 	`, clubID, seasonID)
 	return players, err
@@ -326,14 +340,14 @@ func (r *playerRepository) FindFixturesAsDayCaptain(ctx context.Context, playerI
 	return fixtures, err
 }
 
-// SearchPlayers searches for players by name
+// SearchPlayers searches for active players by name
 func (r *playerRepository) SearchPlayers(ctx context.Context, query string) ([]models.Player, error) {
 	var players []models.Player
 	searchPattern := "%" + query + "%"
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, created_at, updated_at
-		FROM players 
-		WHERE first_name LIKE ? OR last_name LIKE ?
+		SELECT id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, is_active, created_at, updated_at
+		FROM players
+		WHERE is_active = TRUE AND (first_name LIKE ? OR last_name LIKE ?)
 		ORDER BY last_name ASC, first_name ASC
 	`, searchPattern, searchPattern)
 	return players, err
@@ -343,7 +357,7 @@ func (r *playerRepository) SearchPlayers(ctx context.Context, query string) ([]m
 func (r *playerRepository) FindActivePlayersInSeason(ctx context.Context, seasonID uint) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT DISTINCT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy, p.club_id, p.fantasy_match_id, p.created_at, p.updated_at
+		SELECT DISTINCT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy, p.club_id, p.fantasy_match_id, p.is_active, p.created_at, p.updated_at
 		FROM players p
 		INNER JOIN player_teams pt ON p.id = pt.player_id
 		WHERE pt.season_id = ? AND pt.is_active = TRUE
@@ -356,7 +370,7 @@ func (r *playerRepository) FindActivePlayersInSeason(ctx context.Context, season
 func (r *playerRepository) FindInactivePlayersInSeason(ctx context.Context, seasonID uint) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy, p.club_id, p.fantasy_match_id, p.created_at, p.updated_at
+		SELECT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy, p.club_id, p.fantasy_match_id, p.is_active, p.created_at, p.updated_at
 		FROM players p
 		WHERE p.id NOT IN (
 			SELECT DISTINCT player_id 
@@ -373,7 +387,7 @@ func (r *playerRepository) FindInactivePlayersInSeason(ctx context.Context, seas
 func (r *playerRepository) FindPlayersWhoPlayedForClubInSeason(ctx context.Context, clubID uint, seasonID uint) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT DISTINCT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy, p.club_id, p.fantasy_match_id, p.created_at, p.updated_at
+		SELECT DISTINCT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy, p.club_id, p.fantasy_match_id, p.is_active, p.created_at, p.updated_at
 		FROM players p
 		INNER JOIN matchup_players mp ON mp.player_id = p.id
 		INNER JOIN matchups m ON m.id = mp.matchup_id
@@ -391,7 +405,7 @@ func (r *playerRepository) FindPlayersWhoPlayedForClubInSeason(ctx context.Conte
 func (r *playerRepository) FindPlayersWhoPlayedForTeamInSeason(ctx context.Context, teamID uint, seasonID uint) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT DISTINCT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy, p.club_id, p.fantasy_match_id, p.created_at, p.updated_at
+		SELECT DISTINCT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy, p.club_id, p.fantasy_match_id, p.is_active, p.created_at, p.updated_at
 		FROM players p
 		INNER JOIN matchup_players mp ON mp.player_id = p.id
 		INNER JOIN matchups m ON m.id = mp.matchup_id
@@ -407,7 +421,7 @@ func (r *playerRepository) FindPlayersWhoPlayedForTeamInSeason(ctx context.Conte
 func (r *playerRepository) FindPlayersWhoPlayedForClubDivisionInSeason(ctx context.Context, clubID uint, divisionID uint, seasonID uint) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT DISTINCT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy, p.club_id, p.fantasy_match_id, p.created_at, p.updated_at
+		SELECT DISTINCT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy, p.club_id, p.fantasy_match_id, p.is_active, p.created_at, p.updated_at
 		FROM players p
 		INNER JOIN matchup_players mp ON mp.player_id = p.id
 		INNER JOIN matchups m ON m.id = mp.matchup_id
@@ -485,13 +499,13 @@ func (r *playerRepository) CountAll(ctx context.Context) (int, error) {
 	return count, err
 }
 
-// FindByFantasyMatchID retrieves a player by their fantasy match ID
+// FindByFantasyMatchID retrieves an active player by their fantasy match ID
 func (r *playerRepository) FindByFantasyMatchID(ctx context.Context, fantasyMatchID uint) (*models.Player, error) {
 	var player models.Player
 	err := r.db.GetContext(ctx, &player, `
-		SELECT id, first_name, last_name, preferred_name, club_id, fantasy_match_id, created_at, updated_at
-		FROM players 
-		WHERE fantasy_match_id = ?
+		SELECT id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, is_active, created_at, updated_at
+		FROM players
+		WHERE fantasy_match_id = ? AND is_active = TRUE
 	`, fantasyMatchID)
 	if err != nil {
 		return nil, err

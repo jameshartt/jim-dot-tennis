@@ -1,0 +1,60 @@
+{
+  "id": "WI-060",
+  "title": "Filter inactive players from all active queries",
+  "description": "Update all player-facing queries throughout the application to exclude inactive players by default. This includes team management lists, availability views, fixture player selection, captain assignment, and any dropdowns or player pickers. Historical views (match results, past fixture details, points tables for completed seasons) must continue to show inactive players.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-057"],
+  "phase": "Phase 6: Season Management & Data Integrity",
+  "acceptance_criteria": [
+    "GetPlayers() and FindByClub() exclude is_active = FALSE players by default",
+    "Team management page does not show inactive players",
+    "Player availability page does not show inactive players",
+    "Fixture player selection does not offer inactive players",
+    "Captain assignment dropdown does not include inactive players",
+    "Admin player list has a toggle/filter to show inactive players",
+    "Match result views still show inactive players who participated (via matchup_players join)",
+    "Fixture detail for past fixtures still shows inactive players who were selected",
+    "Fantasy auth token login fails for inactive players",
+    "GetPlayerByID() still returns inactive players (needed for historical display)",
+    "No query changes to matchup_players or historical data queries"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/repository/player.go",
+      "internal/admin/service_players.go",
+      "internal/admin/players.go",
+      "internal/admin/selection.go",
+      "internal/admin/teams.go",
+      "internal/auth/middleware.go",
+      "internal/players/availability.go"
+    ],
+    "approach": [
+      "1. Audit all queries in player.go that return player lists",
+      "2. Add WHERE players.is_active = TRUE to: FindAll, FindByClub, FindByTeam, FindBySeason, FindCaptainsByClub, FindCaptainsByTeam",
+      "3. Do NOT add the filter to: FindByID, FindByMatchup (historical queries)",
+      "4. Add optional includeInactive parameter or separate methods for admin views",
+      "5. Update fantasy token auth to check is_active before allowing login",
+      "6. Add 'Show inactive' toggle on admin player list page",
+      "7. Verify match result display still works with inactive player data"
+    ]
+  },
+  "testing_requirements": [
+    "E2E: Inactive player does not appear in admin player list (default view)",
+    "E2E: Admin can toggle to see inactive players",
+    "E2E: Inactive player does not appear in team management player list",
+    "E2E: Inactive player does not appear in fixture player selection",
+    "E2E: Inactive player still appears in completed fixture match results",
+    "E2E: Fantasy token login fails for inactive player",
+    "Integration test: FindAll excludes inactive players",
+    "Integration test: FindByID still returns inactive players",
+    "Integration test: FindByTeam excludes inactive players for current season",
+    "Integration test: matchup_players queries still return inactive player data"
+  ],
+  "context": {
+    "user_story": "As an admin, after deactivating a player I expect them to disappear from all active management views but still see their name in historical match results",
+    "related_docs": []
+  }
+}

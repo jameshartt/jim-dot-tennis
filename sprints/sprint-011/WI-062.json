@@ -1,0 +1,63 @@
+{
+  "id": "WI-062",
+  "title": "Admin UI for player deactivation and reactivation",
+  "description": "Add admin interface controls for deactivating and reactivating players. The deactivate action should show a confirmation dialog listing what will be affected (upcoming fixtures, captain roles, availability data). If the player is a Team Captain, show a blocking warning requiring captain reassignment first. Add a 'Show inactive players' toggle to the player list, and a reactivate button on inactive player rows.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-059", "WI-060"],
+  "phase": "Phase 6: Season Management & Data Integrity",
+  "acceptance_criteria": [
+    "Deactivate button visible on active player rows in admin player list",
+    "Clicking deactivate shows confirmation dialog listing affected data",
+    "Confirmation dialog shows: number of upcoming fixtures, captain status, availability records to be deleted",
+    "If player is Team Captain, dialog shows blocking warning with link to reassign",
+    "Successful deactivation shows success message and player disappears from default list",
+    "Show inactive toggle on player list reveals deactivated players with visual distinction",
+    "Inactive players show a Reactivate button",
+    "Reactivate sets player back to active (admin must manually re-add to teams)",
+    "Reactivation shows message reminding admin to add player to teams",
+    "All actions use HTMX for seamless page updates",
+    "Mobile-responsive layout for all new controls"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/admin/player_deactivate_confirm.html"
+    ],
+    "files_to_modify": [
+      "internal/admin/players.go",
+      "internal/admin/handler.go",
+      "templates/admin/players.html"
+    ],
+    "routes_to_add": [
+      "POST /admin/league/players/{id}/deactivate",
+      "POST /admin/league/players/{id}/reactivate",
+      "GET /admin/league/players/{id}/deactivate-confirm"
+    ],
+    "approach": [
+      "1. Add deactivate-confirm GET endpoint that returns impact summary (fixture count, captain status, etc.)",
+      "2. Render confirmation dialog via HTMX (hx-get to load, hx-swap for modal)",
+      "3. POST deactivate endpoint calls DeactivatePlayer service method",
+      "4. POST reactivate endpoint calls ReactivatePlayer service method",
+      "5. Add ?show_inactive=true query param support to player list handler",
+      "6. Style inactive players with muted/greyed-out appearance",
+      "7. Add toggle button/checkbox for show_inactive filter"
+    ]
+  },
+  "testing_requirements": [
+    "E2E: Admin can deactivate a player via the UI",
+    "E2E: Confirmation dialog shows correct impact information",
+    "E2E: Deactivated player disappears from default player list",
+    "E2E: Show inactive toggle reveals deactivated players",
+    "E2E: Admin can reactivate a player via the UI",
+    "E2E: Reactivated player reappears in default player list",
+    "E2E: Cannot deactivate a player who is an active Team Captain (UI shows warning)",
+    "E2E: Deactivation works on mobile viewport",
+    "E2E: HTMX updates work without full page reload"
+  ],
+  "context": {
+    "user_story": "As an admin, I want a clear and safe way to remove a player from the club through the web interface, with confirmation of what will be affected before I proceed",
+    "related_docs": []
+  }
+}

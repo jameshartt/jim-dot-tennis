@@ -172,6 +172,51 @@
             background: #ccc;
             cursor: not-allowed;
         }
+
+        /* Inactive player styling */
+        .player-inactive {
+            opacity: 0.6;
+            background: #f8f9fa;
+        }
+        .badge-inactive {
+            display: inline-block;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            background: #6c757d;
+            color: white;
+            border-radius: 3px;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+
+        /* Deactivate/reactivate buttons */
+        .btn-deactivate {
+            background: none;
+            color: #dc3545;
+            border: 1px solid #dc3545;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            margin-left: 4px;
+        }
+        .btn-deactivate:hover {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-reactivate {
+            background: none;
+            color: #28a745;
+            border: 1px solid #28a745;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .btn-reactivate:hover {
+            background: #28a745;
+            color: white;
+        }
         
         /* Mobile responsiveness */
         @media (max-width: 768px) {
@@ -269,7 +314,9 @@
                         hx-swap="outerHTML"
                         hx-trigger="change"
                         hx-include="#search,#filter-team,#filter-division">
+                    <option value="active" {{if eq .ActiveFilter "active"}}selected{{end}}>Active players</option>
                     <option value="all" {{if eq .ActiveFilter "all"}}selected{{end}}>All players</option>
+                    <option value="inactive" {{if eq .ActiveFilter "inactive"}}selected{{end}}>Inactive players</option>
                     <option value="stanns_played" {{if eq .ActiveFilter "stanns_played"}}selected{{end}}>Played for St Ann's this season</option>
                 </select>
             </div>
@@ -335,18 +382,23 @@
             <tbody id="players-tbody">
                 {{if .Players}}
                     {{range .Players}}
-                    <tr data-player-id="{{.Player.ID}}" data-player-name="{{.Player.FirstName}} {{.Player.LastName}}" class="player-active">
+                    <tr data-player-id="{{.Player.ID}}" data-player-name="{{.Player.FirstName}} {{.Player.LastName}}" class="{{if .Player.IsActive}}player-active{{else}}player-inactive{{end}}">
                         <td class="col-name">
                             <a href="/admin/league/players/{{.Player.ID}}/edit" class="row-link">{{.Player.FirstName}} {{.Player.LastName}}</a>
+                            {{if not .Player.IsActive}}<span class="badge-inactive">Inactive</span>{{end}}
                         </td>
                         <td class="col-gender">
                             {{.Player.Gender}}
                         </td>
                         <td class="col-availability">
-                            {{if .HasSetNextWeekAvail}}
-                                ✅
+                            {{if .Player.IsActive}}
+                                {{if .HasSetNextWeekAvail}}
+                                    ✅
+                                {{else}}
+                                    ❌
+                                {{end}}
                             {{else}}
-                                ❌
+                                —
                             {{end}}
                         </td>
                         {{/* Per-team appearance counts */}}
@@ -364,14 +416,18 @@
                             {{end}}
                         {{end}}
                         <td class="col-action">
-                            {{if .HasAvailabilityURL}}
-                                <button class="btn-copy-url" onclick="copyAvailabilityURL('{{.Player.ID}}', this)">
-                                    📋 Copy
-                                </button>
+                            {{if .Player.IsActive}}
+                                {{if .HasAvailabilityURL}}
+                                    <button class="btn-copy-url" onclick="copyAvailabilityURL('{{.Player.ID}}', this)">
+                                        📋 Copy
+                                    </button>
+                                {{else}}
+                                    <button class="btn-generate-url" onclick="generateAvailabilityURL('{{.Player.ID}}', this)">
+                                        🔗 Generate
+                                    </button>
+                                {{end}}
                             {{else}}
-                                <button class="btn-generate-url" onclick="generateAvailabilityURL('{{.Player.ID}}', this)">
-                                    🔗 Generate
-                                </button>
+                                <a href="/admin/league/players/{{.Player.ID}}/edit" style="color:#6c757d; font-size:0.85rem;">Edit</a>
                             {{end}}
                         </td>
                     </tr>
@@ -389,6 +445,24 @@
 
     <script>
         console.log("Player management page loaded");
+
+        // Refresh player list after deactivation/reactivation
+        document.body.addEventListener('playerDeactivated', function() {
+            // Remove the success message after 3 seconds and reload the table
+            setTimeout(function() {
+                var msg = document.querySelector('.deactivate-success');
+                if (msg) msg.remove();
+            }, 3000);
+            // Trigger HTMX filter refresh
+            htmx.trigger('#filter-status', 'change');
+        });
+        document.body.addEventListener('playerReactivated', function() {
+            setTimeout(function() {
+                var msg = document.querySelector('.deactivate-success');
+                if (msg) msg.remove();
+            }, 3000);
+            htmx.trigger('#filter-status', 'change');
+        });
         
         // Clear search on page load if coming from browser navigation
         window.addEventListener('pageshow', function(event) {

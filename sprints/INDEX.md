@@ -97,6 +97,14 @@ None currently active.
 - **Summary**: [sprint-010/SUMMARY.md](sprint-010/SUMMARY.md)
 - **Dependencies**: WI-054 depends on WI-051 (Sprint 009)
 
+### Sprint 011: Player Lifecycle & Season-Scoped Points
+- **Focus**: Safe player removal, season-scoped points table, clean season transitions
+- **Items**: 7 (WI-057 to WI-063)
+- **Key Features**: Player soft-delete/deactivation, season-scoped points query fix, CopyFromPreviousSeason skip inactive, admin deactivation UI, comprehensive E2E tests
+- **Directory**: `sprint-011/`
+- **Summary**: [sprint-011/SUMMARY.md](sprint-011/SUMMARY.md)
+- **Dependencies**: WI-059/060/061 depend on WI-057 (migration); WI-062 depends on WI-059+060; WI-063 depends on all
+
 ## Sprint Metrics
 
 | Sprint | Work Items | Completed | In Progress | Blocked | Success Rate |

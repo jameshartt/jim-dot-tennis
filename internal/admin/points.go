@@ -111,8 +111,14 @@ func (h *PointsHandler) HandlePointsTable(w http.ResponseWriter, r *http.Request
 func (h *PointsHandler) calculatePlayerPoints() ([]PlayerPoints, []PlayerPoints, error) {
 	ctx := context.Background()
 
-	// Get all players with their gender information
-	players, err := h.service.GetPlayers()
+	// Get the active season — all points calculations are scoped to this season
+	season, err := h.service.seasonRepository.FindActive(ctx)
+	if err != nil || season == nil {
+		return nil, nil, fmt.Errorf("failed to get active season: %w", err)
+	}
+
+	// Get only players who are on teams in the active season
+	players, err := h.service.playerRepository.FindActivePlayersInSeason(ctx, season.ID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get players: %w", err)
 	}
@@ -123,8 +129,8 @@ func (h *PointsHandler) calculatePlayerPoints() ([]PlayerPoints, []PlayerPoints,
 		playerMap[players[i].ID] = &players[i]
 	}
 
-	// Get all completed matchups with player information
-	matchups, err := h.getCompletedMatchupsWithPlayers(ctx)
+	// Get all completed matchups with player information for the active season
+	matchups, err := h.getCompletedMatchupsWithPlayers(ctx, season.ID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get matchups: %w", err)
 	}
@@ -203,9 +209,9 @@ type CompletedMatchupWithPlayers struct {
 	FixtureStatus models.FixtureStatus
 }
 
-// getCompletedMatchupsWithPlayers retrieves all completed matchups with player information
-func (h *PointsHandler) getCompletedMatchupsWithPlayers(ctx context.Context) ([]CompletedMatchupWithPlayers, error) {
-	// Get all completed matchups that are not *halved* matchups
+// getCompletedMatchupsWithPlayers retrieves completed matchups with player information for a specific season
+func (h *PointsHandler) getCompletedMatchupsWithPlayers(ctx context.Context, seasonID uint) ([]CompletedMatchupWithPlayers, error) {
+	// Get completed matchups that are not *halved* matchups, scoped to the given season
 	query := `
 		SELECT m.id, m.fixture_id, m.type, m.status, m.home_score, m.away_score,
 		       m.home_set1, m.away_set1, m.home_set2, m.away_set2, m.home_set3, m.away_set3,
@@ -213,11 +219,12 @@ func (h *PointsHandler) getCompletedMatchupsWithPlayers(ctx context.Context) ([]
 		FROM matchups m
 		INNER JOIN fixtures f ON m.fixture_id = f.id
 		WHERE m.status = 'Finished' AND f.status = 'Completed'
+		  AND f.season_id = ?
 		  AND f.id NOT IN (
 		    SELECT f2.id
 		    FROM fixtures f2
 		    INNER JOIN matchups m2 ON m2.fixture_id = f2.id
-		    WHERE f2.status = 'Completed'
+		    WHERE f2.status = 'Completed' AND f2.season_id = ?
 		    GROUP BY f2.id
 		    HAVING COUNT(*) > 0
 		       AND SUM(CASE WHEN m2.home_score = 1 AND m2.away_score = 1 THEN 1 ELSE 0 END) = COUNT(*)
@@ -225,7 +232,7 @@ func (h *PointsHandler) getCompletedMatchupsWithPlayers(ctx context.Context) ([]
 		ORDER BY m.created_at ASC
 	`
 
-	rows, err := h.service.db.QueryContext(ctx, query)
+	rows, err := h.service.db.QueryContext(ctx, query, seasonID, seasonID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query matchups: %w", err)
 	}
@@ -270,7 +277,7 @@ func (h *PointsHandler) getCompletedMatchupsWithPlayers(ctx context.Context) ([]
 func (h *PointsHandler) getMatchupPlayers(ctx context.Context, matchupID uint) ([]models.Player, []models.Player, error) {
 	query := `
 		SELECT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy,
-		       p.club_id, p.fantasy_match_id, p.created_at, p.updated_at, mp.is_home
+		       p.club_id, p.fantasy_match_id, p.is_active, p.created_at, p.updated_at, mp.is_home
 		FROM players p
 		INNER JOIN matchup_players mp ON p.id = mp.player_id
 		WHERE mp.matchup_id = ?
@@ -292,7 +299,7 @@ func (h *PointsHandler) getMatchupPlayers(ctx context.Context, matchupID uint) (
 		err := rows.Scan(
 			&player.ID, &player.FirstName, &player.LastName, &player.PreferredName,
 			&player.Gender, &player.ReportingPrivacy, &player.ClubID, &player.FantasyMatchID,
-			&player.CreatedAt, &player.UpdatedAt, &isHome,
+			&player.IsActive, &player.CreatedAt, &player.UpdatedAt, &isHome,
 		)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to scan player: %w", err)
@@ -403,32 +410,37 @@ func (h *PointsHandler) applyDivision4Rule(playerPointsMap map[string]*PlayerPoi
 	}
 }
 
-// getCurrentWeekNumber gets the current week number from the most recently completed fixture
+// getCurrentWeekNumber gets the current week number from the most recently completed fixture in the active season
 func (h *PointsHandler) getCurrentWeekNumber() (int, error) {
 	ctx := context.Background()
+
+	season, err := h.service.seasonRepository.FindActive(ctx)
+	if err != nil || season == nil {
+		return 1, fmt.Errorf("failed to get active season: %w", err)
+	}
 
 	query := `
 		SELECT w.week_number
 		FROM weeks w
 		INNER JOIN fixtures f ON w.id = f.week_id
-		WHERE f.status = 'Completed'
+		WHERE f.status = 'Completed' AND f.season_id = ?
 		ORDER BY f.completed_date DESC, w.week_number DESC
 		LIMIT 1
 	`
 
 	var weekNumber int
-	err := h.service.db.GetContext(ctx, &weekNumber, query)
+	err = h.service.db.GetContext(ctx, &weekNumber, query, season.ID)
 	if err != nil {
-		// If no completed fixtures found, try to get the current active week
+		// If no completed fixtures found, try to get the current active week for this season
 		query = `
 			SELECT week_number
 			FROM weeks
-			WHERE is_active = TRUE
+			WHERE is_active = TRUE AND season_id = ?
 			ORDER BY week_number DESC
 			LIMIT 1
 		`
 
-		err = h.service.db.GetContext(ctx, &weekNumber, query)
+		err = h.service.db.GetContext(ctx, &weekNumber, query, season.ID)
 		if err != nil {
 			return 1, fmt.Errorf("failed to get current week: %w", err)
 		}
@@ -443,15 +455,20 @@ func (h *PointsHandler) getCurrentWeekNumber() (int, error) {
 func (h *PointsHandler) getRescheduledWeekHeader() (string, error) {
 	ctx := context.Background()
 
-	// Find the most recent completed date
+	season, err := h.service.seasonRepository.FindActive(ctx)
+	if err != nil || season == nil {
+		return "", nil
+	}
+
+	// Find the most recent completed date in the active season
 	var latestCompleted time.Time
-	err := h.service.db.GetContext(ctx, &latestCompleted, `
+	err = h.service.db.GetContext(ctx, &latestCompleted, `
 		SELECT completed_date
 		FROM fixtures
-		WHERE status = 'Completed' AND completed_date IS NOT NULL
+		WHERE status = 'Completed' AND completed_date IS NOT NULL AND season_id = ?
 		ORDER BY completed_date DESC
 		LIMIT 1
-	`)
+	`, season.ID)
 	if err != nil {
 		// No rows or other error – treat as no header
 		return "", nil
@@ -474,18 +491,19 @@ func (h *PointsHandler) getRescheduledWeekHeader() (string, error) {
 		INNER JOIN weeks w ON w.id = f.week_id
 		WHERE f.status = 'Completed'
 		  AND f.completed_date IS NOT NULL
+		  AND f.season_id = ?
 		  AND f.completed_date >= ? AND f.completed_date <= ?
 		  AND f.id NOT IN (
 		    SELECT f2.id
 		    FROM fixtures f2
 		    INNER JOIN matchups m2 ON m2.fixture_id = f2.id
-		    WHERE f2.status = 'Completed'
+		    WHERE f2.status = 'Completed' AND f2.season_id = ?
 		    GROUP BY f2.id
 		    HAVING COUNT(*) > 0
 		       AND SUM(CASE WHEN m2.home_score = 1 AND m2.away_score = 1 THEN 1 ELSE 0 END) = COUNT(*)
 		  )
 		ORDER BY f.completed_date ASC
-	`, weekStart, weekEnd)
+	`, season.ID, weekStart, weekEnd, season.ID)
 	if err != nil {
 		return "", fmt.Errorf("failed to query completed fixtures in window: %w", err)
 	}
@@ -512,12 +530,12 @@ func (h *PointsHandler) getRescheduledWeekHeader() (string, error) {
 		return "", nil
 	}
 
-	// Helper to find the week that contains a date
+	// Helper to find the week that contains a date within the active season
 	getWeekNumberForDate := func(ts time.Time) (int, bool) {
 		var num int
 		err := h.service.db.GetContext(ctx, &num, `
-			SELECT week_number FROM weeks WHERE start_date <= ? AND end_date >= ? LIMIT 1
-		`, ts, ts)
+			SELECT week_number FROM weeks WHERE season_id = ? AND start_date <= ? AND end_date >= ? LIMIT 1
+		`, season.ID, ts, ts)
 		if err != nil {
 			return 0, false
 		}

@@ -93,9 +93,48 @@ func (s *Service) GetFilteredPlayersWithAvailability(query string, activeFilter 
 				players = filterPlayersByQuery(players, query)
 			}
 		}
+	} else if activeFilter == "inactive" {
+		if query != "" {
+			allPlayers, e := s.playerRepository.FindAllIncludingInactive(ctx)
+			if e == nil {
+				// Filter to inactive only, then apply search
+				for _, p := range allPlayers {
+					if !p.IsActive {
+						players = append(players, p)
+					}
+				}
+				players = filterPlayersByQuery(players, query)
+			} else {
+				err = e
+			}
+		} else {
+			allPlayers, e := s.playerRepository.FindAllIncludingInactive(ctx)
+			if e == nil {
+				for _, p := range allPlayers {
+					if !p.IsActive {
+						players = append(players, p)
+					}
+				}
+			} else {
+				err = e
+			}
+		}
+	} else if activeFilter == "all" {
+		if query != "" {
+			// Search across all players including inactive
+			allPlayers, e := s.playerRepository.FindAllIncludingInactive(ctx)
+			if e == nil {
+				players = filterPlayersByQuery(allPlayers, query)
+			} else {
+				err = e
+			}
+		} else {
+			players, err = s.playerRepository.FindAllIncludingInactive(ctx)
+		}
 	} else if query != "" {
 		players, err = s.playerRepository.SearchPlayers(ctx, query)
 	} else {
+		// Default: active players only
 		players, err = s.playerRepository.FindAll(ctx)
 	}
 

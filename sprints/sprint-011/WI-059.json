@@ -1,0 +1,81 @@
+{
+  "id": "WI-059",
+  "title": "Deactivate player repository and service layer",
+  "description": "Implement the DeactivatePlayer operation that safely removes a player from active duty while preserving all historical data. This is a cascading operation across multiple tables, handling future fixture cleanup, availability deletion, captain/team deactivation, and user account unlinking. Must include guard rails: refuse to deactivate if player is a team captain (must reassign first).",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": ["WI-057"],
+  "phase": "Phase 6: Season Management & Data Integrity",
+  "acceptance_criteria": [
+    "DeactivatePlayer(playerID) sets players.is_active = FALSE",
+    "Sets player_teams.is_active = FALSE for the active season",
+    "Sets captains.is_active = FALSE for the active season (day captain role only)",
+    "Returns error if player is an active Team Captain — admin must reassign first",
+    "Nulls out fixtures.day_captain_id for future fixtures where this player is day captain",
+    "Removes fixture_players rows for future fixtures only (past preserved)",
+    "Deletes player_general_availability for current season",
+    "Deletes player_availability_exceptions where end_date is in the future",
+    "Deletes player_fixture_availability for future fixtures",
+    "Deletes player_availability for future fixtures",
+    "Deletes player_divisions for current season",
+    "Clears players.fantasy_match_id (prevents login)",
+    "If player has a linked user, deactivates or unlinks the user record and clears sessions",
+    "Deletes preferred_name_requests with status = 'Pending'",
+    "Operation is wrapped in a transaction — all or nothing",
+    "matchup_players rows are NEVER deleted (historical match data preserved)",
+    "fixture_players for past/completed fixtures are NEVER deleted",
+    "ReactivatePlayer(playerID) reverses the is_active flag (re-adding to teams is a separate step)"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "internal/admin/service_player_lifecycle.go"
+    ],
+    "files_to_modify": [
+      "internal/repository/player.go",
+      "internal/repository/season.go"
+    ],
+    "approach": [
+      "1. Add DeactivatePlayer(ctx, playerID, seasonID) to PlayerRepository",
+      "2. Open a transaction",
+      "3. Check if player is a Team Captain for active season — if so, return error",
+      "4. Set players.is_active = FALSE",
+      "5. Cascade deactivation across all related tables (see acceptance criteria)",
+      "6. Use scheduled_date > NOW() or fixture.status NOT IN ('Completed', 'Cancelled') to determine 'future' fixtures",
+      "7. Clear fantasy_match_id on the player",
+      "8. Handle user account if linked",
+      "9. Commit transaction",
+      "10. Add ReactivatePlayer(ctx, playerID) that sets is_active = TRUE",
+      "11. Create service_player_lifecycle.go with business logic wrapper that fetches active season, validates, and calls repository"
+    ],
+    "edge_cases": [
+      "Player is Team Captain — must refuse and tell admin to reassign",
+      "Player is Day Captain for upcoming fixture — null out day_captain_id",
+      "Player is selected for upcoming fixture — remove from fixture_players",
+      "Player has no user account — skip user deactivation step",
+      "Player has availability exceptions spanning past and future — only delete future ones",
+      "Player has pending preferred name request — delete it",
+      "Player was already deactivated — operation should be idempotent"
+    ]
+  },
+  "testing_requirements": [
+    "Integration test: DeactivatePlayer sets is_active = FALSE on player",
+    "Integration test: player_teams.is_active set to FALSE for current season only",
+    "Integration test: past-season player_teams records are untouched",
+    "Integration test: captains deactivated for current season (Day role)",
+    "Integration test: returns error when player is active Team Captain",
+    "Integration test: future fixture day_captain_id nulled, past fixture untouched",
+    "Integration test: future fixture_players deleted, past fixture_players preserved",
+    "Integration test: all availability records deleted for future, preserved for past",
+    "Integration test: matchup_players NEVER deleted regardless of season",
+    "Integration test: fantasy_match_id cleared",
+    "Integration test: transaction rolls back on failure — no partial state",
+    "Integration test: ReactivatePlayer sets is_active = TRUE",
+    "Integration test: deactivating already-inactive player is idempotent"
+  ],
+  "context": {
+    "user_story": "As an admin, I need to remove a player who has left the club without losing their historical match records or breaking the points table",
+    "related_docs": []
+  }
+}

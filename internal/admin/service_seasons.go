@@ -395,23 +395,31 @@ func (s *Service) CopyFromPreviousSeason(targetSeasonID uint, copyDivisions, cop
 				return fmt.Errorf("failed to create team %s: %w", oldTeam.Name, err)
 			}
 
-			// Copy players to the new team
+			// Copy players to the new team (skip inactive players)
 			oldPlayers, err := s.teamRepository.FindPlayersInTeam(ctx, oldTeam.ID, previousSeason.ID)
 			if err != nil {
 				continue // Skip if can't get players
 			}
 
 			for _, playerTeam := range oldPlayers {
+				player, err := s.playerRepository.FindByID(ctx, playerTeam.PlayerID)
+				if err != nil || !player.IsActive {
+					continue // Skip inactive or missing players
+				}
 				_ = s.teamRepository.AddPlayer(ctx, newTeam.ID, playerTeam.PlayerID, targetSeasonID)
 			}
 
-			// Copy captains to the new team
+			// Copy captains to the new team (skip inactive players)
 			oldCaptains, err := s.teamRepository.FindCaptainsInTeam(ctx, oldTeam.ID, previousSeason.ID)
 			if err != nil {
 				continue // Skip if can't get captains
 			}
 
 			for _, captain := range oldCaptains {
+				player, err := s.playerRepository.FindByID(ctx, captain.PlayerID)
+				if err != nil || !player.IsActive {
+					continue // Skip inactive or missing players
+				}
 				_ = s.teamRepository.AddCaptain(ctx, newTeam.ID, captain.PlayerID, captain.Role, targetSeasonID)
 			}
 		}
@@ -552,13 +560,17 @@ func (s *Service) CopyFromPreviousSeasonWithFixtures(
 			teamIDMap[teamName] = newTeam.ID
 			summary.TeamsCreated++
 
-			// Copy players and captains from previous season's matching team
+			// Copy players and captains from previous season's matching team (skip inactive players)
 			if copyPlayers {
 				if prevTeam, ok := prevTeamByName[teamName]; ok {
 					// Copy players
 					oldPlayers, err := s.teamRepository.FindPlayersInTeam(ctx, prevTeam.ID, previousSeason.ID)
 					if err == nil {
 						for _, pt := range oldPlayers {
+							player, pErr := s.playerRepository.FindByID(ctx, pt.PlayerID)
+							if pErr != nil || !player.IsActive {
+								continue // Skip inactive or missing players
+							}
 							if err := s.teamRepository.AddPlayer(ctx, newTeam.ID, pt.PlayerID, targetSeasonID); err == nil {
 								summary.PlayersCopied++
 							}
@@ -569,6 +581,10 @@ func (s *Service) CopyFromPreviousSeasonWithFixtures(
 					oldCaptains, err := s.teamRepository.FindCaptainsInTeam(ctx, prevTeam.ID, previousSeason.ID)
 					if err == nil {
 						for _, c := range oldCaptains {
+							player, pErr := s.playerRepository.FindByID(ctx, c.PlayerID)
+							if pErr != nil || !player.IsActive {
+								continue // Skip inactive or missing players
+							}
 							if err := s.teamRepository.AddCaptain(ctx, newTeam.ID, c.PlayerID, c.Role, targetSeasonID); err == nil {
 								summary.CaptainsCopied++
 							}

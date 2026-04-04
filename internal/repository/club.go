@@ -227,12 +227,12 @@ func (r *clubRepository) FindWithPlayersAndTeams(ctx context.Context, id uint) (
 		return nil, err
 	}
 
-	// Get associated players
+	// Get associated active players
 	var players []models.Player
 	err = r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, preferred_name, gender, club_id, fantasy_match_id, created_at, updated_at
+		SELECT id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, is_active, created_at, updated_at
 		FROM players
-		WHERE club_id = ?
+		WHERE club_id = ? AND is_active = TRUE
 		ORDER BY last_name ASC, first_name ASC
 	`, id)
 
@@ -273,11 +273,11 @@ func (r *clubRepository) FindByPlayerID(ctx context.Context, playerID string) (*
 	return &club, nil
 }
 
-// CountPlayers returns the number of players in a club
+// CountPlayers returns the number of active players in a club
 func (r *clubRepository) CountPlayers(ctx context.Context, id uint) (int, error) {
 	var count int
 	err := r.db.GetContext(ctx, &count, `
-		SELECT COUNT(*) FROM players WHERE club_id = ?
+		SELECT COUNT(*) FROM players WHERE club_id = ? AND is_active = TRUE
 	`, id)
 	return count, err
 }
@@ -291,24 +291,25 @@ func (r *clubRepository) CountTeams(ctx context.Context, id uint) (int, error) {
 	return count, err
 }
 
-// GetPlayersByClub retrieves all players for a specific club
+// GetPlayersByClub retrieves all active players for a specific club
 func (r *clubRepository) GetPlayersByClub(ctx context.Context, clubID uint) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, preferred_name, gender, club_id, fantasy_match_id, created_at, updated_at
+		SELECT id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, is_active, created_at, updated_at
 		FROM players
-		WHERE club_id = ?
+		WHERE club_id = ? AND is_active = TRUE
 		ORDER BY last_name ASC, first_name ASC
 	`, clubID)
 	return players, err
 }
 
-// GetAllPlayersWithClubs retrieves all players with their club information
+// GetAllPlayersWithClubs retrieves all active players with their club information
 func (r *clubRepository) GetAllPlayersWithClubs(ctx context.Context) ([]models.Player, error) {
 	var players []models.Player
 	err := r.db.SelectContext(ctx, &players, `
-		SELECT id, first_name, last_name, preferred_name, gender, club_id, fantasy_match_id, created_at, updated_at
+		SELECT id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, is_active, created_at, updated_at
 		FROM players
+		WHERE is_active = TRUE
 		ORDER BY last_name ASC, first_name ASC
 	`)
 	return players, err

@@ -1,0 +1,46 @@
+{
+  "id": "WI-057",
+  "title": "Add is_active column to players table",
+  "description": "Create a database migration to add an is_active boolean column to the players table, defaulting to TRUE. This is the foundation for soft-delete: inactive players are excluded from current operations but their historical data (match results, past season memberships) is preserved. Add an index on is_active for efficient filtering.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 6: Season Management & Data Integrity",
+  "acceptance_criteria": [
+    "New migration adds is_active BOOLEAN NOT NULL DEFAULT TRUE to players table",
+    "Index idx_players_is_active created on the new column",
+    "Down migration removes the column and index",
+    "All existing players default to is_active = TRUE after migration",
+    "Player model struct updated with IsActive field",
+    "Migration runs cleanly on existing database with data"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "migrations/NNN_add_player_is_active.up.sql",
+      "migrations/NNN_add_player_is_active.down.sql"
+    ],
+    "files_to_modify": [
+      "internal/models/models.go"
+    ],
+    "approach": [
+      "1. Determine next migration number from existing migrations",
+      "2. Create up migration: ALTER TABLE players ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT TRUE",
+      "3. Create index: CREATE INDEX idx_players_is_active ON players(is_active)",
+      "4. Create down migration to reverse",
+      "5. Add IsActive bool field to Player struct in models.go",
+      "6. Verify migration runs on existing database without errors"
+    ]
+  },
+  "testing_requirements": [
+    "Migration applies cleanly to database with existing player data",
+    "All existing players have is_active = TRUE after migration",
+    "Down migration cleanly removes column",
+    "Player model correctly maps the new field"
+  ],
+  "context": {
+    "user_story": "As a system administrator, I need a way to mark players as inactive without destroying their historical match data",
+    "related_docs": []
+  }
+}

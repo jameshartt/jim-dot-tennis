@@ -1,0 +1,90 @@
+{
+  "id": "WI-063",
+  "title": "E2E test suite for player lifecycle and season-scoped points",
+  "description": "Comprehensive Playwright E2E tests covering the full player deactivation lifecycle and season-scoped points table. Tests must seed multi-season data to verify cross-season isolation. This is the safety net ensuring all edge cases are covered — particularly that historical match data is never lost and points are correctly scoped.",
+  "type": "test",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": ["WI-058", "WI-059", "WI-060", "WI-061", "WI-062"],
+  "phase": "Phase 6: Season Management & Data Integrity",
+  "acceptance_criteria": [
+    "Test seed data includes two complete seasons with overlapping players",
+    "Test seed includes a player who played season 1 but left before season 2",
+    "Test seed includes a player who joined in season 2 only",
+    "Test seed includes a player who played both seasons",
+    "Points table tests verify season isolation (no cross-season bleed)",
+    "Points table tests verify departed player does not appear in new season",
+    "Points table tests verify Division 4 rule applies per-season",
+    "Deactivation tests verify player disappears from active lists",
+    "Deactivation tests verify player still shows in historical match results",
+    "Deactivation tests verify Team Captain guard prevents deactivation",
+    "Deactivation tests verify future fixture cleanup occurs",
+    "Reactivation tests verify player can be brought back",
+    "Season copy tests verify inactive players are excluded",
+    "Fantasy auth tests verify inactive player cannot log in",
+    "All tests pass in CI Docker environment"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/admin/player-lifecycle.spec.ts",
+      "tests/e2e/admin/season-scoped-points.spec.ts",
+      "tests/e2e/fixtures/multi-season-seed.sql"
+    ],
+    "files_to_modify": [
+      "tests/e2e/fixtures/seed.sql"
+    ],
+    "approach": [
+      "1. Create multi-season-seed.sql with two seasons of fixture/matchup/player data",
+      "2. Include players in various states: active both seasons, left after S1, joined in S2, team captain, day captain",
+      "3. Write player-lifecycle.spec.ts covering deactivation flow, guard rails, reactivation",
+      "4. Write season-scoped-points.spec.ts covering points isolation, departed players, Division 4 rule",
+      "5. Use existing test helpers for auth, HTMX interactions, navigation",
+      "6. Ensure tests are independent — each test resets to known seed state",
+      "7. Verify all tests pass with make test-e2e"
+    ],
+    "test_scenarios": {
+      "points_season_isolation": [
+        "Seed S1 with completed fixtures and matchups, S2 with no completed fixtures",
+        "Verify points table shows zero entries when S2 is active",
+        "Complete a fixture in S2, verify only S2 results appear",
+        "Verify S1 player who is not on S2 team does not appear"
+      ],
+      "deactivation_flow": [
+        "Deactivate player, verify removal from player list",
+        "Verify deactivated player still appears in completed fixture view",
+        "Attempt to deactivate Team Captain, verify blocking error",
+        "Reassign captain, then deactivate, verify success",
+        "Verify future fixture selections cleaned up",
+        "Verify past fixture selections preserved"
+      ],
+      "reactivation_flow": [
+        "Reactivate previously deactivated player",
+        "Verify player reappears in player list",
+        "Verify player is NOT automatically on any team (must be re-added)"
+      ],
+      "season_copy": [
+        "Deactivate player in S1, copy to S2",
+        "Verify inactive player not copied to S2 teams",
+        "Verify active players copied correctly"
+      ],
+      "fantasy_auth": [
+        "Deactivate player with fantasy token",
+        "Attempt login with their token, verify failure"
+      ]
+    }
+  },
+  "testing_requirements": [
+    "All scenarios listed in test_scenarios pass",
+    "Tests run in under 60 seconds total",
+    "Tests are parallelisable (no shared mutable state between spec files)",
+    "Tests pass on CI (make test-e2e)",
+    "Test output is parseable by parse-results.mjs"
+  ],
+  "context": {
+    "user_story": "As a developer, I need confidence that player removal and season transitions won't break historical data or leak cross-season results",
+    "related_docs": [
+      "tests/e2e/README.md"
+    ]
+  }
+}

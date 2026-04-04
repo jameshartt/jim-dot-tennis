@@ -1,0 +1,55 @@
+<div id="deactivate-modal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; display:flex; align-items:center; justify-content:center; padding:1rem;">
+    <div style="background:white; border-radius:12px; max-width:500px; width:100%; box-shadow:0 8px 32px rgba(0,0,0,0.2); overflow:hidden;">
+        <div style="padding:1.5rem; border-bottom:1px solid #e9ecef;">
+            <h3 style="margin:0; color:#333;">Deactivate {{.PlayerName}}?</h3>
+        </div>
+
+        <div style="padding:1.5rem;">
+            {{if .IsTeamCaptain}}
+                <div style="background:#f8d7da; color:#721c24; padding:1rem; border-radius:6px; margin-bottom:1rem; border:1px solid #f5c6cb;">
+                    <strong>Cannot deactivate:</strong> This player is a Team Captain for:
+                    <ul style="margin:0.5rem 0 0 1rem; padding:0;">
+                        {{range .TeamCaptainTeams}}
+                            <li>{{.}}</li>
+                        {{end}}
+                    </ul>
+                    <p style="margin:0.75rem 0 0 0; font-size:0.9rem;">Please reassign the captaincy before deactivating this player.</p>
+                </div>
+            {{else}}
+                <p style="margin:0 0 1rem 0; color:#555;">This will remove the player from active duty. The following will be affected:</p>
+                <ul style="margin:0 0 1rem 0; padding-left:1.5rem; color:#555; line-height:1.8;">
+                    {{if gt .UpcomingFixtures 0}}
+                        <li>Removed from <strong>{{.UpcomingFixtures}}</strong> upcoming fixture{{if gt .UpcomingFixtures 1}}s{{end}}</li>
+                    {{end}}
+                    {{if gt .DayCaptainFixtures 0}}
+                        <li>Removed as day captain from <strong>{{.DayCaptainFixtures}}</strong> fixture{{if gt .DayCaptainFixtures 1}}s{{end}}</li>
+                    {{end}}
+                    {{if gt .AvailabilityCount 0}}
+                        <li><strong>{{.AvailabilityCount}}</strong> availability record{{if gt .AvailabilityCount 1}}s{{end}} deleted</li>
+                    {{end}}
+                    {{if .HasUserAccount}}
+                        <li>User account will be <strong>deactivated</strong> and sessions cleared</li>
+                    {{end}}
+                    <li>Removed from current season teams and divisions</li>
+                    <li>Fantasy auth token cleared (login disabled)</li>
+                </ul>
+                <p style="margin:0; font-size:0.85rem; color:#888;">Historical match results and past fixture data are never affected.</p>
+            {{end}}
+        </div>
+
+        <div style="padding:1rem 1.5rem; background:#f8f9fa; display:flex; gap:0.75rem; justify-content:flex-end;">
+            <button onclick="document.getElementById('deactivate-modal').remove()"
+                    style="padding:0.5rem 1rem; border:1px solid #ddd; background:white; border-radius:6px; cursor:pointer; font-size:0.9rem;">
+                Cancel
+            </button>
+            {{if not .IsTeamCaptain}}
+                <button hx-post="/admin/league/players/{{.PlayerID}}/deactivate"
+                        hx-target="#deactivate-modal"
+                        hx-swap="outerHTML"
+                        style="padding:0.5rem 1rem; background:#dc3545; color:white; border:none; border-radius:6px; cursor:pointer; font-size:0.9rem; font-weight:600;">
+                    Deactivate Player
+                </button>
+            {{end}}
+        </div>
+    </div>
+</div>

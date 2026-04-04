@@ -59,6 +59,7 @@ type Player struct {
 	ReportingPrivacy PlayerReportingPrivacy `json:"reporting_privacy" db:"reporting_privacy"`         // Controls visibility on public reports
 	ClubID           uint                   `json:"club_id" db:"club_id"`                             // Player belongs to a club, not directly to a team
 	FantasyMatchID   *uint                  `json:"fantasy_match_id,omitempty" db:"fantasy_match_id"` // Links player to fantasy mixed doubles match for auth
+	IsActive         bool                   `json:"is_active" db:"is_active"`                        // Whether the player is active (soft-delete support)
 	CreatedAt        time.Time              `json:"created_at" db:"created_at"`
 	UpdatedAt        time.Time              `json:"updated_at" db:"updated_at"`
 	Teams            []uint                 `json:"teams,omitempty"` // Player can be part of multiple teams through PlayerTeam

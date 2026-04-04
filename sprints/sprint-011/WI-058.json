@@ -1,0 +1,56 @@
+{
+  "id": "WI-058",
+  "title": "Season-scope the points table calculation",
+  "description": "The points table query in getCompletedMatchupsWithPlayers() has no season filter — it pulls finished matchups from ALL seasons. When a second season starts, last season's results will bleed into the current points table. Fix this by adding f.season_id = ? to the main matchup query and the halved-fixture exclusion subquery. Also scope the player list to only load players on teams in the active season (via player_teams), so departed players naturally drop out of the current table.",
+  "type": "bug",
+  "priority": "critical",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 6: Season Management & Data Integrity",
+  "acceptance_criteria": [
+    "getCompletedMatchupsWithPlayers() filters by active season ID",
+    "Halved-fixture exclusion subquery also filters by active season ID",
+    "calculatePlayerPoints() loads only players on teams for the active season",
+    "Points table shows correct results when multiple seasons exist in database",
+    "Previous season's matchups do NOT appear in current season's points table",
+    "Players who played last season but are not on a team this season do NOT appear",
+    "Division 4 rule (18-match cap) applies per season, not across seasons",
+    "isActiveSeasonCompleted() continues to work correctly",
+    "Rescheduled fixtures header still works correctly with season filter"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/admin/points.go"
+    ],
+    "key_queries_to_fix": [
+      "getCompletedMatchupsWithPlayers() at ~line 209: add WHERE f.season_id = ?",
+      "Halved-fixture subquery at ~line 216: add WHERE f2.season_id = ?",
+      "calculatePlayerPoints() at ~line 115: replace GetPlayers() with season-scoped player query"
+    ],
+    "approach": [
+      "1. Get active season ID at the start of calculatePlayerPoints()",
+      "2. Replace h.service.GetPlayers() with a query that joins players → player_teams WHERE season_id = active",
+      "3. Pass season ID into getCompletedMatchupsWithPlayers(ctx, seasonID)",
+      "4. Add f.season_id = ? to main matchup query WHERE clause",
+      "5. Add f2.season_id = ? to the halved-fixture exclusion subquery",
+      "6. Verify getCurrentWeekNumber() and getRescheduledWeekHeader() are also season-scoped",
+      "7. Verify applyDivision4Rule() works correctly with season-scoped data"
+    ]
+  },
+  "testing_requirements": [
+    "E2E: Points table shows only current season results after seeding two seasons of data",
+    "E2E: Player who played in season 1 but is not on a team in season 2 does not appear on season 2 points table",
+    "E2E: Player who played in both seasons shows only current season points",
+    "E2E: Halved fixture exclusion works correctly within a single season",
+    "E2E: Division 4 rule caps at 18 matches within the current season only",
+    "E2E: Points table is empty at the start of a new season with no completed fixtures",
+    "Integration test: getCompletedMatchupsWithPlayers returns only active-season matchups",
+    "Integration test: calculatePlayerPoints returns empty lists when no fixtures completed in active season"
+  ],
+  "context": {
+    "user_story": "As a league administrator, I need the points table to show only the current season's results so that standings are accurate when we start a new season",
+    "related_docs": [],
+    "bug_detail": "Currently the query at points.go:209 has no season_id filter. The only season-aware code in points.go is isActiveSeasonCompleted() which checks fixture completion, not which matchups to count."
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "sprint": {
+    "id": "sprint-011",
+    "name": "Player Lifecycle & Season-Scoped Points",
+    "goal": "Enable safe player removal with full data integrity, fix the points table to be season-scoped, and ensure clean season-to-season transitions",
+    "start_date": null,
+    "end_date": null,
+    "duration_weeks": 2,
+    "status": "planned",
+    "focus_areas": [
+      "Player soft-delete / deactivation",
+      "Season-scoped points calculation",
+      "Season copy improvements",
+      "Admin UI for player lifecycle",
+      "E2E and integration tests"
+    ],
+    "phases_addressed": [
+      "Phase 6: Season Management & Data Integrity"
+    ],
+    "work_items": [
+      "WI-057",
+      "WI-058",
+      "WI-059",
+      "WI-060",
+      "WI-061",
+      "WI-062",
+      "WI-063"
+    ],
+    "completed_items": [],
+    "deferred_items": {}
+  }
+}

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Player - Jim.Tennis Admin</title>
     <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
     <link rel="icon" type="image/png" href="/static/img/favicon.png">
     <style>
         .admin-header {
@@ -467,6 +468,41 @@
                 <a href="/admin/league/players" class="btn-secondary">Cancel</a>
             </div>
         </form>
+
+        <!-- Player Lifecycle Section -->
+        <div class="lifecycle-section" style="max-width:800px; margin-top:2rem;">
+            {{if .Player.IsActive}}
+            <div style="background:#fff3cd; border:1px solid #ffc107; border-radius:8px; padding:1.5rem;">
+                <h3 style="margin:0 0 0.5rem 0; color:#856404;">Deactivate Player</h3>
+                <p style="margin:0 0 1rem 0; color:#856404; font-size:0.9rem;">
+                    Remove this player from active duty. They will be removed from upcoming fixtures, team lists, and availability.
+                    Historical match data is always preserved.
+                </p>
+                <button class="btn-deactivate-lg"
+                        hx-get="/admin/league/players/{{.Player.ID}}/deactivate-confirm"
+                        hx-target="body"
+                        hx-swap="beforeend"
+                        style="background:#dc3545; color:white; border:none; padding:0.6rem 1.2rem; border-radius:6px; cursor:pointer; font-size:0.9rem; font-weight:600;">
+                    Deactivate Player
+                </button>
+            </div>
+            {{else}}
+            <div style="background:#d4edda; border:1px solid #28a745; border-radius:8px; padding:1.5rem;">
+                <h3 style="margin:0 0 0.5rem 0; color:#155724;">Player is Inactive</h3>
+                <p style="margin:0 0 1rem 0; color:#155724; font-size:0.9rem;">
+                    This player has been deactivated. Reactivating will set them back to active status.
+                    You will need to manually re-add them to teams afterwards.
+                </p>
+                <button class="btn-reactivate-lg"
+                        hx-post="/admin/league/players/{{.Player.ID}}/reactivate"
+                        hx-target="body"
+                        hx-swap="beforeend"
+                        style="background:#28a745; color:white; border:none; padding:0.6rem 1.2rem; border-radius:6px; cursor:pointer; font-size:0.9rem; font-weight:600;">
+                    Reactivate Player
+                </button>
+            </div>
+            {{end}}
+        </div>
     </div>
 
     <script>
@@ -516,7 +552,15 @@
             }
         }
         
-                 // Update availability URL with current hostname
+                // Redirect back to players list after deactivation/reactivation
+        document.body.addEventListener('playerDeactivated', function() {
+            setTimeout(function() { window.location.href = '/admin/league/players'; }, 1500);
+        });
+        document.body.addEventListener('playerReactivated', function() {
+            setTimeout(function() { window.location.reload(); }, 1500);
+        });
+
+         // Update availability URL with current hostname
          document.addEventListener('DOMContentLoaded', function() {
              const availabilityLinks = document.querySelectorAll('.availability-link');
              availabilityLinks.forEach(link => {

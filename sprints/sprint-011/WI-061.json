@@ -1,0 +1,44 @@
+{
+  "id": "WI-061",
+  "title": "Update CopyFromPreviousSeason to skip inactive players",
+  "description": "When copying season data forward, inactive players should not be carried into the new season. Update CopyFromPreviousSeason to skip players where is_active = FALSE when copying player_teams, captains, player_divisions, and player_general_availability. This ensures a clean roster for the new season without manual cleanup.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "S",
+  "parallelisable": false,
+  "dependencies": ["WI-057"],
+  "phase": "Phase 6: Season Management & Data Integrity",
+  "acceptance_criteria": [
+    "CopyFromPreviousSeason does not copy player_teams for inactive players",
+    "CopyFromPreviousSeason does not copy captains for inactive players",
+    "CopyFromPreviousSeason does not copy player_divisions for inactive players",
+    "CopyFromPreviousSeason does not copy player_general_availability for inactive players",
+    "Active players are copied correctly (no regression)",
+    "Teams, divisions, weeks, and other non-player data still copied correctly",
+    "If ALL players on a team are inactive, the team is still copied but with an empty roster"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/repository/season.go"
+    ],
+    "approach": [
+      "1. Find CopyFromPreviousSeason in season.go",
+      "2. Locate the INSERT...SELECT queries that copy player_teams, captains, player_divisions, player_general_availability",
+      "3. Add INNER JOIN players p ON p.id = pt.player_id WHERE p.is_active = TRUE to each query",
+      "4. Verify teams, divisions, weeks, league_seasons are unaffected",
+      "5. Test with a mix of active and inactive players"
+    ]
+  },
+  "testing_requirements": [
+    "Integration test: Copy season with mix of active/inactive players — only active players appear in new season",
+    "Integration test: Inactive player's player_teams not copied",
+    "Integration test: Inactive captain not copied to new season",
+    "Integration test: Active players copied correctly (no regression)",
+    "Integration test: Team with all inactive players is still created but has empty roster",
+    "Integration test: Divisions, weeks, leagues copied regardless of player status"
+  ],
+  "context": {
+    "user_story": "As an admin starting a new season, I don't want to manually remove players who have already left the club — they should be automatically excluded from the season copy",
+    "related_docs": []
+  }
+}

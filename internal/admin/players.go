@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -43,6 +44,24 @@ func (h *PlayersHandler) HandlePlayers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if this is a deactivate confirmation request
+	if strings.Contains(r.URL.Path, "/deactivate-confirm") {
+		h.handleDeactivateConfirm(w, r)
+		return
+	}
+
+	// Check if this is a deactivate request
+	if strings.Contains(r.URL.Path, "/deactivate") {
+		h.handleDeactivate(w, r)
+		return
+	}
+
+	// Check if this is a reactivate request
+	if strings.Contains(r.URL.Path, "/reactivate") {
+		h.handleReactivate(w, r)
+		return
+	}
+
 	// Check if this is an availability URL request
 	if strings.Contains(r.URL.Path, "/generate-availability-url") {
 		h.handleGenerateAvailabilityURL(w, r)
@@ -78,9 +97,9 @@ func (h *PlayersHandler) handlePlayersGet(w http.ResponseWriter, r *http.Request
 	activeFilter := r.URL.Query().Get("status") // "all", "active", "inactive"
 	// Note: team_id and division_id are currently not handled in service; will be wired later
 
-	// Default to showing all players if no filter specified
+	// Default to showing active players if no filter specified
 	if activeFilter == "" {
-		activeFilter = "all"
+		activeFilter = "active"
 	}
 
 	// Get filtered players with availability information from the service
@@ -549,9 +568,9 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 	activeFilter := r.URL.Query().Get("status") // filter key
 	// Note: team_id and division_id are currently not handled in service; will be wired later
 
-	// Default to showing all players if no filter specified
+	// Default to showing active players if no filter specified
 	if activeFilter == "" {
-		activeFilter = "all"
+		activeFilter = "active"
 	}
 
 	// Get filtered players with availability information from the service
@@ -638,26 +657,43 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 	if len(playersWithAvail) > 0 {
 		for _, p := range playersWithAvail {
 			activeClass := "player-active"
+			if !p.Player.IsActive {
+				activeClass = "player-inactive"
+			}
+
 			availStatusIcon := "❌"
-			if p.HasSetNextWeekAvail {
+			if !p.Player.IsActive {
+				availStatusIcon = "—"
+			} else if p.HasSetNextWeekAvail {
 				availStatusIcon = "✅"
 			}
-			actionButton := ""
-			if p.HasAvailabilityURL {
-				actionButton = fmt.Sprintf(`<button class="btn-copy-url" onclick="copyAvailabilityURL('%s', this)">📋 Copy</button>`, p.Player.ID)
+
+			// Build action buttons based on active status
+			var actionButton string
+			if p.Player.IsActive {
+				if p.HasAvailabilityURL {
+					actionButton = fmt.Sprintf(`<button class="btn-copy-url" onclick="copyAvailabilityURL('%s', this)">📋 Copy</button>`, p.Player.ID)
+				} else {
+					actionButton = fmt.Sprintf(`<button class="btn-generate-url" onclick="generateAvailabilityURL('%s', this)">🔗 Generate</button>`, p.Player.ID)
+				}
 			} else {
-				actionButton = fmt.Sprintf(`<button class="btn-generate-url" onclick="generateAvailabilityURL('%s', this)">🔗 Generate</button>`, p.Player.ID)
+				actionButton = fmt.Sprintf(`<a href="/admin/league/players/%s/edit" style="color:#6c757d; font-size:0.85rem;">Edit</a>`, p.Player.ID)
+			}
+
+			inactiveBadge := ""
+			if !p.Player.IsActive {
+				inactiveBadge = `<span class="badge-inactive">Inactive</span>`
 			}
 
 			w.Write([]byte(fmt.Sprintf(`
 				<tr data-player-id="%s" data-player-name="%s %s" class="%s">
 					<td class="col-name">
-						<a href="/admin/league/players/%s/edit" class="row-link">%s %s</a>
+						<a href="/admin/league/players/%s/edit" class="row-link">%s %s</a>%s
 					</td>
 					<td class="col-gender">%s</td>
 					<td class="col-availability">%s</td>
 			`, p.Player.ID, p.Player.FirstName, p.Player.LastName, activeClass,
-				p.Player.ID, p.Player.FirstName, p.Player.LastName,
+				p.Player.ID, p.Player.FirstName, p.Player.LastName, inactiveBadge,
 				p.Player.Gender, availStatusIcon)))
 
 			// Team count cells in same order as headers
@@ -787,6 +823,197 @@ func (h *PlayersHandler) handleGetAvailabilityURL(w http.ResponseWriter, r *http
 	// Return the URL as JSON
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"url": availabilityURL})
+}
+
+// DeactivationImpact describes what will be affected by deactivating a player
+type DeactivationImpact struct {
+	PlayerName         string
+	PlayerID           string
+	IsTeamCaptain      bool
+	TeamCaptainTeams   []string
+	UpcomingFixtures   int
+	DayCaptainFixtures int
+	AvailabilityCount  int
+	HasUserAccount     bool
+}
+
+// GetDeactivationImpact calculates the impact of deactivating a player
+func (s *Service) GetDeactivationImpact(playerID string) (*DeactivationImpact, error) {
+	ctx := context.Background()
+
+	player, err := s.playerRepository.FindByID(ctx, playerID)
+	if err != nil {
+		return nil, fmt.Errorf("player not found: %w", err)
+	}
+
+	season, err := s.seasonRepository.FindActive(ctx)
+	if err != nil || season == nil {
+		return nil, fmt.Errorf("no active season: %w", err)
+	}
+
+	impact := &DeactivationImpact{
+		PlayerName: player.FirstName + " " + player.LastName,
+		PlayerID:   player.ID,
+	}
+
+	// Check team captain status
+	var teamCaptainTeams []struct {
+		TeamName string `db:"name"`
+	}
+	s.db.SelectContext(ctx, &teamCaptainTeams, `
+		SELECT t.name FROM captains c
+		INNER JOIN teams t ON t.id = c.team_id
+		WHERE c.player_id = ? AND c.season_id = ? AND c.role = 'Team' AND c.is_active = TRUE
+	`, playerID, season.ID)
+	for _, t := range teamCaptainTeams {
+		impact.TeamCaptainTeams = append(impact.TeamCaptainTeams, t.TeamName)
+	}
+	impact.IsTeamCaptain = len(impact.TeamCaptainTeams) > 0
+
+	// Count upcoming fixtures where player is selected
+	s.db.GetContext(ctx, &impact.UpcomingFixtures, `
+		SELECT COUNT(*) FROM fixture_players fp
+		INNER JOIN fixtures f ON f.id = fp.fixture_id
+		WHERE fp.player_id = ? AND f.status NOT IN ('Completed', 'Cancelled')
+	`, playerID)
+
+	// Count upcoming fixtures where player is day captain
+	s.db.GetContext(ctx, &impact.DayCaptainFixtures, `
+		SELECT COUNT(*) FROM fixtures
+		WHERE day_captain_id = ? AND status NOT IN ('Completed', 'Cancelled')
+	`, playerID)
+
+	// Count availability records that will be deleted
+	var availCount int
+	s.db.GetContext(ctx, &availCount, `
+		SELECT COUNT(*) FROM player_general_availability
+		WHERE player_id = ? AND season_id = ?
+	`, playerID, season.ID)
+	impact.AvailabilityCount += availCount
+
+	s.db.GetContext(ctx, &availCount, `
+		SELECT COUNT(*) FROM player_fixture_availability
+		WHERE player_id = ? AND fixture_id IN (
+			SELECT id FROM fixtures WHERE status NOT IN ('Completed', 'Cancelled')
+		)
+	`, playerID)
+	impact.AvailabilityCount += availCount
+
+	// Check for linked user account
+	var userCount int
+	s.db.GetContext(ctx, &userCount, `
+		SELECT COUNT(*) FROM users WHERE player_id = ? AND is_active = TRUE
+	`, playerID)
+	impact.HasUserAccount = userCount > 0
+
+	return impact, nil
+}
+
+// handleDeactivateConfirm returns an HTML confirmation dialog for deactivating a player
+func (h *PlayersHandler) handleDeactivateConfirm(w http.ResponseWriter, r *http.Request) {
+	_, err := getUserFromContext(r)
+	if err != nil {
+		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract player ID
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/league/players/"), "/")
+	if len(pathParts) < 2 || pathParts[0] == "" {
+		http.Error(w, "Invalid player URL", http.StatusBadRequest)
+		return
+	}
+	playerID := pathParts[0]
+
+	impact, err := h.service.GetDeactivationImpact(playerID)
+	if err != nil {
+		logAndError(w, "Failed to get deactivation impact", err, http.StatusInternalServerError)
+		return
+	}
+
+	tmpl, err := parseTemplate(h.templateDir, "admin/player_deactivate_confirm.html")
+	if err != nil {
+		logAndError(w, "Failed to parse template", err, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	tmpl.Execute(w, impact)
+}
+
+// handleDeactivate processes the player deactivation
+func (h *PlayersHandler) handleDeactivate(w http.ResponseWriter, r *http.Request) {
+	_, err := getUserFromContext(r)
+	if err != nil {
+		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract player ID
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/league/players/"), "/")
+	if len(pathParts) < 2 || pathParts[0] == "" {
+		http.Error(w, "Invalid player URL", http.StatusBadRequest)
+		return
+	}
+	playerID := pathParts[0]
+
+	err = h.service.DeactivatePlayer(context.Background(), playerID)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, `<div class="deactivate-error" style="color: #dc3545; padding: 1rem; background: #f8d7da; border-radius: 6px; margin: 1rem 0;">%s</div>`, err.Error())
+		return
+	}
+
+	// Return success — HTMX will handle the swap
+	w.Header().Set("HX-Trigger", "playerDeactivated")
+	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprintf(w, `<div class="deactivate-success" style="color: #155724; padding: 1rem; background: #d4edda; border-radius: 6px; margin: 1rem 0;">Player deactivated successfully. They have been removed from upcoming fixtures, availability, and team lists.</div>`)
+}
+
+// handleReactivate processes the player reactivation
+func (h *PlayersHandler) handleReactivate(w http.ResponseWriter, r *http.Request) {
+	_, err := getUserFromContext(r)
+	if err != nil {
+		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract player ID
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/admin/league/players/"), "/")
+	if len(pathParts) < 2 || pathParts[0] == "" {
+		http.Error(w, "Invalid player URL", http.StatusBadRequest)
+		return
+	}
+	playerID := pathParts[0]
+
+	err = h.service.ReactivatePlayer(context.Background(), playerID)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, `<div class="deactivate-error" style="color: #dc3545; padding: 1rem;">Failed to reactivate player: %s</div>`, err.Error())
+		return
+	}
+
+	// Return success
+	w.Header().Set("HX-Trigger", "playerReactivated")
+	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprintf(w, `<div class="deactivate-success" style="color: #155724; padding: 1rem; background: #d4edda; border-radius: 6px; margin: 1rem 0;">Player reactivated. Remember to add them back to teams manually.</div>`)
 }
 
 // getBaseURL extracts the base URL from the request
