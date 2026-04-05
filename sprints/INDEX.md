@@ -113,6 +113,14 @@ None currently active.
 - **Summary**: [sprint-012/SUMMARY.md](sprint-012/SUMMARY.md)
 - **Dependencies**: WI-065 → WI-064; WI-066 → WI-065; WI-067/068 → WI-066; WI-069 → WI-065; WI-070 → WI-067+068+069
 
+### Sprint 013: Attribution, Licensing & Open Source Readiness
+- **Focus**: Open-source licensing, contributor attribution, GitHub configuration, and documentation for other clubs
+- **Items**: 6 (WI-071 to WI-076)
+- **Key Features**: MIT license, GitHub .github/ templates, README overhaul with attribution, CONTRIBUTING.md with club adaptation guide, in-app /about credits page (James Hartt profile + CourtHive/Charles Allen attribution), source file headers
+- **Directory**: `sprint-013/`
+- **Summary**: [sprint-013/SUMMARY.md](sprint-013/SUMMARY.md)
+- **Dependencies**: WI-073/074/075/076 → WI-071 (license must land first)
+
 ## Sprint Metrics
 
 | Sprint | Work Items | Completed | In Progress | Blocked | Success Rate |

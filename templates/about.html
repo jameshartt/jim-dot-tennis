@@ -1,0 +1,132 @@
+{{define "about.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About - Jim.Tennis</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#2c3e50">
+    <style>
+      .about-page {
+        max-width: 700px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+      }
+      .about-page h1 {
+        font-size: 2rem;
+        color: #2c3e50;
+        margin-bottom: 2rem;
+      }
+      .about-section {
+        background: white;
+        border: 1px solid #e1e8ed;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      }
+      .about-section h2 {
+        font-size: 1.25rem;
+        color: #2c3e50;
+        margin-bottom: 1rem;
+      }
+      .about-section p {
+        color: #555;
+        line-height: 1.7;
+        margin-bottom: 0.75rem;
+      }
+      .about-section p:last-child {
+        margin-bottom: 0;
+      }
+      .about-section a {
+        color: #3498db;
+        text-decoration: none;
+      }
+      .about-section a:hover {
+        text-decoration: underline;
+      }
+      .about-label {
+        font-size: 0.85rem;
+        color: #95a5a6;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+      }
+      .about-name {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: #2c3e50;
+      }
+      .about-role {
+        font-size: 0.95rem;
+        color: #7f8c8d;
+        margin-bottom: 0.75rem;
+      }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <a href="/" class="logo">
+                    <img src="/static/icon-192.svg" alt="Jim.Tennis Logo">
+                </a>
+                <div class="user-controls">
+                    <a href="/login" class="btn btn-sm">Login</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <div class="about-page">
+                <h1>About jim.tennis</h1>
+
+                <div class="about-section">
+                    <div class="about-label">Built by</div>
+                    <div class="about-name">James Hartt</div>
+                    <div class="about-role">Creator & Developer</div>
+                    <p>jim.tennis was designed and built by James Hartt for St Ann's Tennis Club to manage the Brighton & Hove Parks League. The system handles player availability, team selection, fixture scheduling, match results, and standings.</p>
+                    <p><a href="https://github.com/jameshartt">github.com/jameshartt</a></p>
+                </div>
+
+                <div class="about-section">
+                    <div class="about-label">Tournament management by</div>
+                    <div class="about-name">CourtHive</div>
+                    <div class="about-role">Charles Allen, Primary Developer</div>
+                    <p>Cup and tournament management is developed and maintained by <a href="https://courthive.com">CourtHive</a>, with the primary development effort by Charles Allen. CourtHive provides tournament scheduling, draw management, and live scoring for Parks League Cup competitions.</p>
+                </div>
+
+                <div class="about-section">
+                    <h2>Acknowledgements</h2>
+                    <p>The <strong>Brighton & Hove Parks League Tennis Association</strong> (BHPLTA) organises the parks league that jim.tennis is built around. Match card data is imported from the BHPLTA website.</p>
+                    <p><strong>St Ann's Tennis Club</strong> has been the home for jim.tennis since the 2025 season.</p>
+                </div>
+
+                <div class="about-section">
+                    <h2>Get in Touch</h2>
+                    <p>If you have questions about jim.tennis or want to chat about whether it could work for your club, the easiest way to reach James is through the <strong>Parks Team Captains</strong> WhatsApp group. If you're already in the group, just drop a message there.</p>
+                    <p>You can also <a href="https://github.com/jameshartt/jim-dot-tennis/issues">open an issue on GitHub</a> for bug reports, feature requests, or general questions.</p>
+                </div>
+
+                <div class="about-section">
+                    <h2>Open Source</h2>
+                    <p>jim.tennis is open-source software, released under the <a href="https://github.com/jameshartt/jim-dot-tennis/blob/main/LICENSE">MIT License</a>.</p>
+                    <p>If you're interested in the code or running your own instance, visit the <a href="https://github.com/jameshartt/jim-dot-tennis">GitHub repository</a>.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; Jim.Tennis {{currentYear}}</p>
+        </div>
+    </footer>
+</body>
+</html>
+{{end}}

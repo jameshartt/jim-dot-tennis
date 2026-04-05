@@ -1,0 +1,39 @@
+{
+  "sprint": {
+    "id": "sprint-013",
+    "name": "Attribution, Licensing & Open Source Readiness",
+    "goal": "Establish proper open-source licensing, clear attribution for all contributors, GitHub repository configuration, and documentation that positions jim.tennis as an adaptable parks league management system while providing a practical on-ramp for other clubs",
+    "start_date": null,
+    "end_date": null,
+    "duration_weeks": 1,
+    "status": "completed",
+    "focus_areas": [
+      "MIT license and copyright",
+      "GitHub repository setup and linking",
+      "README overhaul with attribution and project positioning",
+      "Contributor guide and club adaptation documentation",
+      "In-app credits page with developer profile and CourtHive attribution",
+      "Source file attribution headers"
+    ],
+    "phases_addressed": [
+      "Phase 8: Open Source & Community Readiness"
+    ],
+    "work_items": [
+      "WI-071",
+      "WI-072",
+      "WI-073",
+      "WI-074",
+      "WI-075",
+      "WI-076"
+    ],
+    "completed_items": [
+      "WI-071",
+      "WI-072",
+      "WI-073",
+      "WI-074",
+      "WI-075",
+      "WI-076"
+    ],
+    "deferred_items": {}
+  }
+}

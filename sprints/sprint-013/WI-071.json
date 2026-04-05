@@ -1,0 +1,38 @@
+{
+  "id": "WI-071",
+  "title": "Add MIT License to repository",
+  "description": "Add a proper MIT License file to the repository root, establishing jim.tennis as open-source software. The license should name James Hartt as the copyright holder with the current year. This is a prerequisite for all other open-source readiness work — nothing else in this sprint should land before the license is in place.",
+  "type": "feature",
+  "priority": "critical",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 8: Open Source & Community Readiness",
+  "acceptance_criteria": [
+    "LICENSE file exists at repository root containing the full MIT License text",
+    "Copyright line reads 'Copyright (c) 2025-2026 James Hartt'",
+    "README.md license placeholder replaced with reference to LICENSE file and MIT badge",
+    "License is recognised correctly by GitHub's license detection"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "LICENSE"
+    ],
+    "files_to_modify": [
+      "README.md"
+    ],
+    "approach": [
+      "1. Create LICENSE file with standard MIT License text",
+      "2. Set copyright holder to James Hartt, year range 2025-2026",
+      "3. Replace the '[Add your license information here]' placeholder in README.md with an MIT license badge and link to the LICENSE file"
+    ]
+  },
+  "testing_requirements": [
+    "LICENSE file is valid MIT license text",
+    "GitHub renders the license badge correctly on the repository page"
+  ],
+  "context": {
+    "user_story": "As the project owner, I want a clear open-source license so that other clubs and developers know exactly what rights they have to use, modify, and distribute this software",
+    "related_docs": []
+  }
+}

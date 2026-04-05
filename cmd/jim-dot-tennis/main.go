@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 James Hartt. Licensed under the MIT License.
+
 package main
 
 import (
@@ -117,6 +119,13 @@ func main() {
 
 	// Public player-facing routes (standings, etc.)
 	playersHandler.RegisterPublicRoutes(mux)
+
+	// About page (public, no auth required)
+	mux.HandleFunc("/about", func(w http.ResponseWriter, r *http.Request) {
+		if err := templates.ExecuteTemplate(w, "about.html", nil); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
 
 	// Public routes
 	tournamentRepo := repository.NewTournamentRepository(db)

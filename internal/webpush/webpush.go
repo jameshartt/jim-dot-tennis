@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 James Hartt. Licensed under the MIT License.
+
 package webpush
 
 import (

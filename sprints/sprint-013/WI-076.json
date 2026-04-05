@@ -1,0 +1,49 @@
+{
+  "id": "WI-076",
+  "title": "Source file headers and dependency acknowledgements",
+  "description": "Add a consistent copyright and license header to key source files across the codebase, and create an ACKNOWLEDGEMENTS.md that lists all third-party dependencies with their licenses. This is the final housekeeping step to make the project's licensing story complete and defensible.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [
+    "WI-071"
+  ],
+  "phase": "Phase 8: Open Source & Community Readiness",
+  "acceptance_criteria": [
+    "All .go files in cmd/ and internal/ have a copyright header comment: '// Copyright (c) 2025-2026 James Hartt. Licensed under the MIT License.'",
+    "Header is a single line, not a block comment — minimal and unobtrusive",
+    "ACKNOWLEDGEMENTS.md exists at repository root listing all third-party Go dependencies from go.mod with their license types",
+    "ACKNOWLEDGEMENTS.md includes a section for CourtHive with appropriate credit",
+    "No existing code functionality is changed — headers only"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "ACKNOWLEDGEMENTS.md"
+    ],
+    "files_to_modify": [
+      "All .go files in cmd/ and internal/ (header addition only)"
+    ],
+    "approach": [
+      "1. Define the standard header: '// Copyright (c) 2025-2026 James Hartt. Licensed under the MIT License.'",
+      "2. Add the header as the first line of every .go file in cmd/ and internal/, followed by a blank line before the package declaration",
+      "3. Create ACKNOWLEDGEMENTS.md with sections:",
+      "   a. Header explaining this lists third-party software used by jim.tennis",
+      "   b. CourtHive section: tournament management platform by Charles Allen, used for Cup competition scheduling and draws",
+      "   c. Go dependencies table generated from go.mod: package name, license type, brief description",
+      "   d. BHPLTA acknowledgement for the data integration",
+      "4. Verify no .go file compilation is broken by the header addition"
+    ],
+    "automation_note": "The header addition can be scripted — find all .go files, prepend the header line if not already present. The ACKNOWLEDGEMENTS.md dependency list can be partially generated from 'go-licenses' or manual inspection of go.mod."
+  },
+  "testing_requirements": [
+    "All .go files compile successfully after header addition",
+    "make build-local succeeds",
+    "No duplicate headers on files that already have them",
+    "ACKNOWLEDGEMENTS.md dependency licenses are accurate"
+  ],
+  "context": {
+    "user_story": "As a developer reviewing the source code, I want to see clear copyright and licensing information in every file, and understand what third-party software the project depends on",
+    "related_docs": []
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "id": "WI-075",
+  "title": "In-app credits and about page",
+  "description": "Add a publicly accessible /about page to jim.tennis that serves as the credits and attribution page. This page should clearly show who built the system, credit CourtHive and Charles Allen for tournament management, and link to the GitHub repository. The page should include a developer profile for James Hartt. It should be visible to all visitors (no auth required) and linked from the site footer or navigation.",
+  "type": "feature",
+  "priority": "critical",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-071"
+  ],
+  "phase": "Phase 8: Open Source & Community Readiness",
+  "acceptance_criteria": [
+    "/about route exists and is publicly accessible (no authentication required)",
+    "Page displays James Hartt's developer profile: name, role ('Creator & Developer'), brief description of building jim.tennis for St Ann's Tennis Club, link to GitHub profile",
+    "Page clearly credits CourtHive for tournament and Cup management, with specific mention of Charles Allen as the primary CourtHive developer",
+    "Page includes a brief description of what CourtHive provides: tournament scheduling, draw management, and live scoring for Parks League Cup competitions",
+    "Page links to the jim.tennis GitHub repository",
+    "Page displays the MIT license with a link to the LICENSE file on GitHub",
+    "Page acknowledges the Brighton & Hove Parks League Tennis Association",
+    "Page is linked from the site footer on all public pages",
+    "Page follows the existing template style and is responsive",
+    "Page includes an 'Open Source' note — something like 'jim.tennis is open-source software. If you're interested in the code or running your own instance, visit the GitHub repository.'"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/about.html",
+      "internal/about/handler.go"
+    ],
+    "files_to_modify": [
+      "cmd/jim-dot-tennis/main.go",
+      "templates/layout.html"
+    ],
+    "approach": [
+      "1. Create internal/about/handler.go with a simple handler that renders the about template",
+      "2. Create templates/about.html extending the base layout",
+      "3. Register the /about route in main.go — no auth middleware required",
+      "4. Add an 'About' link to the footer in templates/layout.html (or equivalent base template)",
+      "5. Design the page with clear sections:",
+      "   - Header: 'About jim.tennis'",
+      "   - Built By: James Hartt profile with photo placeholder, role, description, GitHub link",
+      "   - Tournament Management: CourtHive section crediting Charles Allen, explaining what CourtHive provides for Cup competitions",
+      "   - Open Source: GitHub link, MIT license note, subtle invitation to explore",
+      "   - Acknowledgements: BHPLTA, St Ann's Tennis Club",
+      "6. Style consistently with existing pages using the existing CSS framework"
+    ],
+    "design_notes": "The CourtHive attribution should be prominent and specific — not buried in a footnote. Something like: 'Cup and tournament management is developed and maintained by CourtHive (courthive.com), with the primary development effort by Charles Allen. CourtHive provides tournament scheduling, draw management, and live scoring for Parks League Cup competitions.' This is both fair attribution and helps anyone from another club understand what the different pieces of the system do."
+  },
+  "testing_requirements": [
+    "/about is accessible without authentication",
+    "Page renders correctly on mobile and desktop",
+    "All external links (GitHub, CourtHive) are valid",
+    "Footer link to /about appears on all public pages",
+    "Page content matches acceptance criteria for attribution"
+  ],
+  "context": {
+    "user_story": "As a visitor to jim.tennis, I want to see who built the system and understand the different components, so I know who to credit and where to go if I want to learn more",
+    "related_docs": [
+      "COURTHIVE_SETUP.md"
+    ]
+  }
+}

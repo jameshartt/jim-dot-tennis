@@ -1,0 +1,62 @@
+{
+  "id": "WI-074",
+  "title": "CONTRIBUTING.md and club adaptation guide",
+  "description": "Create a CONTRIBUTING.md that covers two things: (1) standard contribution guidelines for developers who want to submit code, and (2) a practical 'Club Adaptation Guide' section for technically-minded people at other clubs who want to deploy their own instance. The adaptation guide should be honest about what's involved — this was built for St Ann's and there are hardcoded assumptions that would need changing — without being discouraging. It should give a clear picture of the effort required so people can make an informed decision.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-071"
+  ],
+  "phase": "Phase 8: Open Source & Community Readiness",
+  "acceptance_criteria": [
+    "CONTRIBUTING.md exists at repository root",
+    "Developer contribution section covers: how to set up the development environment, how to run tests, code style expectations, PR process",
+    "Club Adaptation Guide section exists with a clear, honest overview of what's involved",
+    "Guide documents the known St Ann's-specific assumptions: ClubID-based home/away logic, hardcoded club references, apostrophe handling in 'St Ann's' across various data sources",
+    "Guide lists the key files and configuration that would need changing for a different club",
+    "Guide provides a rough categorisation of effort: what's straightforward config, what needs code changes, what's a known pain point",
+    "Guide explicitly acknowledges the apostrophe problem as known tech debt without attempting to solve it in this sprint",
+    "Guide points to the GitHub issue template for clubs that want help or have questions",
+    "Tone is welcoming but realistic — 'here's what you'd need to do' not 'it's easy!'"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "CONTRIBUTING.md"
+    ],
+    "files_to_modify": [],
+    "approach": [
+      "1. Write developer contribution guidelines section: prerequisites (Docker, since Go isn't required locally), setup steps, running tests, linting, PR expectations",
+      "2. Write Club Adaptation Guide section with subsections:",
+      "   a. Overview: what jim.tennis does and what you'd get by deploying it",
+      "   b. Prerequisites: technical skills needed (basic Docker, command line comfort, ideally some Go knowledge for customisation)",
+      "   c. Configuration changes: environment variables, club name, branding",
+      "   d. Code changes required: ClubID logic in home/away determination, any hardcoded St Ann's references",
+      "   e. Known pain points: the apostrophe situation across BHPLTA data, league websites, and internal data — different sources use different characters (', ', ʼ, etc.) and this creates matching issues",
+      "   f. Deployment: point to existing docs/digitalocean_deployment.md and docs/PRODUCTION_QUICK_REFERENCE.md",
+      "   g. Getting help: GitHub issues, club enquiry template",
+      "3. Review for tone — helpful and honest, not overwhelming or discouraging"
+    ],
+    "key_st_anns_assumptions": [
+      "internal/admin/ handlers use ClubID to determine home vs away teams",
+      "BHPLTA integration assumes St Ann's club code (STANN001)",
+      "Various template strings reference St Ann's directly",
+      "The apostrophe in St Ann's appears differently across: BHPLTA website, match cards, CSV imports, internal database. This is a known source of bugs and the single biggest barrier to multi-club support."
+    ]
+  },
+  "testing_requirements": [
+    "CONTRIBUTING.md renders correctly on GitHub",
+    "All internal links and file references are valid",
+    "Setup instructions are accurate and can be followed on a fresh clone",
+    "Club adaptation guide file references point to files that actually exist"
+  ],
+  "context": {
+    "user_story": "As a developer or club representative, I want clear guidance on how to contribute code or adapt the system for my club, with honest information about what's involved",
+    "related_docs": [
+      "docs/digitalocean_deployment.md",
+      "docs/PRODUCTION_QUICK_REFERENCE.md",
+      "docs/docker_setup.md"
+    ]
+  }
+}

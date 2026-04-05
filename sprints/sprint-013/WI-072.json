@@ -1,0 +1,46 @@
+{
+  "id": "WI-072",
+  "title": "GitHub repository configuration and .github directory",
+  "description": "Set up the .github/ directory with issue templates, a pull request template, and a SECURITY.md file. Configure repository metadata so that the GitHub presence is professional and welcoming to potential contributors or clubs evaluating the project.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 8: Open Source & Community Readiness",
+  "acceptance_criteria": [
+    ".github/ directory created with ISSUE_TEMPLATE/ subdirectory",
+    "Bug report issue template exists with structured fields (environment, steps to reproduce, expected/actual behaviour)",
+    "Feature request issue template exists with fields for the use case and proposed solution",
+    "Club adaptation request issue template exists — a lightweight way for other parks league clubs to express interest",
+    "Pull request template exists with checklist (description, testing, screenshots if UI)",
+    "SECURITY.md exists with responsible disclosure instructions pointing to James Hartt's contact"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      ".github/ISSUE_TEMPLATE/bug_report.md",
+      ".github/ISSUE_TEMPLATE/feature_request.md",
+      ".github/ISSUE_TEMPLATE/club_enquiry.md",
+      ".github/PULL_REQUEST_TEMPLATE.md",
+      ".github/SECURITY.md"
+    ],
+    "files_to_modify": [],
+    "approach": [
+      "1. Create .github/ and .github/ISSUE_TEMPLATE/ directories",
+      "2. Write bug report template using GitHub issue template frontmatter (name, about, labels)",
+      "3. Write feature request template",
+      "4. Write club enquiry template — friendly, low-friction, no jargon. Title like 'Interested in using jim.tennis for your club?' with fields for club name, league, and what they're looking for",
+      "5. Write PR template with a sensible checklist",
+      "6. Write SECURITY.md with James Hartt's preferred contact for security issues"
+    ],
+    "design_notes": "The club enquiry template is deliberately low-key — it's just an issue template, not a sales page. Anyone browsing the repo who thinks 'could this work for us?' has an obvious, frictionless way to ask."
+  },
+  "testing_requirements": [
+    "All templates render correctly on GitHub (correct frontmatter, labels, descriptions)",
+    "Issue template chooser shows all three options when creating a new issue"
+  ],
+  "context": {
+    "user_story": "As a developer or club representative visiting the GitHub repository, I want clear templates so I know how to report issues, suggest features, or enquire about using the system for my club",
+    "related_docs": []
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "id": "WI-073",
+  "title": "README overhaul: attribution, GitHub links, and project positioning",
+  "description": "Rewrite the README.md to serve three audiences simultaneously: (1) developers who want to understand or contribute to the codebase, (2) St Ann's club members who want to know who built their system and how it works, and (3) people from other parks league clubs who might stumble across the repository and wonder if something like this could work for them. The tone should be factual and understated — this is a working system built for a real club, not a product pitch. The README should link to the GitHub repository, credit all contributors clearly, and make it obvious that this is James Hartt's project with CourtHive tournament management by Charles Allen.",
+  "type": "feature",
+  "priority": "critical",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-071"
+  ],
+  "phase": "Phase 8: Open Source & Community Readiness",
+  "acceptance_criteria": [
+    "README opens with a clear one-line description of what jim.tennis is and who it's for",
+    "GitHub repository URL is prominently linked",
+    "Features section accurately describes current capabilities without overselling",
+    "Attribution section clearly credits James Hartt as creator and primary developer",
+    "Attribution section clearly credits CourtHive and Charles Allen for tournament/Cup management integration",
+    "Attribution section acknowledges the Brighton & Hove Parks League Tennis Association",
+    "A 'Could this work for your club?' section exists — brief, honest, not salesy. Acknowledges that the system was built for St Ann's but is open-source and could be adapted. Points to the CONTRIBUTING.md club adaptation guide and the GitHub issue template for enquiries",
+    "Tech stack section is accurate and up to date",
+    "License section references the MIT LICENSE file",
+    "No marketing language, no superlatives, no 'revolutionary' or 'powerful'. Just facts."
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "README.md"
+    ],
+    "approach": [
+      "1. Read the existing README.md thoroughly to understand current structure",
+      "2. Preserve all technically accurate content (architecture, commands, setup)",
+      "3. Add a header section: project name, one-line description, license badge, GitHub link",
+      "4. Add an Attribution & Credits section near the top",
+      "5. Add a 'For Other Clubs' section — keep it to 3-4 sentences max. Something like: 'jim.tennis was built for St Ann's Tennis Club but is open-source under the MIT license. If you manage a parks league club and this looks useful, the Club Adaptation Guide covers what's involved in running your own instance. You're also welcome to open an issue to ask questions.'",
+      "6. Ensure the CourtHive attribution is specific: 'Tournament and Cup management is powered by CourtHive, developed by Charles Allen. The integration brings CourtHive's tournament scheduling and draw management into the jim.tennis interface.'",
+      "7. Review tone throughout — remove any language that could read as promotional"
+    ],
+    "tone_guidance": "The parks league is a small community with complicated interpersonal dynamics. The README should read like a well-maintained open-source project, not like someone trying to sell something or claim credit for the whole league's infrastructure. Factual, modest, helpful. If someone from another club reads it, the thought should be 'oh interesting, I wonder if we could use this' — not 'someone is trying to corner the market on league software'."
+  },
+  "testing_requirements": [
+    "README renders correctly on GitHub with all links working",
+    "All badge URLs resolve",
+    "No broken internal links",
+    "Tone review: no marketing language, no superlatives"
+  ],
+  "context": {
+    "user_story": "As anyone visiting the repository, I want to immediately understand what this project is, who made it, and whether it might be relevant to me",
+    "related_docs": [
+      "docs/project_overview.md"
+    ]
+  }
+}
