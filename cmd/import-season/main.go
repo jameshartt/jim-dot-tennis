@@ -13,6 +13,7 @@ import (
 
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/normalize"
 	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/services"
 )
@@ -185,10 +186,9 @@ func main() {
 		divisionID := newDivByName[sd.Name]
 		for _, teamName := range sd.Teams {
 			clubName := repository.ExtractClubNameFromTeamName(teamName)
-			// Truncate at apostrophe for LIKE search to handle encoding variants
-			// e.g. "St Ann's" -> search for "St Ann" which matches both "St Ann's" and "St Ann's"
-			searchName := clubName
-			if idx := strings.IndexAny(searchName, "'\u2019"); idx > 0 {
+			// Normalize apostrophes then truncate before apostrophe for LIKE search
+			searchName := normalize.Apostrophes(clubName)
+			if idx := strings.IndexByte(searchName, '\''); idx > 0 {
 				searchName = searchName[:idx]
 			}
 			clubs, err := clubRepo.FindByNameLike(ctx, searchName)

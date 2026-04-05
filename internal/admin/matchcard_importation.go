@@ -30,11 +30,12 @@ func NewMatchCardImportationHandler(service *Service, templateDir string) *Match
 
 // MatchCardImportationPageData contains data for the match card importation template
 type MatchCardImportationPageData struct {
-	User        *models.User
-	WeekOptions []int
-	DefaultWeek int
-	DefaultYear int
-	MaxYear     int
+	User            *models.User
+	WeekOptions     []int
+	DefaultWeek     int
+	DefaultYear     int
+	MaxYear         int
+	DefaultClubCode string
 }
 
 // ImportRequest represents the form data for match card import
@@ -98,11 +99,12 @@ func (h *MatchCardImportationHandler) showImportForm(w http.ResponseWriter, r *h
 	}
 
 	data := MatchCardImportationPageData{
-		User:        user,
-		WeekOptions: weekOptions,
-		DefaultWeek: defaultWeek,
-		DefaultYear: currentYear,
-		MaxYear:     currentYear + 1, // Allow next year
+		User:            user,
+		WeekOptions:     weekOptions,
+		DefaultWeek:     defaultWeek,
+		DefaultYear:     currentYear,
+		MaxYear:         currentYear + 1, // Allow next year
+		DefaultClubCode: h.service.bhpltaClubCode,
 	}
 
 	// Load and parse the template
@@ -151,6 +153,7 @@ func (h *MatchCardImportationHandler) processImport(w http.ResponseWriter, r *ht
 		h.service.playerRepository,
 		h.service.divisionRepository,
 		h.service.seasonRepository,
+		h.service.homeClubID,
 	)
 
 	// Create import configuration

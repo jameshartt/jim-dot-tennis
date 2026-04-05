@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"html/template"
 	"log"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 
 	"jim-dot-tennis/internal/admin"
 	"jim-dot-tennis/internal/auth"
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/players"
@@ -39,6 +41,13 @@ func main() {
 	migrationsPath := filepath.Join(projectRoot, "migrations")
 	if err := db.ExecuteMigrations(migrationsPath); err != nil {
 		log.Printf("Warning: Failed to run migrations: %v", err)
+	}
+
+	// Load home club configuration
+	clubRepo := repository.NewClubRepository(db)
+	appConfig, err := config.Load(context.Background(), clubRepo)
+	if err != nil {
+		log.Fatalf("Home club configuration error: %v", err)
 	}
 
 	// Initialize web push service
@@ -81,10 +90,10 @@ func main() {
 	if courthiveAPIURL == "" {
 		courthiveAPIURL = "http://courthive-server:8383"
 	}
-	adminHandler := admin.New(db, templateDir, courthiveAPIURL)
+	adminHandler := admin.New(db, templateDir, courthiveAPIURL, appConfig.HomeClubID, appConfig.BHPLTAClubCode)
 
 	// Set up players handlers
-	playersHandler := players.New(db, templateDir)
+	playersHandler := players.New(db, templateDir, appConfig.HomeClubID)
 
 	// Set up template functions
 	templateFuncs := template.FuncMap{
@@ -168,7 +177,7 @@ func main() {
 	port := getPort()
 	server := &http.Server{
 		Addr:         ":" + port,
-		Handler:      mux,
+		Handler:      config.HomeClubMiddleware(appConfig, mux),
 		ReadTimeout:  30 * time.Second,  // Generous for mobile
 		WriteTimeout: 30 * time.Second,  // Generous for mobile
 		IdleTimeout:  120 * time.Second, // Keep connections alive

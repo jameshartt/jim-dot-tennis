@@ -2,7 +2,7 @@
 	build-tmx courthive courthive-up courthive-down courthive-restart courthive-logs \
 	vet fmt fmt-fix imports imports-fix lint deadcode tidy check \
 	test-e2e test-e2e-headed test-e2e-grep test-e2e-failed \
-	test-e2e-report test-e2e-results test-e2e-clean
+	test-e2e-report test-e2e-results test-e2e-clean test-e2e-multiclub
 
 # Docker compose command
 DOCKER_COMPOSE = docker compose
@@ -206,20 +206,20 @@ test-e2e-headed:
 		-e WORKERS=$(or $(WORKERS),1) \
 		-v /tmp/.X11-unix:/tmp/.X11-unix \
 		e2e \
-		sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --headed"
+		sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --project=chromium --headed"
 
 # Run E2E tests matching a grep pattern (usage: make test-e2e-grep FILTER="login" [WORKERS=4])
 test-e2e-grep:
 	@echo "Running E2E tests matching: $(FILTER)..."
 	$(DOCKER_COMPOSE) --profile test build e2e
 	$(DOCKER_COMPOSE) --profile test run --rm $(if $(WORKERS),-e WORKERS=$(WORKERS)) e2e \
-		sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --grep '$(FILTER)'"
+		sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --project=chromium --grep '$(FILTER)'"
 
 # Re-run only previously failed tests
 test-e2e-failed:
 	@echo "Re-running failed E2E tests..."
 	$(DOCKER_COMPOSE) --profile test run --rm e2e \
-		sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --last-failed"
+		sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --project=chromium --last-failed"
 
 # Open the HTML test report
 test-e2e-report:
@@ -245,6 +245,12 @@ test-e2e-clean:
 	@echo "Cleaning up E2E test environment..."
 	$(DOCKER_COMPOSE) --profile test down -v
 	rm -rf tests/e2e/test-results tests/e2e/playwright-report
+
+# Run multi-club E2E tests (HOME_CLUB_ID=2, Hove Park as home club)
+test-e2e-multiclub:
+	@echo "Running multi-club E2E tests (Hove Park as home)..."
+	$(DOCKER_COMPOSE) -f docker-compose.yml -f docker-compose.multiclub-test.yml --profile test build e2e
+	$(DOCKER_COMPOSE) -f docker-compose.yml -f docker-compose.multiclub-test.yml --profile test run --rm $(if $(WORKERS),-e WORKERS=$(WORKERS)) e2e
 
 # ============================================================
 # CourtHive

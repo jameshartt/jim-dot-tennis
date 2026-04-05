@@ -1,0 +1,42 @@
+{
+  "sprint": {
+    "id": "sprint-014",
+    "name": "Club-Agnostic Refactor",
+    "goal": "Remove all hardcoded St Ann's assumptions from the codebase so that any parks league club can deploy jim.tennis by setting a single HOME_CLUB_ID environment variable, with full regression testing at every phase",
+    "start_date": null,
+    "end_date": null,
+    "duration_weeks": 3,
+    "status": "planned",
+    "focus_areas": [
+      "Home club configuration via environment variable",
+      "Centralised apostrophe normalization",
+      "Service method and DTO renaming",
+      "Elimination of FindByNameLike('St Ann') pattern",
+      "SQL query parameterisation",
+      "Template and CSS genericisation",
+      "BHPLTA integration configurability",
+      "E2E test parameterisation",
+      "Multi-club verification tests",
+      "Documentation overhaul",
+      "Full regression validation"
+    ],
+    "phases_addressed": [
+      "Phase 9: Club-Agnostic Architecture"
+    ],
+    "work_items": [
+      "WI-077",
+      "WI-078",
+      "WI-079",
+      "WI-080",
+      "WI-081",
+      "WI-082",
+      "WI-083",
+      "WI-084",
+      "WI-085",
+      "WI-086",
+      "WI-087"
+    ],
+    "completed_items": [],
+    "deferred_items": {}
+  }
+}

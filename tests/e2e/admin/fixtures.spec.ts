@@ -3,6 +3,7 @@ import {
   expectNoErrorBanner,
   expectTitleContains,
 } from "../helpers/assertions";
+import { TEST_CONFIG } from "../fixtures/test-config";
 
 test.describe("Admin Fixtures", () => {
   test("fixtures list page loads", async ({ adminPage }) => {
@@ -21,7 +22,7 @@ test.describe("Admin Fixtures", () => {
     await adminPage.goto("/admin/league/fixtures");
     const pageContent = await adminPage.textContent("body");
     // Seeded fixtures have St Ann's and Hove Park teams
-    expect(pageContent).toContain("St Ann");
+    expect(pageContent).toContain(TEST_CONFIG.HOME_CLUB_SHORT);
     expect(pageContent).toContain("Hove Park");
   });
 

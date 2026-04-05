@@ -1,0 +1,56 @@
+{
+  "id": "WI-086",
+  "title": "Full regression validation and cleanup",
+  "description": "The final gatekeeper for the sprint. Run every verification available — E2E suite, compilation, linting, manual smoke testing — and sweep the entire codebase for any remaining St Ann's-specific references that shouldn't be there. Fix any code issues found. Documentation updates are handled by WI-087 — this work item is purely about code correctness and completeness.",
+  "type": "test",
+  "priority": "critical",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-077",
+    "WI-078",
+    "WI-079",
+    "WI-080",
+    "WI-081",
+    "WI-082",
+    "WI-083",
+    "WI-084",
+    "WI-085"
+  ],
+  "phase": "Phase 9: Club-Agnostic Architecture",
+  "acceptance_criteria": [
+    "make build-local succeeds with zero warnings",
+    "make lint passes (golangci-lint)",
+    "Full E2E suite passes: 146+ tests, 0 failures",
+    "Multi-club verification suite passes: 10+ tests, 0 failures",
+    "Codebase sweep confirms zero inappropriate St Ann's references in code:",
+    "  - grep -r 'St Ann' internal/ returns only the normalize test cases",
+    "  - grep -r 'STANN' internal/ returns zero results",
+    "  - grep -r 'stanns\\|StAnns\\|st_anns' internal/ templates/ returns zero results",
+    "  - grep -r 'FindByNameLike.*St' internal/ returns zero results",
+    "No regressions in fixture display, team selection, matchup management, points, or Club Wrapped",
+    "Summary of all code changes made in this sprint captured for commit message / PR description"
+  ],
+  "technical_notes": {
+    "files_to_modify": [],
+    "approach": [
+      "1. Run make build-local — fix any compilation errors",
+      "2. Run make lint — fix any linting issues introduced by the refactor",
+      "3. Run make test-e2e — capture results, fix any failures",
+      "4. Run multi-club test suite — capture results, fix any failures",
+      "5. Run codebase sweep greps — investigate and fix any remaining hardcoded references in source code",
+      "6. Manual smoke test: load dashboard, fixtures, teams, players, points, Club Wrapped — verify correct rendering",
+      "7. Prepare a summary of all changes for the sprint close"
+    ]
+  },
+  "testing_requirements": [
+    "This IS the testing — it's the final code validation gate",
+    "All tests green",
+    "All greps clean",
+    "Sprint cannot be marked complete until both this WI and WI-087 pass"
+  ],
+  "context": {
+    "user_story": "As the project owner, I need confidence that the refactor is complete and correct before this sprint is closed",
+    "related_docs": []
+  }
+}

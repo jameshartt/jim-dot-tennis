@@ -3,6 +3,7 @@ import {
   expectNoErrorBanner,
   expectTitleContains,
 } from "../helpers/assertions";
+import { TEST_CONFIG } from "../fixtures/test-config";
 
 test.describe("Admin Clubs", () => {
   test("clubs list page loads", async ({ adminPage }) => {
@@ -20,7 +21,7 @@ test.describe("Admin Clubs", () => {
   test("seeded clubs are displayed", async ({ adminPage }) => {
     await adminPage.goto("/admin/league/clubs");
     const pageContent = await adminPage.textContent("body");
-    expect(pageContent).toContain("St Ann's Tennis Club");
+    expect(pageContent).toContain(TEST_CONFIG.HOME_CLUB_NAME);
     expect(pageContent).toContain("Hove Park Tennis Club");
   });
 
@@ -39,7 +40,7 @@ test.describe("Admin Clubs", () => {
     expect(response?.status()).toBe(200);
     await expectNoErrorBanner(adminPage);
     const pageContent = await adminPage.textContent("body");
-    expect(pageContent).toContain("St Ann");
+    expect(pageContent).toContain(TEST_CONFIG.HOME_CLUB_SHORT);
   });
 
   test("club count is shown", async ({ adminPage }) => {

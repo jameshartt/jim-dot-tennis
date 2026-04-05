@@ -65,8 +65,10 @@ cmd/                  Entry points and CLI utilities
 internal/
   admin/              Admin interface handlers and service layer
   auth/               Authentication (session-based and token-based)
+  config/             Home club configuration, context helpers, middleware
   database/           Database connection and migrations
   models/             Data structures
+  normalize/          Apostrophe/Unicode normalisation utilities
   players/            Player-facing handlers
   repository/         Data access layer (one per entity)
   services/           Business logic (match card parsing, venue resolution, etc.)
@@ -97,7 +99,7 @@ Always create both up and down migration files.
 
 ## Club Adaptation Guide
 
-jim.tennis was built for St Ann's Tennis Club in the Brighton & Hove Parks League. It's open-source and could be adapted for another parks league club, but it wasn't designed as a multi-tenant platform. Here's an honest overview of what's involved.
+jim.tennis was originally built for St Ann's Tennis Club in the Brighton & Hove Parks League. Since then, the architecture has been made club-agnostic — the home club is configured via environment variables, so you no longer need to edit Go source files to run it for your own club.
 
 ### What you'd get
 
@@ -111,40 +113,48 @@ jim.tennis was built for St Ann's Tennis Club in the Brighton & Hove Parks Leagu
 
 ### What you'd need
 
-**Technical skills:** Comfort with Docker, the command line, and ideally some Go knowledge for customisation. You don't need to be a Go expert for basic configuration, but deeper changes will require it.
+**Technical skills:** Comfort with Docker and the command line. You don't need Go knowledge for basic setup — all club-specific configuration is done through environment variables.
 
 **A server:** jim.tennis runs on a single small VPS (1 CPU, 1GB RAM, 2GB swap). See [docs/digitalocean_deployment.md](docs/digitalocean_deployment.md) for the current setup.
 
-### Configuration changes (straightforward)
+### Configuration (environment variables)
 
-These are environment variables and config that you'd change for your club:
+Set these environment variables to run jim.tennis for your club:
 
-- `DB_PATH` / database connection settings
-- `COURTHIVE_API_URL` (if using tournament management)
-- Club name and branding in templates
-- BHPLTA club code (currently `STANN001`)
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `HOME_CLUB_ID` | Yes (or `HOME_CLUB_NAME`) | Database ID of your club |
+| `HOME_CLUB_NAME` | Fallback | Club name for fuzzy lookup if `HOME_CLUB_ID` is not set |
+| `BHPLTA_CLUB_CODE` | For imports | Your club's code on the BHPLTA website (e.g. `STANN001`) |
+| `DB_PATH` | No | Database file path (default: `./tennis.db`) |
+| `COURTHIVE_API_URL` | No | CourtHive API URL (if using tournament management) |
+
+You'll also want to update:
 - Domain name and Caddy configuration
+- Any club-specific branding in templates (optional — templates use the club name from the database)
 
-### Code changes required (moderate effort)
+### What's already handled
 
-These require editing Go source files:
+These used to require code changes but are now built in:
 
-- **Home/away team logic** — the system determines home vs away by checking the ClubID against St Ann's club ID. This logic appears across multiple files in `internal/admin/` and `internal/players/`. You'd need to change the reference ClubID or make it configurable.
-- **Hardcoded club references** — various template strings and service logic reference "St Ann's" directly. A search for "St Ann" across the codebase will surface these (there are roughly 28 files with references).
+- **Home/away team logic** — determined by `HOME_CLUB_ID`, not hardcoded
+- **Club name in templates** — injected dynamically from the database via middleware
+- **BHPLTA club code** — configured via `BHPLTA_CLUB_CODE` environment variable
+- **Apostrophe normalisation** — a centralised normalisation layer (`internal/normalize/`) handles the various Unicode apostrophe characters that appear across data sources
+
+### Remaining customisation (if needed)
+
 - **BHPLTA integration** — the match card import assumes the BHPLTA's website structure and data format. If your league uses a different website, you'd need to adapt the scraper in `internal/services/`.
-
-### Known pain points (significant effort)
-
-**The apostrophe problem.** The name "St Ann's" contains an apostrophe that appears differently across data sources — the BHPLTA website, match cards, CSV imports, and the internal database all use different apostrophe characters (`'`, `'`, `ʼ`). This creates matching issues throughout the system. It's the single biggest barrier to clean multi-club support and is documented tech debt, not something we've solved yet. If your club name doesn't contain special characters, this won't affect you.
+- **Tournament management** — the CourtHive integration is optional and can be disabled by not running the CourtHive stack.
 
 ### Rough effort estimate
 
 | Category | Effort |
 |----------|--------|
 | Deployment to a new server | A few hours if you're comfortable with Docker |
-| Changing the club name and branding | Half a day |
-| Updating home/away ClubID logic | A day or two, depending on Go familiarity |
-| Adapting BHPLTA integration for a different league | Significant — depends entirely on the target website |
+| Configuring for your club | Set 2-3 environment variables |
+| Customising branding/templates | Optional — a few hours if you want custom styling |
+| Adapting for a non-BHPLTA league | Significant — depends entirely on the target website |
 
 ### Getting help
 

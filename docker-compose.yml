@@ -18,6 +18,9 @@ services:
       - DB_TYPE=sqlite3
       - DB_PATH=/app/data/tennis.db
       - WRAPPED_ACCESS_PASSWORD=${WRAPPED_ACCESS_PASSWORD}
+      - HOME_CLUB_ID=${HOME_CLUB_ID:-}
+      - HOME_CLUB_NAME=${HOME_CLUB_NAME:-St Ann}
+      - BHPLTA_CLUB_CODE=${BHPLTA_CLUB_CODE}
     networks:
       default:
         # "app" is an HSTS-preloaded TLD (.app) — Chromium unconditionally
@@ -58,8 +61,8 @@ services:
       - ./tests/e2e/playwright-report:/app/tests/playwright-report
     environment:
       - PLAYWRIGHT_BASE_URL=http://webapp:8080
-    # Default: seed database and run all tests
-    command: sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test"
+    # Default: seed database and run chromium project tests (excludes multi-club)
+    command: sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --project=chromium"
 
   backup:
     image: alpine:latest

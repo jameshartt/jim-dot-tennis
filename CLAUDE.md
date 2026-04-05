@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Jim.Tennis is a tennis league management system built for St Ann's Tennis Club to manage the Brighton and Hove Parks Tennis League. The system handles player availability, team selection, fixture scheduling, match results tracking, and integrates with the BHPLTA (Brighton & Hove Parks League Tennis Association) website to import match cards.
+Jim.Tennis is a club-agnostic tennis league management system, originally built at St Ann's Tennis Club for the Brighton and Hove Parks Tennis League. The home club is configured via environment variables (`HOME_CLUB_ID` / `HOME_CLUB_NAME`), making the system deployable for any parks league club. It handles player availability, team selection, fixture scheduling, match results tracking, and integrates with the BHPLTA (Brighton & Hove Parks League Tennis Association) website to import match cards.
 
 **Key Technical Stack:**
-- Go 1.24+
+- Go 1.25+
 - SQLite (default) or PostgreSQL
 - Server-side rendered templates with HTMX
 - PWA with push notifications
@@ -58,6 +58,7 @@ make test-e2e-grep FILTER="login"  # Run tests matching pattern
 make test-e2e-failed               # Re-run only previously failed tests
 make test-e2e-report               # Open HTML test report
 make test-e2e-results              # Formatted test summary (Claude-friendly)
+make test-e2e-multiclub            # Run multi-club verification tests
 make test-e2e-clean                # Tear down test containers and clean artifacts
 
 # Test infrastructure:
@@ -88,16 +89,16 @@ go build -o bin/populate-db cmd/populate-db/main.go
 ./bin/populate-db -verbose -dry-run
 
 # Extract WordPress nonce from BHPLTA
-./bin/extract-nonce -club-code="STANN001" -verbose
+./bin/extract-nonce -club-code="$BHPLTA_CLUB_CODE" -verbose
 
 # Import match cards from BHPLTA
 ./bin/import-matchcards \
   -auto-nonce \
-  -club-code="STANN001" \
+  -club-code="$BHPLTA_CLUB_CODE" \
   -week=1 \
   -year=2024 \
-  -club-id=123 \
-  -club-name="St Ann's Tennis Club" \
+  -club-id=$HOME_CLUB_ID \
+  -club-name="Your Club Name" \
   -db="./tennis.db" \
   -verbose \
   -dry-run
@@ -118,6 +119,8 @@ The codebase follows a clean layered architecture:
 - `generate-fantasy-matches/`: Fantasy match generation utility
 
 **internal/**: Core application logic
+- `config/`: Home club configuration (`AppConfig`), context helpers, and middleware for injecting config into request context
+- `normalize/`: Centralised apostrophe/Unicode normalisation utilities
 - `database/`: Database connection and migration handling
 - `models/`: Data structures (Player, Team, Fixture, etc.)
 - `repository/`: Data access layer (one per entity)
@@ -217,12 +220,19 @@ Each major handler (Admin, Players) delegates to domain-specific sub-handlers:
 - `admin.Handler` → `DashboardHandler`, `PlayersHandler`, `FixturesHandler`, etc.
 - `players.Handler` → `AvailabilityHandler`
 
-### Database Configuration
+### Configuration
 
-**Environment Variables:**
+**Home Club (required):**
+- `HOME_CLUB_ID`: Database ID of the home club (preferred)
+- `HOME_CLUB_NAME`: Club name for fuzzy lookup (fallback if `HOME_CLUB_ID` is not set)
+- `BHPLTA_CLUB_CODE`: Club code on the BHPLTA website (e.g. `STANN001`) — used for match card imports
+
+**Database:**
 - `DB_TYPE`: "sqlite3" (default) or "postgres"
 - `DB_PATH`: SQLite file path (default: "./tennis.db")
 - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSLMODE`: PostgreSQL config
+
+**Application:**
 - `PORT`: HTTP server port (default: "8080")
 - `APP_ENV`: Set to "production" to enforce secure cookies
 
@@ -264,6 +274,10 @@ Club names extracted from team names (e.g., "Dyke A" → Club: "Dyke").
 ## Key Files
 
 - `cmd/jim-dot-tennis/main.go`: Application entry point, routing setup
+- `internal/config/config.go`: Home club configuration (`AppConfig` loaded from env vars)
+- `internal/config/context.go`: Context helpers for passing config through request context
+- `internal/config/middleware.go`: Middleware that injects config into every request
+- `internal/normalize/normalize.go`: Centralised apostrophe/Unicode normalisation
 - `internal/database/database.go`: Database connection and migration execution
 - `internal/admin/handler.go`: Admin route registration
 - `internal/players/handler.go`: Player route registration

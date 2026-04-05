@@ -1,6 +1,6 @@
 # DigitalOcean Deployment Guide
 
-This guide explains how to deploy the Jim.Tennis application to a DigitalOcean droplet using Docker.
+This guide explains how to deploy the Jim.Tennis application to a DigitalOcean droplet using Docker. Jim.Tennis is club-agnostic — configure your home club via environment variables at deploy time.
 
 ## Prerequisites
 
@@ -30,6 +30,17 @@ APP_DOMAIN=""              # Optional: your domain if you have one
 ```
 
 Make sure to set at least the `DROPLET_IP` value. The `SSH_KEY_PATH` can be left empty if your SSH key is in the default location.
+
+You'll also need a `.env` file on the server (at `/opt/jim-dot-tennis/.env`) with the home club configuration:
+
+```bash
+# Home club configuration (required)
+HOME_CLUB_ID=10                       # Database ID of your club
+BHPLTA_CLUB_CODE=what-three-words     # BHPLTA club code (for match card imports)
+
+# Other secrets
+WRAPPED_ACCESS_PASSWORD=your-password
+```
 
 ### Step 2: Run the Deployment Script
 

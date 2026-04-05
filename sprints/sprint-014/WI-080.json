@@ -1,0 +1,83 @@
+{
+  "id": "WI-080",
+  "title": "Replace FindByNameLike('St Ann') with config-driven home club ID",
+  "description": "This is the core behavioral change of the sprint. Currently, 43+ places in the codebase call clubRepository.FindByNameLike(ctx, 'St Ann') to dynamically look up St Ann's club ID on every request. Replace every one of these with the home club ID from request context (injected by WI-077's middleware). This eliminates the string-based club identification entirely and makes the app genuinely club-agnostic.",
+  "type": "refactor",
+  "priority": "critical",
+  "complexity": "XL",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-077",
+    "WI-079"
+  ],
+  "phase": "Phase 9: Club-Agnostic Architecture",
+  "acceptance_criteria": [
+    "Zero occurrences of FindByNameLike(ctx, \"St Ann\") remain in the codebase",
+    "Zero occurrences of FindByNameLike with any hardcoded club name remain",
+    "All service methods that previously looked up St Ann's now receive homeClubID from context or parameter",
+    "Service constructors or method signatures updated to accept context where needed",
+    "GetAwayTeams() logic changed from 'not St Ann's' to 'not home club'",
+    "Derby detection changed from 'both teams are St Ann's' to 'both teams belong to same club'",
+    "Dashboard statistics scoped to home club via ID, not name",
+    "Player filters ('Played for St Ann's this season') now use home club name dynamically",
+    "All club lookups use ID-based queries, not name-based LIKE queries",
+    "make build-local succeeds",
+    "Full E2E suite passes",
+    "App behavior is identical to pre-refactor when HOME_CLUB_ID points to St Ann's"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/admin/service_dashboard.go (2 occurrences)",
+      "internal/admin/service_fixtures.go (6 occurrences)",
+      "internal/admin/service_fixture_players.go (6 occurrences)",
+      "internal/admin/service_matchups.go (3+ occurrences)",
+      "internal/admin/service_teams.go (7 occurrences)",
+      "internal/admin/service_players.go (3 occurrences)",
+      "internal/admin/service_selection.go (2 occurrences)",
+      "internal/admin/fixtures.go (5 occurrences)",
+      "internal/admin/teams.go (3 occurrences)",
+      "internal/admin/clubs.go (1 occurrence)",
+      "internal/admin/points.go (3 occurrences)",
+      "internal/players/service.go (1 occurrence)",
+      "internal/players/standings.go (1 occurrence)",
+      "internal/services/matchcard_service.go (2 occurrences)",
+      "cmd/populate-db/main.go (1 occurrence)",
+      "cmd/import-season/main.go (1 occurrence)"
+    ],
+    "approach": [
+      "1. Work file by file, starting with the service layer (internal/admin/service_*.go)",
+      "2. For each file, replace the pattern:",
+      "   BEFORE: clubs, err := s.clubRepository.FindByNameLike(ctx, \"St Ann\")",
+      "           stAnnsClub := clubs[0]",
+      "   AFTER:  homeClubID := config.GetHomeClubID(ctx)",
+      "           homeClub, err := s.clubRepository.FindByID(ctx, homeClubID)",
+      "3. Where a method is called from a handler, ensure the handler passes request context through",
+      "4. For methods that don't currently take context, add context as first parameter",
+      "5. Update GetAwayTeams: change filter from 'skip if IsStAnnsClub(clubID)' to 'skip if clubID == homeClubID'",
+      "6. Update derby detection: change from 'both teams belong to St Ann's' to 'both teams belong to the same club'",
+      "7. Update admin/players.html filter option: change hardcoded 'Played for St Ann's' to use the home club name from template data",
+      "8. For cmd/ utilities (populate-db, import-season), read HOME_CLUB_ID or HOME_CLUB_NAME from env directly",
+      "9. After each file, compile to verify no regressions",
+      "10. After all files, run full E2E suite"
+    ],
+    "context_propagation_pattern": "Most handlers already receive *http.Request which carries context. The pattern is: homeClubID := config.GetHomeClubID(r.Context()). For service methods called outside of HTTP context (e.g., cmd/ utilities), pass a context.Background() with the club ID injected manually.",
+    "derby_logic_change": "Current: isDerby := isHomeStAnns && isAwayStAnns. New: isDerby := homeTeam.ClubID == awayTeam.ClubID. This is actually more correct — it detects any intra-club derby, not just St Ann's derbies.",
+    "performance_note": "This change should improve performance slightly. Currently, each request triggers multiple database lookups (FindByNameLike) to resolve the same club ID. After refactoring, the club ID is resolved once at startup and injected via middleware — zero database lookups per request for club identification."
+  },
+  "testing_requirements": [
+    "make build-local compiles with zero errors",
+    "Full E2E suite passes (146 tests)",
+    "grep -r 'FindByNameLike.*St Ann' internal/ cmd/ returns zero results",
+    "grep -r 'FindByNameLike.*\"St' internal/ cmd/ returns zero results (no hardcoded club names)",
+    "Verify dashboard loads correctly and shows correct team/player counts",
+    "Verify fixture list shows correct home/away designation",
+    "Verify team selection page works for home and away fixtures",
+    "Verify derby fixtures still display correctly",
+    "Verify away teams page shows correct non-home-club teams",
+    "Verify player filter 'Played for [club] this season' shows correct club name"
+  ],
+  "context": {
+    "user_story": "As the codebase, I should identify the home club by a configured ID, not by searching for a hardcoded string on every request",
+    "related_docs": []
+  }
+}

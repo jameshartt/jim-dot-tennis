@@ -1,6 +1,10 @@
 -- E2E Test Seed Data
 -- Idempotent: uses INSERT OR REPLACE / INSERT OR IGNORE throughout
 -- Run against the SQLite test database before E2E tests
+--
+-- Home club: St Ann's Tennis Club (ID: 1)
+-- Away club: Hove Park Tennis Club (ID: 2)
+-- To test with a different home club, set HOME_CLUB_ID env var
 
 -- ============================================================
 -- Admin user: testadmin / testpassword123

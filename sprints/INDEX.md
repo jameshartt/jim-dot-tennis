@@ -121,6 +121,14 @@ None currently active.
 - **Summary**: [sprint-013/SUMMARY.md](sprint-013/SUMMARY.md)
 - **Dependencies**: WI-073/074/075/076 → WI-071 (license must land first)
 
+### Sprint 014: Club-Agnostic Refactor
+- **Focus**: Remove all hardcoded St Ann's assumptions, make the app deployable for any parks league club via a single HOME_CLUB_ID environment variable
+- **Items**: 11 (WI-077 to WI-087)
+- **Key Features**: Home club config/middleware, centralised apostrophe normalization, service method + DTO renaming, elimination of FindByNameLike('St Ann') pattern, SQL query parameterisation, template genericisation, BHPLTA config, full documentation overhaul, E2E test parameterisation, multi-club verification suite, full regression validation
+- **Directory**: `sprint-014/`
+- **Summary**: [sprint-014/SUMMARY.md](sprint-014/SUMMARY.md)
+- **Dependencies**: WI-079/080/081 → WI-077; WI-080 → WI-079; WI-082 → WI-079+080; WI-084 → WI-079+080+082; WI-085 → WI-084; WI-087 → WI-080+081+082+083; WI-086 → all code WIs
+
 ## Sprint Metrics
 
 | Sprint | Work Items | Completed | In Progress | Blocked | Success Rate |

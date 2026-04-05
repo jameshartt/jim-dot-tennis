@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	appconfig "jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
@@ -756,27 +757,28 @@ func importPlayers(ctx context.Context, filePath string, clubRepo repository.Clu
 		log.Printf("Starting player import from %s", filePath)
 	}
 
-	var stAnnsClub models.Club
+	var homeClub models.Club
 
 	if config.DryRun {
 		// In dry run mode, create a mock club
-		stAnnsClub = models.Club{ID: 1, Name: "St. Ann's"}
+		homeClub = models.Club{ID: 1, Name: "Home Club"}
 		if config.Verbose {
-			log.Printf("[DRY RUN] Using mock St. Ann's club (ID: %d)", stAnnsClub.ID)
+			log.Printf("[DRY RUN] Using mock home club (ID: %d)", homeClub.ID)
 		}
 	} else {
-		// Find St. Ann's club
-		clubs, err := clubRepo.FindByNameLike(ctx, "St Ann")
+		// Load home club configuration
+		appCfg, err := appconfig.Load(ctx, clubRepo)
 		if err != nil {
-			return fmt.Errorf("failed to find St. Ann's club: %w", err)
+			return fmt.Errorf("home club config error: %w", err)
 		}
-		if len(clubs) == 0 {
-			return fmt.Errorf("St. Ann's club not found in database")
+		club, err := clubRepo.FindByID(ctx, appCfg.HomeClubID)
+		if err != nil {
+			return fmt.Errorf("home club not found in database: %w", err)
 		}
-		stAnnsClub = clubs[0]
+		homeClub = *club
 
 		if config.Verbose {
-			log.Printf("Found St. Ann's club (ID: %d)", stAnnsClub.ID)
+			log.Printf("Found home club: %s (ID: %d)", homeClub.Name, homeClub.ID)
 		}
 	}
 
@@ -806,7 +808,7 @@ func importPlayers(ctx context.Context, filePath string, clubRepo repository.Clu
 		firstName, lastName := splitPlayerName(fullName)
 
 		if config.DryRun {
-			log.Printf("[DRY RUN] Would create player: %s %s (Club: %s)", firstName, lastName, stAnnsClub.Name)
+			log.Printf("[DRY RUN] Would create player: %s %s (Club: %s)", firstName, lastName, homeClub.Name)
 			importedCount++
 			continue
 		}
@@ -817,7 +819,7 @@ func importPlayers(ctx context.Context, filePath string, clubRepo repository.Clu
 			// Check if any existing player is from the same club
 			playerExists := false
 			for _, existingPlayer := range existing {
-				if existingPlayer.ClubID == stAnnsClub.ID {
+				if existingPlayer.ClubID == homeClub.ID {
 					playerExists = true
 					break
 				}
@@ -836,7 +838,7 @@ func importPlayers(ctx context.Context, filePath string, clubRepo repository.Clu
 			ID:        uuid.New().String(),
 			FirstName: firstName,
 			LastName:  lastName,
-			ClubID:    stAnnsClub.ID,
+			ClubID:    homeClub.ID,
 		}
 
 		if err := playerRepo.Create(ctx, player); err != nil {

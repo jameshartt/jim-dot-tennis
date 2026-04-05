@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"jim-dot-tennis/internal/normalize"
+
 	"github.com/PuerkitoBio/goquery"
 )
 
@@ -145,9 +147,9 @@ func (p *MatchCardParser) parseTeamNames(header string) []string {
 	homeTeam := strings.TrimSpace(parts[0])
 	awayTeam := strings.TrimSpace(parts[1])
 
-	// Handle HTML entities
-	homeTeam = strings.ReplaceAll(homeTeam, "&#039;", "'")
-	awayTeam = strings.ReplaceAll(awayTeam, "&#039;", "'")
+	// Normalize apostrophe variants
+	homeTeam = normalize.Apostrophes(homeTeam)
+	awayTeam = normalize.Apostrophes(awayTeam)
 
 	return []string{homeTeam, awayTeam}
 }

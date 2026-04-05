@@ -556,7 +556,7 @@
 
             {{if .UpcomingFixtures}}
             <div class="table-container">
-                <table class="fixtures-table">
+                <table class="fixtures-table" data-testid="fixtures-list">
                     <thead>
                         <tr>
                             <th class="col-date">Date & Time</th>
@@ -931,7 +931,7 @@
 
                 <div style="margin-bottom: 20px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: bold;">Venue Location:</label>
-                    <input type="text" name="venue_location" placeholder="e.g., St Ann's Tennis Club" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="text" name="venue_location" placeholder="e.g., {{.HomeClubName}}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                 </div>
 
                 <div style="display: flex; gap: 10px; justify-content: flex-end;">

@@ -17,6 +17,8 @@ services:
       - DB_TYPE=sqlite3
       - DB_PATH=/app/data/tennis.db
       - WRAPPED_ACCESS_PASSWORD=${WRAPPED_ACCESS_PASSWORD}
+      - HOME_CLUB_NAME=${HOME_CLUB_NAME:-St Ann}
+      - BHPLTA_CLUB_CODE=${BHPLTA_CLUB_CODE}
     networks:
       - tennis-network
     healthcheck:

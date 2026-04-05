@@ -1,0 +1,12 @@
+# Override for multi-club E2E testing (Hove Park as home club)
+# Usage: make test-e2e-multiclub
+#
+# This override changes the app's HOME_CLUB_ID to 2 (Hove Park Tennis Club)
+# and runs only the multi-club.spec.ts test file.
+services:
+  app:
+    environment:
+      - HOME_CLUB_ID=2
+      - HOME_CLUB_NAME=Hove Park
+  e2e:
+    command: sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --project=multi-club"

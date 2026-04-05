@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/services"
 )
@@ -105,21 +106,21 @@ func (h *FixturesHandler) HandleFixtures(w http.ResponseWriter, r *http.Request)
 // handleFixturesGet handles GET requests for fixture management
 func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Request, user *models.User) {
 	// Get St. Ann's upcoming fixtures with related data
-	club, upcomingFixtures, err := h.service.GetStAnnsFixtures()
+	club, upcomingFixtures, err := h.service.GetHomeClubFixtures()
 	if err != nil {
 		logAndError(w, "Failed to load upcoming fixtures", err, http.StatusInternalServerError)
 		return
 	}
 
 	// Get today's fixtures (separate bucket)
-	_, todaysFixtures, err := h.service.GetStAnnsTodaysFixtures()
+	_, todaysFixtures, err := h.service.GetHomeClubTodaysFixtures()
 	if err != nil {
 		logAndError(w, "Failed to load today's fixtures", err, http.StatusInternalServerError)
 		return
 	}
 
 	// Get St. Ann's past fixtures with related data
-	_, pastFixtures, err := h.service.GetStAnnsPastFixtures()
+	_, pastFixtures, err := h.service.GetHomeClubPastFixtures()
 	if err != nil {
 		logAndError(w, "Failed to load past fixtures", err, http.StatusInternalServerError)
 		return
@@ -173,6 +174,7 @@ func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Reque
 		"ActiveSeason":     activeSeason,
 		"Weeks":            weeks,
 		"Teams":            teams,
+		"HomeClubName":     homeClubNameFromContext(r),
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -346,32 +348,28 @@ func (h *FixturesHandler) handleFixtureDetailGet(w http.ResponseWriter, r *http.
 	}
 
 	// Determine derby status and managing team information
-	var isStAnnsHome bool
-	var isStAnnsAway bool
+	var isHomeClub bool
+	var isAwayClub bool
 	var isDerby bool
 	var managingTeam *models.Team
 
-	// Get fixture details to determine St Ann's position
+	// Get fixture details to determine home club position
 	if detail, ok := fixtureDetail.(*FixtureDetail); ok {
-		// Find St Ann's club ID
-		stAnnsClubs, err := h.service.GetClubsByName("St Ann")
-		if err == nil && len(stAnnsClubs) > 0 {
-			stAnnsClubID := stAnnsClubs[0].ID
+		homeClubID := config.GetHomeClubID(r.Context())
 
-			// Check if home team is St Ann's
-			if detail.HomeTeam != nil && detail.HomeTeam.ClubID == stAnnsClubID {
-				isStAnnsHome = true
-			}
+		// Check if home team is home club
+		if detail.HomeTeam != nil && detail.HomeTeam.ClubID == homeClubID {
+			isHomeClub = true
+		}
 
-			// Check if away team is St Ann's
-			if detail.AwayTeam != nil && detail.AwayTeam.ClubID == stAnnsClubID {
-				isStAnnsAway = true
-			}
+		// Check if away team is home club
+		if detail.AwayTeam != nil && detail.AwayTeam.ClubID == homeClubID {
+			isAwayClub = true
+		}
 
-			// Determine if it's a derby match (both teams are St Ann's)
-			if isStAnnsHome && isStAnnsAway {
-				isDerby = true
-			}
+		// Determine if it's a derby match (both teams are home club)
+		if isHomeClub && isAwayClub {
+			isDerby = true
 		}
 	}
 
@@ -432,10 +430,11 @@ func (h *FixturesHandler) handleFixtureDetailGet(w http.ResponseWriter, r *http.
 		"FixtureDetail":     fixtureDetail,
 		"AvailablePlayers":  availablePlayers,
 		"NavigationContext": navigationContext,
-		"IsStAnnsHome":      isStAnnsHome,
-		"IsStAnnsAway":      isStAnnsAway,
+		"IsHomeClub":      isHomeClub,
+		"IsAwayClub":      isAwayClub,
 		"IsDerby":           isDerby,
 		"ManagingTeam":      managingTeam,
+		"HomeClubName":      homeClubNameFromContext(r),
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -582,11 +581,11 @@ func (h *FixturesHandler) handleClearFixturePlayers(w http.ResponseWriter, r *ht
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
 
-// handleUpdateMatchup handles updating matchup player assignments for St Ann's players
+// handleUpdateMatchup handles updating matchup player assignments for home club players
 func (h *FixturesHandler) handleUpdateMatchup(w http.ResponseWriter, r *http.Request, fixtureID uint) {
 	matchupType := models.MatchupType(r.FormValue("matchup_type"))
-	stAnnsPlayer1ID := r.FormValue("stanns_player_1")
-	stAnnsPlayer2ID := r.FormValue("stanns_player_2")
+	homePlayer1ID := r.FormValue("home_player_1")
+	homePlayer2ID := r.FormValue("home_player_2")
 
 	// Validate matchup type
 	if matchupType == "" {
@@ -601,9 +600,9 @@ func (h *FixturesHandler) handleUpdateMatchup(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Update the St Ann's players for this matchup
-	// We determine if St Ann's is home or away and assign accordingly
-	err = h.service.UpdateStAnnsMatchupPlayers(matchup.ID, fixtureID, stAnnsPlayer1ID, stAnnsPlayer2ID)
+	// Update the home club players for this matchup
+	// We determine if the home club is home or away and assign accordingly
+	err = h.service.UpdateHomeClubMatchupPlayers(matchup.ID, fixtureID, homePlayer1ID, homePlayer2ID)
 	if err != nil {
 		logAndError(w, "Failed to update matchup players", err, http.StatusInternalServerError)
 		return
@@ -665,8 +664,8 @@ func (h *FixturesHandler) handlePlayerSelection(w http.ResponseWriter, r *http.R
 		}
 	}
 
-	// Determine if St Ann's is home or away
-	isStAnnsHome := h.service.IsStAnnsHomeInFixture(fixtureID)
+	// Determine if the home club is home or away
+	isHomeClub := h.service.IsHomeClubInFixture(fixtureID)
 
 	// Render inline player selection template
 	w.Header().Set("Content-Type", "text/html")
@@ -674,9 +673,9 @@ func (h *FixturesHandler) handlePlayerSelection(w http.ResponseWriter, r *http.R
 		<div class="player-selection-form">
 			<h4>Add Players to Selection</h4>
 
-			` + renderPlayerGroup("Team Players", availableTeamPlayers, fixtureID, isStAnnsHome) + `
+			` + renderPlayerGroup("Team Players", availableTeamPlayers, fixtureID, isHomeClub) + `
 
-			` + renderPlayerGroup("All St Ann Players", availableStAnnPlayers, fixtureID, isStAnnsHome) + `
+			` + renderPlayerGroup("All " + homeClubNameFromContext(r) + " Players", availableStAnnPlayers, fixtureID, isHomeClub) + `
 		</div>
 	`)); err != nil {
 		log.Printf("Failed to write player selection response: %v", err)
@@ -831,8 +830,9 @@ func (h *FixturesHandler) handleTeamSelectionGet(w http.ResponseWriter, r *http.
 	templateData := map[string]interface{}{
 		"FixtureDetail":       fixtureDetail,
 		"TeamPlayers":         availableTeamPlayers,
-		"AllStAnnPlayers":     availableStAnnPlayers,
+		"AllHomeClubPlayers":  availableStAnnPlayers,
 		"SelectionPercentage": selectionPercentage,
+		"HomeClubName":        homeClubNameFromContext(r),
 	}
 
 	// Include managing team information if present
@@ -1123,8 +1123,9 @@ func (h *FixturesHandler) renderTeamSelectionContainer(w http.ResponseWriter, r 
 	templateData := map[string]interface{}{
 		"FixtureDetail":       fixtureDetail,
 		"TeamPlayers":         availableTeamPlayers,
-		"AllStAnnPlayers":     availableStAnnPlayers,
+		"AllHomeClubPlayers":  availableStAnnPlayers,
 		"SelectionPercentage": selectionPercentage,
+		"HomeClubName":        homeClubNameFromContext(r),
 	}
 
 	// Include managing team ID if present
@@ -1255,7 +1256,7 @@ func (h *FixturesHandler) handleWeekOverview(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Get next week's fixtures organized by division
-	fixturesByDivision, err := h.service.GetStAnnsNextWeekFixturesByDivision()
+	fixturesByDivision, err := h.service.GetHomeClubNextWeekFixturesByDivision()
 	if err != nil {
 		logAndError(w, "Failed to load next week's fixtures", err, http.StatusInternalServerError)
 		return
@@ -1280,6 +1281,7 @@ func (h *FixturesHandler) handleWeekOverview(w http.ResponseWriter, r *http.Requ
 		"FixturesByDivision": fixturesByDivision,
 		"WeekStart":          weekStart,
 		"WeekEnd":            weekEnd,
+		"HomeClubName":       homeClubNameFromContext(r),
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -1345,6 +1347,7 @@ func (h *FixturesHandler) handleFixtureEditGet(w http.ResponseWriter, r *http.Re
 		"User":              user,
 		"FixtureDetail":     fixtureDetail,
 		"NavigationContext": navigationContext,
+		"HomeClubName":      homeClubNameFromContext(r),
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -1451,6 +1454,7 @@ func (h *FixturesHandler) renderEditWithError(w http.ResponseWriter, r *http.Req
 		"FixtureDetail":     fixtureDetail,
 		"NavigationContext": navigationContext,
 		"Error":             errorMsg,
+		"HomeClubName":      homeClubNameFromContext(r),
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}

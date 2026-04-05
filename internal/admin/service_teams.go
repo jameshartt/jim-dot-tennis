@@ -47,28 +47,24 @@ func (s *Service) CreateTeam(team *models.Team) error {
 	return s.teamRepository.Create(ctx, team)
 }
 
-// GetStAnnsTeams retrieves teams for St. Ann's club with related data
-func (s *Service) GetStAnnsTeams() (*models.Club, []TeamWithRelations, error) {
+// GetHomeClubTeams retrieves teams for the home club with related data
+func (s *Service) GetHomeClubTeams() (*models.Club, []TeamWithRelations, error) {
 	ctx := context.Background()
 
-	// Find St. Ann's club
-	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	// Get home club from config
+	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID)
 	if err != nil {
 		return nil, nil, err
 	}
-	if len(clubs) == 0 {
-		return nil, nil, nil // No club found
-	}
-	stAnnsClub := &clubs[0]
 
-	// Get all teams for St. Ann's club
-	teams, err := s.teamRepository.FindByClub(ctx, stAnnsClub.ID)
+	// Get all teams for home club
+	teams, err := s.teamRepository.FindByClub(ctx, homeClub.ID)
 	if err != nil {
-		return stAnnsClub, nil, err
+		return homeClub, nil, err
 	}
 
 	if len(teams) == 0 {
-		return stAnnsClub, nil, nil // No teams found
+		return homeClub, nil, nil // No teams found
 	}
 
 	// Build TeamsWithRelations by fetching related data
@@ -104,7 +100,7 @@ func (s *Service) GetStAnnsTeams() (*models.Club, []TeamWithRelations, error) {
 		teamsWithRelations = append(teamsWithRelations, teamWithRelations)
 	}
 
-	return stAnnsClub, teamsWithRelations, nil
+	return homeClub, teamsWithRelations, nil
 }
 
 // GetTeamDetail retrieves comprehensive details for a specific team
@@ -384,29 +380,16 @@ func (s *Service) DeleteTeam(teamID uint) error {
 	return s.teamRepository.Delete(ctx, teamID)
 }
 
-// IsStAnnsClub checks if a club ID belongs to St Ann's
-func (s *Service) IsStAnnsClub(clubID uint) bool {
-	ctx := context.Background()
-	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
-	if err != nil || len(clubs) == 0 {
-		return false
-	}
-	return clubs[0].ID == clubID
+// IsHomeClub checks if a club ID belongs to the home club
+func (s *Service) IsHomeClub(clubID uint) bool {
+	return clubID == s.homeClubID
 }
 
-// GetAwayTeams retrieves all non-St Ann's teams grouped by club
+// GetAwayTeams retrieves all non-home-club teams grouped by club
 func (s *Service) GetAwayTeams() ([]AwayTeamGroupedByClub, error) {
 	ctx := context.Background()
 
-	// Find St. Ann's club ID
-	stAnnsClubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
-	if err != nil {
-		return nil, err
-	}
-	stAnnsID := uint(0)
-	if len(stAnnsClubs) > 0 {
-		stAnnsID = stAnnsClubs[0].ID
-	}
+	homeClubID := s.homeClubID
 
 	// Get active season
 	activeSeason, _ := s.seasonRepository.FindActive(ctx)
@@ -420,13 +403,13 @@ func (s *Service) GetAwayTeams() ([]AwayTeamGroupedByClub, error) {
 		return nil, err
 	}
 
-	// Group non-St Ann's teams by club
+	// Group non-home-club teams by club
 	clubMap := make(map[uint]*AwayTeamGroupedByClub)
 	clubOrder := []uint{}
 
 	for _, team := range allTeams {
-		if team.ClubID == stAnnsID {
-			continue // Skip St Ann's teams
+		if team.ClubID == homeClubID {
+			continue // Skip home club teams
 		}
 
 		if _, exists := clubMap[team.ClubID]; !exists {
@@ -492,15 +475,7 @@ type AwayTeamReviewData struct {
 func (s *Service) GetAwayTeamReviewData(seasonID uint) (*AwayTeamReviewData, error) {
 	ctx := context.Background()
 
-	// Find St Ann's club ID
-	stAnnsClubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
-	if err != nil {
-		return nil, err
-	}
-	stAnnsID := uint(0)
-	if len(stAnnsClubs) > 0 {
-		stAnnsID = stAnnsClubs[0].ID
-	}
+	homeClubID := s.homeClubID
 
 	// Get the season to find previous year
 	season, err := s.seasonRepository.FindByID(ctx, seasonID)
@@ -521,7 +496,7 @@ func (s *Service) GetAwayTeamReviewData(seasonID uint) (*AwayTeamReviewData, err
 	if len(prevSeasons) > 0 {
 		prevTeams, _ := s.teamRepository.FindBySeason(ctx, prevSeasons[0].ID)
 		for _, pt := range prevTeams {
-			if pt.ClubID == stAnnsID {
+			if pt.ClubID == homeClubID {
 				continue
 			}
 			divName := ""
@@ -536,7 +511,7 @@ func (s *Service) GetAwayTeamReviewData(seasonID uint) (*AwayTeamReviewData, err
 	// Build review items for away teams only
 	var items []AwayTeamReviewItem
 	for _, team := range allTeams {
-		if team.ClubID == stAnnsID {
+		if team.ClubID == homeClubID {
 			continue
 		}
 

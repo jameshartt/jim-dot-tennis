@@ -1,0 +1,71 @@
+{
+  "id": "WI-078",
+  "title": "Centralised apostrophe normalization utility",
+  "description": "Create a single, shared normalization function that handles all known apostrophe-like Unicode characters and use it consistently across every entry point in the codebase. Currently there are three different normalization strategies (replace-then-remove, remove-outright, truncate-at-apostrophe) scattered across matchcard_service.go, club_scraper.go, fixture_scraper.go, and import-season. The player_matcher.go doesn't handle apostrophes at all, which is a latent bug. This work item consolidates all of them.",
+  "type": "refactor",
+  "priority": "critical",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "phase": "Phase 9: Club-Agnostic Architecture",
+  "acceptance_criteria": [
+    "New utility function NormalizeApostrophes(s string) string exists in a shared package (e.g. internal/normalize/)",
+    "Function handles all known variants: U+0027 ('), U+2019 (right single quote), U+2018 (left single quote), U+02BC (modifier letter apostrophe), U+2032 (prime), backtick (`), HTML entity &#039;",
+    "Function normalizes all variants to U+0027 (standard ASCII apostrophe) — does NOT remove them",
+    "Second utility function NormalizeForComparison(s string) string: lowercases, normalizes apostrophes, then removes all apostrophes and collapses whitespace — for fuzzy matching",
+    "matchcard_service.go normalizeTeamName uses shared NormalizeForComparison",
+    "club_scraper.go normalizeClubName uses shared NormalizeForComparison",
+    "fixture_scraper.go normalizeApostrophes uses shared NormalizeApostrophes",
+    "player_matcher.go normalizeName updated to call NormalizeApostrophes (fixes latent bug where apostrophes in player names cause match failures)",
+    "import-season truncation strategy replaced with NormalizeForComparison",
+    "matchcard_parser.go HTML entity handling delegates to shared function",
+    "All existing tests pass — normalization produces identical results to current behavior",
+    "Unit tests cover every apostrophe variant for both functions"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "internal/normalize/normalize.go",
+      "internal/normalize/normalize_test.go"
+    ],
+    "files_to_modify": [
+      "internal/services/matchcard_service.go",
+      "internal/services/matchcard_parser.go",
+      "internal/services/club_scraper.go",
+      "internal/services/fixture_scraper.go",
+      "internal/services/player_matcher.go",
+      "cmd/import-season/main.go"
+    ],
+    "approach": [
+      "1. Create internal/normalize/normalize.go with two exported functions",
+      "2. NormalizeApostrophes: replace all variant apostrophes with ASCII apostrophe U+0027",
+      "3. NormalizeForComparison: call NormalizeApostrophes, then ToLower, remove all apostrophes, collapse whitespace — this matches the current most-thorough strategy in matchcard_service.go",
+      "4. Write comprehensive unit tests first — table-driven tests with every known apostrophe variant",
+      "5. Replace each file's local normalization with calls to the shared functions, one file at a time",
+      "6. After each file, run the existing test suite to verify identical behavior",
+      "7. Fix player_matcher.go — add NormalizeApostrophes call in normalizeName to handle apostrophes in player surnames (e.g., O'Brien, D'Angelo)"
+    ],
+    "known_apostrophe_variants": [
+      "U+0027 ' APOSTROPHE (ASCII)",
+      "U+2019 ' RIGHT SINGLE QUOTATION MARK (common in web content)",
+      "U+2018 ' LEFT SINGLE QUOTATION MARK (common in web content)",
+      "U+02BC ʼ MODIFIER LETTER APOSTROPHE (Unicode canonical)",
+      "U+2032 ′ PRIME (sometimes used as apostrophe)",
+      "U+0060 ` GRAVE ACCENT (keyboard fallback)",
+      "&#039; HTML entity for apostrophe"
+    ],
+    "player_matcher_bug": "player_matcher.go:normalizeName currently handles periods, commas, and hyphens but NOT apostrophes. A player named O'Brien imported from BHPLTA with a curly apostrophe (O'Brien) would fail to match the same player stored with a straight apostrophe (O'Brien). This is a real bug, not theoretical — Irish surnames are common in Brighton."
+  },
+  "testing_requirements": [
+    "Unit tests for NormalizeApostrophes with all 7 known variants",
+    "Unit tests for NormalizeForComparison with mixed-variant strings",
+    "Verify: NormalizeForComparison(\"St Ann's\") == NormalizeForComparison(\"St Ann\\u2019s\") == NormalizeForComparison(\"St Ann\\u2018s\")",
+    "Verify: NormalizeApostrophes preserves the apostrophe (does not remove it)",
+    "Verify: player_matcher now matches O'Brien to O'Brien (curly vs straight)",
+    "Full E2E suite passes — no behavioral change for existing data",
+    "make build-local succeeds"
+  ],
+  "context": {
+    "user_story": "As a developer deploying for any club, I want consistent string normalization so that clubs with apostrophes in their names (St Ann's, Queen's, King's) work reliably across all data import paths",
+    "related_docs": []
+  }
+}

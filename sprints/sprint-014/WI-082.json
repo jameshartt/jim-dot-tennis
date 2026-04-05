@@ -1,0 +1,57 @@
+{
+  "id": "WI-082",
+  "title": "Update templates to use dynamic home club name and generic styling",
+  "description": "After the Go-side renames (WI-079) and logic changes (WI-080), templates need a pass to replace any remaining hardcoded 'St Ann's' text content with the dynamic home club name. This includes page headings, placeholder text, filter labels, and anywhere the club name appears in user-visible text. Template data must include the home club name for rendering.",
+  "type": "refactor",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-079",
+    "WI-080"
+  ],
+  "phase": "Phase 9: Club-Agnostic Architecture",
+  "acceptance_criteria": [
+    "Zero hardcoded occurrences of 'St Ann' in any template file",
+    "All templates that display the club name use {{.HomeClubName}} or equivalent template variable",
+    "Handler template data includes HomeClubName (string) sourced from the config-injected Club model",
+    "Points table heading uses dynamic club name: '{{.HomeClubName}} - Division X'",
+    "Player filter option reads 'Played for {{.HomeClubName}} this season'",
+    "Team creation placeholder reads 'e.g., {{.HomeClubName}} A'",
+    "index.html references the home club name dynamically if applicable",
+    "CSS custom property values (colours) are configurable or use sensible defaults that aren't St Ann's-specific green/blue",
+    "All pages render correctly with the home club name"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "templates/admin/points_table.html",
+      "templates/admin/players.html",
+      "templates/admin/teams.html",
+      "templates/admin/week_overview.html",
+      "templates/admin/fixture_team_selection.html",
+      "templates/index.html",
+      "templates/layout.html"
+    ],
+    "approach": [
+      "1. grep -r 'St Ann' templates/ to find all remaining hardcoded references",
+      "2. For each template, determine which handler renders it",
+      "3. Ensure the handler includes HomeClubName in its template data (from config.GetHomeClub(ctx).Name)",
+      "4. Replace hardcoded text with {{.HomeClubName}}",
+      "5. For CSS custom property values (colours), move to a configurable theme or use neutral defaults",
+      "6. Consider adding HOME_CLUB_PRIMARY_COLOR and HOME_CLUB_SECONDARY_COLOR env vars for branding (optional, can default to sensible neutral colours)",
+      "7. Verify each page renders correctly after changes"
+    ],
+    "css_strategy": "The current --stanns-green (#4cb04d) and --stanns-blue (#1455a1) are St Ann's brand colours. Options: (a) move to env vars/config, (b) use neutral defaults, (c) keep as-is since they're already renamed to --home-primary/--home-secondary in WI-079. Recommend option (c) for now with a note that deployers can override the CSS values — full theming is out of scope for this sprint."
+  },
+  "testing_requirements": [
+    "grep -r 'St Ann' templates/ returns zero results (excluding comments explaining the refactor if any)",
+    "Full E2E suite passes",
+    "Manual verification of all admin pages showing correct club name",
+    "Manual verification of player-facing pages showing correct club name",
+    "Points table heading shows correct club name per division"
+  ],
+  "context": {
+    "user_story": "As a user of a non-St Ann's deployment, I want to see my club's name throughout the interface, not 'St Ann's'",
+    "related_docs": []
+  }
+}

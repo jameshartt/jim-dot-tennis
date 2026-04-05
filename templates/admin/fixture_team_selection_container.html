@@ -512,11 +512,11 @@
         </div>
         {{end}}
         
-        {{if .AllStAnnPlayers}}
+        {{if .AllHomeClubPlayers}}
         <div class="player-group">
-            <h4>Other St Ann Players ({{len .AllStAnnPlayers}} available)</h4>
+            <h4>Other {{.HomeClubName}} Players ({{len .AllHomeClubPlayers}} available)</h4>
             <div class="player-buttons">
-                {{range .AllStAnnPlayers}}
+                {{range .AllHomeClubPlayers}}
                 <form method="post" style="display: inline;"
                       hx-post="/admin/league/fixtures/{{$.FixtureDetail.ID}}/team-selection"
                       hx-target=".team-selection-container"

@@ -151,12 +151,15 @@ Add to your crontab:
 
 ## Customizing Configuration
 
-Environment variables can be modified in the `docker-compose.yml` file:
+Environment variables can be modified in the `docker-compose.yml` file or in a `.env` file:
 
 ```yaml
 environment:
-  - PORT=8080             # Web server port
-  - DB_TYPE=sqlite3       # Database type
+  - HOME_CLUB_ID=10             # Database ID of the home club (required, or use HOME_CLUB_NAME)
+  - HOME_CLUB_NAME=St Ann's     # Fallback: club name for fuzzy lookup
+  - BHPLTA_CLUB_CODE=what-three-words  # Club code on the BHPLTA website (for match card imports)
+  - PORT=8080                   # Web server port
+  - DB_TYPE=sqlite3             # Database type
   - DB_PATH=/app/data/tennis.db # Database file location
 ```
 
@@ -212,17 +215,21 @@ You can configure the application using environment variables. For local develop
 Example `.env`:
 
 ```
+HOME_CLUB_ID=10
+BHPLTA_CLUB_CODE=what-three-words
 PORT=8080
 DB_TYPE=sqlite3
 DB_PATH=./tennis.db
 WRAPPED_ACCESS_PASSWORD=example
 ```
 
-Docker Compose can reference variables using `${VAR}` syntax. The `docker-compose.yml` is set up to read `WRAPPED_ACCESS_PASSWORD` from your environment so you don't commit secrets.
+Docker Compose can reference variables using `${VAR}` syntax. The `docker-compose.yml` is set up to read `HOME_CLUB_ID`, `BHPLTA_CLUB_CODE`, and `WRAPPED_ACCESS_PASSWORD` from your environment so you don't commit secrets.
 
 Alternatively, you can export variables for a session:
 
 ```
-export WRAPPED_ACCESS_PASSWORD="st.anns.2025"
+export HOME_CLUB_ID=10
+export BHPLTA_CLUB_CODE="what-three-words"
+export WRAPPED_ACCESS_PASSWORD="your-password"
 ./scripts/run.sh
 ```

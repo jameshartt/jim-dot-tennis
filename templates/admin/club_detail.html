@@ -380,7 +380,7 @@
                                 <tr>
                                     <th>Team Name</th>
                                     <th>Division</th>
-                                    {{if (index .Teams 0).IsStAnns}}<th>Players</th>{{end}}
+                                    {{if (index .Teams 0).IsHomeClub}}<th>Players</th>{{end}}
                                 </tr>
                             </thead>
                             <tbody>
@@ -388,7 +388,7 @@
                                 <tr onclick="window.location.href='/admin/league/teams/{{.ID}}'" style="cursor:pointer;">
                                     <td style="font-weight:600;color:var(--primary-color);">{{.Name}}</td>
                                     <td>{{.DivisionName}}</td>
-                                    {{if .IsStAnns}}<td>{{.PlayerCount}}</td>{{end}}
+                                    {{if .IsHomeClub}}<td>{{.PlayerCount}}</td>{{end}}
                                 </tr>
                                 {{end}}
                             </tbody>

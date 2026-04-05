@@ -1,0 +1,111 @@
+{
+  "id": "WI-079",
+  "title": "Rename St Ann's-specific DTOs, struct fields, and method signatures",
+  "description": "Systematically rename every St Ann's-specific identifier in the codebase to use generic home-club terminology. This is a mechanical but high-blast-radius change — it touches struct definitions, method signatures, template variable names, form field names, and CSS custom properties. It must be done in a single coordinated pass to avoid half-renamed inconsistencies. No behavioral logic changes — just names.",
+  "type": "refactor",
+  "priority": "critical",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-077"
+  ],
+  "phase": "Phase 9: Club-Agnostic Architecture",
+  "acceptance_criteria": [
+    "FixtureWithRelations fields renamed: IsStAnnsHome → IsHomeClub, IsStAnnsAway → IsAwayClub, IsDerby → IsIntraClubDerby",
+    "ShowStAnnsPlayers field renamed to ShowHomeClubPlayers",
+    "IsStAnns field on club DTOs renamed to IsHomeClub",
+    "All service method names renamed — full list in technical notes",
+    "Form field names renamed: stanns_player_1 → home_player_1, stanns_player_2 → home_player_2",
+    "CSS custom properties renamed: --stanns-green → --home-primary, --stanns-blue → --home-secondary, --stanns-white → --home-bg",
+    "CSS class names renamed: stanns-home → club-home",
+    "All template references updated to match new field and variable names",
+    "No behavioral changes — all logic remains identical, only names change",
+    "make build-local succeeds with zero compilation errors",
+    "Full E2E test suite passes (tests reference page content, not Go identifiers)"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/admin/service_fixtures.go",
+      "internal/admin/service_teams.go",
+      "internal/admin/service_fixture_players.go",
+      "internal/admin/service_matchups.go",
+      "internal/admin/service_players.go",
+      "internal/admin/service_dashboard.go",
+      "internal/admin/service_selection.go",
+      "internal/admin/fixtures.go",
+      "internal/admin/teams.go",
+      "internal/admin/clubs.go",
+      "internal/admin/points.go",
+      "internal/admin/club_wrapped.go",
+      "internal/players/service.go",
+      "internal/players/standings.go",
+      "internal/services/matchcard_service.go",
+      "templates/admin/week_overview.html",
+      "templates/admin/fixture_detail.html",
+      "templates/admin/fixtures.html",
+      "templates/admin/fixture_team_selection.html",
+      "templates/admin/partials/fixture_at_glance.html",
+      "templates/admin/partials/glance_matchups.html",
+      "templates/admin/partials/glance_copyable_text.html",
+      "templates/admin/players.html",
+      "templates/players/standings.html",
+      "templates/players/standings_table.html"
+    ],
+    "method_renames": {
+      "GetStAnnsTeams": "GetHomeClubTeams",
+      "GetStAnnsFixtures": "GetHomeClubFixtures",
+      "GetStAnnsPastFixtures": "GetHomeClubPastFixtures",
+      "GetStAnnsTodaysFixtures": "GetHomeClubTodaysFixtures",
+      "GetStAnnsNextWeekFixturesByDivision": "GetHomeClubNextWeekFixturesByDivision",
+      "IsStAnnsHomeInFixture": "IsHomeClubInFixture",
+      "IsStAnnsClub": "IsHomeClub"
+    },
+    "struct_field_renames": {
+      "IsStAnnsHome": "IsHomeClub",
+      "IsStAnnsAway": "IsAwayClub",
+      "IsDerby": "IsIntraClubDerby",
+      "ShowStAnnsPlayers": "ShowHomeClubPlayers",
+      "IsStAnns (on club DTO)": "IsHomeClub"
+    },
+    "template_variable_renames": {
+      ".IsStAnnsHome": ".IsHomeClub",
+      ".IsStAnnsAway": ".IsAwayClub",
+      ".IsDerby": ".IsIntraClubDerby"
+    },
+    "css_renames": {
+      "--stanns-green": "--home-primary",
+      "--stanns-blue": "--home-secondary",
+      "--stanns-white": "--home-bg",
+      ".stanns-home": ".club-home",
+      ".team-home.stanns-home": ".team-home.club-home"
+    },
+    "form_field_renames": {
+      "stanns_player_1": "home_player_1",
+      "stanns_player_2": "home_player_2"
+    },
+    "approach": [
+      "1. Start with struct field renames in the DTO definitions — this will cause compilation errors that guide every other change",
+      "2. Fix all compilation errors in service files by updating field references",
+      "3. Rename method signatures and update all call sites",
+      "4. Update form field names in handlers (FormValue calls) and templates (input name attributes)",
+      "5. Update CSS custom properties and class names in templates",
+      "6. Update template conditionals ({{if .IsStAnnsHome}} → {{if .IsHomeClub}})",
+      "7. Compile, fix any remaining errors",
+      "8. Run E2E tests to verify no template rendering breaks"
+    ],
+    "risk_mitigation": "Do this as a single atomic commit. The Go compiler will catch every missed rename in .go files. Template renames need manual verification — run the E2E suite and visually inspect key pages."
+  },
+  "testing_requirements": [
+    "make build-local compiles with zero errors",
+    "Full E2E suite passes (146 tests)",
+    "Manual verification: fixture detail page renders correctly with home/away styling",
+    "Manual verification: week overview page renders correctly",
+    "Manual verification: team selection page form submits correctly",
+    "Manual verification: standings page renders correctly",
+    "grep -r 'StAnns\\|stanns\\|st_anns' internal/ templates/ returns zero results (clean sweep)"
+  ],
+  "context": {
+    "user_story": "As a developer deploying for a different club, I don't want to see 'StAnns' in the source code — it should use generic 'HomeClub' terminology that makes sense for any deployment",
+    "related_docs": []
+  }
+}

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/models"
 )
 
@@ -93,18 +94,18 @@ func (h *TeamsHandler) handleCreateTeam(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Get St Ann's club
-	clubs, err := h.service.GetClubsByName("St Ann")
-	if err != nil || len(clubs) == 0 {
-		http.Error(w, "Failed to find St Ann's club", http.StatusInternalServerError)
+	// Get home club ID from request context
+	homeClubID := config.GetHomeClubID(r.Context())
+	homeClub, err := h.service.GetClubDetail(homeClubID)
+	if err != nil {
+		http.Error(w, "Failed to find home club", http.StatusInternalServerError)
 		return
 	}
-	stAnnsClub := clubs[0]
 
 	// Create the team
 	team := &models.Team{
 		Name:       name,
-		ClubID:     stAnnsClub.ID,
+		ClubID:     homeClub.ID,
 		DivisionID: uint(divisionID),
 		SeasonID:   activeSeason.ID,
 	}
@@ -120,7 +121,7 @@ func (h *TeamsHandler) handleCreateTeam(w http.ResponseWriter, r *http.Request) 
 // handleTeamsGet handles GET requests for team management
 func (h *TeamsHandler) handleTeamsGet(w http.ResponseWriter, r *http.Request, user *models.User) {
 	// Get St. Ann's teams with related data
-	club, teams, err := h.service.GetStAnnsTeams()
+	club, teams, err := h.service.GetHomeClubTeams()
 	if err != nil {
 		logAndError(w, "Failed to load teams", err, http.StatusInternalServerError)
 		return
@@ -210,6 +211,7 @@ func (h *TeamsHandler) handleTeamsGet(w http.ResponseWriter, r *http.Request, us
 		"GroupedTeams": groupedTeams,
 		"ActiveSeason": activeSeason,
 		"Divisions":    divisionData,
+		"HomeClubName": homeClubNameFromContext(r),
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -302,6 +304,7 @@ func (h *TeamsHandler) handleTeamDetailGet(w http.ResponseWriter, r *http.Reques
 		"TeamDetail":       teamDetail,
 		"AvailablePlayers": availablePlayers,
 		"UpcomingFixtures": upcomingFixtures,
+		"HomeClubName":     homeClubNameFromContext(r),
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -341,7 +344,7 @@ func (h *TeamsHandler) handleAddCaptain(w http.ResponseWriter, r *http.Request) 
 
 	// Guard: prevent adding captains to away teams
 	if team, err := h.service.GetTeamByID(uint(teamID)); err == nil {
-		if !h.service.IsStAnnsClub(team.ClubID) {
+		if !h.service.IsHomeClub(team.ClubID) {
 			http.Error(w, "Cannot add captains to away teams", http.StatusForbidden)
 			return
 		}
@@ -491,7 +494,7 @@ func (h *TeamsHandler) handleAddPlayers(w http.ResponseWriter, r *http.Request) 
 
 	// Guard: prevent adding players to away teams
 	if team, err := h.service.GetTeamByID(uint(teamID)); err == nil {
-		if !h.service.IsStAnnsClub(team.ClubID) {
+		if !h.service.IsHomeClub(team.ClubID) {
 			http.Error(w, "Cannot add players to away teams", http.StatusForbidden)
 			return
 		}
@@ -555,6 +558,7 @@ func (h *TeamsHandler) handleAddPlayersGet(w http.ResponseWriter, r *http.Reques
 		"EligiblePlayers": eligiblePlayers,
 		"SearchQuery":     query,
 		"StatusFilter":    statusFilter,
+		"HomeClubName":    homeClubNameFromContext(r),
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -705,6 +709,7 @@ func (h *TeamsHandler) handleDivisionReviewGet(w http.ResponseWriter, r *http.Re
 		"SetupData":    setupData,
 		"Divisions":    divisions,
 		"Success":      successMsg,
+		"HomeClubName": homeClubNameFromContext(r),
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -831,6 +836,7 @@ func (h *TeamsHandler) handleAwayTeamsGet(w http.ResponseWriter, r *http.Request
 		"Divisions":    divisions,
 		"Clubs":        clubs,
 		"Success":      successMsg,
+		"HomeClubName": homeClubNameFromContext(r),
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -870,9 +876,9 @@ func (h *TeamsHandler) handleAwayTeamCreate(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Verify the club is NOT St Ann's (away teams only)
-	if h.service.IsStAnnsClub(uint(clubID)) {
-		http.Error(w, "Cannot create away team for St Ann's - use Our Teams instead", http.StatusBadRequest)
+	// Verify the club is NOT the home club (away teams only)
+	if h.service.IsHomeClub(uint(clubID)) {
+		http.Error(w, "Cannot create away team for home club - use Our Teams instead", http.StatusBadRequest)
 		return
 	}
 
@@ -938,7 +944,7 @@ func (h *TeamsHandler) handleAwayTeamDetailGet(w http.ResponseWriter, r *http.Re
 	}
 
 	// Verify this is an away team
-	if h.service.IsStAnnsClub(teamDetail.ClubID) {
+	if h.service.IsHomeClub(teamDetail.ClubID) {
 		http.Redirect(w, r, fmt.Sprintf("/admin/league/teams/%d", teamID), http.StatusSeeOther)
 		return
 	}
@@ -977,6 +983,7 @@ func (h *TeamsHandler) handleAwayTeamDetailGet(w http.ResponseWriter, r *http.Re
 		"Divisions":        divisions,
 		"Clubs":            clubs,
 		"Success":          successMsg,
+		"HomeClubName":     homeClubNameFromContext(r),
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}

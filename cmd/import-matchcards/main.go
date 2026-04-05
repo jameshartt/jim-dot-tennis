@@ -7,8 +7,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
+	appconfig "jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/services"
@@ -30,6 +32,11 @@ func main() {
 		autoNonce     = flag.Bool("auto-nonce", false, "Automatically extract nonce from website")
 	)
 	flag.Parse()
+
+	// Fall back to BHPLTA_CLUB_CODE env var if flag not provided
+	if *clubCode == "" {
+		*clubCode = os.Getenv("BHPLTA_CLUB_CODE")
+	}
 
 	// Validate required flags
 	if *nonce == "" && !*autoNonce {
@@ -65,6 +72,12 @@ func main() {
 	divisionRepo := repository.NewDivisionRepository(db)
 	seasonRepo := repository.NewSeasonRepository(db)
 
+	// Load home club configuration
+	appCfg, err := appconfig.Load(context.Background(), clubRepo)
+	if err != nil {
+		log.Fatalf("Home club config error: %v", err)
+	}
+
 	// Create match card service
 	service := services.NewMatchCardService(
 		fixtureRepo,
@@ -74,6 +87,7 @@ func main() {
 		playerRepo,
 		divisionRepo,
 		seasonRepo,
+		appCfg.HomeClubID,
 	)
 
 	// Create import configuration

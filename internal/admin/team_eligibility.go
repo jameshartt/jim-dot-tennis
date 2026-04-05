@@ -45,7 +45,7 @@ func NewTeamEligibilityService(service *Service) *TeamEligibilityService {
 	}
 }
 
-// GetTeamRanking returns teams ranked by alphabetical order (St Ann's, St Ann's A, St Ann's B, etc.)
+// GetTeamRanking returns teams ranked by alphabetical order (e.g. Club, Club A, Club B, etc.)
 func (s *TeamEligibilityService) GetTeamRanking(ctx context.Context, clubID uint, seasonID uint) ([]TeamRank, error) {
 	// Get all teams for the club and season
 	teams, err := s.service.teamRepository.FindByClubAndSeason(ctx, clubID, seasonID)

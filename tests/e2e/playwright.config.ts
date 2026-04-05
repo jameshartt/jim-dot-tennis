@@ -27,6 +27,12 @@ export default defineConfig({
     {
       name: "chromium",
       use: { browserName: "chromium" },
+      testIgnore: "**/multi-club.spec.ts",
+    },
+    {
+      name: "multi-club",
+      use: { browserName: "chromium" },
+      testMatch: "**/multi-club.spec.ts",
     },
   ],
 });

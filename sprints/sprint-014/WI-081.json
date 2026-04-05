@@ -1,0 +1,55 @@
+{
+  "id": "WI-081",
+  "title": "Refactor Club Wrapped and Points SQL queries to use parameterised club ID",
+  "description": "The Club Wrapped feature (season statistics) and Points table contain 10+ raw SQL queries with hardcoded LIKE '%St Ann%' and LIKE '%Saint Ann%' clauses. These must be converted to parameterised queries using the home club ID. This is separated from WI-080 because these are complex, multi-join SQL queries that need individual attention and verification — a mechanical find-and-replace won't work here.",
+  "type": "refactor",
+  "priority": "critical",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-077",
+    "WI-079"
+  ],
+  "phase": "Phase 9: Club-Agnostic Architecture",
+  "acceptance_criteria": [
+    "Zero SQL queries contain LIKE '%St Ann%' or LIKE '%Saint Ann%'",
+    "All club-scoped SQL queries use parameterised WHERE clauses with club ID (e.g., WHERE c.id = ?)",
+    "Club Wrapped page renders correctly with identical statistics for the St Ann's deployment",
+    "Points table renders correctly with identical data",
+    "SQL injection surface is reduced (parameterised queries are safer than LIKE patterns)",
+    "Query performance is equal or better (indexed ID lookups vs LIKE pattern matching)",
+    "make build-local succeeds"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/admin/club_wrapped.go",
+      "internal/admin/points.go"
+    ],
+    "approach": [
+      "1. Audit every SQL query in club_wrapped.go — there are 10+ queries with hardcoded club name patterns",
+      "2. For each query, replace: WHERE (ac.name LIKE '%St Ann%' OR ac.name LIKE '%Saint Ann%') → WHERE ac.id = ?",
+      "3. Replace: AND NOT (hc.name LIKE '%St Ann%' OR hc.name LIKE '%Saint Ann%') → AND hc.id != ?",
+      "4. Pass homeClubID as the query parameter",
+      "5. Verify each query individually — the joins in Club Wrapped are complex (venues, matchups, players, fixtures)",
+      "6. Do the same for points.go queries",
+      "7. Run the Club Wrapped page and compare output against pre-refactor baseline",
+      "8. Run the Points table and compare output against pre-refactor baseline"
+    ],
+    "sql_pattern_before": "WHERE (c.name LIKE '%St Ann%' OR c.name LIKE '%Saint Ann%')",
+    "sql_pattern_after": "WHERE c.id = ?",
+    "verification_strategy": "Before starting, capture the current Club Wrapped page output (or key statistics) and Points table data as a baseline. After refactoring each query, verify the output matches. Any discrepancy means a query was incorrectly converted."
+  },
+  "testing_requirements": [
+    "Club Wrapped page loads without errors",
+    "Club Wrapped statistics match pre-refactor baseline exactly",
+    "Points table loads without errors",
+    "Points table data matches pre-refactor baseline exactly",
+    "Full E2E suite passes",
+    "grep -r \"LIKE.*St Ann\" internal/ returns zero results",
+    "grep -r \"LIKE.*Saint Ann\" internal/ returns zero results"
+  ],
+  "context": {
+    "user_story": "As a deployer for any club, I want the season statistics and points table to reflect my club's data, not hardcoded St Ann's data",
+    "related_docs": []
+  }
+}

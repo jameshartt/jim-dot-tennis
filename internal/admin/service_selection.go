@@ -55,7 +55,7 @@ type DivisionFilter struct {
 	IsFiltered   bool
 }
 
-// GetWeekSelectionOverview gets selection status for all St Ann's fixtures in a week
+// GetWeekSelectionOverview gets selection status for all home club fixtures in a week
 func (s *Service) GetWeekSelectionOverview(weekID uint, filteredDivisionIDs []uint) (*WeekSelectionOverview, error) {
 	ctx := context.Background()
 
@@ -77,15 +77,11 @@ func (s *Service) GetWeekSelectionOverview(weekID uint, filteredDivisionIDs []ui
 		return nil, fmt.Errorf("failed to get fixtures: %w", err)
 	}
 
-	// Get St Ann's club
-	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	// Get home club from config
+	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get St Ann's club: %w", err)
+		return nil, fmt.Errorf("failed to get home club: %w", err)
 	}
-	if len(clubs) == 0 {
-		return nil, fmt.Errorf("St Ann's club not found")
-	}
-	stAnnsClub := &clubs[0]
 
 	// Get all divisions to build filters
 	divisions, err := s.divisionRepository.FindAll(ctx)
@@ -117,15 +113,15 @@ func (s *Service) GetWeekSelectionOverview(weekID uint, filteredDivisionIDs []ui
 	var fixtureCards []FixtureOverviewCard
 	for _, fixture := range fixtures {
 		// Load fixture relations using buildFixturesWithRelations
-		fixturesWithRelations := s.buildFixturesWithRelations(ctx, []models.Fixture{fixture}, stAnnsClub)
+		fixturesWithRelations := s.buildFixturesWithRelations(ctx, []models.Fixture{fixture}, homeClub)
 		if len(fixturesWithRelations) == 0 {
 			log.Printf("Error loading fixture relations for fixture %d", fixture.ID)
 			continue
 		}
 		fixtureWithRelations := &fixturesWithRelations[0]
 
-		// Check if this is a St Ann's fixture
-		if !fixtureWithRelations.IsStAnnsHome && !fixtureWithRelations.IsStAnnsAway {
+		// Check if this is a home club fixture
+		if !fixtureWithRelations.IsHomeClub && !fixtureWithRelations.IsAwayClub {
 			continue
 		}
 
@@ -175,7 +171,7 @@ func (s *Service) GetWeekSelectionOverview(weekID uint, filteredDivisionIDs []ui
 		}
 
 		// Calculate available players
-		availableCount, err := s.GetAvailablePlayerCountForDivision(weekID, division.Level, stAnnsClub.ID)
+		availableCount, err := s.GetAvailablePlayerCountForDivision(weekID, division.Level, homeClub.ID)
 		if err != nil {
 			log.Printf("Error calculating available players: %v", err)
 			availableCount = 0
@@ -297,7 +293,7 @@ func (s *Service) GetHigherDivisionSelectionsForWeek(weekID uint, currentDivisio
 func (s *Service) GetAvailablePlayerCountForDivision(weekID uint, divisionLevel int, clubID uint) (int, error) {
 	ctx := context.Background()
 
-	// Get total St Ann's player count
+	// Get total home club player count
 	players, err := s.playerRepository.FindByClub(ctx, clubID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get players: %w", err)

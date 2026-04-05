@@ -114,7 +114,7 @@ Imports weeks 1 through 5.
 
 ## Derby Match Handling
 
-The import system now properly handles derby matches (where both teams are from St. Ann's):
+The import system properly handles derby matches (where both teams are from the same club):
 
 - **Automatic Detection**: Derby matches are automatically detected
 - **Dual Processing**: Creates separate matchups for each team's perspective
@@ -123,7 +123,7 @@ The import system now properly handles derby matches (where both teams are from 
 
 When importing derby matches, you'll see output like:
 ```
-Processing derby match: St Ann's A vs St Ann's B (fixture 123)
+Processing derby match: Club A vs Club B (fixture 123)
 Created First mixed matchup for home team (fixture 123, sets: 2-1, 6-4 6-2 4-6) - Home team wins
 Created First mixed matchup for away team (fixture 123, sets: 2-1, 6-4 6-2 4-6) - Home team wins
 ```
@@ -153,5 +153,5 @@ This can happen if:
 
 If you're having issues with derby matches:
 - Use `--clear-existing` to ensure clean data
-- Check that both teams are properly identified as St. Ann's teams
+- Check that both teams are properly identified as home club teams
 - Verify that the fixture has both teams from the same club 

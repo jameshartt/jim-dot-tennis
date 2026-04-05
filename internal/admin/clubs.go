@@ -19,7 +19,7 @@ type ClubTeamInfo struct {
 	DivisionName string
 	SeasonName   string
 	PlayerCount  int
-	IsStAnns     bool
+	IsHomeClub   bool
 }
 
 // ClubTeamsBySeason groups teams by season for display
@@ -168,9 +168,10 @@ func (h *ClubsHandler) handleClubsList(w http.ResponseWriter, r *http.Request) {
 
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
-		"User":    user,
-		"Clubs":   clubItems,
-		"Success": successMsg,
+		"User":         user,
+		"Clubs":        clubItems,
+		"Success":      successMsg,
+		"HomeClubName": homeClubNameFromContext(r),
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -271,6 +272,7 @@ func (h *ClubsHandler) handleClubDetailGet(w http.ResponseWriter, r *http.Reques
 		"ClubTeams":            clubTeams,
 		"ActiveSeason":         activeSeason,
 		"Divisions":            divisions,
+		"HomeClubName":         homeClubNameFromContext(r),
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -504,12 +506,7 @@ func (s *Service) GetClubTeams(clubID uint) ([]ClubTeamsBySeason, error) {
 		return nil, err
 	}
 
-	// Get St Ann's club ID for comparison
-	stAnnsClubs, _ := s.clubRepository.FindByNameLike(ctx, "St Ann")
-	stAnnsID := uint(0)
-	if len(stAnnsClubs) > 0 {
-		stAnnsID = stAnnsClubs[0].ID
-	}
+	homeClubID := s.homeClubID
 
 	activeSeason, _ := s.seasonRepository.FindActive(ctx)
 
@@ -525,7 +522,7 @@ func (s *Service) GetClubTeams(clubID uint) ([]ClubTeamsBySeason, error) {
 
 		info := ClubTeamInfo{
 			Team:     team,
-			IsStAnns: team.ClubID == stAnnsID,
+			IsHomeClub: team.ClubID == homeClubID,
 		}
 
 		if div, err := s.divisionRepository.FindByID(ctx, team.DivisionID); err == nil {
@@ -534,7 +531,7 @@ func (s *Service) GetClubTeams(clubID uint) ([]ClubTeamsBySeason, error) {
 		if season, err := s.seasonRepository.FindByID(ctx, team.SeasonID); err == nil {
 			info.SeasonName = season.Name
 		}
-		if info.IsStAnns {
+		if info.IsHomeClub {
 			if count, err := s.teamRepository.CountPlayers(ctx, team.ID, team.SeasonID); err == nil {
 				info.PlayerCount = count
 			}

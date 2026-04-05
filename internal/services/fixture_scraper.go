@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"jim-dot-tennis/internal/normalize"
+
 	"github.com/PuerkitoBio/goquery"
 )
 
@@ -77,8 +79,8 @@ func ParseFixturesHTML(doc *goquery.Document) ([]ScrapedDivision, error) {
 			fixtureDate := parseFixtureDateBHPLTA(dateStr)
 
 			table.Find("tbody tr").Each(func(k int, row *goquery.Selection) {
-				homeTeam := normalizeApostrophes(strings.TrimSpace(row.Find("td.bhplta_fixtures_home_team").Text()))
-				awayTeam := normalizeApostrophes(strings.TrimSpace(row.Find("td.bhplta_fixtures_away_team").Text()))
+				homeTeam := normalize.Apostrophes(strings.TrimSpace(row.Find("td.bhplta_fixtures_home_team").Text()))
+				awayTeam := normalize.Apostrophes(strings.TrimSpace(row.Find("td.bhplta_fixtures_away_team").Text()))
 
 				if homeTeam == "" || awayTeam == "" {
 					return
@@ -109,15 +111,6 @@ func ParseFixturesHTML(doc *goquery.Document) ([]ScrapedDivision, error) {
 	}
 
 	return divisions, nil
-}
-
-// normalizeApostrophes replaces curly/smart apostrophes with standard ASCII apostrophe
-// to ensure consistent matching against database records
-func normalizeApostrophes(s string) string {
-	s = strings.ReplaceAll(s, "\u2019", "'") // right single quotation mark '
-	s = strings.ReplaceAll(s, "\u2018", "'") // left single quotation mark '
-	s = strings.ReplaceAll(s, "\u02BC", "'") // modifier letter apostrophe ʼ
-	return s
 }
 
 var weekNumberRe = regexp.MustCompile(`Week\s+(\d+)`)

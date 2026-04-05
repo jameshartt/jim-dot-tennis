@@ -205,7 +205,7 @@
             {{range .GroupedTeams}}
             <h3 class="season-heading">{{if .Season}}{{.Season.Name}} ({{.Season.Year}}){{else}}Unknown Season{{end}}</h3>
             <div class="table-container" style="margin-bottom: 1.5rem;">
-                <table class="teams-table">
+                <table class="teams-table" data-testid="teams-list">
                     <thead>
                         <tr>
                             <th class="col-name">Team Name</th>
@@ -277,8 +277,8 @@
 
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: bold;">Team Name:</label>
-                    <input type="text" name="name" required placeholder="e.g., St Ann's A" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    <small style="color: #6c757d;">Use format: Club Name + Letter (e.g., St Ann's A, St Ann's B)</small>
+                    <input type="text" name="name" required placeholder="e.g., {{.HomeClubName}} A" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <small style="color: #6c757d;">Use format: Club Name + Letter (e.g., {{.HomeClubName}} A, {{.HomeClubName}} B)</small>
                 </div>
 
                 {{if .ActiveSeason}}

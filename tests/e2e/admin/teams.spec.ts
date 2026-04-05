@@ -3,6 +3,7 @@ import {
   expectNoErrorBanner,
   expectTitleContains,
 } from "../helpers/assertions";
+import { TEST_CONFIG } from "../fixtures/test-config";
 
 test.describe("Admin Teams", () => {
   test("teams list page loads", async ({ adminPage }) => {
@@ -20,8 +21,8 @@ test.describe("Admin Teams", () => {
   test("seeded teams are displayed", async ({ adminPage }) => {
     await adminPage.goto("/admin/league/teams");
     const pageContent = await adminPage.textContent("body");
-    expect(pageContent).toContain("St Ann's A");
-    expect(pageContent).toContain("St Ann's B");
+    expect(pageContent).toContain(TEST_CONFIG.HOME_TEAM_A);
+    expect(pageContent).toContain(TEST_CONFIG.HOME_TEAM_B);
   });
 
   test("teams table has expected rows", async ({ adminPage }) => {

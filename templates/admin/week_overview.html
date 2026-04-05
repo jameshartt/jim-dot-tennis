@@ -4,15 +4,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>St Ann's Tennis - Week Overview</title>
+    <title>{{.HomeClubName}} - Week Overview</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --stanns-green: #4cb04d;
-            --stanns-blue: #1455a1;
-            --stanns-white: #ffffff;
+            --home-primary: #4cb04d;
+            --home-secondary: #1455a1;
+            --home-white: #ffffff;
         }
 
         * {
@@ -23,7 +23,7 @@
 
         body {
             font-family: 'Nunito', sans-serif;
-            background: linear-gradient(135deg, var(--stanns-blue) 0%, var(--stanns-green) 100%);
+            background: linear-gradient(135deg, var(--home-secondary) 0%, var(--home-primary) 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -33,7 +33,7 @@
         .week-container {
             width: 375px;
             height: 534px; /* Instagram story friendly */
-            background: var(--stanns-white);
+            background: var(--home-white);
             border-radius: 20px;
             position: relative;
             overflow: hidden;
@@ -42,8 +42,8 @@
 
         .header {
             position: relative;
-            background: linear-gradient(135deg, var(--stanns-blue) 0%, var(--stanns-green) 100%);
-            color: var(--stanns-white);
+            background: linear-gradient(135deg, var(--home-secondary) 0%, var(--home-primary) 100%);
+            color: var(--home-white);
             padding: 15px;
             text-align: center;
             height: 100px;
@@ -61,7 +61,7 @@
             height: 50px;
             border-radius: 50%;
             overflow: hidden;
-            border: 3px solid var(--stanns-white);
+            border: 3px solid var(--home-white);
         }
 
         .parks-logo {
@@ -73,7 +73,7 @@
             height: 50px;
             border-radius: 50%;
             overflow: hidden;
-            border: 3px solid var(--stanns-white);
+            border: 3px solid var(--home-white);
         }
 
         .logo img, .parks-logo img {
@@ -109,7 +109,7 @@
         }
 
         .division-card {
-            background: var(--stanns-white);
+            background: var(--home-white);
             border-radius: 12px;
             padding: 10px;
             box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
@@ -128,7 +128,7 @@
             left: 0;
             right: 0;
             height: 6px;
-            background: linear-gradient(90deg, var(--stanns-blue), var(--stanns-green));
+            background: linear-gradient(90deg, var(--home-secondary), var(--home-primary));
             border-radius: 12px 12px 0 0;
         }
 
@@ -160,7 +160,7 @@
         .division-name {
             font-size: 20px;
             font-weight: 900;
-            color: var(--stanns-blue);
+            color: var(--home-secondary);
             margin-bottom: 2px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -234,18 +234,18 @@
         }
 
         .team-home {
-            color: var(--stanns-blue);
+            color: var(--home-secondary);
             font-weight: 700;
         }
 
-        .team-home.stanns-home {
+        .team-home.home-club {
             font-weight: 900;
             text-shadow: 0 1px 2px rgba(20, 85, 161, 0.2);
             text-decoration: underline;
         }
 
         .team-away {
-            color: var(--stanns-green);
+            color: var(--home-primary);
             font-weight: 700;
         }
 
@@ -265,7 +265,7 @@
 
         .fixture-date {
             font-weight: 700;
-            color: var(--stanns-blue);
+            color: var(--home-secondary);
             text-transform: uppercase;
             font-size: 14px;
             margin-bottom: 2px;
@@ -279,8 +279,8 @@
         }
 
         .derby-indicator {
-            background: linear-gradient(45deg, var(--stanns-blue), var(--stanns-green));
-            color: var(--stanns-white);
+            background: linear-gradient(45deg, var(--home-secondary), var(--home-primary));
+            color: var(--home-white);
             font-size: 10px;
             font-weight: 800;
             padding: 3px 8px;
@@ -321,7 +321,7 @@
             transform: translateY(-12px) rotate(0deg) scale(1.02) !important;
             box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
             z-index: 10 !important;
-            border: 3px solid var(--stanns-green) !important;
+            border: 3px solid var(--home-primary) !important;
         }
 
         /* Smaller text for long team names but still readable */
@@ -338,9 +338,9 @@
                 <img src="/static/parks-league-tennis.jpg" alt="Parks League Brighton & Hove">
             </div>
             <div class="logo">
-                <img src="/static/st-anns-tennis.jpg" alt="St Ann's Tennis Club">
+                <img src="/static/st-anns-tennis.jpg" alt="{{.HomeClubName}}">
             </div>
-            <h1>St. Ann's 🎾</h1>
+            <h1>{{.HomeClubName}} 🎾</h1>
             <div class="week-date">
                 Parks League Week Ahead
             </div>
@@ -362,13 +362,13 @@
                                 {{end}}
                                 {{if eq (len $div1Fixtures) 1}}
                                 <div class="teams single-fixture {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
-                                    <div class="team-home {{if .IsStAnnsHome}}stanns-home{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</div>
+                                    <div class="team-home {{if .IsHomeClub}}home-club{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</div>
                                     <div class="vs-text">vs</div>
                                     <div class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</div>
                                 </div>
                                 {{else}}
                                 <div class="teams multiple-fixtures {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
-                                    <span class="team-home {{if .IsStAnnsHome}}stanns-home{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                                    <span class="team-home {{if .IsHomeClub}}home-club{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
                                     <span class="vs-text">vs</span>
                                     <div class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</div>
                                 </div>
@@ -399,13 +399,13 @@
                                 {{end}}
                                 {{if eq (len $div2Fixtures) 1}}
                                 <div class="teams single-fixture {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
-                                    <div class="team-home {{if .IsStAnnsHome}}stanns-home{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</div>
+                                    <div class="team-home {{if .IsHomeClub}}home-club{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</div>
                                     <div class="vs-text">vs</div>
                                     <div class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</div>
                                 </div>
                                 {{else}}
                                 <div class="teams multiple-fixtures {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
-                                    <span class="team-home {{if .IsStAnnsHome}}stanns-home{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                                    <span class="team-home {{if .IsHomeClub}}home-club{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
                                     <span class="vs-text">vs</span>
                                     <div class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</div>
                                 </div>
@@ -436,13 +436,13 @@
                                 {{end}}
                                 {{if eq (len $div3Fixtures) 1}}
                                 <div class="teams single-fixture {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
-                                    <div class="team-home {{if .IsStAnnsHome}}stanns-home{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</div>
+                                    <div class="team-home {{if .IsHomeClub}}home-club{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</div>
                                     <div class="vs-text">vs</div>
                                     <div class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</div>
                                 </div>
                                 {{else}}
                                 <div class="teams multiple-fixtures {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
-                                    <span class="team-home {{if .IsStAnnsHome}}stanns-home{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                                    <span class="team-home {{if .IsHomeClub}}home-club{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
                                     <span class="vs-text">vs</span>
                                     <div class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</div>
                                 </div>
@@ -473,13 +473,13 @@
                                 {{end}}
                                 {{if eq (len $div4Fixtures) 1}}
                                 <div class="teams single-fixture {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
-                                    <div class="team-home {{if .IsStAnnsHome}}stanns-home{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</div>
+                                    <div class="team-home {{if .IsHomeClub}}home-club{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</div>
                                     <div class="vs-text">vs</div>
                                     <div class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</div>
                                 </div>
                                 {{else}}
                                 <div class="teams multiple-fixtures {{if gt (len .HomeTeam.Name) 15}}long-names{{end}}">
-                                    <span class="team-home {{if .IsStAnnsHome}}stanns-home{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
+                                    <span class="team-home {{if .IsHomeClub}}home-club{{end}}">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}}</span>
                                     <span class="vs-text">vs</span>
                                     <div class="team-away">{{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</div>
                                 </div>

@@ -43,13 +43,13 @@ func (s *Service) GetDashboardData(user *models.User) (*DashboardData, error) {
 	}
 
 	// Get team count for St. Ann's club
-	teamCount, err := s.getStAnnsTeamCount(ctx)
+	teamCount, err := s.getHomeClubTeamCount(ctx)
 	if err != nil {
 		teamCount = 0 // Default to 0 if error
 	}
 
 	// Get fixture count for St. Ann's club
-	fixtureCount, err := s.getStAnnsFixtureCount(ctx)
+	fixtureCount, err := s.getHomeClubFixtureCount(ctx)
 	if err != nil {
 		fixtureCount = 0 // Default to 0 if error
 	}
@@ -98,18 +98,8 @@ func (s *Service) GetDashboardData(user *models.User) (*DashboardData, error) {
 	}, nil
 }
 
-// getStAnnsTeamCount gets the count of teams for St. Ann's club in the active season
-func (s *Service) getStAnnsTeamCount(ctx context.Context) (int, error) {
-	// Find St. Ann's club
-	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
-	if err != nil {
-		return 0, err
-	}
-	if len(clubs) == 0 {
-		return 0, nil // No club found
-	}
-	stAnnsClub := &clubs[0]
-
+// getHomeClubTeamCount gets the count of teams for the home club in the active season
+func (s *Service) getHomeClubTeamCount(ctx context.Context) (int, error) {
 	// Get the active season
 	activeSeason, err := s.seasonRepository.FindActive(ctx)
 	if err != nil {
@@ -119,8 +109,8 @@ func (s *Service) getStAnnsTeamCount(ctx context.Context) (int, error) {
 		return 0, nil // No active season
 	}
 
-	// Get teams for St. Ann's club in the active season
-	teams, err := s.teamRepository.FindByClubAndSeason(ctx, stAnnsClub.ID, activeSeason.ID)
+	// Get teams for home club in the active season
+	teams, err := s.teamRepository.FindByClubAndSeason(ctx, s.homeClubID, activeSeason.ID)
 	if err != nil {
 		return 0, err
 	}
@@ -128,20 +118,10 @@ func (s *Service) getStAnnsTeamCount(ctx context.Context) (int, error) {
 	return len(teams), nil
 }
 
-// getStAnnsFixtureCount gets the count of remaining fixtures for St. Ann's club
-func (s *Service) getStAnnsFixtureCount(ctx context.Context) (int, error) {
-	// Find St. Ann's club
-	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
-	if err != nil {
-		return 0, err
-	}
-	if len(clubs) == 0 {
-		return 0, nil // No club found
-	}
-	stAnnsClub := &clubs[0]
-
-	// Get all teams for St. Ann's club
-	teams, err := s.teamRepository.FindByClub(ctx, stAnnsClub.ID)
+// getHomeClubFixtureCount gets the count of remaining fixtures for the home club
+func (s *Service) getHomeClubFixtureCount(ctx context.Context) (int, error) {
+	// Get all teams for home club
+	teams, err := s.teamRepository.FindByClub(ctx, s.homeClubID)
 	if err != nil {
 		return 0, err
 	}

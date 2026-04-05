@@ -1,0 +1,55 @@
+{
+  "id": "WI-085",
+  "title": "Multi-club verification test suite",
+  "description": "Create a new set of E2E tests that specifically verify the club-agnostic behavior works correctly. These tests seed the database with a DIFFERENT home club (not St Ann's) and verify that the entire application works correctly from that club's perspective. This is the ultimate proof that the refactor succeeded — if the app works identically for a fictional 'Hove Park Tennis Club' deployment as it does for St Ann's, the job is done.",
+  "type": "test",
+  "priority": "critical",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-084"
+  ],
+  "phase": "Phase 9: Club-Agnostic Architecture",
+  "acceptance_criteria": [
+    "New test configuration that sets HOME_CLUB_ID to Hove Park Tennis Club (club_id=2 in seed data)",
+    "Tests verify dashboard shows Hove Park teams and players, not St Ann's",
+    "Tests verify fixture list shows Hove Park's fixtures with correct home/away designation",
+    "Tests verify team management shows Hove Park's teams as 'home' and St Ann's as 'away'",
+    "Tests verify points table heading uses 'Hove Park Tennis Club'",
+    "Tests verify player filter says 'Played for Hove Park Tennis Club this season'",
+    "Tests verify derby detection works for Hove Park internal derbies (if seeded)",
+    "All new tests pass",
+    "Original test suite (configured for St Ann's) still passes"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/multi-club/multi-club.spec.ts",
+      "tests/e2e/multi-club/seed-hove-park.sql"
+    ],
+    "files_to_modify": [
+      "tests/e2e/playwright.config.ts"
+    ],
+    "approach": [
+      "1. Create a separate seed file (seed-hove-park.sql) that creates the same data structure but with Hove Park as the home club",
+      "2. Create a new Playwright project in playwright.config.ts for multi-club tests",
+      "3. The multi-club project uses a different Docker Compose override that sets HOME_CLUB_ID=2",
+      "4. Write tests that verify the application from Hove Park's perspective:",
+      "   a. Dashboard: shows Hove Park stats",
+      "   b. Teams: Hove Park teams listed as home teams, St Ann's listed as away teams",
+      "   c. Fixtures: home/away designation is reversed compared to St Ann's deployment",
+      "   d. Points: heading shows Hove Park name",
+      "5. These tests don't need to be exhaustive — they verify the club-agnostic plumbing, not every feature",
+      "6. Target: 10-15 focused verification tests"
+    ],
+    "alternative_approach": "Instead of a separate Playwright project, could use a test.describe block that re-seeds the database with HOME_CLUB_ID=2 in a beforeAll. This is simpler but less clean. Prefer the separate project approach for isolation."
+  },
+  "testing_requirements": [
+    "All multi-club tests pass with HOME_CLUB_ID=2",
+    "Original test suite still passes with HOME_CLUB_ID=1",
+    "No cross-contamination between the two test runs"
+  ],
+  "context": {
+    "user_story": "As the project, we need proof that the club-agnostic refactor actually works — not just that it compiles, but that a different club sees the correct data throughout the entire application",
+    "related_docs": []
+  }
+}

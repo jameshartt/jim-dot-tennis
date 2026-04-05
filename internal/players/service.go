@@ -16,6 +16,7 @@ import (
 // Service provides business logic for player operations
 type Service struct {
 	db                      *database.DB
+	homeClubID              uint
 	playerRepository        repository.PlayerRepository
 	fantasyRepository       repository.FantasyMixedDoublesRepository
 	tennisPlayerRepository  repository.ProTennisPlayerRepository
@@ -31,9 +32,10 @@ type Service struct {
 }
 
 // NewService creates a new players service
-func NewService(db *database.DB) *Service {
+func NewService(db *database.DB, homeClubID uint) *Service {
 	return &Service{
 		db:                      db,
+		homeClubID:              homeClubID,
 		playerRepository:        repository.NewPlayerRepository(db),
 		fantasyRepository:       repository.NewFantasyMixedDoublesRepository(db),
 		tennisPlayerRepository:  repository.NewProTennisPlayerRepository(db),
@@ -434,29 +436,27 @@ func (s *Service) formatDivisionName(divisionName string) string {
 }
 
 // determinePlayerTeamContext determines which team the player belongs to for a given fixture
-// For derby matches (St Ann's vs St Ann's), uses ManagingTeamID to determine which team
-// For regular matches, always assigns player to the St Ann's team regardless of stored flags
+// For derby matches (home club derby), uses ManagingTeamID to determine which team
+// For regular matches, always assigns player to the home club team regardless of stored flags
 func (s *Service) determinePlayerTeamContext(ctx context.Context, playerID string, fixtureID uint, homeTeamID, awayTeamID uint) (playerTeamID uint, isHome, isAway bool) {
 	// First, always check all selected players for this fixture - this is the most reliable method
 	allFixturePlayers, err := s.fixtureRepository.FindSelectedPlayers(ctx, fixtureID)
 	if err == nil {
 		for _, fp := range allFixturePlayers {
 			if fp.PlayerID == playerID {
-				// Determine which teams are St Ann's first - this is the source of truth
-				stAnnsClubs, clubErr := s.clubRepository.FindByNameLike(ctx, "St Ann")
-				if clubErr == nil && len(stAnnsClubs) > 0 {
-					stAnnsClubID := stAnnsClubs[0].ID
-
+				// Determine which teams are home club first - this is the source of truth
+				homeClubID := s.homeClubID
+				if homeClubID > 0 {
 					homeTeam, homeErr := s.teamRepository.FindByID(ctx, homeTeamID)
 					awayTeam, awayErr := s.teamRepository.FindByID(ctx, awayTeamID)
 
 					if homeErr == nil && awayErr == nil {
-						isHomeStAnns := homeTeam.ClubID == stAnnsClubID
-						isAwayStAnns := awayTeam.ClubID == stAnnsClubID
-						isDerby := isHomeStAnns && isAwayStAnns
+						isHomeClubTeam := homeTeam.ClubID == homeClubID
+						isAwayClubTeam := awayTeam.ClubID == homeClubID
+						isDerby := isHomeClubTeam && isAwayClubTeam
 
 						if isDerby {
-							// For derby matches, use ManagingTeamID to determine which St Ann's team
+							// For derby matches, use ManagingTeamID to determine which home club team
 							if fp.ManagingTeamID != nil {
 								if *fp.ManagingTeamID == homeTeamID {
 									return homeTeamID, true, false
@@ -465,10 +465,10 @@ func (s *Service) determinePlayerTeamContext(ctx context.Context, playerID strin
 								}
 							}
 						} else {
-							// For regular matches, always assign player to St Ann's team (ignore ManagingTeamID)
-							if isHomeStAnns {
+							// For regular matches, always assign player to home club team (ignore ManagingTeamID)
+							if isHomeClubTeam {
 								return homeTeamID, true, false
-							} else if isAwayStAnns {
+							} else if isAwayClubTeam {
 								return awayTeamID, false, true
 							}
 						}

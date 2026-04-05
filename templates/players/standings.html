@@ -123,8 +123,8 @@
         .standings-table td:last-child { font-weight: 700; color: #2c5530; font-size: 16px; }
 
         .standings-table tr:hover { background: #f8f9fa; }
-        .st-anns-row { background: #f0f8f0 !important; }
-        .st-anns-row td:nth-child(2) { color: #2c5530; }
+        .home-club-row { background: #f0f8f0 !important; }
+        .home-club-row td:nth-child(2) { color: #2c5530; }
 
         .rd-positive { color: #27ae60; }
         .rd-negative { color: #e74c3c; }
@@ -201,7 +201,7 @@
                     </thead>
                     <tbody>
                         {{range $i, $team := .Teams}}
-                        <tr {{if $team.IsStAnns}}class="st-anns-row"{{end}}>
+                        <tr {{if $team.IsHomeClub}}class="home-club-row"{{end}}>
                             <td>{{add $i 1}}</td>
                             <td>{{$team.TeamName}}</td>
                             <td>{{$team.Played}}</td>

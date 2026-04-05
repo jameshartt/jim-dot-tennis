@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/models"
 
 	"github.com/google/uuid"
@@ -125,19 +126,19 @@ func (h *PlayersHandler) handlePlayersGet(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Load St Ann's teams and divisions for the active season filter dropdowns
-	var stAnnsTeams []TeamWithRelations
+	// Load home club teams and divisions for the active season filter dropdowns
+	var homeClubTeams []TeamWithRelations
 	var divisions []models.Division
 	if activeSeason, err := h.service.GetActiveSeason(); err == nil && activeSeason != nil {
-		_, allTeams, _ := h.service.GetStAnnsTeams()
+		_, allTeams, _ := h.service.GetHomeClubTeams()
 		for _, t := range allTeams {
 			if t.Team.SeasonID == activeSeason.ID {
-				stAnnsTeams = append(stAnnsTeams, t)
+				homeClubTeams = append(homeClubTeams, t)
 			}
 		}
 		divisions, _ = h.service.GetDivisionsBySeason(activeSeason.ID)
 	} else {
-		_, stAnnsTeams, _ = h.service.GetStAnnsTeams()
+		_, homeClubTeams, _ = h.service.GetHomeClubTeams()
 		divisions, _ = h.service.GetAllDivisions()
 	}
 
@@ -157,10 +158,11 @@ func (h *PlayersHandler) handlePlayersGet(w http.ResponseWriter, r *http.Request
 		"Players":             playersWithAvail,
 		"SearchQuery":         query,
 		"ActiveFilter":        activeFilter,
-		"Teams":               stAnnsTeams,
+		"Teams":               homeClubTeams,
 		"Divisions":           divisions,
 		"SelectedTeamIDs":     teamIDs,
 		"SelectedDivisionIDs": divisionIDs,
+		"HomeClubName":        homeClubNameFromContext(r),
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -238,17 +240,8 @@ func (h *PlayersHandler) handlePlayerNewPost(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Get St. Ann's club ID automatically
-	stAnnsClubs, err := h.service.GetClubsByName("St Ann")
-	if err != nil {
-		logAndError(w, "Failed to find St. Ann's club", err, http.StatusInternalServerError)
-		return
-	}
-	if len(stAnnsClubs) == 0 {
-		logAndError(w, "St. Ann's club not found", fmt.Errorf("club not found"), http.StatusInternalServerError)
-		return
-	}
-	stAnnsClubID := stAnnsClubs[0].ID
+	// Get home club ID from request context
+	homeClubID := config.GetHomeClubID(r.Context())
 
 	// Create new player with generated UUID and auto-assigned to St. Ann's
 	player := &models.Player{
@@ -257,7 +250,7 @@ func (h *PlayersHandler) handlePlayerNewPost(w http.ResponseWriter, r *http.Requ
 		LastName:         lastName,
 		Gender:           models.PlayerGender(gender),
 		ReportingPrivacy: models.PlayerReportingVisible, // Default to visible
-		ClubID:           stAnnsClubID,                  // Auto-assign to St. Ann's instead of 0
+		ClubID:           homeClubID,                  // Auto-assign to St. Ann's instead of 0
 	}
 
 	// Create the player
@@ -601,7 +594,7 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 
 	// Build helper maps for header labels (filtered to active season)
 	teamNameByID := make(map[uint]string)
-	if _, teams, err := h.service.GetStAnnsTeams(); err == nil {
+	if _, teams, err := h.service.GetHomeClubTeams(); err == nil {
 		if activeSeason, sErr := h.service.GetActiveSeason(); sErr == nil && activeSeason != nil {
 			for _, twr := range teams {
 				if twr.Team.SeasonID == activeSeason.ID {

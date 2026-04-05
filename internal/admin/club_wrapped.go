@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"jim-dot-tennis/internal/config"
 )
 
 // ClubWrappedHandler handles club-wide season wrapped requests
@@ -228,7 +230,7 @@ func (h *ClubWrappedHandler) HandleWrapped(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Generate wrapped data for all players (club-wide)
-	wrappedData, err := h.generateClubWrappedData()
+	wrappedData, err := h.generateClubWrappedData(r.Context())
 	if err != nil {
 		logAndError(w, "Failed to generate wrapped data", err, http.StatusInternalServerError)
 		return
@@ -258,7 +260,7 @@ func (h *ClubWrappedHandler) HandlePublicWrapped(w http.ResponseWriter, r *http.
 	}
 
 	// Generate wrapped data (same as admin)
-	wrappedData, genErr := h.generateClubWrappedData()
+	wrappedData, genErr := h.generateClubWrappedData(r.Context())
 	if genErr != nil {
 		logAndError(w, "Failed to generate wrapped data", genErr, http.StatusInternalServerError)
 		return
@@ -569,8 +571,9 @@ func (h *ClubWrappedHandler) renderClubWrapped(w http.ResponseWriter, user inter
 	}
 
 	templateData := map[string]interface{}{
-		"User":        user,
-		"WrappedData": wrappedData,
+		"User":         user,
+		"WrappedData":  wrappedData,
+		"HomeClubName": wrappedData.ClubName,
 	}
 
 	if err := renderTemplate(w, tmpl, templateData); err != nil {
@@ -579,11 +582,14 @@ func (h *ClubWrappedHandler) renderClubWrapped(w http.ResponseWriter, user inter
 }
 
 // generateClubWrappedData generates all wrapped statistics for the entire club
-func (h *ClubWrappedHandler) generateClubWrappedData() (*ClubWrappedData, error) {
-	ctx := context.Background()
+func (h *ClubWrappedHandler) generateClubWrappedData(ctx context.Context) (*ClubWrappedData, error) {
+	clubName := "Tennis Club"
+	if club := config.GetHomeClub(ctx); club != nil {
+		clubName = club.Name
+	}
 
 	wrappedData := &ClubWrappedData{
-		ClubName:   "St. Ann's Tennis Club",
+		ClubName:   clubName,
 		SeasonYear: 2025, // Could be dynamic
 	}
 
@@ -713,27 +719,29 @@ func (h *ClubWrappedHandler) calculateClubFixtureBreakdown(ctx context.Context, 
 	_ = h.service.db.QueryRowContext(ctx, totalFixturesQuery).Scan(&totalFixtures)
 	log.Printf("=== DEBUG: Total completed fixtures: %d ===", totalFixtures)
 
-	// Simplified approach - let's get ALL completed fixtures first
+	// Get home club ID from context
+	homeClubID := config.GetHomeClubID(ctx)
+
+	// Get completed fixtures involving the home club
 	query := `
-		SELECT 
+		SELECT
 			f.id,
 			f.home_team_id,
 			f.away_team_id,
 			SUM(m.home_score) as home_total,
 			SUM(m.away_score) as away_total,
-			hc.name as home_club,
-			ac.name as away_club
+			ht.club_id as home_club_id,
+			at.club_id as away_club_id
 		FROM fixtures f
 		INNER JOIN matchups m ON f.id = m.fixture_id
 		INNER JOIN teams ht ON f.home_team_id = ht.id
 		INNER JOIN teams at ON f.away_team_id = at.id
-		INNER JOIN clubs hc ON ht.club_id = hc.id
-		INNER JOIN clubs ac ON at.club_id = ac.id
 		WHERE f.status = 'Completed' AND m.status = 'Finished'
-		GROUP BY f.id, f.home_team_id, f.away_team_id, hc.name, ac.name
+		  AND (ht.club_id = ? OR at.club_id = ?)
+		GROUP BY f.id, f.home_team_id, f.away_team_id, ht.club_id, at.club_id
 	`
 
-	rows, err := h.service.db.QueryContext(ctx, query)
+	rows, err := h.service.db.QueryContext(ctx, query, homeClubID, homeClubID)
 	if err != nil {
 		log.Printf("=== DEBUG: Query error: %v ===", err)
 		return err
@@ -746,31 +754,24 @@ func (h *ClubWrappedHandler) calculateClubFixtureBreakdown(ctx context.Context, 
 	for rows.Next() {
 		var fixtureID, homeTeamID, awayTeamID int
 		var homeTotal, awayTotal float64
-		var homeClub, awayClub string
+		var homeClubDBID, awayClubDBID uint
 
-		err := rows.Scan(&fixtureID, &homeTeamID, &awayTeamID, &homeTotal, &awayTotal, &homeClub, &awayClub)
+		err := rows.Scan(&fixtureID, &homeTeamID, &awayTeamID, &homeTotal, &awayTotal, &homeClubDBID, &awayClubDBID)
 		if err != nil {
 			log.Printf("=== DEBUG: Scan error: %v ===", err)
 			continue
 		}
 
-		log.Printf("Fixture %d: %s (%.1f) vs %s (%.1f)", fixtureID, homeClub, homeTotal, awayClub, awayTotal)
+		log.Printf("Fixture %d: club %d (%.1f) vs club %d (%.1f)", fixtureID, homeClubDBID, homeTotal, awayClubDBID, awayTotal)
 
-		// Check if St. Ann's is involved (try different variations)
-		isStAnnsHome := strings.Contains(strings.ToLower(homeClub), "st ann") ||
-			strings.Contains(strings.ToLower(homeClub), "saint ann")
-		isStAnnsAway := strings.Contains(strings.ToLower(awayClub), "st ann") ||
-			strings.Contains(strings.ToLower(awayClub), "saint ann")
-
-		if !isStAnnsHome && !isStAnnsAway {
-			continue // Not a St. Ann's fixture
-		}
+		// Check if home club is home or away in this fixture
+		isHomeClub := homeClubDBID == homeClubID
 
 		breakdown.TotalFixtures++
 
 		// Determine our score vs their score
 		var ourScore, theirScore float64
-		if isStAnnsHome {
+		if isHomeClub {
 			ourScore = homeTotal
 			theirScore = awayTotal
 		} else {
@@ -782,7 +783,7 @@ func (h *ClubWrappedHandler) calculateClubFixtureBreakdown(ctx context.Context, 
 		ourRounded := int(ourScore + 0.5)
 		theirRounded := int(theirScore + 0.5)
 
-		log.Printf("St Ann's fixture: Our score %.1f (rounded %d) vs Their score %.1f (rounded %d)",
+		log.Printf("Home club fixture: Our score %.1f (rounded %d) vs Their score %.1f (rounded %d)",
 			ourScore, ourRounded, theirScore, theirRounded)
 
 		// Categorize the fixture result based on 0-8 point scale
@@ -1058,15 +1059,17 @@ func (h *ClubWrappedHandler) getClubGameGrinders(ctx context.Context) []PlayerAc
 }
 
 func (h *ClubWrappedHandler) getClubBestAwayVenues(ctx context.Context) []ClubVenueStats {
+	homeClubID := config.GetHomeClubID(ctx)
+
 	// Find best away venues (excluding home fixtures and derbies)
 	query := `
 		WITH fixture_results AS (
-			SELECT 
+			SELECT
 				f.venue_location,
 				f.id as fixture_id,
 				SUM(m.away_score) as away_total,
 				SUM(m.home_score) as home_total,
-				CASE 
+				CASE
 					WHEN SUM(m.away_score) > SUM(m.home_score) THEN 1
 					WHEN SUM(m.away_score) = SUM(m.home_score) THEN 0.5
 					ELSE 0
@@ -1075,15 +1078,13 @@ func (h *ClubWrappedHandler) getClubBestAwayVenues(ctx context.Context) []ClubVe
 			INNER JOIN matchups m ON f.id = m.fixture_id
 			INNER JOIN teams at ON f.away_team_id = at.id
 			INNER JOIN teams ht ON f.home_team_id = ht.id
-			INNER JOIN clubs ac ON at.club_id = ac.id
-			INNER JOIN clubs hc ON ht.club_id = hc.id
-			WHERE f.status = 'Completed' 
+			WHERE f.status = 'Completed'
 				AND m.status = 'Finished'
-				AND (ac.name LIKE '%St Ann%' OR ac.name LIKE '%Saint Ann%')
-				AND NOT (hc.name LIKE '%St Ann%' OR hc.name LIKE '%Saint Ann%')
+				AND at.club_id = ?
+				AND ht.club_id != ?
 			GROUP BY f.venue_location, f.id
 		)
-		SELECT 
+		SELECT
 			venue_location,
 			COUNT(*) as matches_played,
 			SUM(CASE WHEN points = 1 THEN 1 ELSE 0 END) as wins,
@@ -1097,7 +1098,7 @@ func (h *ClubWrappedHandler) getClubBestAwayVenues(ctx context.Context) []ClubVe
 		LIMIT 5
 	`
 
-	rows, err := h.service.db.QueryContext(ctx, query)
+	rows, err := h.service.db.QueryContext(ctx, query, homeClubID, homeClubID)
 	if err != nil {
 		log.Printf("Error getting best away venues: %v", err)
 		return []ClubVenueStats{}

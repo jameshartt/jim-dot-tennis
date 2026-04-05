@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"jim-dot-tennis/internal/auth"
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/models"
 )
 
@@ -24,6 +25,15 @@ func getUserFromContext(r *http.Request) (*models.User, error) {
 		return nil, err
 	}
 	return &user, nil
+}
+
+// homeClubNameFromContext extracts the home club name from the request context.
+// Returns "Tennis Club" as a fallback if the club is not set.
+func homeClubNameFromContext(r *http.Request) string {
+	if club := config.GetHomeClub(r.Context()); club != nil {
+		return club.Name
+	}
+	return "Tennis Club"
 }
 
 // parseTemplate loads and parses a template file with helper functions and partials

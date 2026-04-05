@@ -1,4 +1,5 @@
 import { test, expect } from "../fixtures/test-fixtures";
+import { TEST_CONFIG } from "../fixtures/test-config";
 
 test.describe("Fixture Detail & Editing", () => {
   test("detail page shows fixture information heading", async ({
@@ -84,7 +85,7 @@ test.describe("Captain Selection Overview", () => {
     const count = await fixtureCards.count();
     expect(count).toBeGreaterThanOrEqual(1);
     const pageContent = await adminPage.textContent("body");
-    expect(pageContent).toContain("St Ann");
+    expect(pageContent).toContain(TEST_CONFIG.HOME_CLUB_SHORT);
   });
 
   test("team selection link is available", async ({ adminPage }) => {

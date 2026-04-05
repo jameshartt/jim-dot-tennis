@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"jim-dot-tennis/internal/normalize"
 	"jim-dot-tennis/internal/repository"
 )
 
@@ -65,6 +66,9 @@ func (m *PlayerMatcher) MatchPlayer(ctx context.Context, playerName string) (str
 
 // normalizeName normalizes a player name for comparison
 func (m *PlayerMatcher) normalizeName(name string) string {
+	// Normalize apostrophe variants (fixes O'Brien vs O'Brien matching)
+	name = normalize.Apostrophes(name)
+
 	// Convert to lowercase
 	name = strings.ToLower(name)
 

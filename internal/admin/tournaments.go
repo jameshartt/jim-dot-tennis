@@ -54,9 +54,10 @@ func (h *TournamentsHandler) handleProvidersList(w http.ResponseWriter, r *http.
 	}
 
 	data := map[string]interface{}{
-		"Providers": providers,
-		"Success":   r.URL.Query().Get("success"),
-		"Error":     r.URL.Query().Get("error"),
+		"Providers":    providers,
+		"Success":      r.URL.Query().Get("success"),
+		"Error":        r.URL.Query().Get("error"),
+		"HomeClubName": homeClubNameFromContext(r),
 	}
 
 	tmpl, err := parseTemplate(h.templateDir, "admin/tournament_providers.html")

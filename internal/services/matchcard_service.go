@@ -15,11 +15,13 @@ import (
 	"time"
 
 	"jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/normalize"
 	"jim-dot-tennis/internal/repository"
 )
 
 // MatchCardService handles importing match card data from BHPLTA
 type MatchCardService struct {
+	homeClubID     uint
 	fixtureRepo    repository.FixtureRepository
 	matchupRepo    repository.MatchupRepository
 	teamRepo       repository.TeamRepository
@@ -67,8 +69,10 @@ func NewMatchCardService(
 	playerRepo repository.PlayerRepository,
 	divisionRepo repository.DivisionRepository,
 	seasonRepo repository.SeasonRepository,
+	homeClubID uint,
 ) *MatchCardService {
 	return &MatchCardService{
+		homeClubID:     homeClubID,
 		fixtureRepo:    fixtureRepo,
 		matchupRepo:    matchupRepo,
 		teamRepo:       teamRepo,
@@ -440,7 +444,7 @@ func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConf
 		return nil, fmt.Errorf("unknown matchup type: %s", matchupData.Type)
 	}
 
-	// Determine managing team ID (which St Ann's team this belongs to)
+	// Determine managing team ID (which home club team this belongs to)
 	managingTeamID, err := s.determineManagingTeamID(ctx, fixtureID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine managing team: %w", err)
@@ -798,15 +802,7 @@ func (s *MatchCardService) determineManagingTeamID(ctx context.Context, fixtureI
 		return 0, err
 	}
 
-	// Find the St Ann's club ID
-	stAnnsClubs, err := s.clubRepo.FindByNameLike(ctx, "St Ann")
-	if err != nil {
-		return 0, err
-	}
-	if len(stAnnsClubs) == 0 {
-		return 0, fmt.Errorf("St Ann's club not found")
-	}
-	stAnnsClubID := stAnnsClubs[0].ID
+	homeClubID := s.homeClubID
 
 	// Get home and away teams
 	homeTeam, err := s.teamRepo.FindByID(ctx, fixture.HomeTeamID)
@@ -819,13 +815,13 @@ func (s *MatchCardService) determineManagingTeamID(ctx context.Context, fixtureI
 		return 0, err
 	}
 
-	// Check which team is St Ann's - prefer home team if both are St Ann's
-	if homeTeam.ClubID == stAnnsClubID {
+	// Check which team is home club - prefer home team if both are home club
+	if homeTeam.ClubID == homeClubID {
 		return homeTeam.ID, nil
-	} else if awayTeam.ClubID == stAnnsClubID {
+	} else if awayTeam.ClubID == homeClubID {
 		return awayTeam.ID, nil
 	} else {
-		return 0, fmt.Errorf("no St Ann's team found in this fixture")
+		return 0, fmt.Errorf("home club team not found in this fixture")
 	}
 }
 
@@ -985,19 +981,8 @@ func (s *MatchCardService) findByDivisionWeekUsingRepos(ctx context.Context, mat
 		return nil
 	}
 
-	normalize := func(name string) string {
-		name = strings.ReplaceAll(name, string([]byte{226, 128, 152}), "'")
-		name = strings.ReplaceAll(name, string([]byte{226, 128, 153}), "'")
-		name = strings.ReplaceAll(name, "`", "'")
-		name = strings.ReplaceAll(name, "ʼ", "'")
-		name = strings.ReplaceAll(name, "′", "'")
-		name = strings.ReplaceAll(name, ".", "")
-		name = strings.ReplaceAll(name, "'", "")
-		name = strings.Join(strings.Fields(name), " ")
-		return strings.ToLower(name)
-	}
-	cardHome := normalize(matchCard.HomeTeam)
-	cardAway := normalize(matchCard.AwayTeam)
+	cardHome := normalize.ForComparison(matchCard.HomeTeam)
+	cardAway := normalize.ForComparison(matchCard.AwayTeam)
 
 	var candidates []models.Fixture
 	for _, f := range weekFixtures {
@@ -1021,8 +1006,8 @@ func (s *MatchCardService) findByDivisionWeekUsingRepos(ctx context.Context, mat
 		if err2 != nil {
 			continue
 		}
-		nh := normalize(hTeam.Name)
-		na := normalize(aTeam.Name)
+		nh := normalize.ForComparison(hTeam.Name)
+		na := normalize.ForComparison(aTeam.Name)
 		if (nh == cardHome && na == cardAway) || (nh == cardAway && na == cardHome) {
 			candidates = append(candidates, f)
 		}
@@ -1071,29 +1056,11 @@ func (s *MatchCardService) fixtureMatchesCard(ctx context.Context, fixture model
 		return false
 	}
 
-	// Normalize team names to handle quote/apostrophe differences from PDF import and DB
-	normalizeTeamName := func(name string) string {
-		// Replace UTF-8 smart quotes with regular ASCII apostrophe
-		name = strings.ReplaceAll(name, string([]byte{226, 128, 152}), "'") // Replace left single quotation mark (U+2018)
-		name = strings.ReplaceAll(name, string([]byte{226, 128, 153}), "'") // Replace right single quotation mark (U+2019)
-		name = strings.ReplaceAll(name, "`", "'")                           // Replace backtick
-		name = strings.ReplaceAll(name, "ʼ", "'")                           // Replace modifier letter apostrophe
-		name = strings.ReplaceAll(name, "′", "'")                           // Replace prime symbol
-		// Remove periods that might be inconsistent (St. Ann's vs St Ann's)
-		name = strings.ReplaceAll(name, ".", "")
-		// Remove apostrophes to match St Ann's vs St Anns
-		name = strings.ReplaceAll(name, "'", "")
-		// Normalize whitespace
-		name = strings.Join(strings.Fields(name), " ")
-		name = strings.ToLower(name)
-		return name
-	}
-
 	// Match by normalized team names, allowing for potential home/away swap in data sources
-	normalizedHomeCard := normalizeTeamName(matchCard.HomeTeam)
-	normalizedAwayCard := normalizeTeamName(matchCard.AwayTeam)
-	normalizedHomeDB := normalizeTeamName(homeTeam.Name)
-	normalizedAwayDB := normalizeTeamName(awayTeam.Name)
+	normalizedHomeCard := normalize.ForComparison(matchCard.HomeTeam)
+	normalizedAwayCard := normalize.ForComparison(matchCard.AwayTeam)
+	normalizedHomeDB := normalize.ForComparison(homeTeam.Name)
+	normalizedAwayDB := normalize.ForComparison(awayTeam.Name)
 
 	// Direct match
 	if normalizedHomeCard == normalizedHomeDB && normalizedAwayCard == normalizedAwayDB {
@@ -1125,15 +1092,7 @@ func (s *MatchCardService) isDerbyMatch(ctx context.Context, fixtureID uint) (bo
 		return false, 0, 0, err
 	}
 
-	// Find the St Ann's club ID
-	stAnnsClubs, err := s.clubRepo.FindByNameLike(ctx, "St Ann")
-	if err != nil {
-		return false, 0, 0, err
-	}
-	if len(stAnnsClubs) == 0 {
-		return false, 0, 0, fmt.Errorf("St Ann's club not found")
-	}
-	stAnnsClubID := stAnnsClubs[0].ID
+	homeClubID := s.homeClubID
 
 	// Get home and away teams
 	homeTeam, err := s.teamRepo.FindByID(ctx, fixture.HomeTeamID)
@@ -1146,10 +1105,10 @@ func (s *MatchCardService) isDerbyMatch(ctx context.Context, fixtureID uint) (bo
 		return false, 0, 0, err
 	}
 
-	// Check if both teams are St Ann's
-	isHomeStAnns := homeTeam.ClubID == stAnnsClubID
-	isAwayStAnns := awayTeam.ClubID == stAnnsClubID
-	isDerby := isHomeStAnns && isAwayStAnns
+	// Check if both teams are home club
+	isHomeClub := homeTeam.ClubID == homeClubID
+	isAwayClub := awayTeam.ClubID == homeClubID
+	isDerby := isHomeClub && isAwayClub
 
 	return isDerby, homeTeam.ID, awayTeam.ID, nil
 }

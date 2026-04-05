@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"jim-dot-tennis/internal/database"
+	"jim-dot-tennis/internal/normalize"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
 
@@ -632,18 +633,7 @@ func (s *ClubScraper) matchClubToDatabase(ctx context.Context, info *ScrapedClub
 
 // normalizeClubName normalizes a club name for fuzzy matching
 func normalizeClubName(name string) string {
-	name = strings.ToLower(name)
-
-	// Replace smart quotes and apostrophe variants with nothing
-	name = strings.ReplaceAll(name, string([]byte{226, 128, 152}), "") // left single quotation mark
-	name = strings.ReplaceAll(name, string([]byte{226, 128, 153}), "") // right single quotation mark
-	name = strings.ReplaceAll(name, "'", "")
-	name = strings.ReplaceAll(name, "`", "")
-	name = strings.ReplaceAll(name, "\u02bc", "") // modifier letter apostrophe
-	name = strings.ReplaceAll(name, "\u2032", "") // prime symbol
-
-	// Remove periods
-	name = strings.ReplaceAll(name, ".", "")
+	name = normalize.ForComparison(name)
 
 	// Remove common suffixes
 	name = strings.ReplaceAll(name, "tennis club", "")
@@ -652,10 +642,7 @@ func normalizeClubName(name string) string {
 	name = strings.ReplaceAll(name, "park", "")
 
 	// Normalize whitespace
-	name = strings.Join(strings.Fields(name), " ")
-	name = strings.TrimSpace(name)
-
-	return name
+	return strings.TrimSpace(strings.Join(strings.Fields(name), " "))
 }
 
 // generateSearchTerms generates search terms for fuzzy matching a club

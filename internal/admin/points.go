@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/models"
 )
 
@@ -79,7 +80,7 @@ func (h *PointsHandler) HandlePointsTable(w http.ResponseWriter, r *http.Request
 	}
 
 	// Determine if season has fully completed (all fixtures completed)
-	isEndOfSeason, err := h.isActiveSeasonCompleted()
+	isEndOfSeason, err := h.isActiveSeasonCompleted(r.Context())
 	if err != nil {
 		log.Printf("Warning: Failed to determine end-of-season status: %v", err)
 		isEndOfSeason = false
@@ -102,6 +103,7 @@ func (h *PointsHandler) HandlePointsTable(w http.ResponseWriter, r *http.Request
 		"CurrentWeek":       currentWeek,
 		"RescheduledHeader": rescheduledHeader,
 		"IsEndOfSeason":     isEndOfSeason,
+		"HomeClubName":      homeClubNameFromContext(r),
 	}
 
 	if err := renderTemplate(w, tmpl, templateData); err != nil {
@@ -582,23 +584,20 @@ func (h *PointsHandler) getRescheduledWeekHeader() (string, error) {
 }
 
 // isActiveSeasonCompleted returns true if all fixtures for the active season are completed
-func (h *PointsHandler) isActiveSeasonCompleted() (bool, error) {
-	ctx := context.Background()
-
+func (h *PointsHandler) isActiveSeasonCompleted(ctx context.Context) (bool, error) {
 	// Get active season
 	season, err := h.service.seasonRepository.FindActive(ctx)
 	if err != nil || season == nil {
 		return false, fmt.Errorf("failed to get active season: %w", err)
 	}
 
-	// Find St Ann's club (we aggregate only this club's fixtures)
-	clubs, err := h.service.clubRepository.FindByNameLike(ctx, "St Ann")
-	if err != nil || len(clubs) == 0 {
-		return false, fmt.Errorf("failed to find St Ann's club: %w", err)
+	// Get home club ID from context (injected by middleware)
+	clubID := config.GetHomeClubID(ctx)
+	if clubID == 0 {
+		return false, fmt.Errorf("home club ID not available in context")
 	}
-	clubID := clubs[0].ID
 
-	// Count total fixtures in season where either team is St Ann's (distinct for derbies)
+	// Count total fixtures in season where either team belongs to the home club (distinct for derbies)
 	var total int
 	err = h.service.db.GetContext(ctx, &total, `
         SELECT COUNT(DISTINCT f.id)
@@ -608,13 +607,13 @@ func (h *PointsHandler) isActiveSeasonCompleted() (bool, error) {
         WHERE f.season_id = ? AND (th.club_id = ? OR ta.club_id = ?)
     `, season.ID, clubID, clubID)
 	if err != nil {
-		return false, fmt.Errorf("failed to count St Ann's fixtures in season: %w", err)
+		return false, fmt.Errorf("failed to count home club fixtures in season: %w", err)
 	}
 	if total == 0 {
 		return false, nil
 	}
 
-	// Count completed fixtures for St Ann's in this season
+	// Count completed fixtures for the home club in this season
 	var completed int
 	err = h.service.db.GetContext(ctx, &completed, `
         SELECT COUNT(DISTINCT f.id)
@@ -624,7 +623,7 @@ func (h *PointsHandler) isActiveSeasonCompleted() (bool, error) {
         WHERE f.season_id = ? AND (th.club_id = ? OR ta.club_id = ?) AND f.status = 'Completed'
     `, season.ID, clubID, clubID)
 	if err != nil {
-		return false, fmt.Errorf("failed to count completed St Ann's fixtures: %w", err)
+		return false, fmt.Errorf("failed to count completed home club fixtures: %w", err)
 	}
 
 	return completed == total, nil

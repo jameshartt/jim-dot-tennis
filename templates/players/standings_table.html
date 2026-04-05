@@ -20,7 +20,7 @@
         </thead>
         <tbody>
             {{range $i, $team := .Teams}}
-            <tr {{if $team.IsStAnns}}class="st-anns-row"{{end}}>
+            <tr {{if $team.IsHomeClub}}class="home-club-row"{{end}}>
                 <td>{{add $i 1}}</td>
                 <td>{{$team.TeamName}}</td>
                 <td>{{$team.Played}}</td>

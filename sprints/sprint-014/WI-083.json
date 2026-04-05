@@ -1,0 +1,61 @@
+{
+  "id": "WI-083",
+  "title": "BHPLTA integration — configurable club code and import parameters",
+  "description": "The BHPLTA match card import system uses the club code 'STANN001' in multiple places. Make the club code configurable via environment variable and update the import UI to use it. Also update the nonce extraction and import scripts to read from configuration rather than requiring manual entry. The BHPLTA integration should work for any club that participates in the Brighton & Hove Parks League.",
+  "type": "refactor",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-077"
+  ],
+  "phase": "Phase 9: Club-Agnostic Architecture",
+  "acceptance_criteria": [
+    "BHPLTA_CLUB_CODE environment variable added (e.g., 'STANN001')",
+    "Match card import UI pre-fills the club code from configuration",
+    "Nonce extraction uses configured club code by default",
+    "cmd/extract-nonce reads BHPLTA_CLUB_CODE from env if -club-code flag not provided",
+    "cmd/import-matchcards reads BHPLTA_CLUB_CODE from env if -club-code flag not provided",
+    "ImportConfig struct in matchcard_service.go defaults to env-configured club code",
+    "Admin match card import page shows the configured club code (editable for override)",
+    "All import scripts updated to use env var with flag override",
+    ".env.example updated with BHPLTA_CLUB_CODE entry",
+    "Documentation references to STANN001 updated to use the env var"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/services/matchcard_service.go",
+      "internal/admin/matchcard_importation.go",
+      "cmd/extract-nonce/main.go",
+      "cmd/import-matchcards/main.go",
+      "scripts/demo-auto-nonce.sh",
+      "scripts/import_all_weeks_auto_nonce.sh",
+      "scripts/local-import-all.sh",
+      ".env.example",
+      "docker-compose.yml"
+    ],
+    "approach": [
+      "1. Add BHPLTA_CLUB_CODE to AppConfig (or read directly from env in services)",
+      "2. Update ImportConfig to default ClubCode from env",
+      "3. Update matchcard_importation.go handler to pre-fill club code from config",
+      "4. Update cmd/ utilities to read env var as default, allow flag override",
+      "5. Update shell scripts to reference $BHPLTA_CLUB_CODE",
+      "6. Update documentation to explain the configuration"
+    ],
+    "scope_note": "This does NOT change the BHPLTA scraping logic itself — it just makes the club code configurable. The scraping still targets bhplta.org.uk and uses the same API. Different clubs would need their own club codes from the BHPLTA system."
+  },
+  "testing_requirements": [
+    "Import UI pre-fills configured club code",
+    "Nonce extraction works with BHPLTA_CLUB_CODE env var",
+    "cmd/extract-nonce -club-code flag overrides env var",
+    "make build-local succeeds",
+    "Full E2E suite passes"
+  ],
+  "context": {
+    "user_story": "As a deployer for another BHPLTA club, I want to configure my club's BHPLTA code once and have all import features use it automatically",
+    "related_docs": [
+      "docs/automatic_nonce_extraction.md",
+      "scripts/LOCAL_IMPORT_GUIDE.md"
+    ]
+  }
+}

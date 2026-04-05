@@ -1,0 +1,65 @@
+{
+  "id": "WI-077",
+  "title": "Home club configuration and context injection",
+  "description": "Introduce a HOME_CLUB_ID environment variable as the single source of truth for which club the deployment belongs to. Load the club at startup, validate it exists in the database, and inject it into every request via middleware context. This is the foundation that every other work item in this sprint depends on — nothing else should land until this is solid.",
+  "type": "refactor",
+  "priority": "critical",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [],
+  "phase": "Phase 9: Club-Agnostic Architecture",
+  "acceptance_criteria": [
+    "HOME_CLUB_ID environment variable is read at startup",
+    "If HOME_CLUB_ID is not set, app falls back to HOME_CLUB_NAME and uses FindByNameLike to resolve the ID (backward-compatible with current deployments)",
+    "If neither is set, app logs a clear error and exits — no silent default to St Ann's",
+    "AppConfig struct holds HomeClubID (uint) and HomeClub (*models.Club), loaded once at startup",
+    "New middleware injects HomeClubID into request context on every request",
+    "Helper function GetHomeClubID(ctx) retrieves the home club ID from context",
+    "Helper function GetHomeClub(ctx) retrieves the full Club model from context",
+    "Existing .env.example updated with HOME_CLUB_ID and HOME_CLUB_NAME entries",
+    "Docker Compose files updated to pass HOME_CLUB_ID through",
+    "Current St Ann's deployment continues to work with HOME_CLUB_NAME=\"St Ann\" as fallback",
+    "App startup logs which club is configured: 'Home club: St Ann's Tennis Club (ID: 1)'"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "internal/config/config.go"
+    ],
+    "files_to_modify": [
+      "cmd/jim-dot-tennis/main.go",
+      ".env.example",
+      "docker-compose.yml",
+      "docker-compose.courthive.yml"
+    ],
+    "approach": [
+      "1. Create internal/config/config.go with AppConfig struct and Load() function",
+      "2. AppConfig.Load() reads HOME_CLUB_ID (preferred) or HOME_CLUB_NAME (fallback) from env",
+      "3. AppConfig.Load() takes a ClubRepository, validates the club exists, stores both ID and full Club model",
+      "4. In main.go, call AppConfig.Load() after database init but before route registration",
+      "5. Create middleware that injects appConfig.HomeClubID and appConfig.HomeClub into context",
+      "6. Register this middleware on the router so it applies to all routes",
+      "7. Create context helper functions in internal/config/context.go",
+      "8. Update .env.example with commented examples for both HOME_CLUB_ID and HOME_CLUB_NAME",
+      "9. Update Docker Compose to pass the env var through"
+    ],
+    "backward_compatibility": "The HOME_CLUB_NAME fallback ensures current deployments work without any config changes. The FindByNameLike pattern that currently exists everywhere will still work for the name lookup at startup — it just happens once instead of 43+ times per request cycle.",
+    "validation_at_startup": "If the configured club doesn't exist in the database, the app should fail fast with a clear message: 'HOME_CLUB_ID=99 does not match any club in the database. Available clubs: [list]'. This prevents silent misconfiguration."
+  },
+  "testing_requirements": [
+    "App starts successfully with HOME_CLUB_ID=1 (St Ann's)",
+    "App starts successfully with HOME_CLUB_NAME='St Ann' (fallback)",
+    "App refuses to start with HOME_CLUB_ID=999 (nonexistent) and shows helpful error",
+    "App refuses to start with neither HOME_CLUB_ID nor HOME_CLUB_NAME set",
+    "GetHomeClubID(ctx) returns correct ID in request handlers",
+    "GetHomeClub(ctx) returns full Club model in request handlers",
+    "make build-local succeeds",
+    "Existing E2E test suite passes without changes (backward-compatible)"
+  ],
+  "context": {
+    "user_story": "As a deployer, I want to configure which club this instance belongs to via a single environment variable, so I don't need to modify source code to deploy for my club",
+    "related_docs": [
+      "docs/digitalocean_deployment.md",
+      "docs/docker_setup.md"
+    ]
+  }
+}

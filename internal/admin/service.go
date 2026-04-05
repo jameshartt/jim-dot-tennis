@@ -15,6 +15,8 @@ import (
 // Service handles admin business logic
 type Service struct {
 	db                      *database.DB
+	homeClubID              uint
+	bhpltaClubCode          string
 	loginAttemptRepository  repository.LoginAttemptRepository
 	playerRepository        repository.PlayerRepository
 	clubRepository          repository.ClubRepository
@@ -36,9 +38,11 @@ type Service struct {
 }
 
 // NewService creates a new admin service
-func NewService(db *database.DB, courthiveAPIURL string) *Service {
+func NewService(db *database.DB, courthiveAPIURL string, homeClubID uint, bhpltaClubCode string) *Service {
 	service := &Service{
 		db:                           db,
+		homeClubID:                   homeClubID,
+		bhpltaClubCode:               bhpltaClubCode,
 		loginAttemptRepository:       repository.NewLoginAttemptRepository(db),
 		playerRepository:             repository.NewPlayerRepository(db),
 		clubRepository:               repository.NewClubRepository(db),

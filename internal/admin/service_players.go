@@ -53,9 +53,8 @@ func (s *Service) GetFilteredPlayersWithAvailability(query string, activeFilter 
 			}
 		}
 		if len(divisionIDs) > 0 {
-			clubs, clubErr := s.clubRepository.FindByNameLike(ctx, "St Ann")
-			if clubErr == nil && len(clubs) > 0 {
-				clubID := clubs[0].ID
+			clubID := s.homeClubID
+			if clubID > 0 {
 				for _, dID := range divisionIDs {
 					pls, e := s.playerRepository.FindPlayersWhoPlayedForClubDivisionInSeason(ctx, clubID, dID, activeSeason.ID)
 					if e == nil {
@@ -72,21 +71,16 @@ func (s *Service) GetFilteredPlayersWithAvailability(query string, activeFilter 
 		if query != "" {
 			players = filterPlayersByQuery(players, query)
 		}
-	} else if activeFilter == "stanns_played" {
-		// Find St. Ann's club
-		clubs, clubErr := s.clubRepository.FindByNameLike(ctx, "St Ann")
-		if clubErr != nil {
-			return nil, clubErr
+	} else if activeFilter == "home_played" || activeFilter == "stanns_played" {
+		// Get active season
+		activeSeason, seasonErr := s.seasonRepository.FindActive(ctx)
+		if seasonErr != nil {
+			return nil, seasonErr
 		}
-		if len(clubs) == 0 {
+		if s.homeClubID == 0 {
 			players = []models.Player{}
 		} else {
-			// Get active season
-			activeSeason, seasonErr := s.seasonRepository.FindActive(ctx)
-			if seasonErr != nil {
-				return nil, seasonErr
-			}
-			players, err = s.playerRepository.FindPlayersWhoPlayedForClubInSeason(ctx, clubs[0].ID, activeSeason.ID)
+			players, err = s.playerRepository.FindPlayersWhoPlayedForClubInSeason(ctx, s.homeClubID, activeSeason.ID)
 			if err != nil {
 				return nil, err
 			}
@@ -174,8 +168,8 @@ func (s *Service) GetFilteredPlayersWithAvailability(query string, activeFilter 
 					}
 				}
 				if len(divisionIDs) > 0 {
-					if clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann"); err == nil && len(clubs) > 0 {
-						clubID := clubs[0].ID
+					clubID := s.homeClubID
+					if clubID > 0 {
 						for _, dID := range divisionIDs {
 							if c, err := s.playerRepository.CountPlayerAppearancesForClubDivisionInSeason(ctx, player.ID, clubID, dID, activeSeason.ID); err == nil {
 								playerWithAvail.DivisionAppearanceCounts[dID] = c

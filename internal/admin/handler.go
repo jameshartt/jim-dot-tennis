@@ -35,8 +35,8 @@ type Handler struct {
 }
 
 // New creates a new admin handler
-func New(db *database.DB, templateDir string, courthiveAPIURL string) *Handler {
-	service := NewService(db, courthiveAPIURL)
+func New(db *database.DB, templateDir string, courthiveAPIURL string, homeClubID uint, bhpltaClubCode string) *Handler {
+	service := NewService(db, courthiveAPIURL, homeClubID, bhpltaClubCode)
 
 	return &Handler{
 		service:           service,

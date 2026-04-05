@@ -1,0 +1,101 @@
+{
+  "id": "WI-087",
+  "title": "Update all documentation to reflect club-agnostic architecture",
+  "description": "Sweep every documentation file in the repository and update references to reflect the new club-agnostic architecture. This covers root-level docs (README, CLAUDE.md, CONTRIBUTING.md, COURTHIVE_SETUP.md), the docs/ directory, scripts/ guides, and test documentation. Historical sprint notes (sprint-003, sprint-005, etc.) are left as-is — they document what was true when those sprints ran. Everything else must reflect the new HOME_CLUB_ID-driven model.",
+  "type": "feature",
+  "priority": "critical",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-080",
+    "WI-081",
+    "WI-082",
+    "WI-083"
+  ],
+  "phase": "Phase 9: Club-Agnostic Architecture",
+  "acceptance_criteria": [
+    "README.md updated: project description reflects club-agnostic capability ('built for St Ann's, deployable for any parks league club'), deployment section documents HOME_CLUB_ID",
+    "CLAUDE.md updated: Project Overview reflects generic capability, Environment Variables section lists HOME_CLUB_ID, HOME_CLUB_NAME, BHPLTA_CLUB_CODE, example commands use env var references instead of hardcoded STANN001",
+    "CLAUDE.md updated: Architecture section — home/away logic description uses 'home club' not 'St Ann's', no references to FindByNameLike pattern or GetStAnnsTeams methods",
+    "CONTRIBUTING.md Club Adaptation Guide significantly revised: documents how HOME_CLUB_ID makes deployment straightforward, lists the env vars to configure, acknowledges remaining manual steps (CSS colours, BHPLTA club code), updates the 'known pain points' section to reflect that apostrophe normalization is now centralised",
+    "CONTRIBUTING.md removes references to old method names (GetStAnnsTeams, IsStAnnsClub, FindByNameLike) from the adaptation guide",
+    "COURTHIVE_SETUP.md: example password 'welovestanns' replaced with generic placeholder",
+    "docs/README.md updated: description no longer says 'internal tool for St Ann's'",
+    "docs/project_overview.md updated: description no longer says 'internal tool for St Ann's'",
+    "docs/digitalocean_deployment.md updated: new env vars documented in the deployment steps",
+    "docs/PRODUCTION_QUICK_REFERENCE.md updated: new env vars listed in configuration section",
+    "docs/docker_setup.md updated: compose examples show HOME_CLUB_ID",
+    "scripts/CREDENTIALS_SETUP.md updated: derby match examples use generic 'home club' language",
+    "scripts/LOCAL_IMPORT_GUIDE.md updated: STANN001 references replaced with BHPLTA_CLUB_CODE env var",
+    "tests/e2e/README.md (if it exists) updated to reflect parameterised test data",
+    "Historical sprint notes (sprint-003, sprint-005, sprint-006, etc.) are NOT modified — they remain as historical record"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "README.md",
+      "CLAUDE.md",
+      "CONTRIBUTING.md",
+      "COURTHIVE_SETUP.md",
+      "docs/README.md",
+      "docs/project_overview.md",
+      "docs/digitalocean_deployment.md",
+      "docs/PRODUCTION_QUICK_REFERENCE.md",
+      "docs/docker_setup.md",
+      "scripts/CREDENTIALS_SETUP.md",
+      "scripts/LOCAL_IMPORT_GUIDE.md"
+    ],
+    "files_to_leave_alone": [
+      "sprints/sprint-003/SUMMARY.md (historical)",
+      "sprints/sprint-005/SUMMARY.md (historical)",
+      "sprints/sprint-006/SUMMARY.md (historical)",
+      "sprints/sprint-012/SUMMARY.md (historical, CourtHive examples are specific to that sprint)",
+      "sprints/sprint-013/SUMMARY.md (historical, tone guide examples)",
+      "sprints/sprint-014/SUMMARY.md (the refactor blueprint — accurate as-is)"
+    ],
+    "approach": [
+      "1. Start with CLAUDE.md — it's the primary development reference and guides AI-assisted work on the codebase. It must be accurate.",
+      "   - Update Project Overview paragraph",
+      "   - Add HOME_CLUB_ID, HOME_CLUB_NAME, BHPLTA_CLUB_CODE to Environment Variables section",
+      "   - Update example commands: replace -club-code='STANN001' with -club-code=\"$BHPLTA_CLUB_CODE\"",
+      "   - Update Architecture section: replace 'St Ann's club ID' language with 'home club ID' in the home/away determination explanation",
+      "   - Remove or update any references to the old FindByNameLike pattern",
+      "2. Update README.md",
+      "   - Keep 'built for St Ann's Tennis Club' in the origin story / attribution section",
+      "   - Add 'deployable for any Brighton & Hove Parks League club' to the capabilities description",
+      "   - Document HOME_CLUB_ID in the deployment/configuration section",
+      "3. Revise CONTRIBUTING.md Club Adaptation Guide",
+      "   - The tone shifts from 'here's what you'd need to hack' to 'here's what you configure'",
+      "   - List the env vars: HOME_CLUB_ID (required), HOME_CLUB_NAME (fallback), BHPLTA_CLUB_CODE (for import)",
+      "   - Document remaining manual steps: CSS brand colours, any club-specific content",
+      "   - Update the apostrophe section: note that normalization is now centralised in internal/normalize/",
+      "   - Remove references to 'searching for St Ann across 28 files' — that's no longer the situation",
+      "4. Update docs/ files — these are deployment guides",
+      "   - Add HOME_CLUB_ID to every env var listing",
+      "   - Update any example docker-compose snippets",
+      "5. Update scripts/ guides",
+      "   - Replace hardcoded STANN001 with $BHPLTA_CLUB_CODE references",
+      "   - Update derby explanation to use generic language",
+      "6. Final verification: grep -r 'St Ann' across all non-sprint .md files, verify each remaining reference is intentional (attribution, origin story, or historical)"
+    ],
+    "tone_guidance": "St Ann's should still be mentioned — it's where the project started and that's an important part of the attribution story. The shift is from 'this is a St Ann's tool' to 'this was built at St Ann's and is now deployable for any club'. The README attribution section (Sprint 013) should keep its St Ann's references. The technical docs should use generic 'home club' language."
+  },
+  "testing_requirements": [
+    "All documentation files render correctly (no broken markdown)",
+    "All internal links still work",
+    "grep -r 'St Ann' on non-sprint .md files — every remaining reference is either attribution/origin-story or in a clearly historical context",
+    "grep -r 'STANN001' on non-sprint files — zero results outside of historical examples that are clearly marked",
+    "grep -r 'GetStAnnsTeams\\|IsStAnnsClub\\|FindByNameLike' on .md files — zero results outside sprint SUMMARY files",
+    "New env vars (HOME_CLUB_ID, HOME_CLUB_NAME, BHPLTA_CLUB_CODE) documented in: CLAUDE.md, README.md, CONTRIBUTING.md, docs/digitalocean_deployment.md, docs/PRODUCTION_QUICK_REFERENCE.md, docs/docker_setup.md"
+  ],
+  "context": {
+    "user_story": "As a developer or deployer reading the project documentation, I want accurate information about how the system is configured, not stale references to hardcoded St Ann's assumptions that no longer exist in the code",
+    "related_docs": [
+      "README.md",
+      "CLAUDE.md",
+      "CONTRIBUTING.md",
+      "docs/digitalocean_deployment.md",
+      "docs/PRODUCTION_QUICK_REFERENCE.md",
+      "docs/docker_setup.md"
+    ]
+  }
+}

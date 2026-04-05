@@ -1,7 +1,7 @@
 # Jim.Tennis Project Overview
 
 ## Project Purpose
-Jim.Tennis is an internal tool for St Ann's Tennis Club to facilitate team management within the Brighton and Hove Parks League. The application provides a suite of tools for team captains and players to manage availability, plan fixtures, and coordinate match participation.
+Jim.Tennis is a club-agnostic league management system for the Brighton and Hove Parks League, originally built at St Ann's Tennis Club. The home club is configured via environment variables (`HOME_CLUB_ID` / `HOME_CLUB_NAME`), making the system deployable for any parks league club. The application provides a suite of tools for team captains and players to manage availability, plan fixtures, and coordinate match participation.
 
 ## Core Goals
 

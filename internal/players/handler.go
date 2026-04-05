@@ -21,8 +21,8 @@ type Handler struct {
 }
 
 // New creates a new players handler
-func New(db *database.DB, templateDir string) *Handler {
-	service := NewService(db)
+func New(db *database.DB, templateDir string, homeClubID uint) *Handler {
+	service := NewService(db, homeClubID)
 
 	return &Handler{
 		service:      service,

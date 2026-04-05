@@ -21,9 +21,9 @@ type FixtureWithRelations struct {
 	Week               *models.Week     `json:"week,omitempty"`
 	Division           *models.Division `json:"division,omitempty"`
 	Season             *models.Season   `json:"season,omitempty"`
-	IsStAnnsHome       bool             `json:"is_stanns_home"`
-	IsStAnnsAway       bool             `json:"is_stanns_away"`
-	IsDerby            bool             `json:"is_derby"`                       // Both teams are St Ann's
+	IsHomeClub         bool             `json:"is_home_club"`
+	IsAwayClub         bool             `json:"is_away_club"`
+	IsDerby            bool             `json:"is_derby"`                       // Both teams belong to home club
 	DefaultTeamContext *models.Team     `json:"default_team_context,omitempty"` // Which team to manage by default
 }
 
@@ -44,28 +44,24 @@ type FixtureDetail struct {
 	VenueOverrideReason string                   `json:"venue_override_reason,omitempty"`
 }
 
-// GetStAnnsFixtures retrieves upcoming fixtures for St. Ann's club with related data
-func (s *Service) GetStAnnsFixtures() (*models.Club, []FixtureWithRelations, error) {
+// GetHomeClubFixtures retrieves upcoming fixtures for the home club with related data
+func (s *Service) GetHomeClubFixtures() (*models.Club, []FixtureWithRelations, error) {
 	ctx := context.Background()
 
-	// Find St. Ann's club
-	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	// Get home club from config
+	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID)
 	if err != nil {
 		return nil, nil, err
 	}
-	if len(clubs) == 0 {
-		return nil, nil, nil // No club found
-	}
-	stAnnsClub := &clubs[0]
 
 	// Get all teams for St. Ann's club
-	teams, err := s.teamRepository.FindByClub(ctx, stAnnsClub.ID)
+	teams, err := s.teamRepository.FindByClub(ctx, homeClub.ID)
 	if err != nil {
-		return stAnnsClub, nil, err
+		return homeClub, nil, err
 	}
 
 	if len(teams) == 0 {
-		return stAnnsClub, nil, nil // No teams found
+		return homeClub, nil, nil // No teams found
 	}
 
 	// Get upcoming fixtures for all St. Ann's teams
@@ -103,7 +99,7 @@ func (s *Service) GetStAnnsFixtures() (*models.Club, []FixtureWithRelations, err
 	}
 
 	// Build FixtureWithRelations by fetching related data
-	fixturesWithRelations := s.buildFixturesWithRelations(ctx, upcomingFixtures, stAnnsClub)
+	fixturesWithRelations := s.buildFixturesWithRelations(ctx, upcomingFixtures, homeClub)
 
 	// Sort fixtures by scheduled date (nearest first), then by division (descending)
 	sort.Slice(fixturesWithRelations, func(i, j int) bool {
@@ -129,11 +125,11 @@ func (s *Service) GetStAnnsFixtures() (*models.Club, []FixtureWithRelations, err
 		return divisionI > divisionJ
 	})
 
-	return stAnnsClub, fixturesWithRelations, nil
+	return homeClub, fixturesWithRelations, nil
 }
 
-// GetStAnnsPastFixtures retrieves past fixtures for St. Ann's club with related data
-func (s *Service) GetStAnnsPastFixtures() (*models.Club, []FixtureWithRelations, error) {
+// GetHomeClubPastFixtures retrieves past fixtures for the home club with related data
+func (s *Service) GetHomeClubPastFixtures() (*models.Club, []FixtureWithRelations, error) {
 	ctx := context.Background()
 
 	// Get the active season
@@ -145,27 +141,23 @@ func (s *Service) GetStAnnsPastFixtures() (*models.Club, []FixtureWithRelations,
 		return nil, nil, nil // No active season
 	}
 
-	// Find St. Ann's club
-	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	// Get home club from config
+	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID)
 	if err != nil {
 		return nil, nil, err
 	}
-	if len(clubs) == 0 {
-		return nil, nil, nil // No club found
-	}
-	stAnnsClub := &clubs[0]
 
-	// Get all teams for St. Ann's club
-	teams, err := s.teamRepository.FindByClub(ctx, stAnnsClub.ID)
+	// Get all teams for home club
+	teams, err := s.teamRepository.FindByClub(ctx, homeClub.ID)
 	if err != nil {
-		return stAnnsClub, nil, err
+		return homeClub, nil, err
 	}
 
 	if len(teams) == 0 {
-		return stAnnsClub, nil, nil // No teams found
+		return homeClub, nil, nil // No teams found
 	}
 
-	// Get all fixtures for all St. Ann's teams
+	// Get all fixtures for all home club teams
 	var allFixtures []models.Fixture
 	fixtureMap := make(map[uint]models.Fixture) // Use map to deduplicate fixtures by ID
 
@@ -205,7 +197,7 @@ func (s *Service) GetStAnnsPastFixtures() (*models.Club, []FixtureWithRelations,
 	}
 
 	// Build FixtureWithRelations by fetching related data
-	fixturesWithRelations := s.buildFixturesWithRelations(ctx, pastFixtures, stAnnsClub)
+	fixturesWithRelations := s.buildFixturesWithRelations(ctx, pastFixtures, homeClub)
 
 	// Sort fixtures by scheduled date (most recent first), then by division (ascending)
 	sort.Slice(fixturesWithRelations, func(i, j int) bool {
@@ -231,31 +223,27 @@ func (s *Service) GetStAnnsPastFixtures() (*models.Club, []FixtureWithRelations,
 		return divisionI < divisionJ
 	})
 
-	return stAnnsClub, fixturesWithRelations, nil
+	return homeClub, fixturesWithRelations, nil
 }
 
-// GetStAnnsTodaysFixtures retrieves today's fixtures for St. Ann's club with related data
-func (s *Service) GetStAnnsTodaysFixtures() (*models.Club, []FixtureWithRelations, error) {
+// GetHomeClubTodaysFixtures retrieves today's fixtures for the home club with related data
+func (s *Service) GetHomeClubTodaysFixtures() (*models.Club, []FixtureWithRelations, error) {
 	ctx := context.Background()
 
-	// Find St. Ann's club
-	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	// Get home club from config
+	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID)
 	if err != nil {
 		return nil, nil, err
 	}
-	if len(clubs) == 0 {
-		return nil, nil, nil // No club found
-	}
-	stAnnsClub := &clubs[0]
 
-	// Get all teams for St. Ann's club
-	teams, err := s.teamRepository.FindByClub(ctx, stAnnsClub.ID)
+	// Get all teams for home club
+	teams, err := s.teamRepository.FindByClub(ctx, homeClub.ID)
 	if err != nil {
-		return stAnnsClub, nil, err
+		return homeClub, nil, err
 	}
 
 	if len(teams) == 0 {
-		return stAnnsClub, nil, nil // No teams found
+		return homeClub, nil, nil // No teams found
 	}
 
 	// Collect fixtures for today across all teams (deduped)
@@ -291,7 +279,7 @@ func (s *Service) GetStAnnsTodaysFixtures() (*models.Club, []FixtureWithRelation
 		}
 	}
 
-	fixturesWithRelations := s.buildFixturesWithRelations(ctx, todaysFixtures, stAnnsClub)
+	fixturesWithRelations := s.buildFixturesWithRelations(ctx, todaysFixtures, homeClub)
 
 	// Sort by time then division name desc
 	sort.Slice(fixturesWithRelations, func(i, j int) bool {
@@ -312,11 +300,11 @@ func (s *Service) GetStAnnsTodaysFixtures() (*models.Club, []FixtureWithRelation
 		return divisionI > divisionJ
 	})
 
-	return stAnnsClub, fixturesWithRelations, nil
+	return homeClub, fixturesWithRelations, nil
 }
 
 // buildFixturesWithRelations is a helper method to build FixtureWithRelations from fixtures
-func (s *Service) buildFixturesWithRelations(ctx context.Context, fixtures []models.Fixture, stAnnsClub *models.Club) []FixtureWithRelations {
+func (s *Service) buildFixturesWithRelations(ctx context.Context, fixtures []models.Fixture, homeClub *models.Club) []FixtureWithRelations {
 	var fixturesWithRelations []FixtureWithRelations
 
 	for _, fixture := range fixtures {
@@ -354,17 +342,17 @@ func (s *Service) buildFixturesWithRelations(ctx context.Context, fixtures []mod
 			fixtureWithRelations.Season = season
 		}
 
-		// Determine if St. Ann's is home or away (only if teams were loaded successfully)
-		if homeTeam != nil && homeTeam.ClubID == stAnnsClub.ID {
-			fixtureWithRelations.IsStAnnsHome = true
+		// Determine if the home club is home or away (only if teams were loaded successfully)
+		if homeTeam != nil && homeTeam.ClubID == homeClub.ID {
+			fixtureWithRelations.IsHomeClub = true
 		}
-		if awayTeam != nil && awayTeam.ClubID == stAnnsClub.ID {
-			fixtureWithRelations.IsStAnnsAway = true
+		if awayTeam != nil && awayTeam.ClubID == homeClub.ID {
+			fixtureWithRelations.IsAwayClub = true
 		}
 
-		// Determine if it's a derby match (both teams are St Ann's)
+		// Determine if it's a derby match (both teams belong to home club)
 		if homeTeam != nil && awayTeam != nil &&
-			homeTeam.ClubID == stAnnsClub.ID && awayTeam.ClubID == stAnnsClub.ID {
+			homeTeam.ClubID == homeClub.ID && awayTeam.ClubID == homeClub.ID {
 
 			// For derby matches, create TWO separate entries - one for each team's perspective
 
@@ -507,9 +495,9 @@ func (s *Service) GetFixtureDetail(fixtureID uint) (*FixtureDetail, error) {
 	return detail, nil
 }
 
-// IsStAnnsHomeInFixture determines whether St Ann's is the home team in a fixture
+// IsHomeClubInFixture determines whether the home club is the home team in a fixture
 // Uses the exact same logic as buildFixturesWithRelations to ensure consistency
-func (s *Service) IsStAnnsHomeInFixture(fixtureID uint) bool {
+func (s *Service) IsHomeClubInFixture(fixtureID uint) bool {
 	ctx := context.Background()
 
 	// Get the fixture
@@ -518,26 +506,18 @@ func (s *Service) IsStAnnsHomeInFixture(fixtureID uint) bool {
 		return false // Default to away if we can't determine
 	}
 
-	// Find St. Ann's club (using same logic as buildFixturesWithRelations)
-	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
-	if err != nil || len(clubs) == 0 {
-		return false // Default to away if we can't find St Ann's
-	}
-	stAnnsClub := &clubs[0]
-
-	// Get home team (using same logic as buildFixturesWithRelations)
+	// Get home team
 	homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
 	if err != nil {
 		return false // Default to away if we can't get home team
 	}
 
-	// Use exact same logic as buildFixturesWithRelations:
-	// "Determine if St. Ann's is home or away (only if teams were loaded successfully)"
-	if homeTeam != nil && homeTeam.ClubID == stAnnsClub.ID {
-		return true // IsStAnnsHome = true
+	// Check if the home team belongs to the home club
+	if homeTeam != nil && homeTeam.ClubID == s.homeClubID {
+		return true
 	}
 
-	return false // IsStAnnsHome = false (either away or not St Ann's fixture)
+	return false
 }
 
 // GetUpcomingFixturesForTeam retrieves upcoming fixtures for a specific team
@@ -612,10 +592,10 @@ func (s *Service) GetUpcomingFixturesForTeam(teamID uint, limit int) ([]FixtureW
 
 		// Determine if the requesting team is home or away (only if teams were loaded successfully)
 		if homeTeam != nil && homeTeam.ID == teamID {
-			fixtureWithRelations.IsStAnnsHome = true
+			fixtureWithRelations.IsHomeClub = true
 		}
 		if awayTeam != nil && awayTeam.ID == teamID {
-			fixtureWithRelations.IsStAnnsAway = true
+			fixtureWithRelations.IsAwayClub = true
 		}
 
 		// Determine if it's a derby match (both teams are from the same club)
@@ -789,22 +769,18 @@ func (s *Service) SetFixtureDayCaptain(fixtureID uint, playerID string) error {
 	return s.fixtureRepository.Update(ctx, fixture)
 }
 
-// GetStAnnsNextWeekFixturesByDivision retrieves St Ann's fixtures for the next week organized by division
-func (s *Service) GetStAnnsNextWeekFixturesByDivision() (map[string][]FixtureWithRelations, error) {
+// GetHomeClubNextWeekFixturesByDivision retrieves home club fixtures for the next week organized by division
+func (s *Service) GetHomeClubNextWeekFixturesByDivision() (map[string][]FixtureWithRelations, error) {
 	ctx := context.Background()
 
-	// Find St. Ann's club
-	clubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
+	// Get home club from config
+	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID)
 	if err != nil {
 		return nil, err
 	}
-	if len(clubs) == 0 {
-		return make(map[string][]FixtureWithRelations), nil // No club found
-	}
-	stAnnsClub := &clubs[0]
 
 	// Get all teams for St. Ann's club
-	teams, err := s.teamRepository.FindByClub(ctx, stAnnsClub.ID)
+	teams, err := s.teamRepository.FindByClub(ctx, homeClub.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -841,7 +817,7 @@ func (s *Service) GetStAnnsNextWeekFixturesByDivision() (map[string][]FixtureWit
 	}
 
 	// Build FixtureWithRelations by fetching related data
-	fixturesWithRelations := s.buildFixturesWithRelations(ctx, allFixtures, stAnnsClub)
+	fixturesWithRelations := s.buildFixturesWithRelations(ctx, allFixtures, homeClub)
 
 	// Organize fixtures by division
 	fixturesByDivision := make(map[string][]FixtureWithRelations)

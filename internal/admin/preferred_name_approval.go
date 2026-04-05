@@ -112,15 +112,15 @@ func (s *Service) HandleApprovePreferredName(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Get request ID from URL path - parse it from the path manually
+	// Get request ID from URL path: /admin/league/preferred-names/approve/{id}
 	path := r.URL.Path
 	parts := strings.Split(path, "/")
-	if len(parts) < 5 || parts[4] == "" {
+	if len(parts) < 6 || parts[5] == "" {
 		http.Error(w, "Invalid request ID", http.StatusBadRequest)
 		return
 	}
 
-	requestID, err := strconv.ParseUint(parts[4], 10, 32)
+	requestID, err := strconv.ParseUint(parts[5], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid request ID", http.StatusBadRequest)
 		return
@@ -168,15 +168,15 @@ func (s *Service) HandleRejectPreferredName(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Get request ID from URL path - parse it from the path manually
+	// Get request ID from URL path: /admin/league/preferred-names/reject/{id}
 	path := r.URL.Path
 	parts := strings.Split(path, "/")
-	if len(parts) < 5 || parts[4] == "" {
+	if len(parts) < 6 || parts[5] == "" {
 		http.Error(w, "Invalid request ID", http.StatusBadRequest)
 		return
 	}
 
-	requestID, err := strconv.ParseUint(parts[4], 10, 32)
+	requestID, err := strconv.ParseUint(parts[5], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid request ID", http.StatusBadRequest)
 		return

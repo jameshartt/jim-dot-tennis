@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A league management system built for [St Ann's Tennis Club](https://www.stannstennis.co.uk/) to run the Brighton & Hove Parks League. It handles player availability, team selection, fixture scheduling, match results, and standings.
+A league management system originally built at [St Ann's Tennis Club](https://www.stannstennis.co.uk/) for the Brighton & Hove Parks League. It handles player availability, team selection, fixture scheduling, match results, and standings — and is deployable for any parks league club.
 
 **Live at [jim.tennis](https://jim.tennis)** | **Source on [GitHub](https://github.com/jameshartt/jim-dot-tennis)**
 
@@ -18,7 +18,7 @@ A league management system built for [St Ann's Tennis Club](https://www.stannste
 ## Attribution & Credits
 
 **Built by [James Hartt](https://github.com/jameshartt)**
-jim.tennis was designed and built by James Hartt for St Ann's Tennis Club. The system has been in active use since the 2025 parks league season.
+jim.tennis was designed and built by James Hartt, originally for St Ann's Tennis Club. The system has been in active use since the 2025 parks league season.
 
 **Tournament management by [CourtHive](https://courthive.com/) (Charles Allen)**
 Tournament and Cup management is developed and maintained by CourtHive, with the primary development effort by Charles Allen. CourtHive provides tournament scheduling, draw management, and live scoring for Parks League Cup competitions.
@@ -64,19 +64,32 @@ make logs             # View logs
 
 See [docs/PRODUCTION_QUICK_REFERENCE.md](docs/PRODUCTION_QUICK_REFERENCE.md) and [docs/digitalocean_deployment.md](docs/digitalocean_deployment.md) for full deployment details.
 
+### Configuration
+
+The application uses environment variables to identify your club:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `HOME_CLUB_ID` | Yes (or `HOME_CLUB_NAME`) | Database ID of your club |
+| `HOME_CLUB_NAME` | Fallback | Club name for fuzzy lookup if `HOME_CLUB_ID` is not set |
+| `BHPLTA_CLUB_CODE` | For imports | Your club's code on the BHPLTA website (e.g. `STANN001`) |
+
+See [docs/docker_setup.md](docs/docker_setup.md) for the full list of environment variables.
+
 ### Running tests
 
 ```bash
 make test-e2e                      # Full E2E suite (2 workers)
 make test-e2e-grep FILTER="login"  # Run tests matching pattern
 make test-e2e-results              # Formatted test summary
+make test-e2e-multiclub            # Multi-club verification tests
 ```
 
 See [tests/e2e/README.md](tests/e2e/README.md) for the complete testing guide.
 
 ## For other clubs
 
-jim.tennis was built for St Ann's Tennis Club, but it's open-source under the MIT license. If you manage a parks league club and this looks useful, the [Club Adaptation Guide](CONTRIBUTING.md#club-adaptation-guide) covers what's involved in running your own instance. You're also welcome to [open an issue](https://github.com/jameshartt/jim-dot-tennis/issues/new?template=club_enquiry.md) to ask questions.
+jim.tennis was originally built for St Ann's Tennis Club, but it's designed to be club-agnostic — set `HOME_CLUB_ID` and `BHPLTA_CLUB_CODE` in your environment and you're running for your own club. It's open-source under the MIT license. The [Club Adaptation Guide](CONTRIBUTING.md#club-adaptation-guide) covers what's involved, and you're welcome to [open an issue](https://github.com/jameshartt/jim-dot-tennis/issues/new?template=club_enquiry.md) to ask questions.
 
 ## Contributing
 

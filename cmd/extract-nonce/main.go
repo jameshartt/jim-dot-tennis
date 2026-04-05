@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	"jim-dot-tennis/internal/services"
 )
@@ -17,6 +18,11 @@ func main() {
 		verbose  = flag.Bool("verbose", false, "Verbose output")
 	)
 	flag.Parse()
+
+	// Fall back to BHPLTA_CLUB_CODE env var if flag not provided
+	if *clubCode == "" {
+		*clubCode = os.Getenv("BHPLTA_CLUB_CODE")
+	}
 
 	// Create nonce extractor
 	extractor := services.NewNonceExtractor()

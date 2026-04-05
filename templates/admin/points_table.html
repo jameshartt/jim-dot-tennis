@@ -221,9 +221,9 @@
 
     <div class="container admin-content">
         <div class="points-header">
-            <img src="/static/st-anns-tennis.jpg" alt="St Ann's Tennis Club" class="club-logo">
+            <img src="/static/st-anns-tennis.jpg" alt="{{.HomeClubName}}" class="club-logo">
             <div class="points-info">
-                <h2>St Ann's Tennis Club - Division 1-4</h2>
+                <h2>{{.HomeClubName}} - Division 1-4</h2>
                 {{if .IsEndOfSeason}}
                 <div class="week-info">End of season, all matches played</div>
                 {{else if .RescheduledHeader}}
@@ -237,7 +237,7 @@
             </div>
         </div>
 
-        <div class="points-tables">
+        <div class="points-tables" data-testid="points-table">
             <!-- Men's Points Table -->
             <div class="points-section">
                 <h3>Men</h3>

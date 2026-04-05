@@ -1,0 +1,66 @@
+{
+  "id": "WI-084",
+  "title": "E2E test infrastructure — parameterise seed data and update assertions",
+  "description": "The E2E test seed data (seed.sql) hardcodes St Ann's club names, team names, and venue references. Test spec files contain assertions that check for 'St Ann' in page content. Update the seed data and test assertions to be parameterisable or to use the new generic terminology. The tests should pass for any configured home club, not just St Ann's.",
+  "type": "test",
+  "priority": "critical",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-079",
+    "WI-080",
+    "WI-082"
+  ],
+  "phase": "Phase 9: Club-Agnostic Architecture",
+  "acceptance_criteria": [
+    "Seed data (seed.sql) still creates two clubs, but the home club name comes from a clearly documented constant at the top of the file (easy to change for other deployments)",
+    "All spec file assertions that previously checked for 'St Ann' now use the seed constant or check for generic content",
+    "clubs.spec.ts assertions updated for parameterised club names",
+    "teams.spec.ts assertions updated for parameterised team names",
+    "fixtures.spec.ts assertions updated for parameterised content",
+    "fixture-management.spec.ts assertions updated",
+    "Test fixtures (test-fixtures.ts) updated if needed",
+    "Full E2E suite passes with current seed data (146 tests, 0 failures)",
+    "data-testid attributes added to key template elements where text content assertions are fragile"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "tests/e2e/fixtures/seed.sql",
+      "tests/e2e/fixtures/test-fixtures.ts",
+      "tests/e2e/admin/clubs.spec.ts",
+      "tests/e2e/admin/teams.spec.ts",
+      "tests/e2e/admin/fixtures.spec.ts",
+      "tests/e2e/workflows/fixture-management.spec.ts",
+      "tests/e2e/workflows/team-selection.spec.ts"
+    ],
+    "approach": [
+      "1. Add data-testid attributes to key template elements that tests currently assert on via text content:",
+      "   - Club list rows: data-testid='club-row-{id}'",
+      "   - Team list rows: data-testid='team-row-{id}'",
+      "   - Fixture cards: data-testid='fixture-card-{id}'",
+      "2. Update spec files to use data-testid selectors where possible instead of text content assertions",
+      "3. Where text content assertions remain (e.g., verifying the club name appears on a page), use a shared constant imported from a test config file",
+      "4. Add a test-config.ts file that exports HOME_CLUB_NAME, AWAY_CLUB_NAME, HOME_TEAM_A, etc.",
+      "5. Update seed.sql with clear comments marking the home club section",
+      "6. Run full suite and fix any failures"
+    ],
+    "expected_test_changes": {
+      "clubs.spec.ts": "2 assertions (club name text content → data-testid or config constant)",
+      "teams.spec.ts": "2 assertions (team name text content → data-testid or config constant)",
+      "fixtures.spec.ts": "2 assertions (team name in fixture list → data-testid or config constant)",
+      "fixture-management.spec.ts": "1 assertion (team name in fixture card → data-testid or config constant)",
+      "team-selection.spec.ts": "0-1 assertions (player first names are already generic)"
+    },
+    "template_changes_needed": "Adding data-testid attributes to ~5-10 template elements. These are invisible to users and don't affect rendering. They make tests more robust against text changes."
+  },
+  "testing_requirements": [
+    "Full E2E suite passes (146 tests)",
+    "make test-e2e-results shows 0 failures",
+    "Tests pass if seed club name is changed to a different value (verify by temporarily editing test-config.ts and seed.sql)",
+    "No spec file contains a hardcoded 'St Ann' string"
+  ],
+  "context": {
+    "user_story": "As a developer running the test suite for a non-St Ann's deployment, I want all tests to pass without manual edits to spec files",
+    "related_docs": []
+  }
+}

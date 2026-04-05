@@ -62,7 +62,7 @@ make build-extract-nonce
 ./bin/extract-nonce -verbose
 
 # Extract nonce with club code (recommended)
-./bin/extract-nonce -club-code="STANN001" -verbose
+./bin/extract-nonce -club-code="$BHPLTA_CLUB_CODE" -verbose
 ```
 
 Output:
@@ -71,7 +71,7 @@ Extracting nonce from BHPLTA website...
 Successfully extracted nonce!
 Nonce: abc123def456789
 Expires at: 2024-01-15 14:30:00
-Club code: STANN001
+Club code: your-club-code
 Full nonce length: 15 characters
 ```
 
@@ -86,18 +86,18 @@ make build-import-matchcards
 # Import with auto-nonce flag
 ./bin/import-matchcards \
   -auto-nonce \
-  -club-code="STANN001" \
+  -club-code="$BHPLTA_CLUB_CODE" \
   -week=1 \
   -year=2024 \
   -club-id=123 \
-  -club-name="St Ann's Tennis Club" \
+  -club-name="Your Club Name" \
   -db="./tennis.db" \
   -verbose \
   -dry-run
 
 # Import without nonce (auto-extracts when nonce is empty)
 ./bin/import-matchcards \
-  -club-code="STANN001" \
+  -club-code="$BHPLTA_CLUB_CODE" \
   -week=1 \
   -year=2024 \
   # ... other parameters
@@ -110,7 +110,7 @@ You can still provide a manual nonce if needed:
 ```bash
 ./bin/import-matchcards \
   -nonce="manually-extracted-nonce" \
-  -club-code="STANN001" \
+  -club-code="$BHPLTA_CLUB_CODE" \
   # ... other parameters
 ```
 
@@ -128,10 +128,10 @@ export TENNIS_NONCE="manually-copied-nonce"
 ### After (Automatic)
 ```bash
 # No manual nonce needed
-./bin/import-matchcards -auto-nonce -club-code="STANN001" ...
+./bin/import-matchcards -auto-nonce -club-code="$BHPLTA_CLUB_CODE" ...
 
 # Or simply omit the nonce (auto-extracts when empty)
-./bin/import-matchcards -club-code="STANN001" ...
+./bin/import-matchcards -club-code="$BHPLTA_CLUB_CODE" ...
 ```
 
 ## Error Handling
@@ -168,7 +168,7 @@ If automatic extraction fails:
 
 3. **Use verbose output**
    ```bash
-   ./bin/extract-nonce -club-code="STANN001" -verbose
+   ./bin/extract-nonce -club-code="$BHPLTA_CLUB_CODE" -verbose
    ```
 
 4. **Fall back to manual extraction**
@@ -181,10 +181,10 @@ Run the demo to see all features in action:
 
 ```bash
 # Run demo with your club code
-./scripts/demo-auto-nonce.sh STANN001
+./scripts/demo-auto-nonce.sh $BHPLTA_CLUB_CODE
 
 # Demo with specific week/year
-./scripts/demo-auto-nonce.sh STANN001 5 2024
+./scripts/demo-auto-nonce.sh $BHPLTA_CLUB_CODE 5 2025
 ```
 
 ## Benefits

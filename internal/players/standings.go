@@ -33,7 +33,7 @@ type TeamStanding struct {
 	ClubID        uint
 	TeamName      string
 	ClubName      string
-	IsStAnns      bool
+	IsHomeClub      bool
 	Played        int
 	Won           int
 	Lost          int
@@ -53,11 +53,12 @@ type DivisionStandings struct {
 
 // StandingsPageData holds all data for the standings template
 type StandingsPageData struct {
-	Divisions       []DivisionStandings
+	Divisions        []DivisionStandings
 	ActiveDivisionID uint
-	Seasons         []models.Season
-	ActiveSeason    *models.Season
-	StAnnsClubID    uint
+	Seasons          []models.Season
+	ActiveSeason     *models.Season
+	HomeClubID       uint
+	HomeClubName     string
 }
 
 // HandleStandings handles GET /standings
@@ -107,17 +108,13 @@ func (h *StandingsHandler) HandleStandings(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Find St Ann's club ID
-	var stAnnsClubID uint
-	stAnnsClubs, err := h.service.clubRepository.FindByNameLike(ctx, "St Ann")
-	if err == nil && len(stAnnsClubs) > 0 {
-		stAnnsClubID = stAnnsClubs[0].ID
-	}
+	// Get home club ID from config
+	homeClubID := h.service.homeClubID
 
 	// Calculate standings for each division
 	var divisionStandings []DivisionStandings
 	for _, div := range divisions {
-		standings, err := h.calculateDivisionStandings(season.ID, div.ID, stAnnsClubID)
+		standings, err := h.calculateDivisionStandings(season.ID, div.ID, homeClubID)
 		if err != nil {
 			log.Printf("Failed to calculate standings for division %d: %v", div.ID, err)
 			continue
@@ -148,12 +145,21 @@ func (h *StandingsHandler) HandleStandings(w http.ResponseWriter, r *http.Reques
 		activeDivisionID = divisionStandings[0].DivisionID
 	}
 
+	// Resolve home club name for template display
+	homeClubName := "Tennis Club"
+	if homeClubID > 0 {
+		if club, err := h.service.clubRepository.FindByID(ctx, homeClubID); err == nil && club != nil {
+			homeClubName = club.Name
+		}
+	}
+
 	data := StandingsPageData{
 		Divisions:        divisionStandings,
 		ActiveDivisionID: activeDivisionID,
 		Seasons:          allSeasons,
 		ActiveSeason:     season,
-		StAnnsClubID:     stAnnsClubID,
+		HomeClubID:       homeClubID,
+		HomeClubName:     homeClubName,
 	}
 
 	// Check for HTMX partial request
@@ -184,7 +190,7 @@ func (h *StandingsHandler) HandleStandings(w http.ResponseWriter, r *http.Reques
 }
 
 // calculateDivisionStandings computes team standings for a division
-func (h *StandingsHandler) calculateDivisionStandings(seasonID, divisionID, stAnnsClubID uint) ([]TeamStanding, error) {
+func (h *StandingsHandler) calculateDivisionStandings(seasonID, divisionID, homeClubID uint) ([]TeamStanding, error) {
 	ctx := fmt.Sprintf("season:%d,division:%d", seasonID, divisionID)
 	_ = ctx // We use context.Background() for DB queries
 
@@ -239,7 +245,7 @@ func (h *StandingsHandler) calculateDivisionStandings(seasonID, divisionID, stAn
 				ClubID:   clubID,
 				TeamName: teamName,
 				ClubName: clubName,
-				IsStAnns: clubID == stAnnsClubID,
+				IsHomeClub: clubID == homeClubID,
 			}
 		}
 	}
@@ -290,7 +296,7 @@ func (h *StandingsHandler) calculateDivisionStandings(seasonID, divisionID, stAn
 					ClubID:   t.ClubID,
 					TeamName: t.Name,
 					ClubName: clubName,
-					IsStAnns: t.ClubID == stAnnsClubID,
+					IsHomeClub: t.ClubID == homeClubID,
 				}
 			}
 		}

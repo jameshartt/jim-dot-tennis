@@ -116,15 +116,7 @@ func (s *Service) determineManagingTeamID(ctx context.Context, fixtureID uint) (
 		return 0, err
 	}
 
-	// Find the St Ann's club ID
-	stAnnsClubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
-	if err != nil {
-		return 0, err
-	}
-	if len(stAnnsClubs) == 0 {
-		return 0, fmt.Errorf("St Ann's club not found")
-	}
-	stAnnsClubID := stAnnsClubs[0].ID
+	homeClubID := s.homeClubID
 
 	// Get home and away teams
 	homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
@@ -137,13 +129,13 @@ func (s *Service) determineManagingTeamID(ctx context.Context, fixtureID uint) (
 		return 0, err
 	}
 
-	// Check which team is St Ann's - prefer home team if both are St Ann's
-	if homeTeam.ClubID == stAnnsClubID {
+	// Check which team is the home club - prefer home team if both are home club
+	if homeTeam.ClubID == homeClubID {
 		return homeTeam.ID, nil
-	} else if awayTeam.ClubID == stAnnsClubID {
+	} else if awayTeam.ClubID == homeClubID {
 		return awayTeam.ID, nil
 	} else {
-		return 0, fmt.Errorf("no St Ann's team found in this fixture")
+		return 0, fmt.Errorf("home club team not found in this fixture")
 	}
 }
 
@@ -174,25 +166,17 @@ func (s *Service) GetOrCreateMatchupWithTeam(fixtureID uint, matchupType models.
 	return s.CreateMatchupWithTeam(fixtureID, matchupType, managingTeamID)
 }
 
-// UpdateStAnnsMatchupPlayers updates St Ann's players for a matchup, determining if they're home or away
-func (s *Service) UpdateStAnnsMatchupPlayers(matchupID uint, fixtureID uint, stAnnsPlayer1ID, stAnnsPlayer2ID string) error {
+// UpdateHomeClubMatchupPlayers updates home club players for a matchup, determining if they're home or away
+func (s *Service) UpdateHomeClubMatchupPlayers(matchupID uint, fixtureID uint, homePlayer1ID, homePlayer2ID string) error {
 	ctx := context.Background()
 
-	// Get the fixture to determine if St Ann's is home or away
+	// Get the fixture to determine if the home club is home or away
 	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
 	if err != nil {
 		return err
 	}
 
-	// Find the St Ann's club ID
-	stAnnsClubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
-	if err != nil {
-		return err
-	}
-	if len(stAnnsClubs) == 0 {
-		return fmt.Errorf("St Ann's club not found")
-	}
-	stAnnsClubID := stAnnsClubs[0].ID
+	homeClubID := s.homeClubID
 
 	// Get home and away teams
 	homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
@@ -205,14 +189,14 @@ func (s *Service) UpdateStAnnsMatchupPlayers(matchupID uint, fixtureID uint, stA
 		return err
 	}
 
-	// Determine if St Ann's is home or away
-	var isStAnnsHome bool
-	if homeTeam.ClubID == stAnnsClubID {
-		isStAnnsHome = true
-	} else if awayTeam.ClubID == stAnnsClubID {
-		isStAnnsHome = false
+	// Determine if home club is the home team
+	var isHomeClub bool
+	if homeTeam.ClubID == homeClubID {
+		isHomeClub = true
+	} else if awayTeam.ClubID == homeClubID {
+		isHomeClub = false
 	} else {
-		return fmt.Errorf("no St Ann's team found in this fixture")
+		return fmt.Errorf("home club team not found in this fixture")
 	}
 
 	// Clear existing players
@@ -221,23 +205,23 @@ func (s *Service) UpdateStAnnsMatchupPlayers(matchupID uint, fixtureID uint, stA
 		return err
 	}
 
-	// Add St Ann's players with correct home/away designation
-	if stAnnsPlayer1ID != "" {
-		err = s.matchupRepository.AddPlayer(ctx, matchupID, stAnnsPlayer1ID, isStAnnsHome)
+	// Add home club players with correct home/away designation
+	if homePlayer1ID != "" {
+		err = s.matchupRepository.AddPlayer(ctx, matchupID, homePlayer1ID, isHomeClub)
 		if err != nil {
 			return err
 		}
 	}
-	if stAnnsPlayer2ID != "" {
-		err = s.matchupRepository.AddPlayer(ctx, matchupID, stAnnsPlayer2ID, isStAnnsHome)
+	if homePlayer2ID != "" {
+		err = s.matchupRepository.AddPlayer(ctx, matchupID, homePlayer2ID, isHomeClub)
 		if err != nil {
 			return err
 		}
 	}
 
-	// Update status to Playing if both St Ann's players are assigned
-	// (In a real-world scenario, you'd need opponent players too, but for St Ann's tool this is sufficient)
-	if stAnnsPlayer1ID != "" && stAnnsPlayer2ID != "" {
+	// Update status to Playing if both home club players are assigned
+	// (In a real-world scenario, you'd need opponent players too, but for the home club tool this is sufficient)
+	if homePlayer1ID != "" && homePlayer2ID != "" {
 		err = s.matchupRepository.UpdateStatus(ctx, matchupID, models.Playing)
 		if err != nil {
 			return err
@@ -248,7 +232,7 @@ func (s *Service) UpdateStAnnsMatchupPlayers(matchupID uint, fixtureID uint, stA
 }
 
 // GetAvailablePlayersForMatchup gets available players for a specific matchup
-// Returns selected players if any, otherwise falls back to all St Ann's team players
+// Returns selected players if any, otherwise falls back to all home club team players
 func (s *Service) GetAvailablePlayersForMatchup(fixtureID uint) ([]models.Player, error) {
 	ctx := context.Background()
 
@@ -269,18 +253,18 @@ func (s *Service) GetAvailablePlayersForMatchup(fixtureID uint) ([]models.Player
 		return players, nil
 	}
 
-	// Fallback to St Ann's team players if no players selected
+	// Fallback to home club team players if no players selected
 	teamPlayers, allStAnnPlayers, err := s.GetAvailablePlayersForFixture(fixtureID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Prefer team players, but if none exist, use all St Ann's players
+	// Prefer team players, but if none exist, use all home club players
 	if len(teamPlayers) > 0 {
 		return teamPlayers, nil
 	}
 
-	// Combine team players and all St Ann's players as final fallback
+	// Combine team players and all home club players as final fallback
 	allPlayers := append(teamPlayers, allStAnnPlayers...)
 	return allPlayers, nil
 }
@@ -312,21 +296,13 @@ func (s *Service) getMatchupsForTeam(ctx context.Context, fixtureID uint, managi
 func (s *Service) AddPlayerToMatchup(matchupID uint, playerID string, fixtureID uint) error {
 	ctx := context.Background()
 
-	// Get the fixture to determine if St Ann's is home or away
+	// Get the fixture to determine if the home club is home or away
 	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
 	if err != nil {
 		return err
 	}
 
-	// Find the St Ann's club ID
-	stAnnsClubs, err := s.clubRepository.FindByNameLike(ctx, "St Ann")
-	if err != nil {
-		return err
-	}
-	if len(stAnnsClubs) == 0 {
-		return fmt.Errorf("St Ann's club not found")
-	}
-	stAnnsClubID := stAnnsClubs[0].ID
+	homeClubID := s.homeClubID
 
 	// Get home and away teams
 	homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
@@ -339,14 +315,14 @@ func (s *Service) AddPlayerToMatchup(matchupID uint, playerID string, fixtureID 
 		return err
 	}
 
-	// Determine if St Ann's is home or away
-	var isStAnnsHome bool
-	if homeTeam.ClubID == stAnnsClubID {
-		isStAnnsHome = true
-	} else if awayTeam.ClubID == stAnnsClubID {
-		isStAnnsHome = false
+	// Determine if home club is the home team
+	var isHomeClub bool
+	if homeTeam.ClubID == homeClubID {
+		isHomeClub = true
+	} else if awayTeam.ClubID == homeClubID {
+		isHomeClub = false
 	} else {
-		return fmt.Errorf("no St Ann's team found in this fixture")
+		return fmt.Errorf("home club team not found in this fixture")
 	}
 
 	// Check if player is already in this matchup
@@ -362,7 +338,7 @@ func (s *Service) AddPlayerToMatchup(matchupID uint, playerID string, fixtureID 
 	}
 
 	// Add the player to the matchup
-	err = s.matchupRepository.AddPlayer(ctx, matchupID, playerID, isStAnnsHome)
+	err = s.matchupRepository.AddPlayer(ctx, matchupID, playerID, isHomeClub)
 	if err != nil {
 		return err
 	}
