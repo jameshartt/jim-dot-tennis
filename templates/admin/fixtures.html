@@ -445,7 +445,7 @@
     <main class="admin-content">
         <div class="container">
             <div class="action-bar">
-                <h2>St. Ann's Fixtures</h2>
+                <h2>{{.HomeClubName}} Fixtures</h2>
                 <div style="display: flex; gap: 10px;">
                     <button onclick="showCreateFixtureModal()" class="btn-add" style="background: var(--primary-color); color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">➕ Create Fixture</button>
                     <a href="/admin/league/fixtures/week-overview" class="btn-add" style="background: var(--success-color); color: white; padding: 0.5rem 1rem; text-decoration: none; border-radius: 4px;">📱 Week Overview</a>
@@ -607,7 +607,7 @@
             {{else}}
             <div class="no-fixtures">
                 <h3>No Upcoming Fixtures</h3>
-                <p>There are currently no upcoming fixtures for St. Ann's club.</p>
+                <p>There are currently no upcoming fixtures for {{.HomeClubName}}.</p>
             </div>
             {{end}}
 
@@ -679,7 +679,7 @@
                     {{else}}
                     <div class="no-fixtures">
                         <h3>No Past Fixtures</h3>
-                        <p>There are currently no past fixtures for St. Ann's club.</p>
+                        <p>There are currently no past fixtures for {{.HomeClubName}}.</p>
                     </div>
                     {{end}}
                 </div>

@@ -188,7 +188,7 @@
             </div>
 
             <div class="action-bar">
-                <h2>St. Ann's Teams</h2>
+                <h2>{{.HomeClubName}} Teams</h2>
                 <button onclick="showCreateTeamModal()" class="btn-add" style="background: var(--primary-color); color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">+ Create Team</button>
             </div>
 
@@ -246,7 +246,7 @@
             {{else}}
             <div class="no-teams">
                 <h3>No Teams Found</h3>
-                <p>There are currently no teams for St. Ann's club.</p>
+                <p>There are currently no teams for {{.HomeClubName}}.</p>
             </div>
             {{end}}
         </div>

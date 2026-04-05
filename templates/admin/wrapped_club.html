@@ -6,7 +6,7 @@
     <meta name="color-scheme" content="light">
     <meta name="supported-color-schemes" content="light">
     <meta name="theme-color" content="#ffffff">
-    <title>St. Ann's Season Wrapped {{.WrappedData.SeasonYear}} - Jim.Tennis Admin</title>
+    <title>{{.WrappedData.ClubName}} Season Wrapped {{.WrappedData.SeasonYear}} - Jim.Tennis Admin</title>
     <link rel="stylesheet" href="/static/css/main.css">
     <link rel="stylesheet" href="/static/css/wrapped.css">
     <link rel="icon" type="image/png" href="/static/img/favicon.png">
@@ -64,7 +64,7 @@
             <div class="wrapped-content">
                 <div class="wrapped-header">
                     <h1 class="wrapped-title">Fixture Mastery</h1>
-                    <h2 class="wrapped-subtitle">How St. Ann's performed</h2>
+                    <h2 class="wrapped-subtitle">How {{.WrappedData.ClubName}} performed</h2>
                 </div>
                     
                                          <div class="fixture-breakdown">
@@ -964,7 +964,7 @@
             setTimeout(updateNavOffset, 150);
         });
         
-        console.log("St. Ann's Season Wrapped loaded with 13 pages");
+        console.log("Season Wrapped loaded with 13 pages");
     </script>
 </body>
 </html> 
