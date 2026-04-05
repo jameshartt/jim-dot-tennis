@@ -107,19 +107,29 @@ Create all the .env files listed above in their respective directories.
 
 ### 3. Build Frontend Components
 
+**IMPORTANT:** Both TMX and courthive-public use Vite with mode-specific `.env` files.
+Use `--mode development` for local testing, or default (production) for deployment.
+
 ```bash
 # Build TMX (requires Node 24)
 cd /path/to/TMX
 nvm use 24  # or use your Node version manager
 pnpm install
-pnpm build
+pnpm build --mode development    # Local: http://localhost/api/courthive
+# pnpm build                     # Production: https://jim.tennis/api/courthive
 
 # Build courthive-public (requires Node 20)
 cd /path/to/courthive-public
 nvm use 20
 pnpm install
-pnpm build
+pnpm build --mode development    # Local: http://localhost/api/courthive
+# pnpm build                     # Production: https://jim.tennis/api/courthive
 ```
+
+**Env file layout** (same pattern for both TMX and courthive-public):
+- `.env.development` — local testing (SERVER → localhost)
+- `.env.production` — production deploy (SERVER → jim.tennis)
+- Do NOT use `.env.local` or `.env.production.local` — they override other files silently
 
 ### 4. Start Docker Services
 

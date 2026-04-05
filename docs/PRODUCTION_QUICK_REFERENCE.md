@@ -36,9 +36,12 @@ ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && d
 # Build and transfer
 cd ~/Development/Tennis/TMX
 nvm use 24
-SERVER="https://jim.tennis/api/courthive" ENVIRONMENT="production" BASE_URL="tournaments" pnpm build
+pnpm build                # Uses .env.production → https://jim.tennis/api/courthive
 rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" dist/ root@144.126.228.64:/opt/jim-dot-tennis/TMX/dist/
 ```
+
+> **Remember to rebuild for local after deploying:** `pnpm build --mode development`
+> and restart Caddy: `docker compose -f docker-compose.courthive.yml restart caddy`
 
 **Time:** ~1 minute
 **Downtime:** None
@@ -51,9 +54,12 @@ rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" dist/ root@144.126.228.
 # Build and transfer
 cd ~/Development/Tennis/courthive-public
 nvm use 20
-VITE_API_URL="https://jim.tennis/api/courthive" ENVIRONMENT="production" pnpm build
+pnpm build                # Uses .env.production → https://jim.tennis/api/courthive
 rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" dist/ root@144.126.228.64:/opt/jim-dot-tennis/courthive-public/dist/
 ```
+
+> **Remember to rebuild for local after deploying:** `pnpm build --mode development`
+> and restart Caddy: `docker compose -f docker-compose.courthive.yml restart caddy`
 
 **Time:** ~1 minute
 **Downtime:** None
