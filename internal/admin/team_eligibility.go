@@ -275,7 +275,7 @@ func (s *TeamEligibilityService) countHigherTeamMatchesInDateRange(ctx context.C
 	}
 
 	// Build the query to count matches in higher teams within the date range
-	// Get the name of the St. Ann's team the player was actually playing FOR
+	// Get the name of the home club team the player was actually playing FOR
 	query := `
 		SELECT COUNT(DISTINCT m.id),
 		       COALESCE(GROUP_CONCAT(DISTINCT t.name), '') as team_names

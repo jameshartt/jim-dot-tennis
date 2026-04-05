@@ -120,7 +120,7 @@ func (h *TeamsHandler) handleCreateTeam(w http.ResponseWriter, r *http.Request) 
 
 // handleTeamsGet handles GET requests for team management
 func (h *TeamsHandler) handleTeamsGet(w http.ResponseWriter, r *http.Request, user *models.User) {
-	// Get St. Ann's teams with related data
+	// Get home club teams with related data
 	club, teams, err := h.service.GetHomeClubTeams()
 	if err != nil {
 		logAndError(w, "Failed to load teams", err, http.StatusInternalServerError)

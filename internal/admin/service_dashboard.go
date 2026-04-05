@@ -42,13 +42,13 @@ func (s *Service) GetDashboardData(user *models.User) (*DashboardData, error) {
 		return nil, err
 	}
 
-	// Get team count for St. Ann's club
+	// Get team count for home club
 	teamCount, err := s.getHomeClubTeamCount(ctx)
 	if err != nil {
 		teamCount = 0 // Default to 0 if error
 	}
 
-	// Get fixture count for St. Ann's club
+	// Get fixture count for home club
 	fixtureCount, err := s.getHomeClubFixtureCount(ctx)
 	if err != nil {
 		fixtureCount = 0 // Default to 0 if error
@@ -130,7 +130,7 @@ func (s *Service) getHomeClubFixtureCount(ctx context.Context) (int, error) {
 		return 0, nil // No teams found
 	}
 
-	// Count remaining fixtures (today or later) for St. Ann's teams
+	// Count remaining fixtures (today or later) for home club teams
 	totalRemainingFixtures := 0
 	now := time.Now()
 

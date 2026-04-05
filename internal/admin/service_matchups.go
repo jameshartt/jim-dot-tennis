@@ -254,7 +254,7 @@ func (s *Service) GetAvailablePlayersForMatchup(fixtureID uint) ([]models.Player
 	}
 
 	// Fallback to home club team players if no players selected
-	teamPlayers, allStAnnPlayers, err := s.GetAvailablePlayersForFixture(fixtureID)
+	teamPlayers, allHomeClubPlayers, err := s.GetAvailablePlayersForFixture(fixtureID)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +265,7 @@ func (s *Service) GetAvailablePlayersForMatchup(fixtureID uint) ([]models.Player
 	}
 
 	// Combine team players and all home club players as final fallback
-	allPlayers := append(teamPlayers, allStAnnPlayers...)
+	allPlayers := append(teamPlayers, allHomeClubPlayers...)
 	return allPlayers, nil
 }
 

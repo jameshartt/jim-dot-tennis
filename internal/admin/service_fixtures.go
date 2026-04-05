@@ -54,7 +54,7 @@ func (s *Service) GetHomeClubFixtures() (*models.Club, []FixtureWithRelations, e
 		return nil, nil, err
 	}
 
-	// Get all teams for St. Ann's club
+	// Get all teams for home club
 	teams, err := s.teamRepository.FindByClub(ctx, homeClub.ID)
 	if err != nil {
 		return homeClub, nil, err
@@ -64,7 +64,7 @@ func (s *Service) GetHomeClubFixtures() (*models.Club, []FixtureWithRelations, e
 		return homeClub, nil, nil // No teams found
 	}
 
-	// Get upcoming fixtures for all St. Ann's teams
+	// Get upcoming fixtures for all home club teams
 	var allFixtures []models.Fixture
 	fixtureMap := make(map[uint]models.Fixture) // Use map to deduplicate fixtures by ID
 
@@ -779,7 +779,7 @@ func (s *Service) GetHomeClubNextWeekFixturesByDivision() (map[string][]FixtureW
 		return nil, err
 	}
 
-	// Get all teams for St. Ann's club
+	// Get all teams for home club
 	teams, err := s.teamRepository.FindByClub(ctx, homeClub.ID)
 	if err != nil {
 		return nil, err
@@ -792,7 +792,7 @@ func (s *Service) GetHomeClubNextWeekFixturesByDivision() (map[string][]FixtureW
 	// Get next week date range
 	weekStart, weekEnd := s.getNextWeekDateRange()
 
-	// Get all fixtures for all St. Ann's teams within the next week
+	// Get all fixtures for all home club teams within the next week
 	var allFixtures []models.Fixture
 	fixtureMap := make(map[uint]models.Fixture) // Use map to deduplicate fixtures by ID
 

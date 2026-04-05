@@ -105,7 +105,7 @@ func (h *FixturesHandler) HandleFixtures(w http.ResponseWriter, r *http.Request)
 
 // handleFixturesGet handles GET requests for fixture management
 func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Request, user *models.User) {
-	// Get St. Ann's upcoming fixtures with related data
+	// Get home club upcoming fixtures with related data
 	club, upcomingFixtures, err := h.service.GetHomeClubFixtures()
 	if err != nil {
 		logAndError(w, "Failed to load upcoming fixtures", err, http.StatusInternalServerError)
@@ -119,7 +119,7 @@ func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Get St. Ann's past fixtures with related data
+	// Get home club past fixtures with related data
 	_, pastFixtures, err := h.service.GetHomeClubPastFixtures()
 	if err != nil {
 		logAndError(w, "Failed to load past fixtures", err, http.StatusInternalServerError)
@@ -630,7 +630,7 @@ func (h *FixturesHandler) handlePlayerSelection(w http.ResponseWriter, r *http.R
 	}
 
 	// Get available players for this fixture
-	teamPlayers, allStAnnPlayers, err := h.service.GetAvailablePlayersForFixture(fixtureID)
+	teamPlayers, allHomeClubPlayers, err := h.service.GetAvailablePlayersForFixture(fixtureID)
 	if err != nil {
 		logAndError(w, "Failed to load available players", err, http.StatusInternalServerError)
 		return
@@ -657,10 +657,10 @@ func (h *FixturesHandler) handlePlayerSelection(w http.ResponseWriter, r *http.R
 		}
 	}
 
-	var availableStAnnPlayers []models.Player
-	for _, player := range allStAnnPlayers {
+	var availableHomeClubPlayers []models.Player
+	for _, player := range allHomeClubPlayers {
 		if !selectedMap[player.ID] {
-			availableStAnnPlayers = append(availableStAnnPlayers, player)
+			availableHomeClubPlayers = append(availableHomeClubPlayers, player)
 		}
 	}
 
@@ -675,7 +675,7 @@ func (h *FixturesHandler) handlePlayerSelection(w http.ResponseWriter, r *http.R
 
 			` + renderPlayerGroup("Team Players", availableTeamPlayers, fixtureID, isHomeClub) + `
 
-			` + renderPlayerGroup("All " + homeClubNameFromContext(r) + " Players", availableStAnnPlayers, fixtureID, isHomeClub) + `
+			` + renderPlayerGroup("All " + homeClubNameFromContext(r) + " Players", availableHomeClubPlayers, fixtureID, isHomeClub) + `
 		</div>
 	`)); err != nil {
 		log.Printf("Failed to write player selection response: %v", err)
@@ -782,7 +782,7 @@ func (h *FixturesHandler) handleTeamSelectionGet(w http.ResponseWriter, r *http.
 		}
 	}
 
-	teamPlayers, allStAnnPlayers, err := h.service.GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID, managingTeamIDForEligibility)
+	teamPlayers, allHomeClubPlayers, err := h.service.GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID, managingTeamIDForEligibility)
 	if err != nil {
 		logAndError(w, "Failed to load available players", err, http.StatusInternalServerError)
 		return
@@ -802,10 +802,10 @@ func (h *FixturesHandler) handleTeamSelectionGet(w http.ResponseWriter, r *http.
 		}
 	}
 
-	var availableStAnnPlayers []PlayerWithEligibility
-	for _, player := range allStAnnPlayers {
+	var availableHomeClubPlayers []PlayerWithEligibility
+	for _, player := range allHomeClubPlayers {
 		if !selectedMap[player.Player.ID] {
-			availableStAnnPlayers = append(availableStAnnPlayers, player)
+			availableHomeClubPlayers = append(availableHomeClubPlayers, player)
 		}
 	}
 
@@ -830,7 +830,7 @@ func (h *FixturesHandler) handleTeamSelectionGet(w http.ResponseWriter, r *http.
 	templateData := map[string]interface{}{
 		"FixtureDetail":       fixtureDetail,
 		"TeamPlayers":         availableTeamPlayers,
-		"AllHomeClubPlayers":  availableStAnnPlayers,
+		"AllHomeClubPlayers":  availableHomeClubPlayers,
 		"SelectionPercentage": selectionPercentage,
 		"HomeClubName":        homeClubNameFromContext(r),
 	}
@@ -1070,7 +1070,7 @@ func (h *FixturesHandler) renderTeamSelectionContainer(w http.ResponseWriter, r 
 		}
 	}
 
-	teamPlayers, allStAnnPlayers, err := h.service.GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID, managingTeamIDForEligibility)
+	teamPlayers, allHomeClubPlayers, err := h.service.GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID, managingTeamIDForEligibility)
 	if err != nil {
 		logAndError(w, "Failed to load available players", err, http.StatusInternalServerError)
 		return
@@ -1095,10 +1095,10 @@ func (h *FixturesHandler) renderTeamSelectionContainer(w http.ResponseWriter, r 
 		}
 	}
 
-	var availableStAnnPlayers []PlayerWithEligibility
-	for _, player := range allStAnnPlayers {
+	var availableHomeClubPlayers []PlayerWithEligibility
+	for _, player := range allHomeClubPlayers {
 		if !selectedMap[player.Player.ID] {
-			availableStAnnPlayers = append(availableStAnnPlayers, player)
+			availableHomeClubPlayers = append(availableHomeClubPlayers, player)
 		}
 	}
 
@@ -1123,7 +1123,7 @@ func (h *FixturesHandler) renderTeamSelectionContainer(w http.ResponseWriter, r 
 	templateData := map[string]interface{}{
 		"FixtureDetail":       fixtureDetail,
 		"TeamPlayers":         availableTeamPlayers,
-		"AllHomeClubPlayers":  availableStAnnPlayers,
+		"AllHomeClubPlayers":  availableHomeClubPlayers,
 		"SelectionPercentage": selectionPercentage,
 		"HomeClubName":        homeClubNameFromContext(r),
 	}

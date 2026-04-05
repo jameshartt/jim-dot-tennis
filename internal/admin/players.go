@@ -243,14 +243,14 @@ func (h *PlayersHandler) handlePlayerNewPost(w http.ResponseWriter, r *http.Requ
 	// Get home club ID from request context
 	homeClubID := config.GetHomeClubID(r.Context())
 
-	// Create new player with generated UUID and auto-assigned to St. Ann's
+	// Create new player with generated UUID and auto-assigned to home club
 	player := &models.Player{
 		ID:               uuid.New().String(),
 		FirstName:        firstName,
 		LastName:         lastName,
 		Gender:           models.PlayerGender(gender),
 		ReportingPrivacy: models.PlayerReportingVisible, // Default to visible
-		ClubID:           homeClubID,                  // Auto-assign to St. Ann's instead of 0
+		ClubID:           homeClubID,                  // Auto-assign to home club instead of 0
 	}
 
 	// Create the player
@@ -259,7 +259,7 @@ func (h *PlayersHandler) handlePlayerNewPost(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	log.Printf("Successfully created new player: %s %s (ID: %s, Club: St. Ann's)", firstName, lastName, player.ID)
+	log.Printf("Successfully created new player: %s %s (ID: %s, Club: home club)", firstName, lastName, player.ID)
 
 	// Redirect to the player edit page to allow setting additional details
 	http.Redirect(w, r, fmt.Sprintf("/admin/league/players/%s/edit", player.ID), http.StatusSeeOther)

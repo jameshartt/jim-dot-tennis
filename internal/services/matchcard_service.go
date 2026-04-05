@@ -313,7 +313,7 @@ func (s *MatchCardService) processMatchCard(ctx context.Context, config ImportCo
 		}
 	}
 
-	// Check if this is a derby match (both teams are St. Ann's)
+	// Check if this is a derby match (both teams are home club)
 	isDerby, homeTeamID, awayTeamID, err := s.isDerbyMatch(ctx, fixture.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine if derby match: %w", err)
@@ -1084,7 +1084,7 @@ func (s *MatchCardService) formatMatchupResult(homePoints, awayPoints int) strin
 	}
 }
 
-// isDerbyMatch checks if a fixture is a derby match (both teams are St. Ann's)
+// isDerbyMatch checks if a fixture is a derby match (both teams are home club)
 func (s *MatchCardService) isDerbyMatch(ctx context.Context, fixtureID uint) (bool, uint, uint, error) {
 	// Get the fixture to determine the teams
 	fixture, err := s.fixtureRepo.FindByID(ctx, fixtureID)

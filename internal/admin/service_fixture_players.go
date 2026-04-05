@@ -277,13 +277,13 @@ func (s *Service) GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID u
 	ctx := context.Background()
 
 	// Get available players lists based on managing team (for derby matches)
-	var teamPlayers, allStAnnPlayers []models.Player
+	var teamPlayers, allHomeClubPlayers []models.Player
 	var err error
 
 	if managingTeamID > 0 {
-		teamPlayers, allStAnnPlayers, err = s.GetAvailablePlayersForFixtureWithTeamContext(fixtureID, managingTeamID)
+		teamPlayers, allHomeClubPlayers, err = s.GetAvailablePlayersForFixtureWithTeamContext(fixtureID, managingTeamID)
 	} else {
-		teamPlayers, allStAnnPlayers, err = s.GetAvailablePlayersForFixture(fixtureID)
+		teamPlayers, allHomeClubPlayers, err = s.GetAvailablePlayersForFixture(fixtureID)
 	}
 
 	if err != nil {
@@ -344,8 +344,8 @@ func (s *Service) GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID u
 	}
 
 	// Convert all home club players to players with availability and eligibility
-	var allStAnnPlayersWithEligibility []PlayerWithEligibility
-	for _, player := range allStAnnPlayers {
+	var allHomeClubPlayersWithEligibility []PlayerWithEligibility
+	for _, player := range allHomeClubPlayers {
 		availability := s.determinePlayerAvailabilityForFixture(ctx, player.ID, fixtureID, fixture.ScheduledDate)
 
 		// Get eligibility information
@@ -361,7 +361,7 @@ func (s *Service) GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID u
 			}
 		}
 
-		allStAnnPlayersWithEligibility = append(allStAnnPlayersWithEligibility, PlayerWithEligibility{
+		allHomeClubPlayersWithEligibility = append(allHomeClubPlayersWithEligibility, PlayerWithEligibility{
 			Player:             player,
 			AvailabilityStatus: availability.Status,
 			AvailabilityNotes:  availability.Notes,
@@ -369,7 +369,7 @@ func (s *Service) GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID u
 		})
 	}
 
-	return teamPlayersWithEligibility, allStAnnPlayersWithEligibility, nil
+	return teamPlayersWithEligibility, allHomeClubPlayersWithEligibility, nil
 }
 
 // determinePlayerAvailabilityForFixture determines a player's availability for a specific fixture
