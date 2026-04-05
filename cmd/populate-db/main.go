@@ -693,7 +693,7 @@ func parsePlayersFromHTML(filePath string) ([]string, error) {
 }
 
 // filterPlayerNames removes non-player entries from the list
-func filterPlayerNames(names []string) []string {
+func filterPlayerNames(names []string, homeClubName string) []string {
 	// Define patterns to exclude
 	excludePatterns := []string{
 		"Select Player",
@@ -701,7 +701,7 @@ func filterPlayerNames(names []string) []string {
 		"enter manually",
 		"Conceded by",
 		"Given to",
-		"St Ann's",
+		homeClubName,
 	}
 
 	hasLetter := regexp.MustCompile(`[a-zA-Z]`)
@@ -793,7 +793,7 @@ func importPlayers(ctx context.Context, filePath string, clubRepo repository.Clu
 	}
 
 	// Filter out non-player entries
-	filteredNames := filterPlayerNames(playerNames)
+	filteredNames := filterPlayerNames(playerNames, homeClub.Name)
 
 	if config.Verbose {
 		log.Printf("Filtered to %d valid player names", len(filteredNames))
@@ -826,7 +826,7 @@ func importPlayers(ctx context.Context, filePath string, clubRepo repository.Clu
 			}
 			if playerExists {
 				if config.Verbose {
-					log.Printf("Player %s %s already exists in St. Ann's club, skipping", firstName, lastName)
+					log.Printf("Player %s %s already exists in home club, skipping", firstName, lastName)
 				}
 				skippedCount++
 				continue
