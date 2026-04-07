@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -135,6 +136,31 @@ func main() {
 
 	// Public player-facing routes (standings, etc.)
 	playersHandler.RegisterPublicRoutes(mux)
+
+	// Dynamic manifest — allows per-player start_url for PWA install
+	mux.HandleFunc("/api/manifest", func(w http.ResponseWriter, r *http.Request) {
+		startURL := r.URL.Query().Get("start")
+		if startURL == "" {
+			startURL = "/"
+		}
+		w.Header().Set("Content-Type", "application/manifest+json")
+		fmt.Fprintf(w, `{
+  "name": "Jim Dot Tennis",
+  "short_name": "My Tennis",
+  "description": "Tennis league management and notifications",
+  "id": "%s",
+  "start_url": "%s",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#006400",
+  "icons": [
+    {"src": "/static/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any"},
+    {"src": "/static/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any"},
+    {"src": "/static/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "maskable"}
+  ]
+}`, startURL, startURL)
+	})
 
 	// About page (public, no auth required)
 	mux.HandleFunc("/about", func(w http.ResponseWriter, r *http.Request) {

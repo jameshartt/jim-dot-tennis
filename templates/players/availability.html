@@ -5,11 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Player Availability - Jim Dot Tennis</title>
     <link rel="stylesheet" href="/static/css/main.css">
-    <!-- PWA -->
-    <link rel="manifest" href="/static/manifest.json">
+    <!-- PWA — dynamic manifest so Add to Home Screen opens this player's page -->
+    <link rel="manifest" href="/api/manifest?start=/my-availability/{{.AuthToken}}">
     <meta name="theme-color" content="#006400">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="My Tennis">
     <link rel="apple-touch-icon" href="/static/icon-192.svg">
     <style>
         * {
