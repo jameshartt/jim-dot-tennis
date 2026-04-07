@@ -11,7 +11,10 @@
     <link rel="icon" type="image/png" href="/static/img/favicon.png">
     <!-- PWA -->
     <link rel="manifest" href="/static/manifest.json">
-    <meta name="theme-color" content="#2c3e50">
+    <meta name="theme-color" content="#006400">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" href="/static/icon-192.svg">
     <!-- Additional head content -->
     {{block "head" .}}{{end}}
 </head>
@@ -45,6 +48,14 @@
         </div>
     </footer>
 
+    <script>
+    // Register service worker for PWA and push notifications
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/static/service-worker.js', {scope: '/'})
+            .then(function(reg) { console.log('Service worker registered:', reg.scope); })
+            .catch(function(err) { console.error('Service worker registration failed:', err); });
+    }
+    </script>
     {{block "scripts" .}}
     <!-- Additional scripts -->
     {{end}}

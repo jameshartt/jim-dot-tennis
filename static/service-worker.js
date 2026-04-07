@@ -40,82 +40,73 @@ self.addEventListener('activate', function(event) {
   );
 });
 
-// Handle push events
+// Handle push events - cross-platform compatible
 self.addEventListener('push', function(event) {
   console.log('Service Worker: Push event received');
-  
-  // Ensure we have permission to show notifications
-  if (!self.Notification || self.Notification.permission !== 'granted') {
-    console.log('Service Worker: No notification permission');
-    return;
-  }
-  
-  let payload = {};
-  try {
-    payload = event.data.json();
-    console.log('Service Worker: Push payload:', payload);
-  } catch (e) {
-    console.log('Service Worker: Push payload error:', e);
-    payload = {
-      message: event.data ? event.data.text() : 'No payload'
-    };
-  }
 
-  // Check if this is a Safari-style payload
-  const isSafariPayload = payload.title !== undefined && payload.body !== undefined;
-  console.log('Service Worker: Is Safari payload:', isSafariPayload);
-  
-  // For Safari, we need to ensure all required fields are present
-  const title = isSafariPayload ? payload.title : 'Jim.Tennis';
-  const options = {
-    body: isSafariPayload ? payload.body : (payload.message || 'New notification'),
-    icon: payload.icon || '/static/icon-192.svg',
-    badge: payload.badge || '/static/icon-192.svg',
-    data: payload.data || {
-      dateOfArrival: Date.now(),
-      url: self.location.origin
-    },
-    requireInteraction: true,
-    tag: payload.tag || 'default',
-    renotify: payload.renotify !== undefined ? payload.renotify : true,
-    timestamp: payload.data?.dateOfArrival || Date.now(),
-    // Safari requires these specific options
-    silent: false,
-    vibrate: [100, 50, 100],
-    actions: payload.actions || [
-      {
-        action: 'open',
-        title: 'Open'
-      },
-      {
-        action: 'close',
-        title: 'Close'
-      }
-    ]
+  var title = 'Jim.Tennis';
+  var options = {
+    body: 'New notification',
+    icon: '/static/icon-192.svg',
+    badge: '/static/icon-192.svg',
+    data: { url: '/' }
   };
 
-  // Log the full notification options for debugging
-  console.log('Service Worker: Notification options:', JSON.stringify(options, null, 2));
+  if (event.data) {
+    try {
+      var payload = event.data.json();
+      console.log('Service Worker: Push payload:', payload);
 
-  // Show the notification
+      // Support both structured payloads (title/body) and simple message payloads
+      if (payload.title) {
+        title = payload.title;
+      }
+
+      options.body = payload.body || payload.message || options.body;
+
+      if (payload.icon) {
+        options.icon = payload.icon;
+      }
+      if (payload.badge) {
+        options.badge = payload.badge;
+      }
+      if (payload.data) {
+        options.data = payload.data;
+      }
+      if (payload.tag) {
+        options.tag = payload.tag;
+      }
+    } catch (e) {
+      console.log('Service Worker: JSON parse failed, using text:', e);
+      options.body = event.data.text() || options.body;
+    }
+  }
+
+  // Set cross-platform compatible options
+  options.requireInteraction = true;
+  options.renotify = true;
+  options.tag = options.tag || 'jim-tennis-' + Date.now();
+  options.vibrate = [100, 50, 100];
+  options.actions = [
+    { action: 'open', title: 'Open' },
+    { action: 'close', title: 'Close' }
+  ];
+
   event.waitUntil(
     self.registration.showNotification(title, options)
-      .then(() => {
-        console.log('Service Worker: Notification shown successfully');
-      })
-      .catch(error => {
+      .catch(function(error) {
         console.error('Service Worker: Error showing notification:', error);
-        // Try to show a fallback notification if the main one fails
-        return self.registration.showNotification('Jim.Tennis', {
-          body: 'New notification',
-          icon: '/static/icon-192.svg',
-          badge: '/static/icon-192.svg'
+        // Fallback with minimal options (Safari compatibility)
+        return self.registration.showNotification(title, {
+          body: options.body,
+          icon: options.icon,
+          data: options.data
         });
       })
   );
 });
 
-// Handle notification clicks with improved Safari support
+// Handle notification clicks
 self.addEventListener('notificationclick', function(event) {
   console.log('Service Worker: Notification clicked, action:', event.action);
   event.notification.close();
@@ -124,40 +115,31 @@ self.addEventListener('notificationclick', function(event) {
     return;
   }
 
-  // Get the URL from the notification data
-  const url = event.notification.data?.url || '/';
+  var url = (event.notification.data && event.notification.data.url) || '/';
   console.log('Service Worker: Opening URL:', url);
 
   event.waitUntil(
-    // First, try to focus an existing window
-    clients.matchAll({
-      type: 'window',
-      includeUncontrolled: true
-    }).then(function(clientList) {
-      // Check if there is already a window/tab open with the target URL
-      for (const client of clientList) {
-        if (client.url === url && 'focus' in client) {
-          console.log('Service Worker: Focusing existing window');
-          return client.focus();
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then(function(clientList) {
+        // Focus existing window if open
+        for (var i = 0; i < clientList.length; i++) {
+          var client = clientList[i];
+          if (client.url.indexOf(url) !== -1 && 'focus' in client) {
+            return client.focus();
+          }
         }
-      }
-
-      // If no window/tab is open, try to open a new one
-      if (clients.openWindow) {
-        console.log('Service Worker: Opening new window');
-        return clients.openWindow(url).catch(function(error) {
-          console.error('Service Worker: Error opening window:', error);
-          // If opening a new window fails, try to open in the current window
-          return clients.openWindow('/');
-        });
-      }
-    }).catch(function(error) {
-      console.error('Service Worker: Error handling notification click:', error);
-    })
+        // Open new window
+        if (clients.openWindow) {
+          return clients.openWindow(url);
+        }
+      })
+      .catch(function(error) {
+        console.error('Service Worker: Error handling notification click:', error);
+      })
   );
 });
 
-// Handle push subscription change
+// Handle push subscription change (browser rotates keys)
 self.addEventListener('pushsubscriptionchange', function(event) {
   console.log('Service Worker: Push subscription changed');
   event.waitUntil(
@@ -165,13 +147,10 @@ self.addEventListener('pushsubscriptionchange', function(event) {
       userVisibleOnly: true,
       applicationServerKey: event.oldSubscription ? event.oldSubscription.options.applicationServerKey : null
     }).then(function(subscription) {
-      console.log('Service Worker: New subscription:', subscription);
-      // Send the new subscription to the server
+      console.log('Service Worker: Re-subscribed:', subscription);
       return fetch('/api/push/subscribe', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(subscription)
       });
     })

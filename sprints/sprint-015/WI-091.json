@@ -1,0 +1,67 @@
+{
+  "id": "WI-091",
+  "title": "Captain 'Remind Availability' button",
+  "description": "Add a button that any captain can press to remind players to update their availability for the upcoming week. Crucially, the reminder is only sent to players who have NOT already submitted their availability for that week. Players without push notifications enabled are skipped.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-088", "WI-089"],
+  "acceptance_criteria": [
+    "A 'Remind Players' button appears on the fixture detail page or a captain-accessible page for the upcoming week",
+    "Clicking the button queries which players have NOT yet submitted availability for the relevant week/fixture",
+    "Push notifications are sent ONLY to those players who: (a) haven't updated availability AND (b) have push notifications enabled",
+    "Notification title: 'Availability Reminder'",
+    "Notification body: 'Please update your availability for {date} — {opponent}' (or similar)",
+    "Notification click opens the player's availability page",
+    "Button shows success feedback: 'Reminded X players (Y already updated, Z have no notifications)'",
+    "Players who have already submitted availability are NOT notified",
+    "Button is only visible to captains/admins",
+    "HTMX-powered: button posts to endpoint and swaps in the result message"
+  ],
+  "technical_notes": {
+    "new_endpoint": "POST /admin/league/fixtures/{id}/remind-availability",
+    "files_to_modify": [
+      "internal/admin/fixtures.go",
+      "internal/admin/handler.go",
+      "templates/admin/fixture_detail.html"
+    ],
+    "backend_logic": [
+      "Get the fixture and its week/season",
+      "Get all players eligible for this fixture's team",
+      "Query player_availability table to find who HAS submitted for this week",
+      "Subtract to get the list of players who HAVEN'T submitted",
+      "For each non-submitted player, look up their fantasy token and push subscription",
+      "Send reminder via webpush.SendToPlayer(token, title, body, data)",
+      "Collect results: reminded, already updated, no subscription",
+      "Return HTMX partial with result summary"
+    ],
+    "notification_payload": {
+      "title": "Availability Reminder",
+      "body": "Please update your availability for {team} vs {opponent} on {date}",
+      "data": {
+        "type": "availability_reminder",
+        "url": "/my-availability/{player_token}"
+      }
+    },
+    "key_query": "SELECT players who are on the team but do NOT have a row in player_availability for the given week and season",
+    "existing_infrastructure": [
+      "player_availability table tracks per-player, per-week availability",
+      "AvailabilityRepository likely has methods to query availability status",
+      "Fixture -> Team -> Players relationship is established"
+    ]
+  },
+  "testing_requirements": [
+    "Test that only players WITHOUT availability are reminded",
+    "Test that players WITH availability are NOT reminded",
+    "Test that players without push subscriptions are skipped",
+    "Test feedback message shows correct breakdown (reminded/updated/no-subscription)",
+    "Test notification content includes correct fixture details",
+    "Test notification click opens correct availability URL",
+    "Test button only visible to captains/admins"
+  ],
+  "context": {
+    "user_story": "As a captain, I want to press a button to remind players who haven't updated their availability, so I have the information I need to select teams",
+    "related_tables": "player_availability, fixture_players, players, push_subscriptions"
+  }
+}

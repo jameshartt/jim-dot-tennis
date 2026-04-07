@@ -1,0 +1,60 @@
+{
+  "id": "WI-089",
+  "title": "Player notification opt-in on availability screen",
+  "description": "Add a notification toggle/button to the player availability screen (/my-availability/{token}) that allows players to enable or disable push notifications. This registers the service worker, triggers the browser permission prompt, subscribes to push, and links the subscription to the player's token. The UI should clearly show the current notification state.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-088"],
+  "acceptance_criteria": [
+    "Service worker is registered when the availability page loads",
+    "An 'Enable Notifications' button/toggle is visible on the availability screen",
+    "Clicking the button triggers the browser notification permission prompt",
+    "On permission grant: subscribes to push and sends subscription + player_token to server",
+    "Button state updates to reflect current status: enabled, disabled, or blocked (permission denied)",
+    "If notifications are already enabled, button shows 'Disable Notifications' and allows unsubscribing",
+    "If browser permission was previously denied, button shows explanatory text with instructions to unblock in browser settings",
+    "Works on Chrome (desktop + Android), Firefox, Safari (iOS 16.4+ and macOS), Edge",
+    "On iOS Safari: detects if app is not installed as PWA and prompts to Add to Home Screen first (push requires PWA on iOS)",
+    "Player token is passed to the subscription endpoint so the subscription is linked to the player",
+    "Visual feedback during subscription process (loading state)",
+    "Notification state persists across page reloads"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "templates/players/availability.html",
+      "templates/layout.html",
+      "static/push.js"
+    ],
+    "files_to_create": [],
+    "ui_placement": "Add notification toggle near the top of the availability page, below the player name header",
+    "service_worker_registration": "Add <script> to layout.html that registers /service-worker.js on page load. This is currently missing.",
+    "ios_considerations": [
+      "Push notifications on iOS require the app to be installed as a PWA (Add to Home Screen)",
+      "Detect standalone display mode via window.matchMedia('(display-mode: standalone)')",
+      "If not standalone on iOS, show 'Add to Home Screen' instructions before enabling notifications",
+      "iOS Safari 16.4+ supports Web Push but only in standalone/PWA mode"
+    ],
+    "existing_infrastructure": [
+      "static/push.js already has subscribeToPushNotifications(), unsubscribeFromPushNotifications(), checkPushSubscription()",
+      "These functions need to be updated to pass player_token",
+      "Service worker at static/service-worker.js already handles push events"
+    ],
+    "player_token_availability": "The player token is available in the URL path (/my-availability/{token}) and should be passed to the template as a data attribute or JS variable"
+  },
+  "testing_requirements": [
+    "Test enable flow on Chrome desktop",
+    "Test enable flow on Android Chrome",
+    "Test enable flow on iOS Safari (PWA mode)",
+    "Test disable/unsubscribe flow",
+    "Test permission-denied state shows correct guidance",
+    "Test that subscription is correctly linked to the player token",
+    "Test page reload preserves notification state",
+    "Test on Firefox"
+  ],
+  "context": {
+    "user_story": "As a player, I want to turn on notifications from my availability page so I get alerts when I'm selected for a match or need to update my availability",
+    "existing_code": "static/push.js has the subscription logic, templates/players/availability.html is the target page"
+  }
+}

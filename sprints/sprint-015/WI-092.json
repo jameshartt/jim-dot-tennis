@@ -1,0 +1,70 @@
+{
+  "id": "WI-092",
+  "title": "Cross-platform push notification compatibility",
+  "description": "Ensure push notifications work reliably across all popular browsers and on iOS and Android. This includes handling iOS Safari's PWA-only push requirement, Android Chrome quirks, Firefox differences, and Edge support. Add platform-specific detection and guidance in the UI.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-089"],
+  "acceptance_criteria": [
+    "Push notifications work on Chrome (desktop, Android)",
+    "Push notifications work on Firefox (desktop, Android)",
+    "Push notifications work on Safari (macOS 13+ and iOS 16.4+)",
+    "Push notifications work on Edge (desktop)",
+    "On iOS Safari: if not in PWA/standalone mode, UI guides user to Add to Home Screen before enabling notifications",
+    "On iOS Safari: if in PWA mode, standard push subscription flow works",
+    "Notification icons display correctly on all platforms (appropriate sizes for each)",
+    "Notification click correctly opens/focuses the app on all platforms",
+    "Service worker push event handler accounts for platform differences in payload format",
+    "Subscription change events are handled (re-subscribe if browser rotates keys)",
+    "VAPID key format is compatible with all platforms",
+    "Manifest.json has all required fields for PWA installability on both Android and iOS"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "static/service-worker.js",
+      "static/push.js",
+      "static/manifest.json",
+      "templates/players/availability.html"
+    ],
+    "ios_specifics": [
+      "iOS requires PWA (standalone) mode for push — detect with matchMedia('(display-mode: standalone)')",
+      "iOS may deliver payload differently (check event.data formats)",
+      "iOS needs apple-touch-icon in HTML head",
+      "iOS needs apple-mobile-web-app-capable meta tag",
+      "Safari may require explicit notification permission flow"
+    ],
+    "android_specifics": [
+      "Android Chrome uses FCM as the push service — this is transparent via standard Web Push",
+      "Notification channels/importance may affect delivery",
+      "Verify badge and icon display correctly"
+    ],
+    "manifest_updates": [
+      "Ensure icons include PNG rasters (not just SVG) for broader compatibility",
+      "Add 'id' field to manifest for update identity",
+      "Verify 'start_url' and 'scope' are correct",
+      "Consider adding 'screenshots' for richer install prompt on Android"
+    ],
+    "existing_infrastructure": [
+      "Service worker already handles push events with Safari-specific payload detection",
+      "Manifest exists but only has SVG icons — may need PNG fallbacks",
+      "push.js has browser support checks"
+    ]
+  },
+  "testing_requirements": [
+    "Test full subscribe + receive flow on Chrome desktop",
+    "Test full subscribe + receive flow on Chrome Android",
+    "Test full subscribe + receive flow on Safari macOS",
+    "Test full subscribe + receive flow on Safari iOS (PWA mode)",
+    "Test iOS non-PWA mode shows Add to Home Screen guidance",
+    "Test on Firefox desktop",
+    "Test on Edge desktop",
+    "Test notification click behaviour on each platform",
+    "Verify notification appearance (icon, title, body) on each platform"
+  ],
+  "context": {
+    "user_story": "As a player using any device or browser, I want push notifications to work reliably so I don't miss selection alerts or availability reminders",
+    "existing_code": "Service worker has some Safari detection, manifest has SVG-only icons"
+  }
+}

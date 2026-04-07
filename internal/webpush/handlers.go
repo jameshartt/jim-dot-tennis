@@ -16,6 +16,8 @@ func (s *Service) SetupHandlers() {
 	http.HandleFunc("/api/push/subscribe", s.handleSubscribe)
 	http.HandleFunc("/api/push/unsubscribe", s.handleUnsubscribe)
 	http.HandleFunc("/api/push/test", s.handleTestPush)
+	http.HandleFunc("/api/push/test-player", s.handleTestPlayerPush)
+	http.HandleFunc("/api/push/status", s.handlePushStatus)
 	http.HandleFunc("/api/vapid-reset", s.handleResetVAPIDKeys)
 }
 
@@ -65,12 +67,18 @@ func (s *Service) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var playerToken *string
+	if subReq.PlayerToken != "" {
+		playerToken = &subReq.PlayerToken
+	}
+
 	subscription := &Subscription{
-		Endpoint:  subReq.Endpoint,
-		P256dh:    subReq.Keys.P256dh,
-		Auth:      subReq.Keys.Auth,
-		UserAgent: r.UserAgent(),
-		CreatedAt: time.Now(),
+		Endpoint:    subReq.Endpoint,
+		P256dh:      subReq.Keys.P256dh,
+		Auth:        subReq.Keys.Auth,
+		UserAgent:   r.UserAgent(),
+		PlayerToken: playerToken,
+		CreatedAt:   time.Now(),
 	}
 
 	if err := s.SaveSubscription(subscription); err != nil {
@@ -185,6 +193,63 @@ func (s *Service) handleResetVAPIDKeys(w http.ResponseWriter, r *http.Request) {
 		"status":     "success",
 		"publicKey":  publicKey,
 		"privateKey": privateKey[:10] + "..." + privateKey[len(privateKey)-10:], // Only show part of private key
+	})
+}
+
+// handleTestPlayerPush sends a test notification to a specific player's devices
+func (s *Service) handleTestPlayerPush(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		PlayerToken string `json:"playerToken"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.PlayerToken == "" {
+		http.Error(w, "Missing playerToken", http.StatusBadRequest)
+		return
+	}
+
+	payload := map[string]interface{}{
+		"title": "Test Notification",
+		"body":  "Your notifications are working! You'll receive alerts when selected for matches.",
+		"data": map[string]string{
+			"type": "test",
+			"url":  "/my-availability/" + req.PlayerToken,
+		},
+	}
+
+	sent, err := s.SendToPlayer(req.PlayerToken, payload)
+	if err != nil {
+		log.Printf("Error sending test to player %s: %v", req.PlayerToken, err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "success",
+		"sent":   sent,
+	})
+}
+
+// handlePushStatus returns whether a player token has active subscriptions
+func (s *Service) handlePushStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	playerToken := r.URL.Query().Get("playerToken")
+	if playerToken == "" {
+		http.Error(w, "Missing playerToken", http.StatusBadRequest)
+		return
+	}
+
+	hasSubscription := s.HasSubscription(playerToken)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"subscribed": hasSubscription,
 	})
 }
 

@@ -66,6 +66,13 @@ func main() {
 		log.Printf("VAPID public key: %s", publicKey)
 	}
 
+	// Clean up push subscriptions older than 90 days on startup
+	if removed, err := pushService.CleanupStaleSubscriptions(90 * 24 * time.Hour); err != nil {
+		log.Printf("Warning: Failed to clean up stale push subscriptions: %v", err)
+	} else if removed > 0 {
+		log.Printf("Cleaned up %d stale push subscriptions", removed)
+	}
+
 	// Set up auth service
 	authConfig := auth.DefaultConfig()
 	// In development, we can allow insecure cookies
@@ -90,7 +97,7 @@ func main() {
 	if courthiveAPIURL == "" {
 		courthiveAPIURL = "http://courthive-server:8383"
 	}
-	adminHandler := admin.New(db, templateDir, courthiveAPIURL, appConfig.HomeClubID, appConfig.BHPLTAClubCode)
+	adminHandler := admin.New(db, templateDir, courthiveAPIURL, appConfig.HomeClubID, appConfig.BHPLTAClubCode, pushService)
 
 	// Set up players handlers
 	playersHandler := players.New(db, templateDir, appConfig.HomeClubID)

@@ -1,0 +1,51 @@
+{
+  "id": "WI-088",
+  "title": "Add player association to push subscriptions",
+  "description": "The existing push_subscriptions table has no link to players. Add a player_token column (the fantasy token used in /my-availability/{token} URLs) so notifications can be targeted to specific players. Update the subscribe/unsubscribe endpoints and webpush service to accept and store the player token.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "S",
+  "parallelisable": false,
+  "dependencies": [],
+  "acceptance_criteria": [
+    "New migration adds player_token TEXT column to push_subscriptions table",
+    "Index on player_token for efficient lookups",
+    "POST /api/push/subscribe accepts player_token in request body and stores it",
+    "POST /api/push/unsubscribe removes subscription for a given player_token + endpoint",
+    "New webpush method: GetSubscriptionsByPlayerToken(token string) returns all subscriptions for a player",
+    "New webpush method: SendToPlayer(playerToken string, title string, body string, data map[string]string) sends to all of a player's devices",
+    "Existing subscriptions without player_token continue to work (column is nullable)",
+    "Down migration safely rolls back the column addition"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "migrations/NNN_add_player_token_to_push_subscriptions.up.sql",
+      "migrations/NNN_add_player_token_to_push_subscriptions.down.sql"
+    ],
+    "files_to_modify": [
+      "internal/webpush/webpush.go",
+      "internal/webpush/handlers.go"
+    ],
+    "key_decisions": [
+      "Use player_token (the composite fantasy name token) rather than a numeric player_id, because the availability screen authenticates via token and has no direct player_id",
+      "A single player may have multiple subscriptions (phone + laptop), so the relationship is one-to-many",
+      "The player_token is the same token used in /my-availability/{token} URLs"
+    ],
+    "existing_infrastructure": [
+      "push_subscriptions table already exists (migration 003)",
+      "webpush.Service already has SaveSubscription, DeleteSubscription, SendNotification",
+      "Handlers already registered at /api/push/*"
+    ]
+  },
+  "testing_requirements": [
+    "Verify migration applies cleanly on existing database with existing subscriptions",
+    "Test subscribe with player_token stores correctly",
+    "Test GetSubscriptionsByPlayerToken returns correct subscriptions",
+    "Test SendToPlayer sends to all devices for that player",
+    "Test down migration rolls back cleanly"
+  ],
+  "context": {
+    "user_story": "As a system, I need to associate push subscriptions with specific players so that captains can send targeted notifications to individual players",
+    "existing_code": "internal/webpush/webpush.go has full CRUD, migrations/003 created the tables"
+  }
+}

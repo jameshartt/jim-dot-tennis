@@ -158,6 +158,26 @@
                                 {{end}}
                             </a>
                         </div>
+
+                        {{if .FixtureDetail.SelectedPlayers}}
+                        <div style="margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+                            <button class="btn-edit" style="font-size: 0.875rem;"
+                                hx-post="/admin/league/fixtures/{{.FixtureDetail.ID}}/notify-selected"
+                                hx-target="#notify-result"
+                                hx-swap="innerHTML"
+                                hx-confirm="Send selection notifications to all selected players?">
+                                📣 Notify Selected Players
+                            </button>
+                            <button class="btn-edit" style="font-size: 0.875rem;"
+                                hx-post="/admin/league/fixtures/{{.FixtureDetail.ID}}/remind-availability"
+                                hx-target="#notify-result"
+                                hx-swap="innerHTML"
+                                hx-confirm="Send availability reminders to players who haven't updated?">
+                                🔔 Remind Availability
+                            </button>
+                            <span id="notify-result" style="font-size: 0.875rem; color: #555;"></span>
+                        </div>
+                        {{end}}
                     </div>
                     {{end}}
                 </div>

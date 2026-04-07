@@ -14,19 +14,22 @@ import (
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/services"
+	"jim-dot-tennis/internal/webpush"
 )
 
 // FixturesHandler handles fixture-related requests
 type FixturesHandler struct {
 	service     *Service
 	templateDir string
+	pushService *webpush.Service
 }
 
 // NewFixturesHandler creates a new fixtures handler
-func NewFixturesHandler(service *Service, templateDir string) *FixturesHandler {
+func NewFixturesHandler(service *Service, templateDir string, pushService *webpush.Service) *FixturesHandler {
 	return &FixturesHandler{
 		service:     service,
 		templateDir: templateDir,
+		pushService: pushService,
 	}
 }
 
@@ -80,6 +83,15 @@ func (h *FixturesHandler) HandleFixtures(w http.ResponseWriter, r *http.Request)
 		// Check if this is a player selection request (legacy)
 		if strings.HasSuffix(r.URL.Path, "/player-selection") {
 			h.handlePlayerSelection(w, r)
+			return
+		}
+		// Push notification actions
+		if strings.HasSuffix(r.URL.Path, "/notify-selected") {
+			h.handleNotifySelectedPlayers(w, r)
+			return
+		}
+		if strings.HasSuffix(r.URL.Path, "/remind-availability") {
+			h.handleRemindAvailability(w, r)
 			return
 		}
 		h.handleFixtureDetail(w, r)
@@ -1594,6 +1606,208 @@ func (h *FixturesHandler) handleWeather(w http.ResponseWriter, r *http.Request) 
 	}); err != nil {
 		log.Printf("Error executing weather widget template: %v", err)
 	}
+}
+
+// getPlayerFantasyToken looks up the fantasy auth token for a player.
+// Returns empty string if the player has no fantasy match assigned.
+func (h *FixturesHandler) getPlayerFantasyToken(ctx context.Context, player models.Player) string {
+	if player.FantasyMatchID == nil {
+		return ""
+	}
+	match, err := h.service.fantasyRepository.FindByID(ctx, *player.FantasyMatchID)
+	if err != nil || match == nil {
+		return ""
+	}
+	return match.AuthToken
+}
+
+// handleNotifySelectedPlayers sends push notifications to players selected for a fixture (WI-090)
+func (h *FixturesHandler) handleNotifySelectedPlayers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if h.pushService == nil {
+		http.Error(w, "Push notifications not configured", http.StatusServiceUnavailable)
+		return
+	}
+
+	fixtureID, err := parseIDFromPath(r.URL.Path, "/admin/league/fixtures/")
+	if err != nil {
+		http.Error(w, "Invalid fixture ID", http.StatusBadRequest)
+		return
+	}
+
+	ctx := context.Background()
+
+	detail, err := h.service.GetFixtureDetail(fixtureID)
+	if err != nil {
+		http.Error(w, "Fixture not found", http.StatusNotFound)
+		return
+	}
+
+	if len(detail.SelectedPlayers) == 0 {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<span class="notif-result">No players selected for this fixture.</span>`)
+		return
+	}
+
+	// Build fixture info for notification
+	homeTeamName := "TBD"
+	awayTeamName := "TBD"
+	if detail.HomeTeam != nil {
+		homeTeamName = detail.HomeTeam.Name
+	}
+	if detail.AwayTeam != nil {
+		awayTeamName = detail.AwayTeam.Name
+	}
+	fixtureDate := detail.ScheduledDate.Format("Monday 2 January")
+
+	venueName := ""
+	if detail.VenueClub != nil {
+		venueName = detail.VenueClub.Name
+	}
+
+	notifiedCount := 0
+	totalSelected := len(detail.SelectedPlayers)
+
+	for _, sp := range detail.SelectedPlayers {
+		token := h.getPlayerFantasyToken(ctx, sp.Player)
+		if token == "" {
+			continue
+		}
+
+		body := fmt.Sprintf("You're playing for %s vs %s on %s", homeTeamName, awayTeamName, fixtureDate)
+		if venueName != "" {
+			body += " at " + venueName
+		}
+
+		payload := map[string]interface{}{
+			"title": "You've been selected!",
+			"body":  body,
+			"data": map[string]string{
+				"type": "selection",
+				"url":  "/my-availability/" + token,
+			},
+		}
+
+		sent, _ := h.pushService.SendToPlayer(token, payload)
+		if sent > 0 {
+			notifiedCount++
+		}
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprintf(w, `<span class="notif-result">Notified %d of %d players.</span>`, notifiedCount, totalSelected)
+}
+
+// handleRemindAvailability sends push notifications to players who haven't updated availability (WI-091)
+func (h *FixturesHandler) handleRemindAvailability(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if h.pushService == nil {
+		http.Error(w, "Push notifications not configured", http.StatusServiceUnavailable)
+		return
+	}
+
+	fixtureID, err := parseIDFromPath(r.URL.Path, "/admin/league/fixtures/")
+	if err != nil {
+		http.Error(w, "Invalid fixture ID", http.StatusBadRequest)
+		return
+	}
+
+	ctx := context.Background()
+
+	detail, err := h.service.GetFixtureDetail(fixtureID)
+	if err != nil {
+		http.Error(w, "Fixture not found", http.StatusNotFound)
+		return
+	}
+
+	// Get the home club team's players for this fixture
+	homeClubID := config.GetHomeClubID(r.Context())
+	var teamID uint
+	var teamName string
+	if detail.HomeTeam != nil && detail.HomeTeam.ClubID == homeClubID {
+		teamID = detail.HomeTeam.ID
+		teamName = detail.HomeTeam.Name
+	} else if detail.AwayTeam != nil && detail.AwayTeam.ClubID == homeClubID {
+		teamID = detail.AwayTeam.ID
+		teamName = detail.AwayTeam.Name
+	}
+
+	if teamID == 0 {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<span class="notif-result">No home club team found for this fixture.</span>`)
+		return
+	}
+
+	// Get all players on the team
+	players, err := h.service.playerRepository.FindByTeam(ctx, teamID, detail.SeasonID)
+	if err != nil {
+		log.Printf("Error finding team players: %v", err)
+		http.Error(w, "Failed to load team players", http.StatusInternalServerError)
+		return
+	}
+
+	// Build fixture info
+	opponentName := "opponent"
+	if detail.HomeTeam != nil && detail.HomeTeam.ClubID != homeClubID {
+		opponentName = detail.HomeTeam.Name
+	} else if detail.AwayTeam != nil && detail.AwayTeam.ClubID != homeClubID {
+		opponentName = detail.AwayTeam.Name
+	}
+	fixtureDate := detail.ScheduledDate.Format("Monday 2 January")
+
+	remindedCount := 0
+	alreadyUpdated := 0
+	noSubscription := 0
+
+	for _, player := range players {
+		// Check if player has already set availability for the fixture date
+		avail, _ := h.service.availabilityRepository.GetPlayerAvailabilityByDate(ctx, player.ID, detail.ScheduledDate)
+		if avail != nil {
+			alreadyUpdated++
+			continue
+		}
+
+		// Also check fixture-specific availability
+		fixtureAvail, _ := h.service.availabilityRepository.GetPlayerFixtureAvailability(ctx, player.ID, fixtureID)
+		if fixtureAvail != nil {
+			alreadyUpdated++
+			continue
+		}
+
+		token := h.getPlayerFantasyToken(ctx, player)
+		if token == "" {
+			noSubscription++
+			continue
+		}
+
+		payload := map[string]interface{}{
+			"title": "Availability Reminder",
+			"body":  fmt.Sprintf("Please update your availability for %s vs %s on %s", teamName, opponentName, fixtureDate),
+			"data": map[string]string{
+				"type": "availability_reminder",
+				"url":  "/my-availability/" + token,
+			},
+		}
+
+		sent, _ := h.pushService.SendToPlayer(token, payload)
+		if sent > 0 {
+			remindedCount++
+		} else {
+			noSubscription++
+		}
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprintf(w, `<span class="notif-result">Reminded %d players (%d already updated, %d have no notifications).</span>`,
+		remindedCount, alreadyUpdated, noSubscription)
 }
 
 // handleResults delegates to the ResultsHandler

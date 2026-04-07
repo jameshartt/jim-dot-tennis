@@ -21,19 +21,21 @@ import (
 
 // Subscription represents a web push subscription
 type Subscription struct {
-	ID        int64     `db:"id" json:"-"`
-	Endpoint  string    `db:"endpoint" json:"endpoint"`
-	P256dh    string    `db:"p256dh" json:"p256dh"`
-	Auth      string    `db:"auth" json:"auth"`
-	Platform  string    `db:"platform" json:"platform,omitempty"`
-	UserAgent string    `db:"user_agent" json:"userAgent,omitempty"`
-	CreatedAt time.Time `db:"created_at" json:"createdAt,omitempty"`
+	ID          int64     `db:"id" json:"-"`
+	Endpoint    string    `db:"endpoint" json:"endpoint"`
+	P256dh      string    `db:"p256dh" json:"p256dh"`
+	Auth        string    `db:"auth" json:"auth"`
+	Platform    string    `db:"platform" json:"platform,omitempty"`
+	UserAgent   string    `db:"user_agent" json:"userAgent,omitempty"`
+	PlayerToken *string   `db:"player_token" json:"playerToken,omitempty"`
+	CreatedAt   time.Time `db:"created_at" json:"createdAt,omitempty"`
 }
 
 // SubscriptionRequest represents the incoming subscription data from the browser
 type SubscriptionRequest struct {
-	Endpoint string `json:"endpoint"`
-	Keys     struct {
+	Endpoint    string `json:"endpoint"`
+	PlayerToken string `json:"playerToken"`
+	Keys        struct {
 		P256dh string `json:"p256dh"`
 		Auth   string `json:"auth"`
 	} `json:"keys"`
@@ -156,11 +158,15 @@ func (s *Service) GetVAPIDKeys() (publicKey, privateKey string, err error) {
 	return keys.PublicKey, keys.PrivateKey, nil
 }
 
-// SaveSubscription saves a push subscription to the database
+// SaveSubscription saves a push subscription to the database.
+// If a subscription with the same endpoint already exists, it updates the player_token.
 func (s *Service) SaveSubscription(sub *Subscription) error {
+	// Upsert: update player_token if endpoint already exists
 	_, err := s.db.Exec(
-		"INSERT INTO push_subscriptions (endpoint, p256dh, auth, platform, user_agent) VALUES ($1, $2, $3, $4, $5)",
-		sub.Endpoint, sub.P256dh, sub.Auth, sub.Platform, sub.UserAgent,
+		`INSERT INTO push_subscriptions (endpoint, p256dh, auth, platform, user_agent, player_token)
+		 VALUES ($1, $2, $3, $4, $5, $6)
+		 ON CONFLICT(endpoint) DO UPDATE SET player_token = $6, p256dh = $2, auth = $3`,
+		sub.Endpoint, sub.P256dh, sub.Auth, sub.Platform, sub.UserAgent, sub.PlayerToken,
 	)
 	return err
 }
@@ -181,33 +187,86 @@ func (s *Service) GetAllSubscriptions() ([]Subscription, error) {
 	return subs, err
 }
 
-// SendNotification sends a push notification to a subscription
-func (s *Service) SendNotification(sub Subscription, message string) error {
-	vapidPublic, vapidPrivate, err := s.GetVAPIDKeys()
+// HasSubscription returns true if the given player token has at least one active push subscription
+func (s *Service) HasSubscription(playerToken string) bool {
+	var count int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM push_subscriptions WHERE player_token = $1", playerToken).Scan(&count)
+	return err == nil && count > 0
+}
+
+// CleanupStaleSubscriptions removes subscriptions older than the given duration
+func (s *Service) CleanupStaleSubscriptions(maxAge time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-maxAge)
+	result, err := s.db.Exec("DELETE FROM push_subscriptions WHERE created_at < $1", cutoff)
 	if err != nil {
-		return err
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+// GetSubscriptionsByPlayerToken returns all push subscriptions for a given player token
+func (s *Service) GetSubscriptionsByPlayerToken(playerToken string) ([]Subscription, error) {
+	var subs []Subscription
+	err := s.db.Select(&subs, "SELECT * FROM push_subscriptions WHERE player_token = $1", playerToken)
+	return subs, err
+}
+
+// SendToPlayer sends a push notification to all devices for a given player token.
+// Returns the number of successful sends and any error.
+func (s *Service) SendToPlayer(playerToken string, payload map[string]interface{}) (int, error) {
+	subs, err := s.GetSubscriptionsByPlayerToken(playerToken)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get subscriptions for player %s: %v", playerToken, err)
 	}
 
-	// Create standard payload
+	if len(subs) == 0 {
+		return 0, nil
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return 0, fmt.Errorf("failed to marshal notification payload: %v", err)
+	}
+
+	successCount := 0
+	for _, sub := range subs {
+		if err := s.sendRawNotification(sub, payloadBytes); err != nil {
+			log.Printf("Failed to send notification to player %s device %s: %v", playerToken, sub.Endpoint, err)
+		} else {
+			successCount++
+		}
+	}
+
+	return successCount, nil
+}
+
+// SendNotification sends a push notification to a subscription with a simple message string
+func (s *Service) SendNotification(sub Subscription, message string) error {
 	payload, err := json.Marshal(map[string]string{
 		"message": message,
 	})
 	if err != nil {
 		return err
 	}
+	return s.sendRawNotification(sub, payload)
+}
 
-	// Log notification attempt
+// sendRawNotification sends a pre-encoded payload to a push subscription
+func (s *Service) sendRawNotification(sub Subscription, payload []byte) error {
+	vapidPublic, vapidPrivate, err := s.GetVAPIDKeys()
+	if err != nil {
+		return err
+	}
+
 	log.Printf("Sending notification to endpoint: %s", sub.Endpoint)
 
-	// Create webpush options
 	options := &webpush.Options{
 		VAPIDPublicKey:  vapidPublic,
 		VAPIDPrivateKey: vapidPrivate,
 		TTL:             30,
-		Subscriber:      "https://jim.tennis", // Use website URL instead of mailto:
+		Subscriber:      "https://jim.tennis",
 	}
 
-	// Send the notification using the webpush-go library
 	resp, err := webpush.SendNotification(
 		payload,
 		&webpush.Subscription{
@@ -226,14 +285,13 @@ func (s *Service) SendNotification(sub Subscription, message string) error {
 	}
 	defer resp.Body.Close()
 
-	// Read and log the response body for debugging
 	body, _ := io.ReadAll(resp.Body)
 	log.Printf("Response body: %s", string(body))
 
 	if resp.StatusCode >= 400 {
 		log.Printf("Failed to send notification, status: %d", resp.StatusCode)
-		// If the subscription is invalid (404) or expired (410), remove it
-		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
+		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone || resp.StatusCode == http.StatusUnauthorized {
+			log.Printf("Removing stale subscription (status %d): %s", resp.StatusCode, sub.Endpoint)
 			s.DeleteSubscription(sub.Endpoint)
 		}
 		return fmt.Errorf("failed to send notification, status: %d, body: %s", resp.StatusCode, string(body))

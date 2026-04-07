@@ -58,10 +58,19 @@ None currently active.
 
 ## Planned Sprints
 
-### Sprint PWA: Push Notifications & PWA Enhancement
+### Sprint 015: PWA Push Notifications
+- **Focus**: Captain-triggered push notifications with player opt-in
+- **Items**: 5 (WI-088 to WI-092)
+- **Supersedes**: sprint-pwa (carried items from sprint-001, never started)
+- **Key Features**: Player notification opt-in on availability screen, captain "Notify Selected Players" button, captain "Remind Availability" button (only players who haven't updated), cross-platform support (iOS, Android, desktop)
+- **Directory**: `sprint-015/`
+- **Summary**: [sprint-015/SUMMARY.md](sprint-015/SUMMARY.md)
+- **Dependencies**: WI-089 → WI-088; WI-090/091 → WI-088+089; WI-092 → WI-089
+
+### Sprint PWA: Push Notifications & PWA Enhancement (Superseded by Sprint 015)
+- **Status**: Superseded — never started, replaced by sprint-015 with updated scope
 - **Focus**: Push notification pipeline and PWA capabilities
 - **Items**: 6 (carried from sprint-001)
-- **Key Features**: Push subscriptions, notification sending, PWA install prompt, offline sync
 - **Directory**: `sprint-pwa/`
 - **Summary**: [sprint-pwa/SUMMARY.md](sprint-pwa/SUMMARY.md)
 

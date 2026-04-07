@@ -1,0 +1,63 @@
+{
+  "id": "WI-090",
+  "title": "Captain 'Notify Selected Players' button",
+  "description": "Add a button to the captain's fixture/team selection screen that sends push notifications to all players who have been selected for that fixture. The notification tells each player they've been picked, with details of the fixture (opponent, date, venue). Only players with push notifications enabled receive the notification.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-088", "WI-089"],
+  "acceptance_criteria": [
+    "A 'Notify Players' button appears on the fixture detail/team selection page after players have been assigned",
+    "Clicking the button sends a push notification to each selected player who has an active push subscription",
+    "Notification title: 'You've been selected!' (or similar)",
+    "Notification body includes: team name, opponent, date, and venue",
+    "Notification click opens the player's availability/fixture page",
+    "Players without push subscriptions are silently skipped (no error)",
+    "Button shows success feedback: 'Notified X of Y players' (where Y is total selected, X is those with push enabled)",
+    "Button is only visible to captains/admins",
+    "Expired/invalid subscriptions are cleaned up on send failure (410 Gone)",
+    "HTMX-powered: button posts to endpoint and swaps in the result message"
+  ],
+  "technical_notes": {
+    "new_endpoint": "POST /admin/league/fixtures/{id}/notify-selected",
+    "files_to_modify": [
+      "internal/admin/fixtures.go",
+      "internal/admin/handler.go",
+      "templates/admin/fixture_detail.html"
+    ],
+    "backend_logic": [
+      "Get all fixture_players for the fixture",
+      "For each player, look up their fantasy token",
+      "Use webpush.SendToPlayer(token, title, body, data) for each",
+      "Collect results: how many notified vs skipped",
+      "Return HTMX partial with result summary"
+    ],
+    "notification_payload": {
+      "title": "You've been selected!",
+      "body": "You're playing for {team} vs {opponent} on {date} at {venue}",
+      "data": {
+        "type": "selection",
+        "url": "/my-availability/{player_token}"
+      }
+    },
+    "existing_infrastructure": [
+      "Fixture detail page already exists in admin",
+      "fixture_players table links players to fixtures",
+      "webpush.SendToPlayer (from WI-088) handles multi-device delivery"
+    ]
+  },
+  "testing_requirements": [
+    "Test notification sent to player with active subscription",
+    "Test player without subscription is skipped gracefully",
+    "Test notification content includes correct fixture details",
+    "Test button only visible to captains/admins",
+    "Test feedback message shows correct counts",
+    "Test notification click opens correct URL on player's device",
+    "Test expired subscription cleanup on 410 response"
+  ],
+  "context": {
+    "user_story": "As a captain, I want to press a button to notify all selected players so they know immediately that they've been picked for a match",
+    "related_pages": "Admin fixture detail page where team selection happens"
+  }
+}

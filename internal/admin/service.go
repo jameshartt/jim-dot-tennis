@@ -10,6 +10,7 @@ import (
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/services"
+	"jim-dot-tennis/internal/webpush"
 )
 
 // Service handles admin business logic
@@ -34,11 +35,12 @@ type Service struct {
 	tournamentRepository         repository.TournamentRepository
 	weatherService               *services.WeatherService
 	teamEligibilityService       *TeamEligibilityService
+	pushService                  *webpush.Service
 	courthiveAPIURL              string
 }
 
 // NewService creates a new admin service
-func NewService(db *database.DB, courthiveAPIURL string, homeClubID uint, bhpltaClubCode string) *Service {
+func NewService(db *database.DB, courthiveAPIURL string, homeClubID uint, bhpltaClubCode string, pushService ...*webpush.Service) *Service {
 	service := &Service{
 		db:                           db,
 		homeClubID:                   homeClubID,
@@ -60,6 +62,10 @@ func NewService(db *database.DB, courthiveAPIURL string, homeClubID uint, bhplta
 		tournamentRepository:         repository.NewTournamentRepository(db),
 		weatherService:               services.NewWeatherService(),
 		courthiveAPIURL:              courthiveAPIURL,
+	}
+
+	if len(pushService) > 0 {
+		service.pushService = pushService[0]
 	}
 
 	// Initialize team eligibility service with reference to the main service

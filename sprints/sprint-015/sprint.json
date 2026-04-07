@@ -1,0 +1,24 @@
+{
+  "sprint": {
+    "id": "sprint-015",
+    "name": "PWA Push Notifications",
+    "goal": "Enable captain-triggered push notifications for team selection and availability reminders, with player opt-in on the availability screen",
+    "start_date": null,
+    "end_date": null,
+    "duration_weeks": 2,
+    "type": "numbered",
+    "focus_areas": [
+      "Player-linked push notification subscriptions",
+      "Captain notification controls",
+      "Cross-platform push support (iOS, Android, desktop)"
+    ],
+    "supersedes": "sprint-pwa",
+    "work_items": [
+      "WI-088",
+      "WI-089",
+      "WI-090",
+      "WI-091",
+      "WI-092"
+    ]
+  }
+}

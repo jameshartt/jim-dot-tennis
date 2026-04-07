@@ -628,6 +628,7 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 	w.Write([]byte(`<th class="col-name">Name</th>`))
 	w.Write([]byte(`<th class="col-gender">Gender</th>`))
 	w.Write([]byte(`<th class="col-availability">Availability Set For Next Week</th>`))
+	w.Write([]byte(`<th class="col-availability">Notifications</th>`))
 	// Dynamic team columns
 	for _, tID := range teamIDs {
 		label := teamNameByID[tID]
@@ -680,6 +681,11 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 				inactiveBadge = `<span class="badge-inactive">Inactive</span>`
 			}
 
+			notifIcon := "—"
+			if p.Player.IsActive && p.HasPushNotifications {
+				notifIcon = "🔔"
+			}
+
 			w.Write([]byte(fmt.Sprintf(`
 				<tr data-player-id="%s" data-player-name="%s %s" class="%s">
 					<td class="col-name">
@@ -687,9 +693,10 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 					</td>
 					<td class="col-gender">%s</td>
 					<td class="col-availability">%s</td>
+					<td class="col-availability">%s</td>
 			`, p.Player.ID, p.Player.FirstName, p.Player.LastName, activeClass,
 				p.Player.ID, p.Player.FirstName, p.Player.LastName, inactiveBadge,
-				p.Player.Gender, availStatusIcon)))
+				p.Player.Gender, availStatusIcon, notifIcon)))
 
 			// Team count cells in same order as headers
 			for _, tID := range teamIDs {
@@ -715,7 +722,7 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 			w.Write([]byte(fmt.Sprintf(`<td class="col-action">%s</td></tr>`, actionButton)))
 		}
 	} else {
-		colspan := 4 + len(teamIDs) + len(divisionIDs)
+		colspan := 5 + len(teamIDs) + len(divisionIDs)
 		w.Write([]byte(fmt.Sprintf(`<tr><td colspan="%d" style="text-align: center; padding: 2rem;">No players found matching your criteria.</td></tr>`, colspan)))
 	}
 	w.Write([]byte(`</tbody></table>`))

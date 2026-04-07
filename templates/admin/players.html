@@ -366,6 +366,7 @@
                     <th class="col-name">Name</th>
                     <th class="col-gender">Gender</th>
                     <th class="col-availability">Availability Set For Next Week</th>
+                    <th class="col-availability">Notifications</th>
                     {{if .SelectedTeamIDs}}
                         {{range .SelectedTeamIDs}}
                             <th class="col-availability">Team {{.}} Appearances</th>
@@ -396,6 +397,17 @@
                                     ✅
                                 {{else}}
                                     ❌
+                                {{end}}
+                            {{else}}
+                                —
+                            {{end}}
+                        </td>
+                        <td class="col-availability">
+                            {{if .Player.IsActive}}
+                                {{if .HasPushNotifications}}
+                                    🔔
+                                {{else}}
+                                    —
                                 {{end}}
                             {{else}}
                                 —
@@ -434,7 +446,7 @@
                     {{end}}
                 {{else}}
                     <tr>
-                        <td colspan="4" style="text-align: center; padding: 2rem;">
+                        <td colspan="5" style="text-align: center; padding: 2rem;">
                             No players found. <a href="/admin/league/players/new">Add the first player</a>
                         </td>
                     </tr>

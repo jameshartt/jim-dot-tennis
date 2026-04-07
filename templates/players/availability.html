@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Player Availability - Jim Dot Tennis</title>
     <link rel="stylesheet" href="/static/css/main.css">
+    <!-- PWA -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#006400">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" href="/static/icon-192.svg">
     <style>
         * {
             box-sizing: border-box;
@@ -1340,10 +1346,101 @@
                 font-size: 13px;
             }
         }
+
+        /* Notification toggle */
+        .notification-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            background: #e8f5e8;
+            border-radius: 8px;
+            border: 1px solid #c8e6c8;
+        }
+        .notification-bar.denied {
+            background: #fff3e0;
+            border-color: #ffe0b2;
+        }
+        .notification-bar .notif-status {
+            font-size: 14px;
+            color: #333;
+        }
+        .notification-bar .notif-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .notification-bar .notif-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .notif-btn-enable {
+            background: #4a7c59;
+            color: white;
+        }
+        .notif-btn-disable {
+            background: #dc3545;
+            color: white;
+        }
+        .notif-btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .notif-btn-test {
+            background: #0d6efd;
+            color: white;
+        }
+        .notif-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .notif-feedback {
+            font-size: 13px;
+            color: #4a7c59;
+            font-weight: 500;
+        }
+        .notif-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ccc;
+            border-top-color: #4a7c59;
+            border-radius: 50%;
+            animation: notif-spin 0.6s linear infinite;
+        }
+        @keyframes notif-spin {
+            to { transform: rotate(360deg); }
+        }
+        .ios-pwa-prompt {
+            text-align: center;
+            padding: 12px;
+            font-size: 13px;
+            color: #666;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
     <div class="availability-container">
+        <!-- Notification toggle -->
+        <div id="notification-bar" class="notification-bar" style="display: none;">
+            <span id="notif-status" class="notif-status"></span>
+            <div class="notif-actions">
+                <button id="notif-btn" class="notif-btn" onclick="toggleNotifications()" style="display: none;"></button>
+                <button id="notif-renew-btn" class="notif-btn notif-btn-secondary" onclick="renewNotifications()" style="display: none;">Renew</button>
+                <button id="notif-test-btn" class="notif-btn notif-btn-test" onclick="testNotification()" style="display: none;">Test</button>
+            </div>
+            <span id="notif-feedback" class="notif-feedback"></span>
+        </div>
+
         <div class="availability-section" id="upcoming-fixtures-section" style="display: none;">
             <h2 class="section-title">Your Upcoming Fixtures</h2>
             <div id="upcoming-fixtures-container">
@@ -2219,5 +2316,154 @@
     <footer style="text-align: center; padding: 1.5rem 0; color: #999; font-size: 0.875rem;">
         &copy; Jim.Tennis {{currentYear}} &middot; <a href="/about" style="color: #4a7c59; text-decoration: none;">About</a>
     </footer>
+
+    <script src="/static/push.js"></script>
+    <script>
+    // Service worker registration
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/static/service-worker.js', {scope: '/'})
+            .then(function(reg) { console.log('Service worker registered:', reg.scope); })
+            .catch(function(err) { console.error('Service worker registration failed:', err); });
+    }
+
+    // Player token from URL for linking push subscriptions
+    const PLAYER_TOKEN = '{{.AuthToken}}';
+
+    // Notification toggle logic
+    const notifBar = document.getElementById('notification-bar');
+    const notifStatus = document.getElementById('notif-status');
+    const notifBtn = document.getElementById('notif-btn');
+    const notifRenewBtn = document.getElementById('notif-renew-btn');
+    const notifTestBtn = document.getElementById('notif-test-btn');
+    const notifFeedback = document.getElementById('notif-feedback');
+
+    function hasTestedToday() {
+        const lastTest = localStorage.getItem('notif-test-date-' + PLAYER_TOKEN);
+        if (!lastTest) return false;
+        const today = new Date().toISOString().split('T')[0];
+        return lastTest === today;
+    }
+
+    function markTestedToday() {
+        const today = new Date().toISOString().split('T')[0];
+        localStorage.setItem('notif-test-date-' + PLAYER_TOKEN, today);
+    }
+
+    async function initNotificationUI() {
+        if (!isPushNotificationSupported()) {
+            return;
+        }
+
+        // iOS non-PWA check
+        if (isIOS() && !isStandalone()) {
+            notifBar.style.display = 'flex';
+            notifBar.classList.add('denied');
+            notifStatus.innerHTML = '<div class="ios-pwa-prompt">To enable notifications on iOS, tap <strong>Share</strong> then <strong>Add to Home Screen</strong> first.</div>';
+            return;
+        }
+
+        notifBar.style.display = 'flex';
+
+        const permission = Notification.permission;
+        if (permission === 'denied') {
+            notifBar.classList.add('denied');
+            notifStatus.textContent = 'Notifications blocked — check browser settings to unblock';
+            return;
+        }
+
+        const isSubscribed = await checkPushSubscription();
+        updateNotifUI(isSubscribed);
+    }
+
+    function updateNotifUI(subscribed) {
+        notifBtn.style.display = 'inline-block';
+        notifBtn.disabled = false;
+        notifFeedback.textContent = '';
+
+        if (subscribed) {
+            notifStatus.textContent = 'Notifications enabled';
+            notifBtn.textContent = 'Disable';
+            notifBtn.className = 'notif-btn notif-btn-disable';
+            notifRenewBtn.style.display = 'inline-block';
+            // Show test button only if not already tested today
+            notifTestBtn.style.display = hasTestedToday() ? 'none' : 'inline-block';
+        } else {
+            notifStatus.textContent = 'Get notified when selected for matches';
+            notifBtn.textContent = 'Enable Notifications';
+            notifBtn.className = 'notif-btn notif-btn-enable';
+            notifRenewBtn.style.display = 'none';
+            notifTestBtn.style.display = 'none';
+        }
+    }
+
+    async function toggleNotifications() {
+        const isSubscribed = await checkPushSubscription();
+        notifBtn.disabled = true;
+        notifBtn.innerHTML = '<span class="notif-spinner"></span>';
+
+        if (isSubscribed) {
+            const result = await unsubscribeFromPushNotifications();
+            updateNotifUI(!result);
+        } else {
+            const result = await subscribeToPushNotifications(PLAYER_TOKEN);
+            if (!result && Notification.permission === 'denied') {
+                notifBar.classList.add('denied');
+                notifStatus.textContent = 'Notifications blocked — check browser settings to unblock';
+                notifBtn.style.display = 'none';
+                notifRenewBtn.style.display = 'none';
+                notifTestBtn.style.display = 'none';
+                return;
+            }
+            updateNotifUI(result);
+        }
+    }
+
+    async function renewNotifications() {
+        notifRenewBtn.disabled = true;
+        notifRenewBtn.innerHTML = '<span class="notif-spinner"></span>';
+        notifFeedback.textContent = '';
+
+        const result = await subscribeToPushNotifications(PLAYER_TOKEN);
+        notifRenewBtn.textContent = 'Renew';
+        notifRenewBtn.disabled = false;
+
+        if (result) {
+            notifFeedback.textContent = 'Subscription renewed';
+        } else {
+            notifFeedback.textContent = 'Renewal failed — try disabling and re-enabling';
+        }
+    }
+
+    async function testNotification() {
+        notifTestBtn.disabled = true;
+        notifTestBtn.innerHTML = '<span class="notif-spinner"></span>';
+        notifFeedback.textContent = '';
+
+        try {
+            const resp = await fetch('/api/push/test-player', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playerToken: PLAYER_TOKEN })
+            });
+            const data = await resp.json();
+            if (data.sent > 0) {
+                notifFeedback.textContent = 'Test sent — you should receive it shortly';
+                markTestedToday();
+                notifTestBtn.style.display = 'none';
+            } else {
+                notifFeedback.textContent = 'No devices received the test — try renewing';
+                notifTestBtn.textContent = 'Test';
+                notifTestBtn.disabled = false;
+            }
+        } catch (e) {
+            notifFeedback.textContent = 'Test failed — try again later';
+            notifTestBtn.textContent = 'Test';
+            notifTestBtn.disabled = false;
+        }
+    }
+
+    // Init when DOM is ready
+    initNotificationUI();
+    </script>
 </body>
 </html>

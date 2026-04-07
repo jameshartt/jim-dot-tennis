@@ -14,6 +14,7 @@ type PlayerWithAvailabilityInfo struct {
 	Player                   models.Player `json:"player"`
 	HasAvailabilityURL       bool          `json:"has_availability_url"`
 	HasSetNextWeekAvail      bool          `json:"has_set_next_week_avail"`
+	HasPushNotifications     bool          `json:"has_push_notifications"`
 	NextWeekAvailCount       int           `json:"next_week_avail_count"`
 	TeamAppearanceCounts     map[uint]int  `json:"team_appearance_counts"`
 	DivisionAppearanceCounts map[uint]int  `json:"division_appearance_counts"`
@@ -157,6 +158,13 @@ func (s *Service) GetFilteredPlayersWithAvailability(query string, activeFilter 
 		if availRecords, err := s.availabilityRepository.GetPlayerAvailabilityByDateRange(ctx, player.ID, weekStart, weekEnd); err == nil {
 			playerWithAvail.HasSetNextWeekAvail = len(availRecords) > 0
 			playerWithAvail.NextWeekAvailCount = len(availRecords)
+		}
+
+		// Check if player has push notifications enabled
+		if s.pushService != nil && player.FantasyMatchID != nil {
+			if match, err := s.fantasyRepository.FindByID(ctx, *player.FantasyMatchID); err == nil && match != nil {
+				playerWithAvail.HasPushNotifications = s.pushService.HasSubscription(match.AuthToken)
+			}
 		}
 
 		// If multi-select filters are present, compute counts per selected team/division
