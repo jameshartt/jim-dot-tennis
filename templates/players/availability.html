@@ -2401,22 +2401,81 @@
         const isSubscribed = await checkPushSubscription();
         notifBtn.disabled = true;
         notifBtn.innerHTML = '<span class="notif-spinner"></span>';
+        notifFeedback.textContent = '';
 
         if (isSubscribed) {
             const result = await unsubscribeFromPushNotifications();
             updateNotifUI(!result);
         } else {
-            const result = await subscribeToPushNotifications(PLAYER_TOKEN);
-            if (!result && Notification.permission === 'denied') {
-                notifBar.classList.add('denied');
-                notifStatus.textContent = 'Notifications blocked — check browser settings to unblock';
-                notifBtn.style.display = 'none';
-                notifRenewBtn.style.display = 'none';
-                notifTestBtn.style.display = 'none';
-                return;
+            try {
+                const result = await subscribeToPushNotificationsVerbose(PLAYER_TOKEN);
+                if (!result && Notification.permission === 'denied') {
+                    notifBar.classList.add('denied');
+                    notifStatus.textContent = 'Notifications blocked — check browser settings to unblock';
+                    notifBtn.style.display = 'none';
+                    notifRenewBtn.style.display = 'none';
+                    notifTestBtn.style.display = 'none';
+                    return;
+                }
+                updateNotifUI(result);
+            } catch (err) {
+                notifFeedback.textContent = 'Error: ' + err.message;
+                notifFeedback.style.color = '#dc3545';
+                notifBtn.textContent = 'Enable Notifications';
+                notifBtn.disabled = false;
             }
-            updateNotifUI(result);
         }
+    }
+
+    // Verbose version of subscribe that throws with details instead of swallowing errors
+    async function subscribeToPushNotificationsVerbose(playerToken) {
+        if (!('serviceWorker' in navigator)) throw new Error('Service workers not supported');
+        if (!('PushManager' in window)) throw new Error('PushManager not supported');
+        if (!('Notification' in window)) throw new Error('Notification API not supported');
+
+        const permission = await Notification.requestPermission();
+        notifFeedback.textContent = 'Permission: ' + permission;
+        if (permission !== 'granted') throw new Error('Permission ' + permission);
+
+        const response = await fetch('/api/vapid-public-key');
+        if (!response.ok) throw new Error('VAPID key fetch failed: ' + response.status);
+        const data = await response.json();
+        notifFeedback.textContent = 'VAPID key received, registering SW...';
+
+        const registration = await navigator.serviceWorker.ready;
+        notifFeedback.textContent = 'SW ready, subscribing to push...';
+
+        const existingSub = await registration.pushManager.getSubscription();
+        if (existingSub) await existingSub.unsubscribe();
+
+        const applicationServerKey = urlBase64ToUint8Array(data.publicKey);
+        const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: applicationServerKey
+        });
+        notifFeedback.textContent = 'Push subscribed, sending to server...';
+
+        const subJson = subscription.toJSON();
+        if (!subJson.keys || !subJson.keys.p256dh || !subJson.keys.auth) {
+            throw new Error('Subscription missing keys');
+        }
+
+        const payload = Object.assign({}, subJson);
+        if (playerToken) payload.playerToken = playerToken;
+
+        const serverResp = await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!serverResp.ok) {
+            const errText = await serverResp.text();
+            throw new Error('Server error ' + serverResp.status + ': ' + errText);
+        }
+
+        notifFeedback.textContent = 'Subscribed successfully';
+        return true;
     }
 
     async function renewNotifications() {

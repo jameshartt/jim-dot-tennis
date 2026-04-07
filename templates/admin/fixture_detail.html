@@ -159,8 +159,8 @@
                             </a>
                         </div>
 
-                        {{if .FixtureDetail.SelectedPlayers}}
                         <div style="margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+                            {{if .FixtureDetail.SelectedPlayers}}
                             <button class="btn-edit" style="font-size: 0.875rem;"
                                 hx-post="/admin/league/fixtures/{{.FixtureDetail.ID}}/notify-selected"
                                 hx-target="#notify-result"
@@ -168,6 +168,7 @@
                                 hx-confirm="Send selection notifications to all selected players?">
                                 📣 Notify Selected Players
                             </button>
+                            {{end}}
                             <button class="btn-edit" style="font-size: 0.875rem;"
                                 hx-post="/admin/league/fixtures/{{.FixtureDetail.ID}}/remind-availability"
                                 hx-target="#notify-result"
@@ -177,7 +178,6 @@
                             </button>
                             <span id="notify-result" style="font-size: 0.875rem; color: #555;"></span>
                         </div>
-                        {{end}}
                     </div>
                     {{end}}
                 </div>

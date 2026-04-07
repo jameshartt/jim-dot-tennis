@@ -309,7 +309,17 @@
     <div class="container admin-content">
         <div class="action-bar">
             <h2>All Players</h2>
-            <a href="/admin/league/players/new" class="btn-add">+ Add New Player</a>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button class="btn-add" style="border: none; cursor: pointer; font-size: 1rem;"
+                    hx-post="/admin/league/players/remind-all"
+                    hx-target="#remind-all-result"
+                    hx-swap="innerHTML"
+                    hx-confirm="Send availability reminders to all active players who haven't set availability yet?">
+                    🔔 Remind All
+                </button>
+                <span id="remind-all-result" style="font-size: 0.875rem;"></span>
+                <a href="/admin/league/players/new" class="btn-add">+ Add New Player</a>
+            </div>
         </div>
 
         <div class="filter-controls">

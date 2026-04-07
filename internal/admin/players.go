@@ -65,6 +65,12 @@ func (h *PlayersHandler) HandlePlayers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if this is a remind-all request
+	if strings.HasSuffix(r.URL.Path, "/remind-all") {
+		h.handleRemindAllPlayers(w, r)
+		return
+	}
+
 	// Check if this is an availability URL request
 	if strings.Contains(r.URL.Path, "/generate-availability-url") {
 		h.handleGenerateAvailabilityURL(w, r)
@@ -1035,4 +1041,87 @@ func getBaseURL(r *http.Request) string {
 		scheme = "https"
 	}
 	return fmt.Sprintf("%s://%s", scheme, r.Host)
+}
+
+// handleRemindAllPlayers sends availability reminders to ALL active players who haven't set availability for next week
+func (h *PlayersHandler) handleRemindAllPlayers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if h.service.pushService == nil {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<span style="color:#dc3545;">Push notifications not configured</span>`)
+		return
+	}
+
+	ctx := context.Background()
+
+	// Get all active players
+	players, err := h.service.playerRepository.FindAll(ctx)
+	if err != nil {
+		log.Printf("Error finding active players: %v", err)
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<span style="color:#dc3545;">Failed to load players</span>`)
+		return
+	}
+
+	weekStart, weekEnd := h.service.getNextWeekDateRange()
+	weekLabel := weekStart.Format("Mon 2 Jan")
+
+	remindedCount := 0
+	alreadyUpdated := 0
+	noSubscription := 0
+
+	for _, player := range players {
+		// Check if player has already set availability for next week
+		if availRecords, err := h.service.availabilityRepository.GetPlayerAvailabilityByDateRange(ctx, player.ID, weekStart, weekEnd); err == nil && len(availRecords) > 0 {
+			alreadyUpdated++
+			continue
+		}
+
+		// Get player's fantasy token for push
+		token := h.getPlayerFantasyToken(ctx, player)
+		if token == "" {
+			noSubscription++
+			continue
+		}
+
+		if !h.service.pushService.HasSubscription(token) {
+			noSubscription++
+			continue
+		}
+
+		payload := map[string]interface{}{
+			"title": "Set Your Availability",
+			"body":  fmt.Sprintf("Please set your availability for the week of %s", weekLabel),
+			"data": map[string]string{
+				"type": "availability-reminder",
+				"url":  "/my-availability/" + token,
+			},
+		}
+
+		if sent, err := h.service.pushService.SendToPlayer(token, payload); err != nil {
+			log.Printf("Failed to send reminder to player %s %s: %v", player.FirstName, player.LastName, err)
+		} else if sent > 0 {
+			remindedCount++
+		}
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprintf(w, `<span style="color:#28a745;">Reminded %d players (%d already set, %d without notifications)</span>`,
+		remindedCount, alreadyUpdated, noSubscription)
+}
+
+// getPlayerFantasyToken looks up the fantasy auth token for a player
+func (h *PlayersHandler) getPlayerFantasyToken(ctx context.Context, player models.Player) string {
+	if player.FantasyMatchID == nil {
+		return ""
+	}
+	match, err := h.service.fantasyRepository.FindByID(ctx, *player.FantasyMatchID)
+	if err != nil || match == nil {
+		return ""
+	}
+	return match.AuthToken
 }
