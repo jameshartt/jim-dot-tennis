@@ -11,14 +11,20 @@ import (
 )
 
 // SetupHandlers registers the webpush handlers
-func (s *Service) SetupHandlers() {
-	http.HandleFunc("/api/vapid-public-key", s.handleGetVAPIDPublicKey)
-	http.HandleFunc("/api/push/subscribe", s.handleSubscribe)
-	http.HandleFunc("/api/push/unsubscribe", s.handleUnsubscribe)
-	http.HandleFunc("/api/push/test", s.handleTestPush)
-	http.HandleFunc("/api/push/test-player", s.handleTestPlayerPush)
-	http.HandleFunc("/api/push/status", s.handlePushStatus)
-	http.HandleFunc("/api/vapid-reset", s.handleResetVAPIDKeys)
+// SetupHandlers registers webpush HTTP handlers on the given mux.
+// If no mux is provided, registers on http.DefaultServeMux.
+func (s *Service) SetupHandlers(mux ...*http.ServeMux) {
+	register := http.HandleFunc
+	if len(mux) > 0 && mux[0] != nil {
+		register = mux[0].HandleFunc
+	}
+	register("/api/vapid-public-key", s.handleGetVAPIDPublicKey)
+	register("/api/push/subscribe", s.handleSubscribe)
+	register("/api/push/unsubscribe", s.handleUnsubscribe)
+	register("/api/push/test", s.handleTestPush)
+	register("/api/push/test-player", s.handleTestPlayerPush)
+	register("/api/push/status", s.handlePushStatus)
+	register("/api/vapid-reset", s.handleResetVAPIDKeys)
 }
 
 // handleGetVAPIDPublicKey returns the VAPID public key

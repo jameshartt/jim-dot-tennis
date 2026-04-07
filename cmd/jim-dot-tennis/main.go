@@ -115,11 +115,11 @@ func main() {
 		log.Fatalf("Failed to load templates: %v", err)
 	}
 
-	// Set up push notification handlers
-	pushService.SetupHandlers()
-
 	// Set up routes
 	mux := http.NewServeMux()
+
+	// Set up push notification handlers on our mux
+	pushService.SetupHandlers(mux)
 
 	// Auth routes
 	authHandler.RegisterRoutes(mux)
