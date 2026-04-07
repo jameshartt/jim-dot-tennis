@@ -356,6 +356,14 @@ func (h *PlayersHandler) handlePlayerEditGet(w http.ResponseWriter, r *http.Requ
 		currentFantasyMatchID = *player.FantasyMatchID
 	}
 
+	// Check push notification status
+	hasPushNotifications := false
+	fantasyAuthToken := ""
+	if h.service.pushService != nil && currentFantasyDetail != nil {
+		fantasyAuthToken = currentFantasyDetail.Match.AuthToken
+		hasPushNotifications = h.service.pushService.HasSubscription(fantasyAuthToken)
+	}
+
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
 		"User":                  user,
@@ -366,6 +374,8 @@ func (h *PlayersHandler) handlePlayerEditGet(w http.ResponseWriter, r *http.Requ
 		"WTAPlayers":            wtaPlayers,
 		"CurrentFantasyDetail":  currentFantasyDetail,
 		"CurrentFantasyMatchID": currentFantasyMatchID,
+		"HasPushNotifications":  hasPushNotifications,
+		"FantasyAuthToken":      fantasyAuthToken,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -681,9 +691,9 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 				inactiveBadge = `<span class="badge-inactive">Inactive</span>`
 			}
 
-			notifIcon := "—"
+			notifCell := "—"
 			if p.Player.IsActive && p.HasPushNotifications {
-				notifIcon = "🔔"
+				notifCell = fmt.Sprintf(`🔔 <button class="btn-test-push" onclick="sendTestPush('%s', this)">Test</button>`, p.FantasyAuthToken)
 			}
 
 			w.Write([]byte(fmt.Sprintf(`
@@ -696,7 +706,7 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 					<td class="col-availability">%s</td>
 			`, p.Player.ID, p.Player.FirstName, p.Player.LastName, activeClass,
 				p.Player.ID, p.Player.FirstName, p.Player.LastName, inactiveBadge,
-				p.Player.Gender, availStatusIcon, notifIcon)))
+				p.Player.Gender, availStatusIcon, notifCell)))
 
 			// Team count cells in same order as headers
 			for _, tID := range teamIDs {

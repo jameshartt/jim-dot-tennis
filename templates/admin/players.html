@@ -217,6 +217,23 @@
             background: #28a745;
             color: white;
         }
+        .btn-test-push {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            vertical-align: middle;
+        }
+        .btn-test-push:hover {
+            background: #2c5530;
+        }
+        .btn-test-push:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
         
         /* Mobile responsiveness */
         @media (max-width: 768px) {
@@ -405,7 +422,7 @@
                         <td class="col-availability">
                             {{if .Player.IsActive}}
                                 {{if .HasPushNotifications}}
-                                    🔔
+                                    🔔 <button class="btn-test-push" onclick="sendTestPush('{{.FantasyAuthToken}}', this)">Test</button>
                                 {{else}}
                                     —
                                 {{end}}
@@ -457,6 +474,36 @@
 
     <script>
         console.log("Player management page loaded");
+
+        // Send test push notification to player
+        async function sendTestPush(playerToken, btn) {
+            btn.disabled = true;
+            const origText = btn.textContent;
+            btn.textContent = '...';
+            try {
+                const resp = await fetch('/api/push/test-player', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({playerToken: playerToken})
+                });
+                const data = await resp.json();
+                if (data.sent > 0) {
+                    btn.textContent = 'Sent!';
+                    btn.style.background = '#28a745';
+                } else {
+                    btn.textContent = 'Failed';
+                    btn.style.background = '#dc3545';
+                }
+            } catch (err) {
+                btn.textContent = 'Error';
+                btn.style.background = '#dc3545';
+            }
+            setTimeout(() => {
+                btn.textContent = origText;
+                btn.style.background = '';
+                btn.disabled = false;
+            }, 2000);
+        }
 
         // Refresh player list after deactivation/reactivation
         document.body.addEventListener('playerDeactivated', function() {

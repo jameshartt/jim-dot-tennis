@@ -378,6 +378,16 @@
                              /my-availability/{{.CurrentFantasyDetail.Match.AuthToken}}
                          </a>
                      </div>
+                     <div class="push-status" style="margin-top: 1rem; padding: 0.75rem; background: {{if $.HasPushNotifications}}#d4edda{{else}}#f8f9fa{{end}}; border: 1px solid {{if $.HasPushNotifications}}#28a745{{else}}#dee2e6{{end}}; border-radius: 4px;">
+                         <strong>Push Notifications:</strong>
+                         {{if $.HasPushNotifications}}
+                             🔔 Enabled
+                             <button type="button" class="btn-test-push" onclick="sendTestPush('{{$.FantasyAuthToken}}')" style="margin-left: 1rem; background: var(--primary-color); color: white; border: none; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">Send Test</button>
+                             <span id="test-push-result" style="margin-left: 0.5rem; font-size: 0.85rem;"></span>
+                         {{else}}
+                             — Not set up
+                         {{end}}
+                     </div>
                 </div>
                 {{end}}
                 
@@ -559,6 +569,35 @@
         document.body.addEventListener('playerReactivated', function() {
             setTimeout(function() { window.location.reload(); }, 1500);
         });
+
+        // Send test push notification to player
+        async function sendTestPush(playerToken) {
+            const btn = event.target;
+            const result = document.getElementById('test-push-result');
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+            result.textContent = '';
+            try {
+                const resp = await fetch('/api/push/test-player', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({playerToken: playerToken})
+                });
+                const data = await resp.json();
+                if (data.sent > 0) {
+                    result.textContent = 'Sent to ' + data.sent + ' device(s)';
+                    result.style.color = '#28a745';
+                } else {
+                    result.textContent = 'No devices received the notification';
+                    result.style.color = '#dc3545';
+                }
+            } catch (err) {
+                result.textContent = 'Error: ' + err.message;
+                result.style.color = '#dc3545';
+            }
+            btn.textContent = 'Send Test';
+            btn.disabled = false;
+        }
 
          // Update availability URL with current hostname
          document.addEventListener('DOMContentLoaded', function() {

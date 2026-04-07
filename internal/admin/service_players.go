@@ -15,6 +15,7 @@ type PlayerWithAvailabilityInfo struct {
 	HasAvailabilityURL       bool          `json:"has_availability_url"`
 	HasSetNextWeekAvail      bool          `json:"has_set_next_week_avail"`
 	HasPushNotifications     bool          `json:"has_push_notifications"`
+	FantasyAuthToken         string        `json:"fantasy_auth_token,omitempty"`
 	NextWeekAvailCount       int           `json:"next_week_avail_count"`
 	TeamAppearanceCounts     map[uint]int  `json:"team_appearance_counts"`
 	DivisionAppearanceCounts map[uint]int  `json:"division_appearance_counts"`
@@ -164,6 +165,9 @@ func (s *Service) GetFilteredPlayersWithAvailability(query string, activeFilter 
 		if s.pushService != nil && player.FantasyMatchID != nil {
 			if match, err := s.fantasyRepository.FindByID(ctx, *player.FantasyMatchID); err == nil && match != nil {
 				playerWithAvail.HasPushNotifications = s.pushService.HasSubscription(match.AuthToken)
+				if playerWithAvail.HasPushNotifications {
+					playerWithAvail.FantasyAuthToken = match.AuthToken
+				}
 			}
 		}
 
