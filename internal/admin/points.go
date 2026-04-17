@@ -359,19 +359,26 @@ func (h *PointsHandler) processMatchupPoints(matchup CompletedMatchupWithPlayers
 		}
 	}
 
-	// Determine match result
+	// Determine match result.
+	// A halved match is marked with HomeScore == 1 && AwayScore == 1 (matchup-points convention).
+	// Check that first so halved matches with uneven set counts (e.g. 1-0 when play was
+	// interrupted mid-second-set) don't get scored as a decisive win.
 	var homeWinPoints, awayWinPoints float64
 
-	if homeSetsWon > awaySetsWon {
-		// Home team wins the match
+	isHalved := matchup.Matchup.HomeScore == 1 && matchup.Matchup.AwayScore == 1
+
+	switch {
+	case isHalved:
+		homeWinPoints = 0.5
+		awayWinPoints = 0.5
+	case homeSetsWon > awaySetsWon:
 		homeWinPoints = 1.0
 		awayWinPoints = 0.0
-	} else if awaySetsWon > homeSetsWon {
-		// Away team wins the match
+	case awaySetsWon > homeSetsWon:
 		homeWinPoints = 0.0
 		awayWinPoints = 1.0
-	} else {
-		// Halved match (equal sets won)
+	default:
+		// Equal set counts without a halved marker — treat as a draw (0.5 each).
 		homeWinPoints = 0.5
 		awayWinPoints = 0.5
 	}

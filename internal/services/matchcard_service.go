@@ -466,7 +466,9 @@ func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConf
 		homePoints, awayPoints = 2, 0
 	}
 
-	// Halved match (not played): points 1-1, clear set scores
+	// Halved match: points 1-1. Set scores are preserved — a halved match may still have
+	// completed sets (e.g. darkness stops play after one set each), and those set wins count
+	// toward players' set points in the points table.
 	if matchupData.Halved {
 		homePoints, awayPoints = 1, 1
 	}
@@ -490,10 +492,7 @@ func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConf
 			matchup.Status = models.Defaulted
 		}
 
-		// Set individual set scores (skip for halved)
-		if !matchupData.Halved {
-			s.setIndividualSetScores(matchup, matchupData)
-		}
+		s.setIndividualSetScores(matchup, matchupData)
 
 		if !config.DryRun {
 			if err := s.matchupRepo.Create(ctx, matchup); err != nil {
@@ -512,14 +511,7 @@ func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConf
 		existingMatchup.AwayScore = awayPoints
 		existingMatchup.ConcededBy = concededBy
 
-		// Set individual set scores (skip for halved)
-		if !matchupData.Halved {
-			s.setIndividualSetScores(existingMatchup, matchupData)
-		} else {
-			// Clear any existing set scores if halved
-			existingMatchup.HomeSet1, existingMatchup.HomeSet2, existingMatchup.HomeSet3 = nil, nil, nil
-			existingMatchup.AwaySet1, existingMatchup.AwaySet2, existingMatchup.AwaySet3 = nil, nil, nil
-		}
+		s.setIndividualSetScores(existingMatchup, matchupData)
 
 		// Update status to Finished or Defaulted
 		if concededBy != nil {
@@ -1217,7 +1209,8 @@ func (s *MatchCardService) processMatchupForTeam(ctx context.Context, config Imp
 		homePoints, awayPoints = 2, 0
 	}
 
-	// Halved match (not played): points 1-1, clear set scores
+	// Halved match: points 1-1. Set scores are preserved below by setIndividualSetScores
+	// so completed sets still count toward players' set points.
 	if matchupData.Halved {
 		homePoints, awayPoints = 1, 1
 	}

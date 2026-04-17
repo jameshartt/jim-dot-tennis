@@ -54,8 +54,6 @@
                             {{else}}
                                 Conceded
                             {{end}}
-                        {{else if and (eq .Matchup.HomeScore 1) (eq .Matchup.AwayScore 1)}}
-                            Match Halved
                         {{else}}
                         {{/* Determine score perspective based on home club position */}}
                         {{$showFromHomeClubView := false}}
@@ -68,12 +66,16 @@
                             {{/* For regular away matches, flip the scores */}}
                             {{$showFromHomeClubView = true}}
                         {{end}}
+                        {{$isHalved := and (eq .Matchup.HomeScore 1) (eq .Matchup.AwayScore 1)}}
                         {{if or .Matchup.HomeSet1 .Matchup.AwaySet1}}
                             {{if $showFromHomeClubView}}
                                 [{{if .Matchup.AwaySet1}}{{.Matchup.AwaySet1}}{{else}}0{{end}}-{{if .Matchup.HomeSet1}}{{.Matchup.HomeSet1}}{{else}}0{{end}}{{if or .Matchup.HomeSet2 .Matchup.AwaySet2}}, {{if .Matchup.AwaySet2}}{{.Matchup.AwaySet2}}{{else}}0{{end}}-{{if .Matchup.HomeSet2}}{{.Matchup.HomeSet2}}{{else}}0{{end}}{{end}}{{if or .Matchup.HomeSet3 .Matchup.AwaySet3}}, {{if .Matchup.AwaySet3}}{{.Matchup.AwaySet3}}{{else}}0{{end}}-{{if .Matchup.HomeSet3}}{{.Matchup.HomeSet3}}{{else}}0{{end}}{{end}}]
                             {{else}}
                                 [{{if .Matchup.HomeSet1}}{{.Matchup.HomeSet1}}{{else}}0{{end}}-{{if .Matchup.AwaySet1}}{{.Matchup.AwaySet1}}{{else}}0{{end}}{{if or .Matchup.HomeSet2 .Matchup.AwaySet2}}, {{if .Matchup.HomeSet2}}{{.Matchup.HomeSet2}}{{else}}0{{end}}-{{if .Matchup.AwaySet2}}{{.Matchup.AwaySet2}}{{else}}0{{end}}{{end}}{{if or .Matchup.HomeSet3 .Matchup.AwaySet3}}, {{if .Matchup.HomeSet3}}{{.Matchup.HomeSet3}}{{else}}0{{end}}-{{if .Matchup.AwaySet3}}{{.Matchup.AwaySet3}}{{else}}0{{end}}{{end}}]
                             {{end}}
+                            {{if $isHalved}}<br>Match Halved{{end}}
+                        {{else if $isHalved}}
+                            Match Halved
                         {{else}}
                             {{if $showFromHomeClubView}}
                                 ({{.Matchup.AwayScore}}-{{.Matchup.HomeScore}})
