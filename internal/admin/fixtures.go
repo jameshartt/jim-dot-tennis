@@ -1294,6 +1294,7 @@ func (h *FixturesHandler) handleWeekOverview(w http.ResponseWriter, r *http.Requ
 		"WeekStart":          weekStart,
 		"WeekEnd":            weekEnd,
 		"HomeClubName":       homeClubNameFromContext(r),
+		"HomeClubLogoPath":   homeClubLogoFromContext(r),
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}

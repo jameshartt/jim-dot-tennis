@@ -13,12 +13,14 @@ type contextKey int
 const (
 	homeClubIDKey contextKey = iota
 	homeClubKey
+	homeClubLogoPathKey
 )
 
-// WithHomeClub returns a new context with the home club ID and model injected.
-func WithHomeClub(ctx context.Context, id uint, club *models.Club) context.Context {
+// WithHomeClub returns a new context with the home club ID, model and logo path injected.
+func WithHomeClub(ctx context.Context, id uint, club *models.Club, logoPath string) context.Context {
 	ctx = context.WithValue(ctx, homeClubIDKey, id)
 	ctx = context.WithValue(ctx, homeClubKey, club)
+	ctx = context.WithValue(ctx, homeClubLogoPathKey, logoPath)
 	return ctx
 }
 
@@ -32,4 +34,11 @@ func GetHomeClubID(ctx context.Context) uint {
 func GetHomeClub(ctx context.Context) *models.Club {
 	club, _ := ctx.Value(homeClubKey).(*models.Club)
 	return club
+}
+
+// GetHomeClubLogoPath retrieves the configured home club logo path from context.
+// Returns an empty string if not set.
+func GetHomeClubLogoPath(ctx context.Context) string {
+	path, _ := ctx.Value(homeClubLogoPathKey).(string)
+	return path
 }

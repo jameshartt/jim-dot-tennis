@@ -157,11 +157,21 @@ Environment variables can be modified in the `docker-compose.yml` file or in a `
 environment:
   - HOME_CLUB_ID=10             # Database ID of the home club (required, or use HOME_CLUB_NAME)
   - HOME_CLUB_NAME=St Ann's     # Fallback: club name for fuzzy lookup
+  - HOME_CLUB_LOGO_PATH=/static/st-anns-tennis.jpg  # Optional: URL path to the club logo shown on points/week pages
   - BHPLTA_CLUB_CODE=what-three-words  # Club code on the BHPLTA website (for match card imports)
   - PORT=8080                   # Web server port
   - DB_TYPE=sqlite3             # Database type
   - DB_PATH=/app/data/tennis.db # Database file location
 ```
+
+### Using your own club logo
+
+The app ships with St Ann's logo at `/static/st-anns-tennis.jpg`. To swap in your own without rebuilding the image:
+
+1. Mount your logo into the container's static directory — e.g. add `- ./my-club.jpg:/app/static/my-club.jpg:ro` to the service's `volumes:` block.
+2. Set `HOME_CLUB_LOGO_PATH=/static/my-club.jpg`.
+
+Leave `HOME_CLUB_LOGO_PATH` unset to keep the St Ann's default, or set it to an empty string to hide the logo altogether.
 
 ## Deployment
 

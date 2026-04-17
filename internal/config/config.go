@@ -13,11 +13,17 @@ import (
 	"jim-dot-tennis/internal/repository"
 )
 
+// defaultHomeClubLogoPath is the fallback logo path used when HOME_CLUB_LOGO_PATH is unset.
+// It points at the St Ann's asset bundled with this repository; new deployments should override
+// it via the HOME_CLUB_LOGO_PATH environment variable (see CONTRIBUTING.md#club-adaptation-guide).
+const defaultHomeClubLogoPath = "/static/st-anns-tennis.jpg"
+
 // AppConfig holds application-wide configuration loaded at startup
 type AppConfig struct {
-	HomeClubID     uint
-	HomeClub       *models.Club
-	BHPLTAClubCode string // BHPLTA club code/password for match card integration
+	HomeClubID       uint
+	HomeClub         *models.Club
+	HomeClubLogoPath string // Path (relative to the server) of the home club's logo image
+	BHPLTAClubCode   string // BHPLTA club code/password for match card integration
 }
 
 // Load reads HOME_CLUB_ID (preferred) or HOME_CLUB_NAME (fallback) from environment,
@@ -26,6 +32,13 @@ func Load(ctx context.Context, clubRepo repository.ClubRepository) (*AppConfig, 
 	bhpltaClubCode := os.Getenv("BHPLTA_CLUB_CODE")
 	if bhpltaClubCode != "" {
 		log.Printf("BHPLTA club code: configured")
+	}
+
+	logoPath := os.Getenv("HOME_CLUB_LOGO_PATH")
+	if logoPath == "" {
+		logoPath = defaultHomeClubLogoPath
+	} else {
+		log.Printf("Home club logo path: %s", logoPath)
 	}
 
 	// Try HOME_CLUB_ID first
@@ -44,7 +57,7 @@ func Load(ctx context.Context, clubRepo repository.ClubRepository) (*AppConfig, 
 			return nil, fmt.Errorf("HOME_CLUB_ID=%d does not match any club in the database. Available clubs: %v", id, names)
 		}
 		log.Printf("Home club: %s (ID: %d)", club.Name, club.ID)
-		return &AppConfig{HomeClubID: club.ID, HomeClub: club, BHPLTAClubCode: bhpltaClubCode}, nil
+		return &AppConfig{HomeClubID: club.ID, HomeClub: club, HomeClubLogoPath: logoPath, BHPLTAClubCode: bhpltaClubCode}, nil
 	}
 
 	// Fallback to HOME_CLUB_NAME
@@ -60,7 +73,7 @@ func Load(ctx context.Context, clubRepo repository.ClubRepository) (*AppConfig, 
 		}
 		club := &clubs[0]
 		log.Printf("Home club (resolved via name): %s (ID: %d)", club.Name, club.ID)
-		return &AppConfig{HomeClubID: club.ID, HomeClub: club, BHPLTAClubCode: bhpltaClubCode}, nil
+		return &AppConfig{HomeClubID: club.ID, HomeClub: club, HomeClubLogoPath: logoPath, BHPLTAClubCode: bhpltaClubCode}, nil
 	}
 
 	return nil, fmt.Errorf("neither HOME_CLUB_ID nor HOME_CLUB_NAME is set; configure one in your environment")

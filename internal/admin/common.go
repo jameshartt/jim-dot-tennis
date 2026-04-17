@@ -36,6 +36,12 @@ func homeClubNameFromContext(r *http.Request) string {
 	return "Tennis Club"
 }
 
+// homeClubLogoFromContext extracts the home club logo path from the request context.
+// Returns an empty string if not configured — templates should handle that gracefully.
+func homeClubLogoFromContext(r *http.Request) string {
+	return config.GetHomeClubLogoPath(r.Context())
+}
+
 // parseTemplate loads and parses a template file with helper functions and partials
 func parseTemplate(templateDir, templatePath string) (*template.Template, error) {
 	fullPath := filepath.Join(templateDir, templatePath)

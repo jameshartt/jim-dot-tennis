@@ -9,6 +9,7 @@ import (
 	"math"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -95,6 +96,12 @@ func (h *PointsHandler) HandlePointsTable(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Build the "Division X-Y" / "Division X, Z" label from the home club's actual teams this season.
+	divisionsLabel, err := h.getHomeClubDivisionsLabel(r.Context())
+	if err != nil {
+		log.Printf("Warning: Failed to compute divisions label: %v", err)
+	}
+
 	// Execute template with data
 	templateData := map[string]interface{}{
 		"User":              user,
@@ -104,6 +111,8 @@ func (h *PointsHandler) HandlePointsTable(w http.ResponseWriter, r *http.Request
 		"RescheduledHeader": rescheduledHeader,
 		"IsEndOfSeason":     isEndOfSeason,
 		"HomeClubName":      homeClubNameFromContext(r),
+		"HomeClubLogoPath":  homeClubLogoFromContext(r),
+		"DivisionsLabel":    divisionsLabel,
 	}
 
 	if err := renderTemplate(w, tmpl, templateData); err != nil {
@@ -581,6 +590,70 @@ func (h *PointsHandler) getRescheduledWeekHeader() (string, error) {
 	}
 
 	return "Rescheduled fixtures played this week: " + strings.Join(parts, "; "), nil
+}
+
+// getHomeClubDivisionsLabel returns a human-readable label describing which division levels the
+// home club has teams in during the active season. It renders a contiguous range ("1-3"), a
+// single level ("2"), or a comma-separated list when there are gaps ("1, 3, 4"). Returns an empty
+// string when the home club has no teams in the active season.
+func (h *PointsHandler) getHomeClubDivisionsLabel(ctx context.Context) (string, error) {
+	season, err := h.service.seasonRepository.FindActive(ctx)
+	if err != nil || season == nil {
+		return "", fmt.Errorf("failed to get active season: %w", err)
+	}
+
+	clubID := config.GetHomeClubID(ctx)
+	if clubID == 0 {
+		return "", fmt.Errorf("home club ID not available in context")
+	}
+
+	rows, err := h.service.db.QueryContext(ctx, `
+		SELECT DISTINCT d.level
+		FROM teams t
+		INNER JOIN divisions d ON t.division_id = d.id
+		WHERE t.club_id = ? AND t.season_id = ?
+		ORDER BY d.level ASC
+	`, clubID, season.ID)
+	if err != nil {
+		return "", fmt.Errorf("failed to query division levels: %w", err)
+	}
+	defer rows.Close()
+
+	var levels []int
+	for rows.Next() {
+		var level int
+		if err := rows.Scan(&level); err != nil {
+			return "", fmt.Errorf("failed to scan division level: %w", err)
+		}
+		levels = append(levels, level)
+	}
+	return formatDivisionsLabel(levels), nil
+}
+
+// formatDivisionsLabel formats a sorted slice of distinct division levels as a display label.
+func formatDivisionsLabel(levels []int) string {
+	if len(levels) == 0 {
+		return ""
+	}
+	if len(levels) == 1 {
+		return fmt.Sprintf("Division %d", levels[0])
+	}
+	// Detect contiguous range
+	contiguous := true
+	for i := 1; i < len(levels); i++ {
+		if levels[i] != levels[i-1]+1 {
+			contiguous = false
+			break
+		}
+	}
+	if contiguous {
+		return fmt.Sprintf("Division %d-%d", levels[0], levels[len(levels)-1])
+	}
+	parts := make([]string, len(levels))
+	for i, l := range levels {
+		parts[i] = strconv.Itoa(l)
+	}
+	return "Divisions " + strings.Join(parts, ", ")
 }
 
 // isActiveSeasonCompleted returns true if all fixtures for the active season are completed

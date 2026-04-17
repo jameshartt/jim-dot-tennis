@@ -225,6 +225,7 @@ Each major handler (Admin, Players) delegates to domain-specific sub-handlers:
 **Home Club (required):**
 - `HOME_CLUB_ID`: Database ID of the home club (preferred)
 - `HOME_CLUB_NAME`: Club name for fuzzy lookup (fallback if `HOME_CLUB_ID` is not set)
+- `HOME_CLUB_LOGO_PATH`: Optional URL path to the club logo image (default: `/static/st-anns-tennis.jpg`). Used by the points table and weekly overview. Set to an empty string to hide the logo.
 - `BHPLTA_CLUB_CODE`: Club code on the BHPLTA website (e.g. `STANN001`) — used for match card imports
 
 **Database:**

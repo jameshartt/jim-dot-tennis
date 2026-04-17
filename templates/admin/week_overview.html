@@ -337,9 +337,11 @@
             <div class="parks-logo">
                 <img src="/static/parks-league-tennis.jpg" alt="Parks League Brighton & Hove">
             </div>
+            {{if .HomeClubLogoPath}}
             <div class="logo">
-                <img src="/static/st-anns-tennis.jpg" alt="{{.HomeClubName}}">
+                <img src="{{.HomeClubLogoPath}}" alt="{{.HomeClubName}}">
             </div>
+            {{end}}
             <h1>{{.HomeClubName}} 🎾</h1>
             <div class="week-date">
                 Parks League Week Ahead

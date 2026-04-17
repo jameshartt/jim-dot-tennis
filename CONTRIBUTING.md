@@ -125,6 +125,7 @@ Set these environment variables to run jim.tennis for your club:
 |----------|----------|-------------|
 | `HOME_CLUB_ID` | Yes (or `HOME_CLUB_NAME`) | Database ID of your club |
 | `HOME_CLUB_NAME` | Fallback | Club name for fuzzy lookup if `HOME_CLUB_ID` is not set |
+| `HOME_CLUB_LOGO_PATH` | Optional | URL path to your club logo (default: `/static/st-anns-tennis.jpg`). See "Club logo" below. |
 | `BHPLTA_CLUB_CODE` | For imports | Your club's code on the BHPLTA website (e.g. `STANN001`) |
 | `DB_PATH` | No | Database file path (default: `./tennis.db`) |
 | `COURTHIVE_API_URL` | No | CourtHive API URL (if using tournament management) |
@@ -133,12 +134,22 @@ You'll also want to update:
 - Domain name and Caddy configuration
 - Any club-specific branding in templates (optional — templates use the club name from the database)
 
+### Club logo
+
+The points table and weekly overview pages display a club logo. To swap St Ann's default for your own:
+
+1. Drop your logo (JPG/PNG/SVG) into the `static/` directory — e.g. `static/my-club.jpg`. If deploying via Docker, mount it as a volume at `/app/static/my-club.jpg` instead of rebuilding the image.
+2. Set `HOME_CLUB_LOGO_PATH=/static/my-club.jpg` in your environment.
+3. Leave it unset to keep the default St Ann's logo, or set it to an empty string to hide the logo entirely.
+
 ### What's already handled
 
 These used to require code changes but are now built in:
 
 - **Home/away team logic** — determined by `HOME_CLUB_ID`, not hardcoded
 - **Club name in templates** — injected dynamically from the database via middleware
+- **Club logo** — configurable via `HOME_CLUB_LOGO_PATH`
+- **Divisions label on the points table** — computed dynamically from the divisions your teams are playing in
 - **BHPLTA club code** — configured via `BHPLTA_CLUB_CODE` environment variable
 - **Apostrophe normalisation** — a centralised normalisation layer (`internal/normalize/`) handles the various Unicode apostrophe characters that appear across data sources
 

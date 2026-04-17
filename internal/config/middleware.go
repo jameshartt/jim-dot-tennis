@@ -9,7 +9,7 @@ import (
 // HomeClubMiddleware injects the home club into every request context.
 func HomeClubMiddleware(cfg *AppConfig, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := WithHomeClub(r.Context(), cfg.HomeClubID, cfg.HomeClub)
+		ctx := WithHomeClub(r.Context(), cfg.HomeClubID, cfg.HomeClub, cfg.HomeClubLogoPath)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
