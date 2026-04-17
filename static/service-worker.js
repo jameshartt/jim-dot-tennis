@@ -93,7 +93,17 @@ self.addEventListener('push', function(event) {
   ];
 
   event.waitUntil(
-    self.registration.showNotification(title, options)
+    // Also notify any focused clients so they can show an in-app toast
+    // (iOS PWA suppresses banners when the app is in the foreground)
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then(function(clientList) {
+        clientList.forEach(function(client) {
+          client.postMessage({ type: 'push-received', title: title, body: options.body });
+        });
+      })
+      .then(function() {
+        return self.registration.showNotification(title, options);
+      })
       .catch(function(error) {
         console.error('Service Worker: Error showing notification:', error);
         // Fallback with minimal options (Safari compatibility)

@@ -1427,9 +1427,40 @@
             color: #666;
             line-height: 1.5;
         }
+        /* In-app push toast (shown when PWA is in foreground) */
+        .push-toast {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #2c5530;
+            color: white;
+            padding: 16px 20px;
+            z-index: 10000;
+            transform: translateY(-100%);
+            transition: transform 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        .push-toast.show {
+            transform: translateY(0);
+        }
+        .push-toast-title {
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .push-toast-body {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
     </style>
 </head>
 <body>
+    <!-- In-app push notification toast -->
+    <div id="push-toast" class="push-toast">
+        <div id="push-toast-title" class="push-toast-title"></div>
+        <div id="push-toast-body" class="push-toast-body"></div>
+    </div>
+
     <div class="availability-container">
         <!-- Notification toggle -->
         <div id="notification-bar" class="notification-bar" style="display: none;">
@@ -2520,6 +2551,20 @@
             notifTestBtn.textContent = 'Test';
             notifTestBtn.disabled = false;
         }
+    }
+
+    // Listen for in-app push messages from the service worker
+    // (iOS PWA suppresses notification banners when the app is in the foreground)
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'push-received') {
+                var toast = document.getElementById('push-toast');
+                document.getElementById('push-toast-title').textContent = event.data.title || 'Jim.Tennis';
+                document.getElementById('push-toast-body').textContent = event.data.body || '';
+                toast.classList.add('show');
+                setTimeout(function() { toast.classList.remove('show'); }, 5000);
+            }
+        });
     }
 
     // Init when DOM is ready
