@@ -36,6 +36,7 @@ type TeamRepository interface {
 
 	// Player management
 	AddPlayer(ctx context.Context, teamID uint, playerID string, seasonID uint) error
+	EnsurePlayerInTeam(ctx context.Context, teamID uint, playerID string, seasonID uint) (EnsurePlayerResult, error)
 	RemovePlayer(ctx context.Context, teamID uint, playerID string, seasonID uint) error
 	FindPlayersInTeam(ctx context.Context, teamID, seasonID uint) ([]models.PlayerTeam, error)
 	IsPlayerInTeam(ctx context.Context, teamID uint, playerID string, seasonID uint) (bool, error)
@@ -322,6 +323,50 @@ func (r *teamRepository) AddPlayer(ctx context.Context, teamID uint, playerID st
 		VALUES (?, ?, ?, TRUE, ?, ?)
 	`, playerID, teamID, seasonID, now, now)
 	return err
+}
+
+// EnsurePlayerResult reports what an EnsurePlayerInTeam call did.
+type EnsurePlayerResult int
+
+const (
+	// EnsurePlayerNoop means the player was already active on the team for the season.
+	EnsurePlayerNoop EnsurePlayerResult = iota
+	// EnsurePlayerCreated means a new player_teams row was inserted.
+	EnsurePlayerCreated
+	// EnsurePlayerReactivated means an existing inactive row was flipped back to active.
+	EnsurePlayerReactivated
+)
+
+// EnsurePlayerInTeam guarantees a player is listed on the team for the given season with is_active=TRUE.
+// If a row already exists it is reactivated; otherwise a new row is inserted.
+func (r *teamRepository) EnsurePlayerInTeam(ctx context.Context, teamID uint, playerID string, seasonID uint) (EnsurePlayerResult, error) {
+	var existingActive bool
+	err := r.db.GetContext(ctx, &existingActive, `
+		SELECT is_active FROM player_teams
+		WHERE team_id = ? AND player_id = ? AND season_id = ?
+	`, teamID, playerID, seasonID)
+	now := time.Now()
+	if err != nil {
+		// No existing row – insert one
+		if _, insErr := r.db.ExecContext(ctx, `
+			INSERT INTO player_teams (player_id, team_id, season_id, is_active, created_at, updated_at)
+			VALUES (?, ?, ?, TRUE, ?, ?)
+		`, playerID, teamID, seasonID, now, now); insErr != nil {
+			return EnsurePlayerNoop, insErr
+		}
+		return EnsurePlayerCreated, nil
+	}
+	if existingActive {
+		return EnsurePlayerNoop, nil
+	}
+	// Row exists but inactive – reactivate
+	if _, updErr := r.db.ExecContext(ctx, `
+		UPDATE player_teams SET is_active = TRUE, updated_at = ?
+		WHERE team_id = ? AND player_id = ? AND season_id = ?
+	`, now, teamID, playerID, seasonID); updErr != nil {
+		return EnsurePlayerNoop, updErr
+	}
+	return EnsurePlayerReactivated, nil
 }
 
 // RemovePlayer removes a player from a team for a specific season

@@ -365,7 +365,7 @@ func (s *MatchCardService) processMatchCard(ctx context.Context, config ImportCo
 		if isDerby {
 			// For derby matches, process matchups for both teams
 			// Process matchup for home team
-			homeResult, err := s.processMatchupForTeam(ctx, config, fixture.ID, matchupData, homeTeamID, "home")
+			homeResult, err := s.processMatchupForTeam(ctx, config, fixture, matchupData, homeTeamID, "home")
 			if err != nil {
 				errMsg := fmt.Sprintf("Error processing %s matchup for home team: %v", matchupData.Type, err)
 				result.Errors = append(result.Errors, errMsg)
@@ -382,7 +382,7 @@ func (s *MatchCardService) processMatchCard(ctx context.Context, config ImportCo
 			}
 
 			// Process matchup for away team
-			awayResult, err := s.processMatchupForTeam(ctx, config, fixture.ID, matchupData, awayTeamID, "away")
+			awayResult, err := s.processMatchupForTeam(ctx, config, fixture, matchupData, awayTeamID, "away")
 			if err != nil {
 				errMsg := fmt.Sprintf("Error processing %s matchup for away team: %v", matchupData.Type, err)
 				result.Errors = append(result.Errors, errMsg)
@@ -399,7 +399,7 @@ func (s *MatchCardService) processMatchCard(ctx context.Context, config ImportCo
 			}
 		} else {
 			// For regular matches, process matchup normally
-			matchupResult, err := s.processMatchup(ctx, config, fixture.ID, matchupData)
+			matchupResult, err := s.processMatchup(ctx, config, fixture, matchupData)
 			if err != nil {
 				errMsg := fmt.Sprintf("Error processing matchup %s: %v", matchupData.Type, err)
 				result.Errors = append(result.Errors, errMsg)
@@ -432,11 +432,12 @@ func (s *MatchCardService) processMatchCard(ctx context.Context, config ImportCo
 }
 
 // processMatchup processes a single matchup from the match card
-func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConfig, fixtureID uint, matchupData MatchupData) (*ImportResult, error) {
+func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConfig, fixture *models.Fixture, matchupData MatchupData) (*ImportResult, error) {
 	result := &ImportResult{
 		UnmatchedPlayers: []string{},
 		Errors:           []string{},
 	}
+	fixtureID := fixture.ID
 
 	// Map the parsed matchup type to our enum
 	matchupType, err := s.mapMatchupType(matchupData.Type)
@@ -544,7 +545,7 @@ func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConf
 	}
 
 	// Process players for this matchup
-	playerResult, err := s.processMatchupPlayers(ctx, config, existingMatchup.ID, matchupData)
+	playerResult, err := s.processMatchupPlayers(ctx, config, existingMatchup.ID, fixture, matchupData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process players: %w", err)
 	}
@@ -697,7 +698,7 @@ func (s *MatchCardService) formatSetScores(matchupData MatchupData) string {
 }
 
 // processMatchupPlayers processes players for a matchup
-func (s *MatchCardService) processMatchupPlayers(ctx context.Context, config ImportConfig, matchupID uint, matchupData MatchupData) (*ImportResult, error) {
+func (s *MatchCardService) processMatchupPlayers(ctx context.Context, config ImportConfig, matchupID uint, fixture *models.Fixture, matchupData MatchupData) (*ImportResult, error) {
 	result := &ImportResult{
 		UnmatchedPlayers: []string{},
 		Errors:           []string{},
@@ -735,6 +736,7 @@ func (s *MatchCardService) processMatchupPlayers(ctx context.Context, config Imp
 				result.Errors = append(result.Errors, errMsg)
 				continue
 			}
+			s.ensurePlayerOnHomeClubTeam(ctx, config, playerID, playerName, fixture.HomeTeamID, fixture.SeasonID)
 		}
 
 		result.MatchedPlayers++
@@ -764,6 +766,7 @@ func (s *MatchCardService) processMatchupPlayers(ctx context.Context, config Imp
 				result.Errors = append(result.Errors, errMsg)
 				continue
 			}
+			s.ensurePlayerOnHomeClubTeam(ctx, config, playerID, playerName, fixture.AwayTeamID, fixture.SeasonID)
 		}
 
 		result.MatchedPlayers++
@@ -773,6 +776,39 @@ func (s *MatchCardService) processMatchupPlayers(ctx context.Context, config Imp
 	}
 
 	return result, nil
+}
+
+// ensurePlayerOnHomeClubTeam registers a player on the given team for the given season when the team
+// belongs to the home club. Match card data is authoritative, so if the player played for a home club
+// team they should appear on its roster (and therefore in season-scoped reports like the points table).
+// Failures are logged but do not abort the import.
+func (s *MatchCardService) ensurePlayerOnHomeClubTeam(ctx context.Context, config ImportConfig, playerID, playerName string, teamID, seasonID uint) {
+	team, err := s.teamRepo.FindByID(ctx, teamID)
+	if err != nil || team == nil {
+		if config.Verbose {
+			fmt.Printf("    Skipped team roster check for %s: could not load team %d: %v\n", playerName, teamID, err)
+		}
+		return
+	}
+	if team.ClubID != s.homeClubID {
+		return
+	}
+	action, err := s.teamRepo.EnsurePlayerInTeam(ctx, teamID, playerID, seasonID)
+	if err != nil {
+		if config.Verbose {
+			fmt.Printf("    Failed to ensure %s on team %s (season %d): %v\n", playerName, team.Name, seasonID, err)
+		}
+		return
+	}
+	if !config.Verbose {
+		return
+	}
+	switch action {
+	case repository.EnsurePlayerCreated:
+		fmt.Printf("    Added %s to team %s roster for season %d\n", playerName, team.Name, seasonID)
+	case repository.EnsurePlayerReactivated:
+		fmt.Printf("    Reactivated %s on team %s roster for season %d\n", playerName, team.Name, seasonID)
+	}
 }
 
 // mapMatchupType maps parsed matchup type strings to our enum values
@@ -1153,7 +1189,8 @@ func (s *MatchCardService) clearExistingMatchups(ctx context.Context, config Imp
 }
 
 // processMatchupForTeam processes a matchup for a specific team (used for derby matches)
-func (s *MatchCardService) processMatchupForTeam(ctx context.Context, config ImportConfig, fixtureID uint, matchupData MatchupData, managingTeamID uint, teamContext string) (*ImportResult, error) {
+func (s *MatchCardService) processMatchupForTeam(ctx context.Context, config ImportConfig, fixture *models.Fixture, matchupData MatchupData, managingTeamID uint, teamContext string) (*ImportResult, error) {
+	fixtureID := fixture.ID
 	result := &ImportResult{
 		UnmatchedPlayers: []string{},
 		Errors:           []string{},
@@ -1220,7 +1257,7 @@ func (s *MatchCardService) processMatchupForTeam(ctx context.Context, config Imp
 	}
 
 	// Process players for this matchup with team context
-	playerResult, err := s.processMatchupPlayersForTeam(ctx, config, matchup.ID, matchupData, teamContext)
+	playerResult, err := s.processMatchupPlayersForTeam(ctx, config, matchup.ID, fixture, matchupData, managingTeamID, teamContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process players: %w", err)
 	}
@@ -1234,7 +1271,7 @@ func (s *MatchCardService) processMatchupForTeam(ctx context.Context, config Imp
 }
 
 // processMatchupPlayersForTeam processes players for a matchup with team context (for derby matches)
-func (s *MatchCardService) processMatchupPlayersForTeam(ctx context.Context, config ImportConfig, matchupID uint, matchupData MatchupData, teamContext string) (*ImportResult, error) {
+func (s *MatchCardService) processMatchupPlayersForTeam(ctx context.Context, config ImportConfig, matchupID uint, fixture *models.Fixture, matchupData MatchupData, managingTeamID uint, teamContext string) (*ImportResult, error) {
 	result := &ImportResult{
 		UnmatchedPlayers: []string{},
 		Errors:           []string{},
@@ -1291,6 +1328,8 @@ func (s *MatchCardService) processMatchupPlayersForTeam(ctx context.Context, con
 				result.Errors = append(result.Errors, errMsg)
 				continue
 			}
+			// Derby: managingTeamID is the team these players actually played for.
+			s.ensurePlayerOnHomeClubTeam(ctx, config, playerID, playerName, managingTeamID, fixture.SeasonID)
 		}
 
 		result.MatchedPlayers++
