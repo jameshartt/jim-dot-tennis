@@ -361,6 +361,13 @@
                                        hx-trigger="change"
                                        hx-include="#search,#filter-status,#filter-team,#filter-division" />
                                 <span>{{.Team.Name}}</span>
+                                <button type="button" class="btn-test-push" style="font-size: 0.7rem; padding: 1px 6px;"
+                                    hx-post="/admin/league/players/remind-all?team_id={{.Team.ID}}"
+                                    hx-target="#remind-all-result"
+                                    hx-swap="innerHTML"
+                                    hx-confirm="Send availability reminders to {{.Team.Name}} players?">
+                                    🔔
+                                </button>
                             </label>
                         {{end}}
                     {{end}}

@@ -1058,13 +1058,57 @@ func (h *PlayersHandler) handleRemindAllPlayers(w http.ResponseWriter, r *http.R
 
 	ctx := context.Background()
 
-	// Get all active players
-	players, err := h.service.playerRepository.FindAll(ctx)
-	if err != nil {
-		log.Printf("Error finding active players: %v", err)
-		w.Header().Set("Content-Type", "text/html")
-		fmt.Fprint(w, `<span style="color:#dc3545;">Failed to load players</span>`)
-		return
+	// Check if filtering by specific team(s)
+	teamIDStrs := r.URL.Query()["team_id"]
+	var players []models.Player
+	var teamLabel string
+
+	if len(teamIDStrs) > 0 {
+		// Get active season for team lookup
+		activeSeason, err := h.service.seasonRepository.FindActive(ctx)
+		if err != nil {
+			log.Printf("Error finding active season: %v", err)
+			w.Header().Set("Content-Type", "text/html")
+			fmt.Fprint(w, `<span style="color:#dc3545;">No active season found</span>`)
+			return
+		}
+
+		// Get players for each selected team (deduplicate)
+		seen := make(map[string]bool)
+		for _, idStr := range teamIDStrs {
+			teamID, err := strconv.ParseUint(idStr, 10, 32)
+			if err != nil {
+				continue
+			}
+			teamPlayers, err := h.service.playerRepository.FindByTeam(ctx, uint(teamID), activeSeason.ID)
+			if err != nil {
+				continue
+			}
+			// Get team name for label
+			if team, err := h.service.teamRepository.FindByID(ctx, uint(teamID)); err == nil {
+				if teamLabel == "" {
+					teamLabel = team.Name
+				} else {
+					teamLabel += ", " + team.Name
+				}
+			}
+			for _, p := range teamPlayers {
+				if !seen[p.ID] {
+					seen[p.ID] = true
+					players = append(players, p)
+				}
+			}
+		}
+	} else {
+		// Get all active players
+		var err error
+		players, err = h.service.playerRepository.FindAll(ctx)
+		if err != nil {
+			log.Printf("Error finding active players: %v", err)
+			w.Header().Set("Content-Type", "text/html")
+			fmt.Fprint(w, `<span style="color:#dc3545;">Failed to load players</span>`)
+			return
+		}
 	}
 
 	weekStart, weekEnd := h.service.getNextWeekDateRange()
@@ -1110,8 +1154,12 @@ func (h *PlayersHandler) handleRemindAllPlayers(w http.ResponseWriter, r *http.R
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprintf(w, `<span style="color:#28a745;">Reminded %d players (%d already set, %d without notifications)</span>`,
-		remindedCount, alreadyUpdated, noSubscription)
+	scope := "all players"
+	if teamLabel != "" {
+		scope = teamLabel
+	}
+	fmt.Fprintf(w, `<span style="color:#28a745;">Reminded %d of %s (%d already set, %d without notifications)</span>`,
+		remindedCount, scope, alreadyUpdated, noSubscription)
 }
 
 // getPlayerFantasyToken looks up the fantasy auth token for a player
