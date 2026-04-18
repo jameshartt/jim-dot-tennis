@@ -131,14 +131,23 @@ func (h *AvailabilityHandler) handleAvailabilityGet(w http.ResponseWriter, r *ht
 
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
-		"Player":       player,
-		"FantasyMatch": fantasyMatch,
-		"AuthToken":    authToken,
-		"TeamAName":    getTeamName(fantasyMatch.TeamAWoman, fantasyMatch.TeamAMan),
-		"TeamBName":    getTeamName(fantasyMatch.TeamBWoman, fantasyMatch.TeamBMan),
+		"Player":          player,
+		"FantasyMatch":    fantasyMatch,
+		"AuthToken":       authToken,
+		"TeamAName":       getTeamName(fantasyMatch.TeamAWoman, fantasyMatch.TeamAMan),
+		"TeamBName":       getTeamName(fantasyMatch.TeamBWoman, fantasyMatch.TeamBMan),
+		"MyTennisEnabled": myTennisEnabled(),
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
+}
+
+// myTennisEnabled reports whether the 'My Tennis' CTA should render on the
+// availability page. Gated by the MY_TENNIS_ENABLED env var (parsed as a bool;
+// default off) so the feature can be rolled out independently of the route.
+func myTennisEnabled() bool {
+	b, _ := strconv.ParseBool(os.Getenv("MY_TENNIS_ENABLED"))
+	return b
 }
 
 // handleAvailabilityPost handles POST requests for updating availability

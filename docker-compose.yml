@@ -21,6 +21,7 @@ services:
       - HOME_CLUB_ID=${HOME_CLUB_ID:-}
       - HOME_CLUB_NAME=${HOME_CLUB_NAME:-St Ann}
       - BHPLTA_CLUB_CODE=${BHPLTA_CLUB_CODE}
+      - MY_TENNIS_ENABLED=${MY_TENNIS_ENABLED:-}
     networks:
       default:
         # "app" is an HSTS-preloaded TLD (.app) — Chromium unconditionally
