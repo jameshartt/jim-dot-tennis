@@ -46,7 +46,7 @@ test.describe("Admin Players", () => {
 
   test("add player button is present", async ({ adminPage }) => {
     await adminPage.goto("/admin/league/players");
-    const addBtn = adminPage.locator(".btn-add");
+    const addBtn = adminPage.locator('a.btn-add[href="/admin/league/players/new"]');
     await expect(addBtn).toBeVisible();
   });
 });

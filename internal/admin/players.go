@@ -346,6 +346,14 @@ func (h *PlayersHandler) handlePlayerEditGet(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
+	// Load the 'My Tennis' summary. Admin-session surface only —
+	// safe to read stored preferences here (contrast WI-097).
+	myTennisSummary, err := h.service.GetPlayerTennisSummary(r.Context(), playerID)
+	if err != nil {
+		log.Printf("Failed to load My Tennis summary for %s: %v", playerID, err)
+		myTennisSummary = nil // degrade gracefully — summary card just won't render
+	}
+
 	// Load the player edit template
 	tmpl, err := parseTemplate(h.templateDir, "admin/player_edit.html")
 	if err != nil {
@@ -382,6 +390,7 @@ func (h *PlayersHandler) handlePlayerEditGet(w http.ResponseWriter, r *http.Requ
 		"CurrentFantasyMatchID": currentFantasyMatchID,
 		"HasPushNotifications":  hasPushNotifications,
 		"FantasyAuthToken":      fantasyAuthToken,
+		"MyTennisSummary":       myTennisSummary,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}

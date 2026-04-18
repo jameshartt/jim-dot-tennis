@@ -1,0 +1,37 @@
+{
+  "id": "WI-098",
+  "title": "Reusable preference summary partial for admin/captain-side consumption",
+  "description": "Build a single template partial that renders a compact, informative summary of a player's 'My Tennis' answers. Consumed by the admin player detail page (WI-099) and the Sprint 017 captain dashboard — never by any /my-profile/* or /my-availability/* handler. This is the canonical read-side render of stored preferences.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": ["WI-094"],
+  "acceptance_criteria": [
+    "New partial at templates/admin/partials/my_tennis_summary.html renders a player's stored preferences compactly",
+    "Partial renders gracefully when most/all fields are empty ('Not filled in yet — that's ok.')",
+    "Partial uses chips / pill tags for enum values (handedness, court side, match-type appetite, etc.)",
+    "Partial shows partner lists (clicks_with, would_love_to_try) with full names where resolvable",
+    "Partial does NOT render captain_player_notes — that's a separate surface (Sprint 017 WI-105)",
+    "Partial has a `scope` parameter controlling whether sensitive fields (what_to_know_about_my_game, notes_to_captain) are shown — default yes for admin/captain consumers",
+    "Service method GetPlayerTennisSummary(playerID) returns the composite struct needed by the partial",
+    "Partial file path is documented so Sprint 017 can include it directly from the dashboard"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/admin/partials/my_tennis_summary.html",
+      "internal/admin/service_player_tennis.go — wraps repository calls for preferences + partner lists",
+      "internal/repository/player_tennis_preference_repository.go"
+    ],
+    "positive_framing_in_copy": "The partial celebrates rather than audits — 'Loves the net', 'Thrives under pressure' not 'Baseline only / avoids pressure'"
+  },
+  "testing_requirements": [
+    "Unit test: partial renders with fully-populated preferences",
+    "Unit test: partial renders with zero preferences (friendly empty state)",
+    "Unit test: partial renders with partial preferences (subset of fields)",
+    "Visual QA: layout is compact enough to fit multiple summaries side-by-side on the Sprint 017 dashboard"
+  ],
+  "context": {
+    "user_story": "As a captain, I want a consistent, glanceable summary of each player's tennis across every surface where I see them — the player detail page and the planning dashboard."
+  }
+}

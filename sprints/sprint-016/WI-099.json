@@ -1,0 +1,30 @@
+{
+  "id": "WI-099",
+  "title": "Show 'My Tennis' summary on the admin player detail page",
+  "description": "Surface the preference summary partial (WI-098) on the existing admin player detail page (/admin/league/players/{id}) so captains and admins can review a player's tennis profile in context.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": ["WI-098"],
+  "acceptance_criteria": [
+    "Admin player detail page embeds templates/admin/partials/my_tennis_summary.html in a clearly labelled 'My Tennis' section",
+    "Section shows the friendly 'Not filled in yet' state when the player has no stored preferences",
+    "Handler passes the composite preferences struct into the template context",
+    "Section positioned near existing identity details, before the teams/captaincy blocks",
+    "No player-facing template is modified"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/admin/players.go — load preferences on the detail handler",
+      "templates/admin/player_edit.html (or the canonical detail template) — include the partial"
+    ]
+  },
+  "testing_requirements": [
+    "Manual: admin navigates to a player with preferences and sees them rendered",
+    "Manual: admin navigates to a player with no preferences and sees the empty state"
+  ],
+  "context": {
+    "user_story": "As a captain browsing the admin player list, I want to click into a player and immediately see their tennis profile alongside the rest of their record."
+  }
+}

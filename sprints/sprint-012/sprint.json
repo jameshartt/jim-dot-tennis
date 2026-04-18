@@ -6,7 +6,7 @@
     "start_date": null,
     "end_date": null,
     "duration_weeks": 2,
-    "status": "planned",
+    "status": "completed",
     "focus_areas": [
       "Tournament provider management",
       "Tournament CRUD and visibility control",

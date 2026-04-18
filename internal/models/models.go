@@ -373,6 +373,112 @@ type Tournament struct {
 	ProviderName string `json:"provider_name,omitempty" db:"provider_name"`
 }
 
+// PlayerTennisPreferences captures a player's self-authored 'My Tennis' profile.
+// One row per player; every scalar is nullable — partial completion is the norm.
+// JSON-TEXT columns (PreferredDays, PreferredTimes, ImprovementFocus) hold
+// comma-free JSON arrays of short string tokens.
+type PlayerTennisPreferences struct {
+	PlayerID string `json:"player_id" db:"player_id"`
+
+	// Identity & Vibe
+	YearsPlaying       *int    `json:"years_playing,omitempty" db:"years_playing"`
+	HowIGotIntoTennis  *string `json:"how_i_got_into_tennis,omitempty" db:"how_i_got_into_tennis"`
+	TennisHeroOrStyle  *string `json:"tennis_hero_or_style,omitempty" db:"tennis_hero_or_style"`
+	PreMatchRitual     *string `json:"pre_match_ritual,omitempty" db:"pre_match_ritual"`
+
+	// Match Types
+	MixedDoublesAppetite      *string `json:"mixed_doubles_appetite,omitempty" db:"mixed_doubles_appetite"`
+	SameGenderDoublesAppetite *string `json:"same_gender_doubles_appetite,omitempty" db:"same_gender_doubles_appetite"`
+	OpenToFillIn              *bool   `json:"open_to_fill_in,omitempty" db:"open_to_fill_in"`
+
+	// Playing Style
+	Handedness         *string `json:"handedness,omitempty" db:"handedness"`
+	Backhand           *string `json:"backhand,omitempty" db:"backhand"`
+	ServeStyle         *string `json:"serve_style,omitempty" db:"serve_style"`
+	NetComfort         *string `json:"net_comfort,omitempty" db:"net_comfort"`
+	PreferredCourtSide *string `json:"preferred_court_side,omitempty" db:"preferred_court_side"`
+	SignatureShot      *string `json:"signature_shot,omitempty" db:"signature_shot"`
+	ShotImWorkingOn    *string `json:"shot_im_working_on,omitempty" db:"shot_im_working_on"`
+	FavouriteTactic    *string `json:"favourite_tactic,omitempty" db:"favourite_tactic"`
+
+	// Partnership (scalar; lists live in PlayerPreferredPartner)
+	PartnerConsistency *string `json:"partner_consistency,omitempty" db:"partner_consistency"`
+	OnCourtVibe        *string `json:"on_court_vibe,omitempty" db:"on_court_vibe"`
+
+	// Intensity & Goals
+	Competitiveness   *int    `json:"competitiveness,omitempty" db:"competitiveness"`
+	PressureResponse  *string `json:"pressure_response,omitempty" db:"pressure_response"`
+	SeasonGoal        *string `json:"season_goal,omitempty" db:"season_goal"`
+	ImprovementFocus  *string `json:"improvement_focus,omitempty" db:"improvement_focus"` // JSON array of tokens
+
+	// Logistics
+	PreferredDays    *string `json:"preferred_days,omitempty" db:"preferred_days"`   // JSON array
+	PreferredTimes   *string `json:"preferred_times,omitempty" db:"preferred_times"` // JSON array
+	MaxTravelMiles   *int    `json:"max_travel_miles,omitempty" db:"max_travel_miles"`
+	Transport        *string `json:"transport,omitempty" db:"transport"`
+	HomeCourtMatters *string `json:"home_court_matters,omitempty" db:"home_court_matters"`
+
+	// Health & Access
+	WhatToKnowAboutMyGame *string `json:"what_to_know_about_my_game,omitempty" db:"what_to_know_about_my_game"`
+	AccessibilityNotes    *string `json:"accessibility_notes,omitempty" db:"accessibility_notes"`
+	WeatherTolerance      *string `json:"weather_tolerance,omitempty" db:"weather_tolerance"`
+
+	// Fun & Playful
+	TennisSpiritAnimal *string `json:"tennis_spirit_animal,omitempty" db:"tennis_spirit_animal"`
+	WalkoutSong        *string `json:"walkout_song,omitempty" db:"walkout_song"`
+	CelebrationStyle   *string `json:"celebration_style,omitempty" db:"celebration_style"`
+	PostMatch          *string `json:"post_match,omitempty" db:"post_match"`
+	MyTennisInOneLine  *string `json:"my_tennis_in_one_line,omitempty" db:"my_tennis_in_one_line"`
+
+	// Communications
+	PreferredContact       *string `json:"preferred_contact,omitempty" db:"preferred_contact"`
+	BestWindowForLastMinute *string `json:"best_window_for_last_minute,omitempty" db:"best_window_for_last_minute"`
+	NotesToCaptain          *string `json:"notes_to_captain,omitempty" db:"notes_to_captain"`
+
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// PreferredPartnerKind enumerates the positive partner-preference kinds.
+// 'avoid' is deliberately absent — tactical or negative information lives
+// on CaptainPlayerNote, never on player-authored tables.
+type PreferredPartnerKind string
+
+const (
+	PreferredPartnerClicksWith     PreferredPartnerKind = "clicks_with"
+	PreferredPartnerWouldLoveToTry PreferredPartnerKind = "would_love_to_try"
+)
+
+// PlayerPreferredPartner is the join row for 'partners I click with' /
+// 'partners I'd love to try'. Positive only.
+type PlayerPreferredPartner struct {
+	ID              uint                 `json:"id" db:"id"`
+	PlayerID        string               `json:"player_id" db:"player_id"`
+	PartnerPlayerID string               `json:"partner_player_id" db:"partner_player_id"`
+	Kind            PreferredPartnerKind `json:"kind" db:"kind"`
+	CreatedAt       time.Time            `json:"created_at" db:"created_at"`
+}
+
+// CaptainNoteKind enumerates the kinds of captain-authored note.
+type CaptainNoteKind string
+
+const (
+	CaptainNoteKindPartnership CaptainNoteKind = "partnership"
+	CaptainNoteKindGeneral     CaptainNoteKind = "general"
+)
+
+// CaptainPlayerNote is a captain-only, never-player-visible note about a
+// player. Must never be queried from player-facing handlers.
+type CaptainPlayerNote struct {
+	ID           uint            `json:"id" db:"id"`
+	PlayerID     string          `json:"player_id" db:"player_id"`
+	AuthorUserID int64           `json:"author_user_id" db:"author_user_id"`
+	Kind         CaptainNoteKind `json:"kind" db:"kind"`
+	Body         string          `json:"body" db:"body"`
+	CreatedAt    time.Time       `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at" db:"updated_at"`
+}
+
 // FantasyMixedDoubles represents a fantasy mixed doubles match for player authentication
 type FantasyMixedDoubles struct {
 	ID           uint      `json:"id" db:"id"`

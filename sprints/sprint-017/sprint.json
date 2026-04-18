@@ -1,0 +1,30 @@
+{
+  "sprint": {
+    "id": "sprint-017",
+    "name": "Captain Planning Dashboard — Big-Picture Week Planning",
+    "goal": "Give captains a larger-screen planning surface that unifies availability, 'My Tennis' preferences, and captain-only private notes across the whole club, with effortless week-by-week scrubbing and a draft-lineup flow that hands off to the existing selection workflow",
+    "start_date": null,
+    "end_date": null,
+    "duration_weeks": 2,
+    "type": "numbered",
+    "focus_areas": [
+      "Unified 'whole club' planning view with scope filters (My Teams / My Division / Team / All)",
+      "Week scrubbing with availability + preferences roll-up",
+      "Captain-only private notes (where 'no-nos' live)",
+      "Flow from planning draft into the existing selection workflow"
+    ],
+    "dependencies": [
+      "Sprint 016 WI-094 (schema: user.player_id FK, player_tennis_preferences, captain_player_notes)",
+      "Sprint 016 WI-098 (preference summary partial)"
+    ],
+    "work_items": [
+      "WI-101",
+      "WI-102",
+      "WI-103",
+      "WI-104",
+      "WI-105",
+      "WI-106",
+      "WI-107"
+    ]
+  }
+}

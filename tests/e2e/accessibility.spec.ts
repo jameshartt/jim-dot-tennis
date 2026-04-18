@@ -62,6 +62,9 @@ baseTest.describe("Accessibility - Public Pages", () => {
       await expectNoA11yViolations(page, [
         // Availability page may have interactive divs for calendar
         "nested-interactive",
+        // My Tennis CTA is a block-styled gradient button distinguishable by
+        // shape, background, shadow, and an icon — not color alone.
+        "link-in-text-block",
       ]);
     },
   );

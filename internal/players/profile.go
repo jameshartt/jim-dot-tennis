@@ -17,6 +17,7 @@ import (
 type ProfileHandler struct {
 	service     *Service
 	templateDir string
+	myTennis    *MyTennisHandler
 }
 
 // NewProfileHandler creates a new profile handler
@@ -24,6 +25,7 @@ func NewProfileHandler(service *Service, templateDir string) *ProfileHandler {
 	return &ProfileHandler{
 		service:     service,
 		templateDir: templateDir,
+		myTennis:    NewMyTennisHandler(service, templateDir),
 	}
 }
 
@@ -54,49 +56,19 @@ func (h *ProfileHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Authenticated player: %s %s (ID: %s) for auth token: %s, action: %s",
 		player.FirstName, player.LastName, player.ID, authToken, action)
 
-	// Route based on action and method
+	// Route based on action and method.
+	// GET /my-profile/{token}         → blank 'My Tennis' form (write-only; WI-095/WI-097)
+	// POST /my-profile/{token}        → merge-save partial preferences (WI-097)
+	// GET /my-profile/{token}/history → match history (initials-only; WI-093)
 	switch {
 	case action == "" && r.Method == http.MethodGet:
-		h.handleProfileGet(w, r, &player, authToken)
+		h.myTennis.HandleGet(w, r, &player, authToken)
+	case action == "" && r.Method == http.MethodPost:
+		h.myTennis.HandlePost(w, r, &player, authToken)
 	case action == "history" && r.Method == http.MethodGet:
 		h.handleMatchHistory(w, r, &player, authToken)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-// handleProfileGet displays the profile page for a player
-func (h *ProfileHandler) handleProfileGet(w http.ResponseWriter, r *http.Request, player *models.Player, authToken string) {
-	// Get the player profile data
-	profileData, err := h.service.GetPlayerProfileData(player.ID)
-	if err != nil {
-		log.Printf("Failed to load profile data for player %s: %v", player.ID, err)
-		http.Error(w, "Failed to load profile data", http.StatusInternalServerError)
-		return
-	}
-
-	// Load the profile template
-	tmpl, err := parseTemplate(h.templateDir, "players/profile.html")
-	if err != nil {
-		log.Printf("Error parsing profile template: %v", err)
-		// Fallback to simple HTML response
-		renderFallbackHTML(w, "Player Profile", "My Profile",
-			fmt.Sprintf("Profile for %s %s", player.FirstName, player.LastName),
-			"/")
-		return
-	}
-
-	// Execute the template with data
-	if err := renderTemplate(w, tmpl, map[string]interface{}{
-		"Player":           profileData.Player,
-		"Club":             profileData.Club,
-		"CurrentTeams":     profileData.CurrentSeasonTeams,
-		"HistoricalTeams":  profileData.HistoricalTeams,
-		"UpcomingFixtures": profileData.UpcomingFixtures,
-		"AvailStats":       profileData.AvailabilityStats,
-		"AuthToken":        authToken,
-	}); err != nil {
-		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
 }
 

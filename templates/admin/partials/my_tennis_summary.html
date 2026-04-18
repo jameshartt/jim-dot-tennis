@@ -1,0 +1,204 @@
+{{/*
+    My Tennis summary partial.
+
+    Consumed ONLY by admin-session surfaces — admin player detail (WI-099)
+    and the Sprint 017 captain planning dashboard. MUST NOT be included from
+    any /my-profile/{token} template: stored preferences are not allowed to
+    be echoed on the fantasy-token URL (see WI-097).
+
+    Expected data shape: admin.PlayerTennisSummary (see service_player_tennis.go)
+
+    Usage:
+        {{ template "admin/partials/my_tennis_summary.html" .MyTennisSummary }}
+
+    Scope:
+        Sensitive free-text fields (what_to_know_about_my_game, notes_to_captain)
+        are always shown when the partial is included — callers control access
+        by choosing whether to include it at all. Captain-only notes
+        (captain_player_notes) are NOT part of this partial (see Sprint 017 WI-105).
+*/}}
+<style>
+    .mt-summary { --mt-green: #2c5530; --mt-green-soft: #4a7c59; --mt-green-tint: #e8f5e8; }
+    .mt-summary { background: #fafffa; border: 1px solid var(--mt-green-tint); border-radius: 12px; padding: 18px; }
+    .mt-summary h3 { margin: 0 0 6px 0; color: var(--mt-green); font-size: 18px; }
+    .mt-summary .mt-lede { margin: 0 0 14px 0; color: #666; font-size: 13px; }
+    .mt-summary .mt-empty { padding: 20px; text-align: center; color: #888; font-style: italic; }
+    .mt-group { margin-bottom: 14px; }
+    .mt-group:last-child { margin-bottom: 0; }
+    .mt-group-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--mt-green-soft); margin-bottom: 6px; font-weight: 700; }
+    .mt-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .mt-chip { display: inline-block; padding: 4px 10px; background: var(--mt-green-tint); color: var(--mt-green); border-radius: 999px; font-size: 12px; font-weight: 500; }
+    .mt-chip-strong { background: var(--mt-green-soft); color: white; }
+    .mt-oneliner { background: white; border-left: 3px solid var(--mt-green-soft); padding: 10px 14px; font-style: italic; color: #333; border-radius: 6px; margin-bottom: 10px; }
+    .mt-block { margin-bottom: 10px; font-size: 13px; color: #333; }
+    .mt-block-label { font-weight: 600; color: var(--mt-green); }
+    .mt-slider { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--mt-green); font-weight: 600; }
+    .mt-slider .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--mt-green-tint); display: inline-block; }
+    .mt-slider .dot.on { background: var(--mt-green-soft); }
+</style>
+
+<section class="mt-summary" data-testid="my-tennis-summary">
+    <h3>My Tennis</h3>
+    <p class="mt-lede">Their own words about how they play.</p>
+
+    {{ if not .HasAny }}
+        <div class="mt-empty" data-testid="my-tennis-empty">
+            Not filled in yet — that's ok. Invite them to share at
+            <code>/my-profile/&lt;token&gt;</code>.
+        </div>
+    {{ else }}
+        {{ with .Preferences }}
+            {{ if and .MyTennisInOneLine (ne (deref .MyTennisInOneLine) "") }}
+                <div class="mt-oneliner">"{{ deref .MyTennisInOneLine }}"</div>
+            {{ end }}
+
+            <!-- Identity & Vibe -->
+            {{ if or (ne (derefInt .YearsPlaying) 0) (ne (deref .TennisHeroOrStyle) "") (ne (deref .HowIGotIntoTennis) "") (ne (deref .PreMatchRitual) "") }}
+            <div class="mt-group">
+                <div class="mt-group-title">Identity & Vibe</div>
+                <div class="mt-chip-row">
+                    {{ if ne (derefInt .YearsPlaying) 0 }}<span class="mt-chip">{{ derefInt .YearsPlaying }} years playing</span>{{ end }}
+                    {{ if ne (deref .TennisHeroOrStyle) "" }}<span class="mt-chip">Loves: {{ deref .TennisHeroOrStyle }}</span>{{ end }}
+                </div>
+                {{ if ne (deref .HowIGotIntoTennis) "" }}<div class="mt-block"><span class="mt-block-label">Origin story:</span> {{ deref .HowIGotIntoTennis }}</div>{{ end }}
+                {{ if ne (deref .PreMatchRitual) "" }}<div class="mt-block"><span class="mt-block-label">Pre-match ritual:</span> {{ deref .PreMatchRitual }}</div>{{ end }}
+            </div>
+            {{ end }}
+
+            <!-- Match Types -->
+            {{ if or .MixedDoublesAppetite .SameGenderDoublesAppetite .OpenToFillIn }}
+            <div class="mt-group">
+                <div class="mt-group-title">Match Types</div>
+                <div class="mt-chip-row">
+                    {{ if .MixedDoublesAppetite }}<span class="mt-chip">{{ prefLabel "mixed_doubles_appetite" .MixedDoublesAppetite }}</span>{{ end }}
+                    {{ if .SameGenderDoublesAppetite }}<span class="mt-chip">{{ prefLabel "same_gender_doubles_appetite" .SameGenderDoublesAppetite }}</span>{{ end }}
+                    {{ if .OpenToFillIn }}
+                        {{ if eq (derefBool .OpenToFillIn) true }}<span class="mt-chip mt-chip-strong">Open to fill in</span>{{ end }}
+                    {{ end }}
+                </div>
+            </div>
+            {{ end }}
+
+            <!-- Playing Style -->
+            {{ if or .Handedness .Backhand .ServeStyle .NetComfort .PreferredCourtSide (ne (deref .SignatureShot) "") (ne (deref .ShotImWorkingOn) "") (ne (deref .FavouriteTactic) "") }}
+            <div class="mt-group">
+                <div class="mt-group-title">Playing Style</div>
+                <div class="mt-chip-row">
+                    {{ if .Handedness }}<span class="mt-chip">{{ prefLabel "handedness" .Handedness }}</span>{{ end }}
+                    {{ if .Backhand }}<span class="mt-chip">{{ prefLabel "backhand" .Backhand }}</span>{{ end }}
+                    {{ if .ServeStyle }}<span class="mt-chip">{{ prefLabel "serve_style" .ServeStyle }}</span>{{ end }}
+                    {{ if .NetComfort }}<span class="mt-chip">{{ prefLabel "net_comfort" .NetComfort }}</span>{{ end }}
+                    {{ if .PreferredCourtSide }}<span class="mt-chip">{{ prefLabel "preferred_court_side" .PreferredCourtSide }}</span>{{ end }}
+                </div>
+                {{ if ne (deref .SignatureShot) "" }}<div class="mt-block"><span class="mt-block-label">Signature shot:</span> {{ deref .SignatureShot }}</div>{{ end }}
+                {{ if ne (deref .ShotImWorkingOn) "" }}<div class="mt-block"><span class="mt-block-label">Working on:</span> {{ deref .ShotImWorkingOn }}</div>{{ end }}
+                {{ if ne (deref .FavouriteTactic) "" }}<div class="mt-block"><span class="mt-block-label">Favourite tactic:</span> {{ deref .FavouriteTactic }}</div>{{ end }}
+            </div>
+            {{ end }}
+
+            <!-- Partnership -->
+            {{ if or .PartnerConsistency .OnCourtVibe }}
+            <div class="mt-group">
+                <div class="mt-group-title">Partnership</div>
+                <div class="mt-chip-row">
+                    {{ if .PartnerConsistency }}<span class="mt-chip">{{ prefLabel "partner_consistency" .PartnerConsistency }}</span>{{ end }}
+                    {{ if .OnCourtVibe }}<span class="mt-chip">{{ prefLabel "on_court_vibe" .OnCourtVibe }}</span>{{ end }}
+                </div>
+            </div>
+            {{ end }}
+
+            <!-- Intensity & Goals -->
+            {{ if or .Competitiveness .PressureResponse (ne (deref .SeasonGoal) "") $.ImprovementFocus }}
+            <div class="mt-group">
+                <div class="mt-group-title">Intensity & Goals</div>
+                <div class="mt-chip-row">
+                    {{ if .Competitiveness }}
+                        <span class="mt-slider" aria-label="Competitiveness {{ derefInt .Competitiveness }} of 5">
+                            Competitiveness:
+                            {{ range $i, $_ := until 5 }}
+                                <span class="dot {{ if le (add $i 1) (derefInt $.Preferences.Competitiveness) }}on{{ end }}"></span>
+                            {{ end }}
+                        </span>
+                    {{ end }}
+                    {{ if .PressureResponse }}<span class="mt-chip">{{ prefLabel "pressure_response" .PressureResponse }}</span>{{ end }}
+                </div>
+                {{ if ne (deref .SeasonGoal) "" }}<div class="mt-block"><span class="mt-block-label">Season goal:</span> {{ deref .SeasonGoal }}</div>{{ end }}
+                {{ if $.ImprovementFocus }}
+                <div class="mt-chip-row" style="margin-top:6px;">
+                    {{ range $.ImprovementFocus }}<span class="mt-chip">Working on: {{ . }}</span>{{ end }}
+                </div>
+                {{ end }}
+            </div>
+            {{ end }}
+
+            <!-- Logistics -->
+            {{ if or $.PreferredDays .HomeCourtMatters }}
+            <div class="mt-group">
+                <div class="mt-group-title">Logistics</div>
+                {{ if $.PreferredDays }}
+                <div class="mt-chip-row"><strong style="font-size:12px;color:#666;">Nights:</strong>
+                    {{ range $.PreferredDays }}<span class="mt-chip">{{ . }}</span>{{ end }}
+                </div>
+                {{ end }}
+                {{ if .HomeCourtMatters }}
+                <div class="mt-chip-row" style="margin-top:6px;">
+                    <span class="mt-chip">{{ prefLabel "home_court_matters" .HomeCourtMatters }}</span>
+                </div>
+                {{ end }}
+            </div>
+            {{ end }}
+
+            <!-- Health & Access -->
+            {{ if or (ne (deref .WhatToKnowAboutMyGame) "") (ne (deref .AccessibilityNotes) "") .WeatherTolerance }}
+            <div class="mt-group">
+                <div class="mt-group-title">Health & Access</div>
+                {{ if ne (deref .WhatToKnowAboutMyGame) "" }}<div class="mt-block"><span class="mt-block-label">What to know about my game:</span> {{ deref .WhatToKnowAboutMyGame }}</div>{{ end }}
+                {{ if ne (deref .AccessibilityNotes) "" }}<div class="mt-block"><span class="mt-block-label">Accessibility:</span> {{ deref .AccessibilityNotes }}</div>{{ end }}
+                {{ if .WeatherTolerance }}<div class="mt-chip-row"><span class="mt-chip">{{ prefLabel "weather_tolerance" .WeatherTolerance }}</span></div>{{ end }}
+            </div>
+            {{ end }}
+
+            <!-- Fun -->
+            {{ if or (ne (deref .TennisSpiritAnimal) "") (ne (deref .WalkoutSong) "") .CelebrationStyle (ne (deref .PostMatch) "") }}
+            <div class="mt-group">
+                <div class="mt-group-title">Fun</div>
+                <div class="mt-chip-row">
+                    {{ if ne (deref .TennisSpiritAnimal) "" }}<span class="mt-chip">Spirit animal: {{ deref .TennisSpiritAnimal }}</span>{{ end }}
+                    {{ if .CelebrationStyle }}<span class="mt-chip">{{ prefLabel "celebration_style" .CelebrationStyle }}</span>{{ end }}
+                </div>
+                {{ if ne (deref .WalkoutSong) "" }}<div class="mt-block"><span class="mt-block-label">Walkout song:</span> {{ deref .WalkoutSong }}</div>{{ end }}
+                {{ if ne (deref .PostMatch) "" }}<div class="mt-block"><span class="mt-block-label">Post-match:</span> {{ deref .PostMatch }}</div>{{ end }}
+            </div>
+            {{ end }}
+
+            <!-- Comms -->
+            {{ if or .PreferredContact (ne (deref .BestWindowForLastMinute) "") (ne (deref .NotesToCaptain) "") }}
+            <div class="mt-group">
+                <div class="mt-group-title">Comms</div>
+                <div class="mt-chip-row">
+                    {{ if .PreferredContact }}<span class="mt-chip">{{ prefLabel "preferred_contact" .PreferredContact }}</span>{{ end }}
+                </div>
+                {{ if ne (deref .BestWindowForLastMinute) "" }}<div class="mt-block"><span class="mt-block-label">Best window:</span> {{ deref .BestWindowForLastMinute }}</div>{{ end }}
+                {{ if ne (deref .NotesToCaptain) "" }}<div class="mt-block"><span class="mt-block-label">Notes to captain:</span> {{ deref .NotesToCaptain }}</div>{{ end }}
+            </div>
+            {{ end }}
+        {{ end }}
+
+        <!-- Partners (always admin-scope; names fine on session surface) -->
+        {{ if or .PartnersClicksWith .PartnersWouldLoveToTry }}
+        <div class="mt-group">
+            <div class="mt-group-title">Partnership preferences</div>
+            {{ if .PartnersClicksWith }}
+            <div class="mt-block"><span class="mt-block-label">Clicks with:</span>
+                {{ range $i, $p := .PartnersClicksWith }}{{ if $i }}, {{ end }}{{ if $p.FirstName }}{{ $p.FirstName }} {{ $p.LastName }}{{ else }}(unknown player){{ end }}{{ end }}
+            </div>
+            {{ end }}
+            {{ if .PartnersWouldLoveToTry }}
+            <div class="mt-block"><span class="mt-block-label">Would love to try:</span>
+                {{ range $i, $p := .PartnersWouldLoveToTry }}{{ if $i }}, {{ end }}{{ if $p.FirstName }}{{ $p.FirstName }} {{ $p.LastName }}{{ else }}(unknown player){{ end }}{{ end }}
+            </div>
+            {{ end }}
+        </div>
+        {{ end }}
+    {{ end }}
+</section>

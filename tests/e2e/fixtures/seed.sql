@@ -164,3 +164,56 @@ INSERT OR REPLACE INTO fantasy_mixed_doubles (id, team_a_woman_id, team_a_man_id
 VALUES (1, 1, 2, 3, 4, 'Sabalenka_Djokovic_Gauff_Sinner', 1);
 
 -- p-alice is linked to the fantasy match via fantasy_match_id = 1 in the INSERT above
+
+-- ============================================================
+-- Sprint 016: 'My Tennis' preferences for p-alice
+-- Used by admin-summary rendering + privacy/leak regression tests.
+-- Every field here is something the admin summary should display when
+-- p-alice is viewed through the admin session — and must NOT appear
+-- on any /my-profile/{token} GET.
+-- ============================================================
+INSERT OR REPLACE INTO player_tennis_preferences (
+  player_id,
+  years_playing, how_i_got_into_tennis, tennis_hero_or_style, pre_match_ritual,
+  mixed_doubles_appetite, same_gender_doubles_appetite, open_to_fill_in,
+  handedness, backhand, serve_style, net_comfort, preferred_court_side,
+  signature_shot, shot_im_working_on, favourite_tactic,
+  partner_consistency, on_court_vibe,
+  competitiveness, pressure_response, season_goal, improvement_focus,
+  preferred_days, preferred_times, max_travel_miles, transport, home_court_matters,
+  what_to_know_about_my_game, accessibility_notes, weather_tolerance,
+  tennis_spirit_animal, walkout_song, celebration_style, post_match, my_tennis_in_one_line,
+  preferred_contact, best_window_for_last_minute, notes_to_captain,
+  created_at, updated_at
+) VALUES (
+  'p-alice',
+  12, 'School summer camps, then got obsessed during lockdown.', 'Sabalenka — power and joy', 'Strong coffee and dynamic stretches',
+  'love_it', 'happy_to', 1,
+  'right', 'two_handed', 'placement', 'happy', 'deuce',
+  'Inside-out forehand', 'Kick serve', 'Poach early, cross at the net',
+  'few_regulars', 'chatty_encouraging',
+  4, 'thrive', 'Stay injury-free and break the Div 1 top four', '["serve","volleys"]',
+  '["tuesday","thursday","saturday"]', '["evening"]', 20, 'car', 'slight_preference',
+  'Chronic tennis elbow flares up after three sets — better doubles than singles.', 'No special needs.', 'all_weather',
+  'Border collie', 'Seeded Walkout Song — Stored Answer Canary', 'fist_pump', 'Pint in the clubhouse', 'Crafty baseliner who plays better after coffee.',
+  'whatsapp', 'Evenings after 7pm', 'Happy to share a ride from central Brighton.',
+  '2026-04-01 00:00:00', '2026-04-01 00:00:00'
+);
+
+-- A preferred partner for regression coverage
+INSERT OR IGNORE INTO player_preferred_partners (id, player_id, partner_player_id, kind, created_at)
+VALUES
+  (1, 'p-alice', 'p-bob',   'clicks_with',       '2026-04-01 00:00:00'),
+  (2, 'p-alice', 'p-dave',  'would_love_to_try', '2026-04-01 00:00:00');
+
+-- A captain note that player-facing surfaces must NEVER leak.
+-- Sprint 017 WI-107 will add deeper coverage; we keep this row here so
+-- WI-100's privacy sweep can assert the note body does not appear on
+-- /my-profile/{token} or /my-availability/{token} today.
+INSERT OR IGNORE INTO captain_player_notes (
+  id, player_id, author_user_id, kind, body, created_at, updated_at
+) VALUES (
+  1, 'p-alice', 1, 'partnership',
+  'CAPTAIN_NOTE_LEAK_CANARY_2026 — tactical note that must not appear on any player-facing surface.',
+  '2026-04-01 00:00:00', '2026-04-01 00:00:00'
+);

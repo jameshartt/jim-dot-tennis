@@ -1,0 +1,67 @@
+{
+  "id": "WI-095",
+  "title": "Revamp /my-profile into 'My Tennis' — sectioned, playful, mobile-first form",
+  "description": "Replace the thin read-only profile page with a rich sectioned form that lets players describe their tennis across every field in WI-094's taxonomy. Copy and structure celebrate difference and frame the exercise around getting the most out of everyone's tennis together. All fields optional; form saves per-section; form is write-only (see WI-097).",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": ["WI-094"],
+  "acceptance_criteria": [
+    "Page hero reads something like 'My Tennis — J.H.' with subtitle along the lines of 'Help us play our best tennis together. Every strength, every quirk, every style makes the team stronger.'",
+    "Page is organised into collapsible sections matching the WI-094 taxonomy: Identity & Vibe, Match Types, Playing Style, Partnership, Intensity & Goals, Logistics, Health & Access, Fun, Comms",
+    "Every field has warm, playful helper copy — invitational, never interrogating",
+    "Match Types section is gender-aware: shows mixed doubles + the same-gender option matching Player.Gender; if gender is Unknown, show all options",
+    "Partnership section surfaces a searchable multi-select picker over the active roster at the player's club, for 'partners I click with' and 'partners I'd love to try'",
+    "Fun section includes tennis_spirit_animal, walkout_song, celebration_style (radio group), post_match, my_tennis_in_one_line",
+    "Mobile-first CSS — works beautifully at 375px and scales up",
+    "No stored values are echoed back into form fields on page load (write-only GET — see WI-097 for the full flow)",
+    "Page <title> is generic ('My Tennis') — no player name leaked",
+    "Name rendering follows WI-093 (initials only)",
+    "A visible privacy note explains: 'Your answers stay private — captains see them when building lineups. We don't show them back on this page because the link is shareable. You can update anytime.'",
+    "Final field list is cullable during build — this WI delivers a complete implementation of the taxonomy; culling specific fields at review time is expected"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/players/my_tennis.html — new form template (may replace profile.html)",
+      "internal/players/my_tennis.go — GET handler that renders the blank form"
+    ],
+    "files_to_modify": [
+      "internal/players/profile.go — route /my-profile/{token} to the new handler; keep /my-profile/{token}/history on the existing handler"
+    ],
+    "naming_decision": [
+      "Feature name: 'My Tennis' (recommended) or 'Your Game'. Warm, short, self-expressive — decide at build time."
+    ],
+    "copy_direction": [
+      "Hero: 'Help us play our best tennis — together.'",
+      "Section intro example (Fun): 'The bits that make tennis yours. Totally optional, totally you.'",
+      "Empty-state: 'No pressure — fill in what feels right, skip what doesn't. Come back any time.'"
+    ],
+    "ui_patterns": [
+      "Slider for competitiveness (1-5)",
+      "Radio groups for enum fields",
+      "Chip multi-select for preferred_days / preferred_times / improvement_focus",
+      "Type-ahead picker for partner selects (searching active club roster)",
+      "Collapsible sections with per-section 'Save this section' buttons"
+    ],
+    "accessibility": [
+      "All form controls have labels",
+      "Colour contrast meets WCAG AA",
+      "Keyboard navigable throughout"
+    ]
+  },
+  "testing_requirements": [
+    "Visual QA at 375px (mobile), 768px (tablet), 1280px (desktop)",
+    "All taxonomy fields render and save (E2E in WI-100)",
+    "Gender-aware section branch covered (male / female / unknown)",
+    "Partner picker finds and selects active roster members"
+  ],
+  "context": {
+    "user_story": "As a player, I want to describe how I play in a way that feels fun and self-expressive, so my captains can build pairings and lineups that bring out the best in me and the team.",
+    "design_principles": [
+      "Celebrate, don't catalogue",
+      "Optional all the way down",
+      "Positive framing everywhere a player reads it"
+    ]
+  }
+}

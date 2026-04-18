@@ -24,6 +24,9 @@ dist/
 build/
 release/
 
+# Local Go module cache (populated by Docker-based builds)
+.go-mod-cache/
+
 # Go binary
 /jim-dot-tennis
 

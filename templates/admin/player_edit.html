@@ -351,7 +351,14 @@
             </div>
             
             <!-- Email and phone fields removed - will be reimplemented later -->
-            
+
+            <!-- My Tennis Summary (Sprint 016 WI-099) -->
+            {{ if .MyTennisSummary }}
+            <div class="form-group" style="margin-top: 1.5rem;">
+                {{ template "admin/partials/my_tennis_summary.html" .MyTennisSummary }}
+            </div>
+            {{ end }}
+
             <!-- Fantasy Doubles Section -->
             <div class="fantasy-section">
                 <h3>🎾 Fantasy Doubles Assignment</h3>

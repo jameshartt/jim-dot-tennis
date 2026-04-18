@@ -1,0 +1,42 @@
+{
+  "id": "WI-103",
+  "title": "Week roll-up matrix — availability + preferences per fixture",
+  "description": "The core data surface of the dashboard. For the selected scope and week, show an availability matrix (rows = eligible players, cols = fixtures that week, cells = availability state). Cell hover/tap reveals the player's preference summary (WI-098 partial). Gives captains the big-picture view to make lineup decisions from data rather than cascading through screens.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-098", "WI-102"],
+  "acceptance_criteria": [
+    "For the selected scope and week, the page renders a matrix: players down rows, fixtures across columns",
+    "Each cell shows availability state: available (green) / unavailable (red) / unknown (grey) with count-summary row+column",
+    "Cell hover / tap reveals the player's preference summary (WI-098 partial) in a popover",
+    "Each row shows both player initials AND full name — admin auth means full names are ok here",
+    "Eligible players = those assigned to teams within the selected scope for the active season",
+    "When scope is 'All Teams', large matrices paginate or virtualise rows beyond a documented threshold",
+    "Empty weeks (no fixtures in scope) show a friendly empty state",
+    "Sort by: availability score, name, preference match (used by WI-104 filter panel)",
+    "Matrix re-renders via HTMX when scope or week changes"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "templates/admin/partials/planning_matrix.html"
+    ],
+    "files_to_modify": [
+      "internal/admin/service_planning.go — ResolveAvailabilityMatrix(scope, weekID) returning [][]Cell",
+      "internal/admin/planning.go — wire to template"
+    ],
+    "performance_notes": [
+      "Single-query join: fixtures × eligible_players × player_availability for the week",
+      "Preference data loaded lazily on hover/tap to keep initial render fast"
+    ]
+  },
+  "testing_requirements": [
+    "Integration test: matrix for a known week returns the expected shape",
+    "Manual: hover reveals preference chips",
+    "E2E coverage in WI-107"
+  ],
+  "context": {
+    "user_story": "As a captain planning week N, I want one glanceable view of who's available for which fixture and what their playing style is — so I can stop cascading through separate screens."
+  }
+}

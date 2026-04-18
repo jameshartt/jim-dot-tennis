@@ -33,6 +33,7 @@ type Service struct {
 	venueOverrideRepository      repository.VenueOverrideRepository
 	tournamentProviderRepository repository.TournamentProviderRepository
 	tournamentRepository         repository.TournamentRepository
+	tennisPreferenceRepository   repository.PlayerTennisPreferenceRepository
 	weatherService               *services.WeatherService
 	teamEligibilityService       *TeamEligibilityService
 	pushService                  *webpush.Service
@@ -60,6 +61,7 @@ func NewService(db *database.DB, courthiveAPIURL string, homeClubID uint, bhplta
 		venueOverrideRepository:      repository.NewVenueOverrideRepository(db),
 		tournamentProviderRepository: repository.NewTournamentProviderRepository(db),
 		tournamentRepository:         repository.NewTournamentRepository(db),
+		tennisPreferenceRepository:   repository.NewPlayerTennisPreferenceRepository(db),
 		weatherService:               services.NewWeatherService(),
 		courthiveAPIURL:              courthiveAPIURL,
 	}

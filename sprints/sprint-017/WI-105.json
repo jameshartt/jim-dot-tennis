@@ -1,0 +1,44 @@
+{
+  "id": "WI-105",
+  "title": "Captain-managed private notes on each player ('no-nos' live here)",
+  "description": "The place for things players shouldn't have to express about themselves — 'plays better apart from X', 'always late on Tuesdays', scheduling quirks. Notes are visible to any admin-session user (captain/admin), never to the player, never rendered on any token-accessed page. Edited in place from the dashboard and from the admin player detail page.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": ["WI-094"],
+  "acceptance_criteria": [
+    "From a dashboard player row, an admin can add / edit / delete a captain_player_note for that player",
+    "Notes have two kinds: Partnership (e.g. 'works better apart from X') and General (scheduling, comms)",
+    "Notes are authored — author_user_id and updated_at are recorded and displayed alongside the note body",
+    "Notes appear on the admin player detail page (Sprint 016 WI-099) in a clearly labelled 'Captain notes (private)' section",
+    "Notes NEVER appear on /my-profile/*, /my-availability/*, or any page reachable via a fantasy token",
+    "Handler code explicitly asserts admin session auth and contains a comment forbidding any token-route inclusion",
+    "Deleted notes are hard-deleted (simpler; document the choice) — no audit trail for v1",
+    "Notes visible on the planning matrix row as a small icon — click opens the note list in a popover"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "internal/admin/captain_notes.go — CRUD handlers",
+      "internal/repository/captain_note_repository.go"
+    ],
+    "files_to_modify": [
+      "templates/admin/partials/planning_matrix.html — note icon + popover",
+      "templates/admin/player_edit.html (or detail) — embed notes section",
+      "internal/admin/handler.go — register routes"
+    ],
+    "leak_prevention": [
+      "Convention: captain_note_repository is never imported by any package under internal/players/*",
+      "E2E regression test in WI-107 asserts absence on token-accessed pages"
+    ]
+  },
+  "testing_requirements": [
+    "Integration test: add/edit/delete round-trip",
+    "Integration test: note creation records author and timestamp",
+    "E2E: WI-107 covers the leak regression"
+  ],
+  "context": {
+    "user_story": "As a captain, I need a place to record discreet things — partnerships that don't click, someone's scheduling quirk — without putting that responsibility on the player to self-disclose.",
+    "design_principle": "Negative framing is captain-owned. The player only ever sees and edits positive-framed fields about themselves."
+  }
+}

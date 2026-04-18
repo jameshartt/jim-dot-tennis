@@ -1,0 +1,45 @@
+{
+  "id": "WI-102",
+  "title": "Captain planning dashboard shell with scope chooser and week scrubber",
+  "description": "Build the skeleton of /admin/league/planning — a desktop/tablet/landscape-first page hosting the scope chooser (My Teams / My Division / Specific Team / All Teams) and the week scrubber (prev/next, date jump, season-aware, past-season toggle).",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-101"],
+  "acceptance_criteria": [
+    "Route /admin/league/planning requires admin session auth",
+    "Page shell renders at tablet (768px+) and desktop (1280px+). Narrow portrait mobile shows a friendly 'Rotate your device or open on a larger screen' nudge with a 'View anyway' escape hatch",
+    "Scope chooser is always-accessible: My Teams / My Division / Specific Team / All Teams",
+    "Default scope: 'My Teams' when user.player_id maps to an active captain; otherwise 'All Teams'",
+    "'My Teams' is derived from the captains table via user.player_id — all teams where the player is an active TeamCaptain or DayCaptain for the active season",
+    "Week scrubber shows current week prominently with prev/next buttons and a date-jump picker",
+    "Week scrubber is season-aware — does not let the user scrub past season start or after last week by default",
+    "'Past seasons' toggle extends the scrub range to completed seasons (read-only)",
+    "Selected scope + week persist via query string so the URL is shareable between captains",
+    "HTMX partial loads used where appropriate so scrubber doesn't trigger full page reloads"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "internal/admin/planning.go — main dashboard handler",
+      "internal/admin/service_planning.go — scope resolution, week navigation helpers",
+      "templates/admin/planning_dashboard.html"
+    ],
+    "files_to_modify": [
+      "internal/admin/handler.go — register /admin/league/planning routes"
+    ],
+    "ui_notes": [
+      "Viewport gate: CSS container queries / matchMedia for the 'rotate or open on bigger screen' nudge",
+      "Scrubber keyboard accessible (left/right arrow on focus)",
+      "URL shape: /admin/league/planning?scope=my-teams&week={week_id}"
+    ]
+  },
+  "testing_requirements": [
+    "Manual: scope chooser switches content",
+    "Manual: week scrubber navigates prev/next + date-jump",
+    "E2E coverage in WI-107"
+  ],
+  "context": {
+    "user_story": "As a captain, I want to open one page and be able to glide through any week, across any team — defaulting to my own but never locked to it."
+  }
+}

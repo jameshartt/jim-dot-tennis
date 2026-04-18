@@ -1,0 +1,32 @@
+{
+  "id": "WI-096",
+  "title": "Prominent 'My Tennis' CTA on the availability page",
+  "description": "Players regularly land on /my-availability/{token}. Surface a clear, friendly card there that invites them to fill in or update their 'My Tennis' profile, linking to /my-profile/{token} with the token preserved.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": ["WI-095"],
+  "acceptance_criteria": [
+    "A visually distinct card on /my-availability/{token} invites the player to visit 'My Tennis'",
+    "Card copy is warm and inviting: e.g. 'Tell us about your tennis — help your captains build better pairings.'",
+    "Card includes a prominent CTA linking to /my-profile/{token} (token preserved from current URL)",
+    "Card is placed near the top of the page (below header, above or adjacent to availability controls) so players see it but the core availability flow isn't pushed below the fold",
+    "Card design respects the existing availability page aesthetic",
+    "Works at 375px mobile width and up"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "templates/players/availability.html"
+    ],
+    "placement": "Immediately below the page header / initials display, above the fixture availability controls"
+  },
+  "testing_requirements": [
+    "Manual: CTA is clearly visible on mobile and desktop",
+    "Manual: clicking the CTA takes the player to /my-profile/{token} with the token preserved",
+    "E2E coverage in WI-100"
+  ],
+  "context": {
+    "user_story": "As a player, I regularly visit my availability page; I want the profile invite to find me there rather than having to remember a separate URL."
+  }
+}

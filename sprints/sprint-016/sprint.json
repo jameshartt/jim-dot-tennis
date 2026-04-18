@@ -1,0 +1,27 @@
+{
+  "sprint": {
+    "id": "sprint-016",
+    "name": "My Tennis — Profile Revamp & Player Self-Expression",
+    "goal": "Revamp /my-profile into a playful 'My Tennis' experience that helps the club get the most out of everyone's tennis, while hardening privacy on the open-internet shareable token URL via initials-only rendering and a write-only submission flow",
+    "start_date": null,
+    "end_date": null,
+    "duration_weeks": 2,
+    "type": "numbered",
+    "status": "completed",
+    "focus_areas": [
+      "Privacy hardening on token-accessed URLs (initials-only, write-only)",
+      "Rich, playful tennis self-expression captured as structured data",
+      "Groundwork for captain-facing planning (Sprint 017) without leaking anything back to players"
+    ],
+    "work_items": [
+      "WI-093",
+      "WI-094",
+      "WI-095",
+      "WI-096",
+      "WI-097",
+      "WI-098",
+      "WI-099",
+      "WI-100"
+    ]
+  }
+}

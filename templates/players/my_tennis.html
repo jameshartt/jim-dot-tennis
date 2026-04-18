@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Tennis</title>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #e8f5e8 0%, #f8f9fa 100%);
+            min-height: 100vh;
+            padding: 16px;
+            color: #333;
+            line-height: 1.45;
+        }
+        .page { max-width: 860px; margin: 0 auto; }
+
+        .hero {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            padding: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .hero h1 { font-size: 28px; color: #2c5530; margin: 0 0 8px 0; }
+        .hero .subtitle { color: #4a7c59; font-size: 16px; margin: 0 0 6px 0; font-weight: 500; }
+        .hero .lede { color: #555; font-size: 14px; margin: 0; }
+        .hero .back-link { display: inline-block; margin-top: 14px; color: #4a7c59; text-decoration: none; font-weight: 600; font-size: 14px; }
+        .hero .back-link:hover { text-decoration: underline; }
+
+        .privacy-note {
+            background: #fffbe6;
+            border: 1px solid #ffe58f;
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #614700;
+        }
+        .privacy-note strong { color: #2c5530; }
+
+        .section {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .section-header {
+            padding: 16px 20px;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e8f5e8 100%);
+            border-bottom: 1px solid #e8f5e8;
+        }
+        .section-header h2 { margin: 0; font-size: 18px; color: #2c5530; }
+        .section-header .caret { font-size: 14px; color: #4a7c59; transition: transform 0.2s ease; }
+        .section.collapsed .caret { transform: rotate(-90deg); }
+        .section.collapsed .section-body { display: none; }
+
+        .section-body { padding: 18px 20px; }
+        .section-intro { margin: 0 0 14px 0; color: #4a7c59; font-size: 14px; font-style: italic; }
+
+        label.field {
+            display: block;
+            margin-bottom: 14px;
+        }
+        label.field > span.label {
+            display: block;
+            font-weight: 600;
+            color: #2c5530;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        label.field > span.hint {
+            display: block;
+            color: #888;
+            font-size: 12px;
+            margin-bottom: 6px;
+        }
+        label.field input[type=text],
+        label.field input[type=number],
+        label.field textarea,
+        label.field select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e8f5e8;
+            border-radius: 8px;
+            font-size: 15px;
+            font-family: inherit;
+            background: #fafffa;
+            transition: border-color 0.2s ease;
+        }
+        label.field input:focus,
+        label.field textarea:focus,
+        label.field select:focus {
+            outline: none;
+            border-color: #4a7c59;
+            background: white;
+        }
+        label.field textarea { resize: vertical; min-height: 70px; }
+
+        .radio-group, .chip-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .radio-group label, .chip-group label {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 14px;
+            background: #f8f9fa;
+            border: 2px solid #e8f5e8;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .radio-group label:hover, .chip-group label:hover { border-color: #4a7c59; }
+        .radio-group input, .chip-group input { position: absolute; opacity: 0; }
+        .radio-group input:checked + span,
+        .chip-group input:checked + span {
+            font-weight: 600;
+        }
+        .radio-group label:has(input:checked),
+        .chip-group label:has(input:checked) {
+            background: #4a7c59;
+            color: white;
+            border-color: #2c5530;
+        }
+
+        .slider-row { display: flex; align-items: center; gap: 12px; }
+        .slider-row input[type=range] { flex: 1; }
+        .slider-row .value { font-weight: 700; color: #2c5530; min-width: 36px; text-align: center; }
+        .slider-ticks { display: flex; justify-content: space-between; font-size: 11px; color: #999; margin-top: 4px; }
+
+        .partner-picker {
+            border: 2px solid #e8f5e8;
+            border-radius: 12px;
+            padding: 12px;
+            background: #fafffa;
+        }
+        .partner-search {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #e8f5e8;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .partner-list {
+            max-height: 220px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .partner-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .partner-option:hover { background: #e8f5e8; }
+        .partner-option input { margin: 0; }
+        .partner-empty {
+            color: #888;
+            font-style: italic;
+            font-size: 13px;
+            padding: 8px;
+        }
+
+        .section-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px dashed #e8f5e8;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            background: #4a7c59;
+            color: white;
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+            font-family: inherit;
+        }
+        .btn:hover { background: #2c5530; }
+        .btn-ghost {
+            background: transparent;
+            color: #888;
+            border: 1px solid #e8f5e8;
+        }
+        .btn-ghost:hover { color: #2c5530; background: #f8f9fa; border-color: #4a7c59; }
+
+        footer { text-align: center; color: #999; padding: 24px 0; font-size: 13px; }
+        footer a { color: #4a7c59; text-decoration: none; }
+
+        @media (max-width: 480px) {
+            .hero h1 { font-size: 22px; }
+            .section-header h2 { font-size: 16px; }
+            .partner-list { max-height: 180px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header class="hero">
+            <h1 data-testid="profile-initials">My Tennis — {{ printf "%.1s" .Player.FirstName }}.{{ printf "%.1s" .Player.LastName }}.</h1>
+            <p class="subtitle">Help us play our best tennis — together.</p>
+            <p class="lede">Every strength, every quirk, every style makes the team stronger.</p>
+            <a href="/my-availability/{{.AuthToken}}" class="back-link">← Back to Availability</a>
+        </header>
+
+        <div class="privacy-note" data-testid="privacy-note">
+            <strong>Your answers stay private.</strong> Captains see them when building lineups.
+            We don't show them back on this page because the link is shareable. You can update anytime.
+        </div>
+
+        <!-- Identity & Vibe -->
+        <form class="section" method="POST" action="/my-profile/{{.AuthToken}}" data-section="identity">
+            <input type="hidden" name="section" value="identity">
+            <div class="section-header" onclick="toggleSection(event)">
+                <h2>Identity & Vibe</h2><span class="caret">▼</span>
+            </div>
+            <div class="section-body">
+                <p class="section-intro">The shape of your tennis — how you started, who inspires you, and how you arrive on court.</p>
+
+                <label class="field">
+                    <span class="label">Years playing</span>
+                    <span class="hint">Roughly — just a number.</span>
+                    <input type="number" name="years_playing" min="0" max="80" inputmode="numeric">
+                </label>
+
+                <label class="field">
+                    <span class="label">How I got into tennis</span>
+                    <span class="hint">A childhood summer, a pandemic habit, a dare — whatever the story is.</span>
+                    <textarea name="how_i_got_into_tennis" maxlength="400"></textarea>
+                </label>
+
+                <label class="field">
+                    <span class="label">Tennis hero or style I love</span>
+                    <input type="text" name="tennis_hero_or_style" maxlength="120" placeholder="e.g. Sabalenka's forehand, Alcaraz's joy, Federer's grace">
+                </label>
+
+                <label class="field">
+                    <span class="label">Pre-match ritual</span>
+                    <span class="hint">Totally optional — some people have one, some don't.</span>
+                    <input type="text" name="pre_match_ritual" maxlength="160" placeholder="e.g. banana and a strong coffee">
+                </label>
+
+                <div class="section-actions">
+                    <button type="button" class="btn-ghost btn" onclick="resetSection(this)">Clear section</button>
+                    <button type="submit" class="btn">Save this section</button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Match Types -->
+        <form class="section" method="POST" action="/my-profile/{{.AuthToken}}" data-section="match_types">
+            <input type="hidden" name="section" value="match_types">
+            <div class="section-header" onclick="toggleSection(event)">
+                <h2>Match Types</h2><span class="caret">▼</span>
+            </div>
+            <div class="section-body">
+                <p class="section-intro">What kinds of matches light you up — and which ones would you rather sit out.</p>
+
+                <label class="field">
+                    <span class="label">Mixed doubles appetite</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="mixed_doubles_appetite" value="love_it"><span>Love it</span></label>
+                        <label><input type="radio" name="mixed_doubles_appetite" value="happy_to"><span>Happy to</span></label>
+                        <label><input type="radio" name="mixed_doubles_appetite" value="prefer_not"><span>Prefer not</span></label>
+                        <label><input type="radio" name="mixed_doubles_appetite" value="open_to_learn"><span>Open to learn</span></label>
+                    </div>
+                </label>
+
+                {{ if or (eq .Gender "Men") (eq .Gender "Unknown") }}
+                <label class="field" data-testid="men-doubles">
+                    <span class="label">Men's doubles appetite</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="same_gender_doubles_appetite" value="love_it"><span>Love it</span></label>
+                        <label><input type="radio" name="same_gender_doubles_appetite" value="happy_to"><span>Happy to</span></label>
+                        <label><input type="radio" name="same_gender_doubles_appetite" value="prefer_not"><span>Prefer not</span></label>
+                    </div>
+                </label>
+                {{ end }}
+                {{ if or (eq .Gender "Women") (eq .Gender "Unknown") }}
+                <label class="field" data-testid="women-doubles">
+                    <span class="label">Women's doubles appetite</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="same_gender_doubles_appetite" value="love_it"><span>Love it</span></label>
+                        <label><input type="radio" name="same_gender_doubles_appetite" value="happy_to"><span>Happy to</span></label>
+                        <label><input type="radio" name="same_gender_doubles_appetite" value="prefer_not"><span>Prefer not</span></label>
+                    </div>
+                </label>
+                {{ end }}
+
+                <label class="field">
+                    <span class="label">Open to filling in for other teams?</span>
+                    <span class="hint">Captains love knowing who to ask when they're stuck.</span>
+                    <input type="hidden" name="open_to_fill_in__present" value="1">
+                    <div class="radio-group">
+                        <label><input type="radio" name="open_to_fill_in" value="on"><span>Yes — ask me</span></label>
+                        <label><input type="radio" name="open_to_fill_in" value="off"><span>Better not</span></label>
+                    </div>
+                </label>
+
+                <div class="section-actions">
+                    <button type="button" class="btn-ghost btn" onclick="resetSection(this)">Clear section</button>
+                    <button type="submit" class="btn">Save this section</button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Playing Style -->
+        <form class="section" method="POST" action="/my-profile/{{.AuthToken}}" data-section="style">
+            <input type="hidden" name="section" value="style">
+            <div class="section-header" onclick="toggleSection(event)">
+                <h2>Playing Style</h2><span class="caret">▼</span>
+            </div>
+            <div class="section-body">
+                <p class="section-intro">The texture of your game — the shots, sides, and situations that feel like home.</p>
+
+                <label class="field">
+                    <span class="label">Handedness</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="handedness" value="right"><span>Right</span></label>
+                        <label><input type="radio" name="handedness" value="left"><span>Left</span></label>
+                        <label><input type="radio" name="handedness" value="ambidextrous"><span>Both</span></label>
+                    </div>
+                </label>
+
+                <label class="field">
+                    <span class="label">Backhand</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="backhand" value="one_handed"><span>One-handed</span></label>
+                        <label><input type="radio" name="backhand" value="two_handed"><span>Two-handed</span></label>
+                        <label><input type="radio" name="backhand" value="slice_specialist"><span>Slice specialist</span></label>
+                    </div>
+                </label>
+
+                <label class="field">
+                    <span class="label">Serve style</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="serve_style" value="cannon"><span>Cannon</span></label>
+                        <label><input type="radio" name="serve_style" value="placement"><span>Placement</span></label>
+                        <label><input type="radio" name="serve_style" value="spin"><span>Heavy spin</span></label>
+                        <label><input type="radio" name="serve_style" value="slice"><span>Slice</span></label>
+                        <label><input type="radio" name="serve_style" value="kick"><span>Kick</span></label>
+                        <label><input type="radio" name="serve_style" value="reliable"><span>Reliable</span></label>
+                        <label><input type="radio" name="serve_style" value="developing"><span>Still developing</span></label>
+                    </div>
+                </label>
+
+                <label class="field">
+                    <span class="label">Net comfort</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="net_comfort" value="love"><span>I live there</span></label>
+                        <label><input type="radio" name="net_comfort" value="happy"><span>Happy to visit</span></label>
+                        <label><input type="radio" name="net_comfort" value="working_on_it"><span>Working on it</span></label>
+                        <label><input type="radio" name="net_comfort" value="rather_not"><span>Rather not</span></label>
+                    </div>
+                </label>
+
+                <label class="field">
+                    <span class="label">Preferred court side (doubles)</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="preferred_court_side" value="deuce"><span>Deuce</span></label>
+                        <label><input type="radio" name="preferred_court_side" value="ad"><span>Ad</span></label>
+                        <label><input type="radio" name="preferred_court_side" value="either"><span>Either</span></label>
+                    </div>
+                </label>
+
+                <label class="field">
+                    <span class="label">Signature shot</span>
+                    <input type="text" name="signature_shot" maxlength="120" placeholder="e.g. down-the-line backhand">
+                </label>
+
+                <label class="field">
+                    <span class="label">Shot I'm working on</span>
+                    <input type="text" name="shot_im_working_on" maxlength="120" placeholder="e.g. kick serve">
+                </label>
+
+                <label class="field">
+                    <span class="label">Favourite tactic</span>
+                    <input type="text" name="favourite_tactic" maxlength="160" placeholder="e.g. poach early, cross at the net">
+                </label>
+
+                <div class="section-actions">
+                    <button type="button" class="btn-ghost btn" onclick="resetSection(this)">Clear section</button>
+                    <button type="submit" class="btn">Save this section</button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Partnership -->
+        <form class="section" method="POST" action="/my-profile/{{.AuthToken}}" data-section="partnership">
+            <input type="hidden" name="section" value="partnership">
+            <!-- Presence of these hidden controls signals 'replace the stored list with what's ticked' -->
+            <input type="hidden" name="__update_partners_clicks_with" value="1">
+            <input type="hidden" name="__update_partners_would_love_to_try" value="1">
+            <div class="section-header" onclick="toggleSection(event)">
+                <h2>Partnership</h2><span class="caret">▼</span>
+            </div>
+            <div class="section-body">
+                <p class="section-intro">Positive only — this list is about who brings out your best tennis.</p>
+
+                <label class="field">
+                    <span class="label">Partner consistency</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="partner_consistency" value="same_always"><span>Same partner always</span></label>
+                        <label><input type="radio" name="partner_consistency" value="few_regulars"><span>A few regulars</span></label>
+                        <label><input type="radio" name="partner_consistency" value="mix_it_up"><span>Mix it up</span></label>
+                    </div>
+                </label>
+
+                <label class="field">
+                    <span class="label">On-court vibe</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="on_court_vibe" value="quiet_focus"><span>Quiet focus</span></label>
+                        <label><input type="radio" name="on_court_vibe" value="chatty_encouraging"><span>Chatty + encouraging</span></label>
+                        <label><input type="radio" name="on_court_vibe" value="fiery_competitive"><span>Fiery</span></label>
+                        <label><input type="radio" name="on_court_vibe" value="laid_back"><span>Laid back</span></label>
+                    </div>
+                </label>
+
+                {{ if .Roster }}
+                <label class="field">
+                    <span class="label">Partners I click with</span>
+                    <span class="hint">Type to filter. Tick anyone who brings out your best tennis.</span>
+                    <div class="partner-picker" data-picker="clicks_with">
+                        <input type="text" class="partner-search" placeholder="Filter roster…" oninput="filterPartners(this)">
+                        <div class="partner-list" data-testid="partners-clicks-with">
+                            {{ range .Roster }}
+                            <label class="partner-option" data-name="{{ .FirstName }} {{ .LastName }}">
+                                <input type="checkbox" name="partners_clicks_with" value="{{ .ID }}">
+                                <span>{{ .FirstName }} {{ .LastName }}</span>
+                            </label>
+                            {{ end }}
+                        </div>
+                    </div>
+                </label>
+
+                <label class="field">
+                    <span class="label">Partners I'd love to try</span>
+                    <span class="hint">No hard feelings if it never lines up — this just helps captains experiment.</span>
+                    <div class="partner-picker" data-picker="would_love_to_try">
+                        <input type="text" class="partner-search" placeholder="Filter roster…" oninput="filterPartners(this)">
+                        <div class="partner-list" data-testid="partners-would-love-to-try">
+                            {{ range .Roster }}
+                            <label class="partner-option" data-name="{{ .FirstName }} {{ .LastName }}">
+                                <input type="checkbox" name="partners_would_love_to_try" value="{{ .ID }}">
+                                <span>{{ .FirstName }} {{ .LastName }}</span>
+                            </label>
+                            {{ end }}
+                        </div>
+                    </div>
+                </label>
+                {{ else }}
+                <p class="section-intro">No other roster-mates found — partner picker will appear once your club's roster is populated.</p>
+                {{ end }}
+
+                <div class="section-actions">
+                    <button type="button" class="btn-ghost btn" onclick="resetSection(this)">Clear section</button>
+                    <button type="submit" class="btn">Save partnership choices</button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Intensity & Goals -->
+        <form class="section" method="POST" action="/my-profile/{{.AuthToken}}" data-section="intensity">
+            <input type="hidden" name="section" value="intensity">
+            <div class="section-header" onclick="toggleSection(event)">
+                <h2>Intensity & Goals</h2><span class="caret">▼</span>
+            </div>
+            <div class="section-body">
+                <p class="section-intro">Dial your competitive heat and share what you're chasing this season.</p>
+
+                <label class="field">
+                    <span class="label">Competitiveness</span>
+                    <div class="slider-row">
+                        <input type="range" name="competitiveness" min="1" max="5" step="1" oninput="this.nextElementSibling.textContent=this.value" value="3">
+                        <span class="value">3</span>
+                    </div>
+                    <div class="slider-ticks"><span>Easy-going</span><span>Fully dialled in</span></div>
+                </label>
+
+                <label class="field">
+                    <span class="label">Pressure response</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="pressure_response" value="thrive"><span>Thrive on it</span></label>
+                        <label><input type="radio" name="pressure_response" value="even_keel"><span>Even keel</span></label>
+                        <label><input type="radio" name="pressure_response" value="needs_calm"><span>Needs calm</span></label>
+                    </div>
+                </label>
+
+                <label class="field">
+                    <span class="label">Season goal</span>
+                    <input type="text" name="season_goal" maxlength="200" placeholder="e.g. stay injury-free and hit a cleaner first serve">
+                </label>
+
+                <label class="field">
+                    <span class="label">Improvement focus</span>
+                    <span class="hint">Tick any that apply. Captains use these to match you with complementary partners.</span>
+                    <input type="hidden" name="__clear_improvement_focus_control" value="1" disabled>
+                    <div class="chip-group" data-testid="improvement-focus">
+                        <label><input type="checkbox" name="improvement_focus" value="serve"><span>Serve</span></label>
+                        <label><input type="checkbox" name="improvement_focus" value="return"><span>Return</span></label>
+                        <label><input type="checkbox" name="improvement_focus" value="groundstrokes"><span>Groundstrokes</span></label>
+                        <label><input type="checkbox" name="improvement_focus" value="volleys"><span>Volleys</span></label>
+                        <label><input type="checkbox" name="improvement_focus" value="overheads"><span>Overheads</span></label>
+                        <label><input type="checkbox" name="improvement_focus" value="consistency"><span>Consistency</span></label>
+                        <label><input type="checkbox" name="improvement_focus" value="movement"><span>Movement</span></label>
+                        <label><input type="checkbox" name="improvement_focus" value="fitness"><span>Fitness</span></label>
+                        <label><input type="checkbox" name="improvement_focus" value="doubles_positioning"><span>Doubles positioning</span></label>
+                        <label><input type="checkbox" name="improvement_focus" value="strategy"><span>Strategy</span></label>
+                        <label><input type="checkbox" name="improvement_focus" value="mental"><span>Mental game</span></label>
+                    </div>
+                    <button type="button" class="btn-ghost btn" style="margin-top:8px;font-size:12px;padding:6px 12px;" onclick="clearMulti(this, 'improvement_focus')">Clear this list</button>
+                </label>
+
+                <div class="section-actions">
+                    <button type="button" class="btn-ghost btn" onclick="resetSection(this)">Clear section</button>
+                    <button type="submit" class="btn">Save this section</button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Logistics -->
+        <form class="section" method="POST" action="/my-profile/{{.AuthToken}}" data-section="logistics">
+            <input type="hidden" name="section" value="logistics">
+            <div class="section-header" onclick="toggleSection(event)">
+                <h2>Logistics</h2><span class="caret">▼</span>
+            </div>
+            <div class="section-body">
+                <p class="section-intro">The practical stuff — which league nights and home-vs-away preferences.</p>
+
+                <label class="field">
+                    <span class="label">Preferred match nights</span>
+                    <span class="hint">League matches happen Tue–Thu. Tick any you can usually make.</span>
+                    <div class="chip-group" data-testid="preferred-days">
+                        <label><input type="checkbox" name="preferred_days" value="tuesday"><span>Tue</span></label>
+                        <label><input type="checkbox" name="preferred_days" value="wednesday"><span>Wed</span></label>
+                        <label><input type="checkbox" name="preferred_days" value="thursday"><span>Thu</span></label>
+                    </div>
+                    <button type="button" class="btn-ghost btn" style="margin-top:8px;font-size:12px;padding:6px 12px;" onclick="clearMulti(this, 'preferred_days')">Clear this list</button>
+                </label>
+
+                <label class="field">
+                    <span class="label">Home court matters?</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="home_court_matters" value="strong_preference"><span>Strongly prefer home</span></label>
+                        <label><input type="radio" name="home_court_matters" value="slight_preference"><span>Slight preference</span></label>
+                        <label><input type="radio" name="home_court_matters" value="no_preference"><span>No preference</span></label>
+                        <label><input type="radio" name="home_court_matters" value="away_please"><span>Enjoy away days</span></label>
+                    </div>
+                </label>
+
+                <div class="section-actions">
+                    <button type="button" class="btn-ghost btn" onclick="resetSection(this)">Clear section</button>
+                    <button type="submit" class="btn">Save this section</button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Health & Access -->
+        <form class="section" method="POST" action="/my-profile/{{.AuthToken}}" data-section="health">
+            <input type="hidden" name="section" value="health">
+            <div class="section-header" onclick="toggleSection(event)">
+                <h2>Health & Access</h2><span class="caret">▼</span>
+            </div>
+            <div class="section-body">
+                <p class="section-intro">Anything captains should know so you can play at your best.</p>
+
+                <label class="field">
+                    <span class="label">What to know about my game</span>
+                    <span class="hint">Optional — niggles, recovery patterns, anything useful.</span>
+                    <textarea name="what_to_know_about_my_game" maxlength="500"></textarea>
+                </label>
+
+                <label class="field">
+                    <span class="label">Accessibility notes</span>
+                    <span class="hint">Anything we should plan for around venues, equipment, or timing.</span>
+                    <textarea name="accessibility_notes" maxlength="400"></textarea>
+                </label>
+
+                <label class="field">
+                    <span class="label">Weather tolerance</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="weather_tolerance" value="all_weather"><span>All weather</span></label>
+                        <label><input type="radio" name="weather_tolerance" value="no_cold"><span>Not the cold</span></label>
+                        <label><input type="radio" name="weather_tolerance" value="no_heat"><span>Not the heat</span></label>
+                        <label><input type="radio" name="weather_tolerance" value="fair_weather"><span>Fair weather only</span></label>
+                    </div>
+                </label>
+
+                <div class="section-actions">
+                    <button type="button" class="btn-ghost btn" onclick="resetSection(this)">Clear section</button>
+                    <button type="submit" class="btn">Save this section</button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Fun -->
+        <form class="section" method="POST" action="/my-profile/{{.AuthToken}}" data-section="fun">
+            <input type="hidden" name="section" value="fun">
+            <div class="section-header" onclick="toggleSection(event)">
+                <h2>Fun</h2><span class="caret">▼</span>
+            </div>
+            <div class="section-body">
+                <p class="section-intro">The bits that make tennis yours. Totally optional, totally you.</p>
+
+                <label class="field">
+                    <span class="label">Tennis spirit animal</span>
+                    <input type="text" name="tennis_spirit_animal" maxlength="60" placeholder="e.g. fox, border collie, octopus">
+                </label>
+
+                <label class="field">
+                    <span class="label">Walkout song</span>
+                    <input type="text" name="walkout_song" maxlength="160" placeholder="e.g. Fleetwood Mac — The Chain">
+                </label>
+
+                <label class="field">
+                    <span class="label">Celebration style</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="celebration_style" value="fist_pump"><span>Fist pump</span></label>
+                        <label><input type="radio" name="celebration_style" value="quiet_nod"><span>Quiet nod</span></label>
+                        <label><input type="radio" name="celebration_style" value="silent_satisfaction"><span>Silent satisfaction</span></label>
+                        <label><input type="radio" name="celebration_style" value="racquet_twirl"><span>Racquet twirl</span></label>
+                        <label><input type="radio" name="celebration_style" value="high_five_partner"><span>High-five with partner</span></label>
+                        <label><input type="radio" name="celebration_style" value="whole_routine"><span>Whole routine</span></label>
+                        <label><input type="radio" name="celebration_style" value="depends_on_the_moment"><span>Depends on the moment</span></label>
+                        <label><input type="radio" name="celebration_style" value="save_for_match"><span>Saving it for match point</span></label>
+                    </div>
+                </label>
+
+                <label class="field">
+                    <span class="label">Post-match</span>
+                    <input type="text" name="post_match" maxlength="120" placeholder="e.g. pint in the clubhouse, walk the dog">
+                </label>
+
+                <label class="field">
+                    <span class="label">My tennis in one line</span>
+                    <input type="text" name="my_tennis_in_one_line" maxlength="120" placeholder="e.g. 'Crafty lefty who plays better after coffee.'">
+                </label>
+
+                <div class="section-actions">
+                    <button type="button" class="btn-ghost btn" onclick="resetSection(this)">Clear section</button>
+                    <button type="submit" class="btn">Save this section</button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Comms -->
+        <form class="section" method="POST" action="/my-profile/{{.AuthToken}}" data-section="comms">
+            <input type="hidden" name="section" value="comms">
+            <div class="section-header" onclick="toggleSection(event)">
+                <h2>Comms</h2><span class="caret">▼</span>
+            </div>
+            <div class="section-body">
+                <p class="section-intro">How captains can reach you, and when.</p>
+
+                <label class="field">
+                    <span class="label">Preferred contact</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="preferred_contact" value="whatsapp"><span>WhatsApp</span></label>
+                        <label><input type="radio" name="preferred_contact" value="text"><span>Text</span></label>
+                        <label><input type="radio" name="preferred_contact" value="email"><span>Email</span></label>
+                        <label><input type="radio" name="preferred_contact" value="call"><span>Call</span></label>
+                    </div>
+                </label>
+
+                <label class="field">
+                    <span class="label">Best window for last-minute asks</span>
+                    <input type="text" name="best_window_for_last_minute" maxlength="160" placeholder="e.g. evenings after 7pm">
+                </label>
+
+                <label class="field">
+                    <span class="label">Notes to captain</span>
+                    <span class="hint">Anything else that'd help.</span>
+                    <textarea name="notes_to_captain" maxlength="500"></textarea>
+                </label>
+
+                <div class="section-actions">
+                    <button type="button" class="btn-ghost btn" onclick="resetSection(this)">Clear section</button>
+                    <button type="submit" class="btn">Save this section</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <footer>&copy; {{currentYear}} Jim.Tennis &middot; <a href="/about">About</a></footer>
+
+    <script>
+        // Collapsible sections.
+        function toggleSection(e) {
+            var header = e.currentTarget || e.target.closest('.section-header');
+            var section = header.closest('.section');
+            section.classList.toggle('collapsed');
+        }
+        // Collapse all sections by default on mobile for a calmer first view.
+        (function initCollapse() {
+            if (window.innerWidth < 700) {
+                document.querySelectorAll('.section').forEach(function(s) { s.classList.add('collapsed'); });
+            }
+        })();
+
+        // Per-section "clear section" — clears inputs locally; nothing is sent.
+        function resetSection(btn) {
+            var form = btn.closest('form');
+            form.querySelectorAll('input[type=text], input[type=number], textarea').forEach(function(el){ el.value = ''; });
+            form.querySelectorAll('input[type=radio], input[type=checkbox]').forEach(function(el){ el.checked = false; });
+            form.querySelectorAll('input[type=range]').forEach(function(el){ el.value = el.getAttribute('value') || 3; var v = el.parentElement.querySelector('.value'); if (v) v.textContent = el.value; });
+        }
+
+        // Explicit clear for multi-select JSON-array fields — adds a hidden
+        // __clear_<name>=1 and removes all ticks, so the server replaces the
+        // stored list with [] on submit.
+        function clearMulti(btn, name) {
+            var form = btn.closest('form');
+            form.querySelectorAll('input[type=checkbox][name="' + name + '"]').forEach(function(el){ el.checked = false; });
+            var existing = form.querySelector('input[type=hidden][name="__clear_' + name + '"]');
+            if (!existing) {
+                var h = document.createElement('input');
+                h.type = 'hidden';
+                h.name = '__clear_' + name;
+                h.value = '1';
+                form.appendChild(h);
+            }
+        }
+
+        // Simple type-ahead filter for partner pickers.
+        function filterPartners(inputEl) {
+            var q = (inputEl.value || '').trim().toLowerCase();
+            var picker = inputEl.closest('.partner-picker');
+            picker.querySelectorAll('.partner-option').forEach(function(opt){
+                var name = (opt.getAttribute('data-name') || '').toLowerCase();
+                opt.style.display = (q === '' || name.indexOf(q) !== -1) ? '' : 'none';
+            });
+        }
+    </script>
+</body>
+</html>

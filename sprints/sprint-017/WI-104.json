@@ -1,0 +1,33 @@
+{
+  "id": "WI-104",
+  "title": "Preference-aware filters and visual chips on the week roll-up",
+  "description": "Let captains filter and sort the matrix by 'My Tennis' data — handedness, court side, match-type appetite, competitiveness, open-to-fill-in. Adds visual chips per player so at-a-glance scanning picks out the right combinations without hovering every cell.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": ["WI-103"],
+  "acceptance_criteria": [
+    "Filter panel visible alongside the matrix — sticky on scroll on large screens",
+    "Filters: match-type appetite (mixed / same-gender / open-to-fill-in), handedness, preferred court side, competitiveness range, open-to-fill-in boolean",
+    "Multiple filters stack (AND semantics)",
+    "Filtered matrix updates via HTMX without full reload",
+    "Each player row shows small preference chips next to their name: handedness (R/L), court side (D/A/E), competitiveness (1-5 dots), open-to-fill-in (star)",
+    "Chip hover reveals the full label",
+    "Clear-all filters button resets",
+    "Filter state persists in URL query string"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "templates/admin/partials/planning_matrix.html — row chips",
+      "internal/admin/service_planning.go — filter args on ResolveAvailabilityMatrix"
+    ]
+  },
+  "testing_requirements": [
+    "Integration test: filter argument narrows the returned player set correctly",
+    "E2E coverage in WI-107"
+  ],
+  "context": {
+    "user_story": "As a captain, I want to quickly isolate 'available left-handers who love mixed and are competitive' so I can put the right partnership together."
+  }
+}

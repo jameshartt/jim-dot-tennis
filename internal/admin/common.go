@@ -119,8 +119,26 @@ func parseTemplate(templateDir, templatePath string) (*template.Template, error)
 			}
 			return 0
 		},
+		"derefBool": func(b *bool) bool {
+			if b != nil {
+				return *b
+			}
+			return false
+		},
 		"sub": func(a, b int) int {
 			return a - b
+		},
+		// prefLabel maps a stored enum value (see PlayerTennisPreferences) to
+		// a human-friendly, positively-framed label for the 'My Tennis' summary
+		// partial. Returns the raw value if no mapping is known.
+		"prefLabel": func(field string, v *string) string {
+			if v == nil || *v == "" {
+				return ""
+			}
+			if lbl, ok := myTennisEnumLabels[field+"::"+*v]; ok {
+				return lbl
+			}
+			return *v
 		},
 	}
 

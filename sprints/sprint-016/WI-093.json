@@ -1,0 +1,38 @@
+{
+  "id": "WI-093",
+  "title": "Render initials only on token-accessed profile and match history views",
+  "description": "The /my-profile/{token} and /my-profile/{token}/history URLs are effectively shareable links (forwarded in chats, screenshots). Full first+last names are currently rendered on these pages (profile.html lines 349-358, match_history.html line 156), leaking the player's identity to anyone with the URL. Match the existing availability page pattern and render initials only (e.g. 'J.H.') on all templates served under /my-profile/*.",
+  "type": "privacy",
+  "priority": "high",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [],
+  "acceptance_criteria": [
+    "templates/players/profile.html renders '{{printf \"%.1s\" .Player.FirstName}}.{{printf \"%.1s\" .Player.LastName}}.' in the hero position instead of the full name",
+    "PreferredName is not rendered on profile.html (preferred names may still reveal identity)",
+    "templates/players/match_history.html renders the same initials pattern wherever the player is named",
+    "Any other template reachable under /my-profile/* also renders initials only",
+    "Page <title> on /my-profile/* routes uses a generic title (e.g. 'My Tennis') rather than the player's name",
+    "Opposing players / teammates rendered on these pages (e.g. match history opponents) are also rendered with initials — no third-party identity leak",
+    "The availability page continues to render initials the same way (no regression)"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "templates/players/profile.html",
+      "templates/players/match_history.html"
+    ],
+    "pattern_reference": "templates/players/availability.html:1484 — `{{printf \"%.1s\" .Player.FirstName}}.{{printf \"%.1s\" .Player.LastName}}.`",
+    "do_not_change": [
+      "Server-side data loading — we still load the full Player into template context; we just do not render the name"
+    ]
+  },
+  "testing_requirements": [
+    "Manual: open /my-profile/{token} and confirm no first/last/preferred name appears in the rendered HTML",
+    "Manual: open /my-profile/{token}/history and confirm initials-only for player and opponents",
+    "E2E coverage lands in WI-100"
+  ],
+  "context": {
+    "user_story": "As a player, I want my profile page to hide my full name even if someone forwards my shareable link, because the URL is effectively public.",
+    "related_files": "internal/players/profile.go (no handler changes needed — rendering-only)"
+  }
+}

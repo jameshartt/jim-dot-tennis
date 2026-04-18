@@ -1,0 +1,44 @@
+{
+  "id": "WI-101",
+  "title": "Link admin accounts to player records via user.player_id",
+  "description": "The captain dashboard needs to know which player a logged-in admin is, so it can default 'My Teams' scope correctly and personalise the UI. Add a one-time self-link flow where an admin on first visit to the dashboard picks their player record from the club roster.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "S",
+  "parallelisable": false,
+  "dependencies": [],
+  "prerequisite_migrations": [
+    "025_add_user_player_link — delivered by Sprint 016 WI-094"
+  ],
+  "acceptance_criteria": [
+    "On first visit to /admin/league/planning after this WI lands, an admin is presented with an 'I am…' picker to link their user to a player",
+    "Picker shows active players at the home club, searchable by name",
+    "Selection writes users.player_id for that user",
+    "Once linked, the picker does not reappear — the dashboard uses the linked player for personalisation",
+    "Admin can unlink / relink from a small settings affordance on the dashboard (in case of mistake)",
+    "The link is optional — admins without a linked player still see the full dashboard but default to 'All Teams' scope",
+    "Admin users with a linked player who is also in the captains table see their team(s) highlighted subtly, but are never restricted from any scope"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "internal/admin/planning_link.go — the self-link handler"
+    ],
+    "files_to_modify": [
+      "internal/admin/handler.go — register /admin/league/planning routes",
+      "internal/models/models.go — User.PlayerID field already added in Sprint 016 WI-094"
+    ],
+    "design_notes": [
+      "No hard-coding of which admins are captains — captain status derived from the captains table at query time",
+      "All captains see all teams per the team philosophy — the link is for personalisation only, never for gating"
+    ]
+  },
+  "testing_requirements": [
+    "Integration test: admin first visit shows picker; after selection, subsequent visits don't",
+    "Integration test: unlink/relink works",
+    "E2E coverage in WI-107"
+  ],
+  "context": {
+    "user_story": "As a captain, I want the planning dashboard to know I'm James so it can default to showing my teams first — but I don't want to be locked out of seeing any other team.",
+    "team_philosophy": "We're a whole team. Any captain can pick for any team (covering holidays, joint decisions). Scope filters are for focus, never isolation."
+  }
+}

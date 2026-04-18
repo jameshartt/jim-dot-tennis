@@ -1,0 +1,52 @@
+{
+  "id": "WI-106",
+  "title": "Draft lineups per fixture with hand-off to the existing selection workflow",
+  "description": "The planning payoff: on each fixture in the week view, captains can draft a lineup (mull it over), save it, share it with other captains via the URL, and when ready, promote it into the existing admin selection workflow (internal/admin/selection_overview.go) without re-keying names. Directly addresses the cascading player-picking pain point.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": ["WI-103", "WI-104"],
+  "acceptance_criteria": [
+    "Each fixture in the matrix exposes a 'Draft lineup' affordance (cell action or drawer)",
+    "Draft shows the four matchup slots (men's, women's, two mixed) and lets the captain assign players from the eligible + available roster",
+    "Assignment respects eligibility but is not restricted by division captaincy — any admin can draft for any fixture",
+    "Draft is explicitly a DRAFT, not a final selection — it does NOT write into fixture_players",
+    "Multiple drafts per fixture allowed (alternative plans); each draft has a name and an author",
+    "Free-text 'mull-over note' alongside each draft",
+    "'Promote to selection' button hands off the draft's player assignments to the existing selection_overview flow — pre-populates the selection form",
+    "Once promoted, the draft is marked 'promoted' (audit trail) but not deleted",
+    "All drafts visible to all captains (whole-team ethos)",
+    "Migration 026 adds lineup_drafts + lineup_draft_players tables"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "migrations/026_add_lineup_drafts.up.sql",
+      "migrations/026_add_lineup_drafts.down.sql",
+      "internal/admin/lineup_drafts.go",
+      "internal/repository/lineup_draft_repository.go",
+      "templates/admin/partials/lineup_draft.html"
+    ],
+    "files_to_modify": [
+      "internal/admin/selection_overview.go — accept a ?from_draft={id} query that pre-populates the selection form",
+      "internal/admin/handler.go — register draft routes"
+    ],
+    "schema_sketch": [
+      "lineup_drafts(id, fixture_id, name, author_user_id, notes TEXT, promoted_at TIMESTAMP NULL, created_at, updated_at)",
+      "lineup_draft_players(id, draft_id, matchup_slot ENUM, player_id, position INTEGER)"
+    ],
+    "design_notes": [
+      "Drafts are non-binding — no notifications, no visibility to players, no fixture_players writes",
+      "Promotion hands off to the admin selection workflow, which remains the single source of truth for committed selections",
+      "Consider adding a 'from_draft' audit field on the selection record in a follow-up"
+    ]
+  },
+  "testing_requirements": [
+    "Integration test: create, edit, promote draft; confirm fixture_players is only written via selection_overview, not draft save",
+    "Integration test: promoted drafts are flagged but not deleted",
+    "E2E: draft → promote → selection round-trip (WI-107)"
+  ],
+  "context": {
+    "user_story": "As a captain, the cascading week-over-week picking is a pain point. I want a place to mull lineups with my co-captains, save options, and when we're ready, push the chosen one straight into selection without re-keying names."
+  }
+}

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Generic title — initials-only surface, no player name leaked. -->
+    <title>My Tennis — Saved</title>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #e8f5e8 0%, #f8f9fa 100%);
+            min-height: 100vh;
+            padding: 16px;
+            color: #333;
+            line-height: 1.5;
+        }
+        .page { max-width: 720px; margin: 0 auto; }
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            padding: 28px;
+            margin-bottom: 16px;
+        }
+        h1 { color: #2c5530; font-size: 26px; margin: 0 0 8px 0; }
+        .lede { color: #4a7c59; font-size: 15px; margin: 0 0 12px 0; }
+        .summary {
+            list-style: none;
+            padding: 0;
+            margin: 16px 0 0 0;
+            border-top: 1px solid #e8f5e8;
+        }
+        .summary li {
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f6f0;
+            display: grid;
+            grid-template-columns: minmax(180px, 38%) 1fr;
+            gap: 12px;
+            font-size: 14px;
+        }
+        .summary li .label { color: #2c5530; font-weight: 600; }
+        .summary li .value { color: #555; word-break: break-word; }
+        .empty {
+            margin-top: 16px;
+            color: #888;
+            font-style: italic;
+            font-size: 14px;
+        }
+        .privacy-note {
+            background: #fffbe6;
+            border: 1px solid #ffe58f;
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-top: 18px;
+            font-size: 13px;
+            color: #614700;
+        }
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 18px;
+        }
+        .btn {
+            background: #4a7c59;
+            color: white;
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-ghost {
+            background: transparent;
+            color: #2c5530;
+            border: 1px solid #4a7c59;
+        }
+        footer { text-align: center; color: #999; padding: 24px 0; font-size: 13px; }
+        footer a { color: #4a7c59; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="card">
+            <h1 data-testid="confirmation-heading">Thanks — we've saved your answers.</h1>
+            <p class="lede">
+                {{ if gt .FieldCount 0 }}
+                    Updated {{ .FieldCount }} field{{ if ne .FieldCount 1 }}s{{ end }}{{ if .Section }} in the <strong>{{ .Section }}</strong> section{{ end }}.
+                {{ else }}
+                    No fields were submitted — nothing changed.
+                {{ end }}
+            </p>
+
+            {{ if .SubmittedFields }}
+            <ul class="summary" data-testid="submitted-fields">
+                {{ range .SubmittedFields }}
+                <li><span class="label">{{ .Label }}</span><span class="value">{{ .Value }}</span></li>
+                {{ end }}
+            </ul>
+            {{ else }}
+            <p class="empty">Tip: to change a single section, fill in just that part and hit save — other sections stay untouched.</p>
+            {{ end }}
+
+            <!-- Deliberate privacy choice: no 'view my full profile' link.
+                 Stored state is never read back on the token URL. -->
+            <div class="privacy-note">
+                <strong>Reminder:</strong> we don't show your stored answers back on this page — only what you just submitted.
+                Your captains can see the full picture when building lineups.
+            </div>
+
+            <div class="actions">
+                <a href="/my-profile/{{.AuthToken}}" class="btn btn-ghost" data-testid="update-another">Update another section</a>
+                <a href="/my-availability/{{.AuthToken}}" class="btn" data-testid="back-to-availability">Back to availability</a>
+            </div>
+        </div>
+    </div>
+    <footer>&copy; {{currentYear}} Jim.Tennis &middot; <a href="/about">About</a></footer>
+</body>
+</html>

@@ -1,0 +1,40 @@
+{
+  "id": "WI-100",
+  "title": "E2E tests — privacy, write-only flow, merge semantics",
+  "description": "Lock down the privacy and data-merge guarantees of Sprint 016 with Playwright tests. These are regression gates — if a later change adds a read-back path or leaks a name on the token URL, this suite should fail loudly.",
+  "type": "test",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-093", "WI-095", "WI-096", "WI-097", "WI-099"],
+  "acceptance_criteria": [
+    "Test: /my-profile/{token} rendered HTML contains initials but NOT first name, last name, or preferred name for the seeded player",
+    "Test: /my-profile/{token}/history rendered HTML contains initials only for the player and any opponents",
+    "Test: page <title> on /my-profile/{token} does not contain the player's first or last name",
+    "Test: GET /my-profile/{token} renders blank form; after POST with partial data and a second GET, the form is still blank",
+    "Test: POST with a subset of fields saves only those fields — a prior POST's other fields are not cleared (merge semantics)",
+    "Test: explicit 'clear' on a multi-select empties the list on the server",
+    "Test: confirmation page after POST shows only the just-submitted fields and does not display prior stored values",
+    "Test: /my-availability/{token} renders a visible CTA linking to /my-profile/{token}",
+    "Test: admin view on /admin/league/players/{id} shows 'My Tennis' summary with stored values (via admin session auth)",
+    "Test: player-facing pages do NOT contain a seeded captain_player_notes body (leak regression — further coverage in Sprint 017 WI-107)",
+    "All tests parameterised on the seeded fantasy token from fixtures/seed.sql and seeded admin credentials",
+    "Tests pass headlessly and at 2+ workers"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/players/my_tennis.spec.ts",
+      "tests/e2e/players/my_tennis_privacy.spec.ts"
+    ],
+    "files_to_modify": [
+      "tests/e2e/fixtures/seed.sql — seed preferences and a captain note for regression coverage"
+    ]
+  },
+  "testing_requirements": [
+    "make test-e2e passes",
+    "Tests are resilient to copy tweaks (assert data-testid / ARIA selectors rather than brittle text)"
+  ],
+  "context": {
+    "user_story": "As a maintainer, I want the privacy properties of 'My Tennis' to be enforced by CI so a future change doesn't silently reopen the read-back path."
+  }
+}

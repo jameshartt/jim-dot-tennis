@@ -1,0 +1,40 @@
+{
+  "id": "WI-107",
+  "title": "E2E tests for captain planning dashboard",
+  "description": "Regression coverage for the planning dashboard: scope switching, week scrubber, filters, private-notes isolation from player-facing surfaces, draft→selection hand-off, and responsive breakpoints.",
+  "type": "test",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-101", "WI-102", "WI-103", "WI-104", "WI-105", "WI-106"],
+  "acceptance_criteria": [
+    "Test: admin session required — unauthenticated request to /admin/league/planning redirects to login",
+    "Test: scope chooser switches matrix content (My Teams / My Division / Specific Team / All)",
+    "Test: 'My Teams' default fires when user.player_id maps to an active captain",
+    "Test: week scrubber prev/next/date-jump changes matrix content",
+    "Test: past-season toggle reveals completed seasons",
+    "Test: URL query string reflects scope + week and deep-links reproduce the same view",
+    "Test: preference filters narrow visible players as expected",
+    "Test: captain_player_notes visible on dashboard + admin player detail, NEVER visible on /my-profile/{token}, /my-profile/{token}/history, or /my-availability/{token} — seed a note for regression coverage",
+    "Test: create a draft lineup, click 'Promote to selection', land on selection_overview with the draft's players pre-populated",
+    "Test: viewport nudge appears on narrow portrait mobile; 'View anyway' escape works; nudge absent at tablet+ widths",
+    "Tests use seeded admin credentials and seeded captain relations from fixtures/seed.sql"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/admin/planning_dashboard.spec.ts",
+      "tests/e2e/admin/planning_notes_isolation.spec.ts",
+      "tests/e2e/workflows/planning_draft_to_selection.spec.ts"
+    ],
+    "files_to_modify": [
+      "tests/e2e/fixtures/seed.sql — seed lineup draft and captain note for regression coverage"
+    ]
+  },
+  "testing_requirements": [
+    "make test-e2e passes with these specs included",
+    "Tests are resilient to copy tweaks (data-testid / ARIA selectors)"
+  ],
+  "context": {
+    "user_story": "As a maintainer, I want the captain dashboard's behaviour and the critical leak-prevention guarantees to be CI-enforced."
+  }
+}

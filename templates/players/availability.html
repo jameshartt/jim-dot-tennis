@@ -29,6 +29,39 @@
             width: 100%;
         }
         
+        /* My Tennis CTA (Sprint 016 WI-096) */
+        .my-tennis-cta {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px 18px;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, #4a7c59 0%, #2c5530 100%);
+            color: white;
+            border-radius: 14px;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(44, 85, 48, 0.18);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .my-tennis-cta:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(44, 85, 48, 0.25); }
+        .my-tennis-cta__icon { font-size: 28px; flex: 0 0 auto; }
+        .my-tennis-cta__text { flex: 1 1 auto; min-width: 0; }
+        .my-tennis-cta__title { font-weight: 700; font-size: 16px; margin-bottom: 2px; }
+        .my-tennis-cta__subtitle { font-size: 13px; opacity: 0.9; line-height: 1.35; }
+        .my-tennis-cta__action {
+            flex: 0 0 auto;
+            font-weight: 600;
+            font-size: 13px;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.12);
+            border-radius: 8px;
+            white-space: nowrap;
+        }
+        @media (max-width: 480px) {
+            .my-tennis-cta { flex-wrap: wrap; }
+            .my-tennis-cta__action { width: 100%; text-align: center; margin-top: 4px; }
+        }
+
         .fantasy-match-card {
             background: white;
             border-radius: 12px;
@@ -1472,6 +1505,16 @@
             </div>
             <span id="notif-feedback" class="notif-feedback"></span>
         </div>
+
+        <!-- My Tennis CTA (Sprint 016 WI-096) -->
+        <a href="/my-profile/{{.AuthToken}}" class="my-tennis-cta" data-testid="my-tennis-cta">
+            <div class="my-tennis-cta__icon" aria-hidden="true">🎾</div>
+            <div class="my-tennis-cta__text">
+                <div class="my-tennis-cta__title">Tell us about your tennis</div>
+                <div class="my-tennis-cta__subtitle">Help your captains build pairings and lineups that bring out your best.</div>
+            </div>
+            <div class="my-tennis-cta__action">Open My Tennis →</div>
+        </a>
 
         <div class="availability-section" id="upcoming-fixtures-section" style="display: none;">
             <h2 class="section-title">Your Upcoming Fixtures</h2>

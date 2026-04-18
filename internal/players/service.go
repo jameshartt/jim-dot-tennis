@@ -15,39 +15,41 @@ import (
 
 // Service provides business logic for player operations
 type Service struct {
-	db                      *database.DB
-	homeClubID              uint
-	playerRepository        repository.PlayerRepository
-	fantasyRepository       repository.FantasyMixedDoublesRepository
-	tennisPlayerRepository  repository.ProTennisPlayerRepository
-	availabilityRepository  repository.AvailabilityRepository
-	seasonRepository        repository.SeasonRepository
-	fixtureRepository       repository.FixtureRepository
-	teamRepository          repository.TeamRepository
-	divisionRepository      repository.DivisionRepository
-	weekRepository          repository.WeekRepository
-	clubRepository          repository.ClubRepository
-	matchupRepository       repository.MatchupRepository
-	venueOverrideRepository repository.VenueOverrideRepository
+	db                       *database.DB
+	homeClubID               uint
+	playerRepository         repository.PlayerRepository
+	fantasyRepository        repository.FantasyMixedDoublesRepository
+	tennisPlayerRepository   repository.ProTennisPlayerRepository
+	availabilityRepository   repository.AvailabilityRepository
+	seasonRepository         repository.SeasonRepository
+	fixtureRepository        repository.FixtureRepository
+	teamRepository           repository.TeamRepository
+	divisionRepository       repository.DivisionRepository
+	weekRepository           repository.WeekRepository
+	clubRepository           repository.ClubRepository
+	matchupRepository        repository.MatchupRepository
+	venueOverrideRepository  repository.VenueOverrideRepository
+	tennisPreferenceRepository repository.PlayerTennisPreferenceRepository
 }
 
 // NewService creates a new players service
 func NewService(db *database.DB, homeClubID uint) *Service {
 	return &Service{
-		db:                      db,
-		homeClubID:              homeClubID,
-		playerRepository:        repository.NewPlayerRepository(db),
-		fantasyRepository:       repository.NewFantasyMixedDoublesRepository(db),
-		tennisPlayerRepository:  repository.NewProTennisPlayerRepository(db),
-		availabilityRepository:  repository.NewAvailabilityRepository(db),
-		seasonRepository:        repository.NewSeasonRepository(db),
-		fixtureRepository:       repository.NewFixtureRepository(db),
-		teamRepository:          repository.NewTeamRepository(db),
-		divisionRepository:      repository.NewDivisionRepository(db),
-		weekRepository:          repository.NewWeekRepository(db),
-		clubRepository:          repository.NewClubRepository(db),
-		matchupRepository:       repository.NewMatchupRepository(db),
-		venueOverrideRepository: repository.NewVenueOverrideRepository(db),
+		db:                         db,
+		homeClubID:                 homeClubID,
+		playerRepository:           repository.NewPlayerRepository(db),
+		fantasyRepository:          repository.NewFantasyMixedDoublesRepository(db),
+		tennisPlayerRepository:     repository.NewProTennisPlayerRepository(db),
+		availabilityRepository:     repository.NewAvailabilityRepository(db),
+		seasonRepository:           repository.NewSeasonRepository(db),
+		fixtureRepository:          repository.NewFixtureRepository(db),
+		teamRepository:             repository.NewTeamRepository(db),
+		divisionRepository:         repository.NewDivisionRepository(db),
+		weekRepository:             repository.NewWeekRepository(db),
+		clubRepository:             repository.NewClubRepository(db),
+		matchupRepository:          repository.NewMatchupRepository(db),
+		venueOverrideRepository:    repository.NewVenueOverrideRepository(db),
+		tennisPreferenceRepository: repository.NewPlayerTennisPreferenceRepository(db),
 	}
 }
 
@@ -958,10 +960,11 @@ func (s *Service) GetPlayerMatchHistory(playerID string, seasonID *uint) ([]Play
 			setScores += fmt.Sprintf(", %d-%d", *row.HomeSet3, *row.AwaySet3)
 		}
 
-		// Find partner and opponents
+		// Find partner and opponents. Rendered under /my-profile/{token}/history —
+		// a shareable URL — so emit initials only. Never leak full names here.
 		allPlayers, _ := s.matchupRepository.FindPlayersInMatchup(ctx, row.MatchupID)
 		partnerName := ""
-		var opponentNames []string
+		var opponentInitials []string
 		for _, mp := range allPlayers {
 			if mp.PlayerID == playerID {
 				continue
@@ -970,18 +973,18 @@ func (s *Service) GetPlayerMatchHistory(playerID string, seasonID *uint) ([]Play
 			if err != nil {
 				continue
 			}
-			name := p.FirstName + " " + p.LastName
+			name := initialsFor(p.FirstName, p.LastName)
 			if mp.IsHome == row.IsHome {
 				partnerName = name
 			} else {
-				opponentNames = append(opponentNames, name)
+				opponentInitials = append(opponentInitials, name)
 			}
 		}
 		opponents := ""
-		if len(opponentNames) > 0 {
-			opponents = opponentNames[0]
-			if len(opponentNames) > 1 {
-				opponents += " & " + opponentNames[1]
+		if len(opponentInitials) > 0 {
+			opponents = opponentInitials[0]
+			if len(opponentInitials) > 1 {
+				opponents += " & " + opponentInitials[1]
 			}
 		}
 
@@ -1025,4 +1028,73 @@ func (s *Service) GetPlayerMatchHistory(playerID string, seasonID *uint) ([]Play
 	}
 
 	return records, stats, nil
+}
+
+// PartnerOption is a single row in the partner picker.
+// Full name is included only for the in-form picker UX; the picker is
+// rendered on a token URL but shows roster-mates at the same club — who the
+// player would already know by name in real life — not any stored preferences.
+type PartnerOption struct {
+	ID        string
+	FirstName string
+	LastName  string
+}
+
+// GetPartnerRoster lists potential partners for the picker (active roster at
+// the player's club, excluding self).
+func (s *Service) GetPartnerRoster(playerID string) ([]PartnerOption, error) {
+	ctx := context.Background()
+	player, err := s.playerRepository.FindByID(ctx, playerID)
+	if err != nil {
+		return nil, fmt.Errorf("player not found: %w", err)
+	}
+	peers, err := s.playerRepository.FindByClub(ctx, player.ClubID)
+	if err != nil {
+		return nil, fmt.Errorf("roster lookup failed: %w", err)
+	}
+	out := make([]PartnerOption, 0, len(peers))
+	for _, p := range peers {
+		if p.ID == playerID {
+			continue
+		}
+		out = append(out, PartnerOption{
+			ID:        p.ID,
+			FirstName: p.FirstName,
+			LastName:  p.LastName,
+		})
+	}
+	return out, nil
+}
+
+// PartnerListUpdate describes an explicit replace-list intent for one kind.
+// Absent from the map means 'do not update'; present (even with an empty Set)
+// means 'replace the stored list with Set'.
+type PartnerListUpdate struct {
+	Set []string
+}
+
+// UpdateMyTennisPreferences applies merge semantics on the scalar/JSON columns
+// and replaces-or-leaves each partner list independently.
+//
+// PRIVACY CONTRACT (WI-097): this method is called from the fantasy-token POST
+// surface. It MUST NOT read back stored state and hand it to the caller —
+// callers on /my-profile/{token} render a blank GET regardless.
+func (s *Service) UpdateMyTennisPreferences(
+	playerID string,
+	partial *models.PlayerTennisPreferences,
+	partnerUpdates map[models.PreferredPartnerKind]PartnerListUpdate,
+) error {
+	ctx := context.Background()
+	if partial != nil {
+		partial.PlayerID = playerID
+		if err := s.tennisPreferenceRepository.UpsertMerge(ctx, partial); err != nil {
+			return fmt.Errorf("upsert preferences: %w", err)
+		}
+	}
+	for kind, upd := range partnerUpdates {
+		if err := s.tennisPreferenceRepository.ReplacePartnersOfKind(ctx, playerID, kind, upd.Set); err != nil {
+			return fmt.Errorf("replace partners (%s): %w", kind, err)
+		}
+	}
+	return nil
 }

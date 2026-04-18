@@ -1,0 +1,50 @@
+{
+  "id": "WI-097",
+  "title": "Write-only submission flow — no stored values echoed under the token URL",
+  "description": "The fantasy token URL is effectively open-internet because it is forwardable. The 'My Tennis' form must therefore be write-only from that surface: GET always renders a blank form, POST saves using merge semantics (empty fields do not clobber stored values), and the confirmation page displays only what was submitted in the current session. Stored answers are only readable via the admin-session surfaces (WI-099 and Sprint 017 dashboard).",
+  "type": "privacy",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-094", "WI-095"],
+  "acceptance_criteria": [
+    "GET /my-profile/{token} never queries player_tennis_preferences or player_preferred_partners — the form renders with all inputs blank regardless of stored state",
+    "POST /my-profile/{token} accepts per-section or whole-form submissions; empty fields are ignored (merge semantics) so a player can update a single section without clearing others",
+    "Multi-select fields (preferred_days, improvement_focus, partner lists) expose an explicit 'clear' affordance because blank = no change",
+    "After POST, the player lands on a confirmation page that shows ONLY what was just submitted in this session — no retrieval of prior stored values",
+    "Confirmation page does not include a 'view my full profile' link or anything that re-reads stored state",
+    "Re-visiting /my-profile/{token} after submission shows a blank form again",
+    "Form copy explicitly explains the privacy model: 'Your answers stay private — captains see them when building lineups. We don't show them back on this page because the link is shareable. You can update anytime.'",
+    "Same write-only contract holds for partner-preference updates",
+    "Handler code has a comment flagging this constraint so future changes don't accidentally add a read-back path"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/players/my_tennis.go — enforce blank GET, merge POST, session-only confirmation",
+      "internal/players/service.go — provide an UpdatePreferences(playerID, partialUpdate) method with merge semantics"
+    ],
+    "merge_semantics": [
+      "Scalar columns: nil / empty string = do not update",
+      "Boolean columns: presence in the form submission drives the update; absent = do not update",
+      "JSON array columns (preferred_days etc.): absent = do not update; explicit empty array via the 'clear' control = set to empty",
+      "Partner lists: presence of an 'update partners' payload replaces the list; absence = do not update"
+    ],
+    "confirmation_page": [
+      "Renders from the just-submitted form data carried through the POST handler",
+      "Short summary: 'Thanks — we updated N fields.'",
+      "CTA back to /my-availability/{token}",
+      "Must NOT load stored state from the database"
+    ],
+    "future_work_hook": "If later we want players to review their stored answers, add a magic-link flow over email (Sprint 007 infrastructure) — out of scope here"
+  },
+  "testing_requirements": [
+    "Integration test: POST a partial update, re-GET, confirm form is blank",
+    "Integration test: POST empty form, confirm no stored values cleared",
+    "Integration test: POST with explicit 'clear' on a multi-select, confirm list is emptied",
+    "E2E coverage in WI-100 — 'reload profile shows blank' regression"
+  ],
+  "context": {
+    "user_story": "As a player whose profile URL might be forwarded (group chats, screenshots), I want to be confident that even if someone else opens my link, they cannot see what I said about my tennis.",
+    "threat_model": "Adversary holds a valid fantasy token (screenshot, forwarded link). We cannot distinguish them from the legitimate player, so we render a blank form on GET; stored state is only reachable via admin-session authentication."
+  }
+}

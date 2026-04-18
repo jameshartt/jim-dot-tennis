@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Match History - Jim.Tennis</title>
+    <title>My Tennis — Match History</title>
     <link rel="icon" type="image/png" href="/static/img/favicon.png">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -152,8 +152,8 @@
         <div class="header-card">
             <div>
                 <h1>Match History</h1>
-                <div style="color: #666; font-size: 14px; margin-top: 4px;">
-                    {{.Player.FirstName}} {{.Player.LastName}}
+                <div style="color: #666; font-size: 14px; margin-top: 4px;" data-testid="history-initials">
+                    {{ printf "%.1s" .Player.FirstName }}.{{ printf "%.1s" .Player.LastName }}.
                 </div>
             </div>
             <a href="/my-profile/{{.AuthToken}}" class="back-link">← Back to Profile</a>

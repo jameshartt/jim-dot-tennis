@@ -1,0 +1,111 @@
+{
+  "id": "WI-094",
+  "title": "Schema: tennis preferences, preferred partners, captain private notes, user-player link",
+  "description": "Land the data model that underpins both Sprint 016 and Sprint 017. Migration 024 creates player_tennis_preferences (one-to-one with player, all nullable columns), player_preferred_partners (join table, positive-only), and captain_player_notes (captain-only, never queried from player handlers). Migration 025 adds users.player_id so an admin/captain can be linked to their player record for Sprint 017 personalisation.",
+  "type": "migration",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [],
+  "acceptance_criteria": [
+    "Migration 024 creates player_tennis_preferences with one nullable row per player, covering every field in the taxonomy below",
+    "Migration 024 creates player_preferred_partners (player_id, partner_player_id, kind ENUM 'clicks_with' | 'would_love_to_try', created_at) — positive kinds ONLY",
+    "Migration 024 creates captain_player_notes (id, player_id, author_user_id, kind ENUM 'partnership' | 'general', body TEXT, created_at, updated_at)",
+    "No 'avoid_partner' column anywhere — negative/tactical info lives exclusively on captain_player_notes",
+    "Migration 025 adds users.player_id (UUID, nullable, FK to players.id)",
+    "All migrations have matching .down.sql files that cleanly reverse",
+    "Running migrate-down from clean state removes all new tables/columns without touching pre-existing data",
+    "Model structs added: PlayerTennisPreferences, PlayerPreferredPartner, CaptainPlayerNote, and User.PlayerID",
+    "Migration file naming follows convention: 024_add_player_tennis_profile.up.sql / .down.sql, 025_add_user_player_link.up.sql / .down.sql"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "migrations/024_add_player_tennis_profile.up.sql",
+      "migrations/024_add_player_tennis_profile.down.sql",
+      "migrations/025_add_user_player_link.up.sql",
+      "migrations/025_add_user_player_link.down.sql"
+    ],
+    "files_to_modify": [
+      "internal/models/models.go — add the three new structs; add PlayerID to User"
+    ],
+    "taxonomy_cullable_during_build": {
+      "identity_and_vibe": [
+        "years_playing INTEGER",
+        "how_i_got_into_tennis TEXT",
+        "tennis_hero_or_style TEXT",
+        "pre_match_ritual TEXT"
+      ],
+      "match_type_preferences": [
+        "mixed_doubles_appetite TEXT enum (love/happy/prefer_not/no_thanks)",
+        "same_gender_doubles_appetite TEXT enum (love/happy/prefer_not/no_thanks) — UI shows mens or womens based on Player.Gender",
+        "open_to_fill_in BOOLEAN"
+      ],
+      "playing_style": [
+        "handedness TEXT enum (right/left/ambidextrous)",
+        "backhand TEXT enum (one_handed/two_handed/switch)",
+        "serve_style TEXT enum (flat/slice/kick/mixed_bag/it_goes_in_sometimes)",
+        "net_comfort TEXT enum (love_the_net/happy_at_net/baseline_first/baseline_only)",
+        "preferred_court_side TEXT enum (deuce/ad/either)",
+        "signature_shot TEXT",
+        "shot_im_working_on TEXT",
+        "favourite_tactic TEXT"
+      ],
+      "partnership": [
+        "partner_consistency TEXT enum (same_partner/mix_it_up/no_preference)",
+        "on_court_vibe TEXT enum (chatty_strategist/quiet_focus/cheerleader/just_play)",
+        "partners_i_click_with — via player_preferred_partners kind=clicks_with",
+        "partners_id_love_to_try — via player_preferred_partners kind=would_love_to_try"
+      ],
+      "intensity_and_goals": [
+        "competitiveness INTEGER 1-5 (1 pure fun, 5 want to win)",
+        "pressure_response TEXT enum (thrive/prefer_relaxed/depends_on_day)",
+        "season_goal TEXT",
+        "improvement_focus TEXT — JSON array of strings (net_play/serve/movement/mental/fitness/consistency/doubles_iq)"
+      ],
+      "logistics": [
+        "preferred_days TEXT — JSON array of strings (mon/tue/wed/thu/fri)",
+        "preferred_times TEXT — JSON array of strings (morning/afternoon/evening/anytime)",
+        "max_travel_miles INTEGER",
+        "transport TEXT enum (car/public/foot/bike)",
+        "home_court_matters TEXT enum (really_matters/nice_to_have/happy_anywhere)"
+      ],
+      "health_and_access": [
+        "what_to_know_about_my_game TEXT — positive framing of injuries/knocks; captain-visible",
+        "accessibility_notes TEXT",
+        "weather_tolerance TEXT enum (all_weather/prefer_dry/prefer_cool)"
+      ],
+      "fun_and_playful": [
+        "tennis_spirit_animal TEXT — free choice",
+        "walkout_song TEXT",
+        "celebration_style TEXT enum (fist_pump/quiet_nod/cmon/apologise_to_partner/dance)",
+        "post_match TEXT enum (pub/coffee/straight_home/anything_social)",
+        "my_tennis_in_one_line TEXT"
+      ],
+      "communications": [
+        "preferred_contact TEXT enum (whatsapp/sms/email/push/any)",
+        "best_window_for_last_minute TEXT",
+        "notes_to_captain TEXT — positive/logistical notes from player, captain-readable"
+      ]
+    },
+    "key_decisions": [
+      "One-to-one table keyed by player_id (UUID) rather than JSON blob — Sprint 017 needs to filter/sort by handedness, court side, etc.",
+      "JSON TEXT columns only for intrinsically list-shaped values (preferred_days, preferred_times, improvement_focus)",
+      "captain_player_notes is isolated — no package under internal/players/* should import its repository. Enforced by convention and a leak-regression E2E test in Sprint 017 WI-107",
+      "user.player_id is nullable — existing admin accounts keep working unlinked"
+    ]
+  },
+  "testing_requirements": [
+    "Migration applies cleanly on a fresh database and on a populated copy",
+    "Down migration removes all new tables/columns without touching pre-existing data",
+    "Model structs marshal/unmarshal JSON correctly for list-shaped columns",
+    "Repository unit test (added in WI-095/WI-098 scope) confirms insert + update of all enum fields"
+  ],
+  "context": {
+    "user_story": "As the system, I need a rich but optional data model for how a player describes their tennis, plus a quiet captain-only note space for anything players shouldn't have to express about themselves.",
+    "design_principles": [
+      "Celebrate difference — the taxonomy leans into what makes each player themselves",
+      "Positive-only for anything the player can see; no 'avoid' fields on player-authored tables",
+      "Every field optional — partial completion is the expected state"
+    ]
+  }
+}
