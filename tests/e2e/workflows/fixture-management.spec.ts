@@ -80,7 +80,10 @@ test.describe("Captain Selection Overview", () => {
   });
 
   test("fixture cards are displayed", async ({ adminPage }) => {
-    await adminPage.goto("/admin/league/selection-overview");
+    // Pin to Week 1: the seed fixtures live in Week 1, and the page's default
+    // 'current/next week' picker lands on the last week of the season when
+    // today's date is past the seeded season window.
+    await adminPage.goto("/admin/league/selection-overview?week=1");
     const fixtureCards = adminPage.locator(".fixture-card");
     const count = await fixtureCards.count();
     expect(count).toBeGreaterThanOrEqual(1);
@@ -89,7 +92,7 @@ test.describe("Captain Selection Overview", () => {
   });
 
   test("team selection link is available", async ({ adminPage }) => {
-    await adminPage.goto("/admin/league/selection-overview");
+    await adminPage.goto("/admin/league/selection-overview?week=1");
     const teamSelectionLink = adminPage.locator(
       'a[href*="/team-selection"]',
     );

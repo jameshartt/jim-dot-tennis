@@ -6,9 +6,16 @@
 
 **Duration**: 2 weeks (dates TBD)
 
-**Status**: Not Started
+**Status**: In Progress — Phase 1 + 2 delivered (WI-101 → WI-103) on 2026-04-19
 
-**Depends on**: Sprint 016 (WI-094 schema, WI-098 preference summary partial)
+**Depends on**: Sprint 016 (WI-094 schema, WI-098 preference summary partial) — ✅ verified on main
+
+**Sprint 016 deliverables consumed**:
+- Migrations `024_add_player_tennis_profile` + `025_add_user_player_link` (idx_users_player_id)
+- `users.player_id` column populated via `User.PlayerID *string` on the model
+- `PlayerTennisPreferenceRepository` (FindByPlayerID, ListPreferredPartners)
+- `Service.GetPlayerTennisSummary` / `PlayerTennisSummary` struct
+- `templates/admin/partials/my_tennis_summary.html` (available for WI-103 popover follow-up)
 
 ## Background
 
@@ -102,10 +109,15 @@ WI-101 → WI-102 → WI-103 → WI-104 → WI-106 → WI-107
 ## Work Items Tracking
 
 ### Completed
-- None
+- WI-101 — user.player_id wiring + 'I am…' self-link (2026-04-19)
+- WI-102 — Dashboard shell, scope chooser, week scrubber (2026-04-19)
+- WI-103 — Week roll-up matrix (2026-04-19)
 
 ### In Progress
 - None
 
 ### Not Started
-- WI-101 through WI-107
+- WI-104 — Preference filters and chips
+- WI-105 — Captain-managed private player notes
+- WI-106 — Draft lineup + hand-off to selection
+- WI-107 — E2E tests

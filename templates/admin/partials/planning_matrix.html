@@ -1,0 +1,99 @@
+{{if .Matrix}}
+{{if .Matrix.EmptyReason}}
+<div class="matrix-empty" data-testid="matrix-empty">
+    <p>{{.Matrix.EmptyReason}}</p>
+</div>
+{{else}}
+<div class="matrix-header" style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.6rem;">
+    <strong>{{len .Matrix.Rows}} players · {{len .Matrix.Columns}} team-columns</strong>
+    <span style="font-size:0.8rem;color:#666;">Click a cell to add/remove that player · headers link to team selection</span>
+</div>
+
+<table class="planning-matrix" data-testid="planning-matrix" style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+    <thead>
+    <tr class="matrix-team-row" data-testid="matrix-team-row">
+        <th style="background:white;position:sticky;left:0;"></th>
+        {{range .Matrix.ColumnGroups}}
+        <th colspan="{{.ColumnCount}}"
+            data-testid="team-group-{{.TeamID}}"
+            style="text-align:center;padding:0.35rem 0.5rem;border-bottom:1px solid #dee2e6;background:#f8f9fa;">
+            <strong>{{.TeamName}}</strong>
+        </th>
+        {{end}}
+    </tr>
+    <tr>
+        <th style="text-align:left;padding:0.5rem;border-bottom:2px solid #dee2e6;position:sticky;left:0;background:white;">Player</th>
+        {{range .Matrix.Columns}}
+        {{/* Padding lives on the anchor so the whole header cell is the hit
+             target — clicking anywhere inside the TH opens team selection. */}}
+        <th style="text-align:center;padding:0;border-bottom:2px solid #dee2e6;min-width:140px;"
+            data-testid="fixture-col-{{.Fixture.ID}}-{{.PerspectiveTeamID}}">
+            <a href="/admin/league/fixtures/{{.Fixture.ID}}/team-selection"
+               data-testid="fixture-link-{{.Fixture.ID}}-{{.PerspectiveTeamID}}"
+               class="fixture-col-link"
+               title="Open team selection for {{.TeamName}} vs {{.OpponentName}}">
+                <div style="font-weight:500;">vs {{.OpponentName}}</div>
+                <div style="font-size:0.75rem;color:#666;">{{.Fixture.ScheduledDate.Format "Mon 2 Jan"}} · {{shortDivision .DivisionName}}{{if .IsHome}} · H{{else}} · A{{end}}</div>
+            </a>
+        </th>
+        {{end}}
+    </tr>
+    </thead>
+    <tbody>
+    {{range .Matrix.Rows}}
+    <tr data-testid="matrix-row-{{.Player.ID}}">
+        <td style="padding:0.5rem;border-bottom:1px solid #f2f2f2;position:sticky;left:0;background:white;">
+            <div>
+                <strong>{{.Player.FirstName}} {{.Player.LastName}}</strong>
+                {{$player := .Player}}
+                {{with .Preferences}}
+                <span class="pref-chips" data-testid="pref-chips-{{$player.ID}}">
+                    {{if .Handedness}}
+                        {{$h := deref .Handedness}}
+                        <span class="chip-pref" title="{{$h}}-handed" data-chip="handedness">
+                            {{if eq $h "Right"}}R{{else if eq $h "Left"}}L{{else if eq $h "Ambidextrous"}}A{{else}}?{{end}}
+                        </span>
+                    {{end}}
+                    {{if .PreferredCourtSide}}
+                        {{$c := deref .PreferredCourtSide}}
+                        <span class="chip-pref" title="Prefers {{$c}} side" data-chip="court-side">
+                            {{if eq $c "Deuce"}}D{{else if eq $c "Ad"}}A{{else if eq $c "Either"}}E{{else}}?{{end}}
+                        </span>
+                    {{end}}
+                    {{if .Competitiveness}}
+                        {{$n := derefInt .Competitiveness}}
+                        <span class="chip-pref chip-comp" title="Competitiveness {{$n}}/5" data-chip="competitiveness">
+                            {{range $i := until 5}}{{if lt $i $n}}●{{else}}○{{end}}{{end}}
+                        </span>
+                    {{end}}
+                    {{if derefBool .OpenToFillIn}}
+                        <span class="chip-pref chip-star" title="Open to fill-in" data-chip="open-to-fill-in">★</span>
+                    {{end}}
+                </span>
+                {{end}}
+                <button type="button"
+                        class="note-icon{{if .CaptainNoteCount}} note-icon-has{{end}}"
+                        title="Captain notes (private)"
+                        data-testid="note-icon-{{.Player.ID}}"
+                        hx-get="/admin/league/captain-notes?player_id={{.Player.ID}}"
+                        hx-target="#captain-notes-slot"
+                        hx-swap="innerHTML">
+                    📝{{if .CaptainNoteCount}}<span class="note-count">{{.CaptainNoteCount}}</span>{{end}}
+                </button>
+            </div>
+        </td>
+        {{$row := .}}
+        {{range $col := $.Matrix.Columns}}
+            {{$cell := index $row.Cells $col.Key}}
+            {{template "admin/partials/planning_cell.html" (cellCtx $cell $col $row.Player)}}
+        {{end}}
+    </tr>
+    {{end}}
+    </tbody>
+</table>
+{{end}}
+{{else}}
+<div class="matrix-empty" data-testid="matrix-empty">
+    <p>Loading…</p>
+</div>
+{{end}}

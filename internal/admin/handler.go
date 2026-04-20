@@ -33,6 +33,9 @@ type Handler struct {
 	selectionOverview *SelectionOverviewHandler
 	divisions         *DivisionsHandler
 	tournaments       *TournamentsHandler
+	planning          *PlanningHandler
+	planningLink      *PlanningLinkHandler
+	captainNotes      *CaptainNotesHandler
 }
 
 // New creates a new admin handler
@@ -63,6 +66,9 @@ func New(db *database.DB, templateDir string, courthiveAPIURL string, homeClubID
 		selectionOverview: NewSelectionOverviewHandler(service, templateDir),
 		divisions:         NewDivisionsHandler(service, templateDir),
 		tournaments:       NewTournamentsHandler(service, templateDir),
+		planning:          NewPlanningHandler(service, templateDir),
+		planningLink:      NewPlanningLinkHandler(service, templateDir),
+		captainNotes:      NewCaptainNotesHandler(service, templateDir),
 	}
 }
 
@@ -132,6 +138,18 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/league/tournaments/edit/", h.tournaments.HandleTournamentEdit)
 	adminMux.HandleFunc("/admin/league/tournaments/toggle-visibility/", h.tournaments.HandleToggleVisibility)
 	adminMux.HandleFunc("/admin/league/tournaments/sync/", h.tournaments.HandleSync)
+
+	// Captain planning dashboard (Sprint 017)
+	adminMux.HandleFunc("/admin/league/planning", h.planning.HandleDashboard)
+	adminMux.HandleFunc("/admin/league/planning/", h.planning.HandleDashboard)
+	adminMux.HandleFunc("/admin/league/planning/matrix", h.planning.HandleDashboard)
+	adminMux.HandleFunc("/admin/league/planning/cell", h.planning.HandleCellToggle)
+	adminMux.HandleFunc("/admin/league/planning/link", h.planningLink.HandleLink)
+
+	// Captain private notes (Sprint 017 WI-105). Admin-session only; this
+	// surface is explicitly forbidden from any token-authenticated mount.
+	adminMux.HandleFunc("/admin/league/captain-notes", h.captainNotes.HandleNotes)
+	adminMux.HandleFunc("/admin/league/captain-notes/", h.captainNotes.HandleNotes)
 
 	// Selection overview routes
 	adminMux.HandleFunc("/admin/league/selection-overview", h.selectionOverview.HandleSelectionOverview)

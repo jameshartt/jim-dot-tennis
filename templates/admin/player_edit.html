@@ -359,6 +359,49 @@
             </div>
             {{ end }}
 
+            <!-- Captain notes (private) — Sprint 017 WI-105 -->
+            <div class="form-group" style="margin-top: 1.5rem;" data-testid="captain-notes-section">
+                <h3 style="margin-bottom:0.25rem;">Captain notes (private)</h3>
+                <p style="font-size:0.8rem;color:#7a5800;background:#fff8e1;padding:0.3rem 0.5rem;border-radius:4px;margin:0 0 0.6rem 0;">
+                    Visible only to captains and admins. Never shown to the player or on token URLs.
+                </p>
+
+                {{if .CaptainNotes}}
+                <ul style="list-style:none;padding:0;margin:0 0 0.8rem 0;">
+                    {{range .CaptainNotes}}
+                    <li data-testid="captain-note-{{.ID}}" style="border-bottom:1px solid #f2f2f2;padding:0.5rem 0;">
+                        <div style="font-size:0.8rem;color:#666;">
+                            <span style="text-transform:uppercase;letter-spacing:0.3px;padding:0.05rem 0.45rem;border-radius:999px;font-size:0.7rem;background:{{if eq (printf "%s" .Kind) "partnership"}}#ffe5f0{{else}}#eef3f9{{end}};color:{{if eq (printf "%s" .Kind) "partnership"}}#a02063{{else}}#1a5490{{end}};">{{.Kind}}</span>
+                            · {{.UpdatedAt.Format "2 Jan 2006 15:04"}}
+                        </div>
+                        <div style="margin:0.25rem 0;white-space:pre-wrap;">{{.Body}}</div>
+                        <form method="post" action="/admin/league/captain-notes/{{.ID}}/delete" style="display:inline;">
+                            <button type="submit" style="background:none;border:none;color:#c33;cursor:pointer;font-size:0.8rem;padding:0;"
+                                    onclick="return confirm('Delete this note?');"
+                                    data-testid="captain-note-delete-{{.ID}}">Delete</button>
+                        </form>
+                    </li>
+                    {{end}}
+                </ul>
+                {{else}}
+                <p data-testid="captain-notes-empty" style="color:#888;">No notes yet.</p>
+                {{end}}
+
+                <form method="post" action="/admin/league/captain-notes" data-testid="captain-notes-add-form"
+                      style="display:flex;flex-direction:column;gap:0.4rem;">
+                    <input type="hidden" name="player_id" value="{{.Player.ID}}">
+                    <select name="kind" data-testid="captain-note-kind" style="width:auto;align-self:flex-start;padding:0.25rem;border:1px solid #dee2e6;border-radius:4px;">
+                        <option value="general">General</option>
+                        <option value="partnership">Partnership</option>
+                    </select>
+                    <textarea name="body" rows="2" required data-testid="captain-note-body"
+                              placeholder="e.g. 'Works better apart from X' or 'Always late on Tuesdays'"
+                              style="border:1px solid #dee2e6;border-radius:4px;padding:0.4rem;font:inherit;"></textarea>
+                    <button type="submit" data-testid="captain-note-submit"
+                            style="align-self:flex-start;background:var(--primary-color, #1a5490);color:white;border:none;padding:0.45rem 0.9rem;border-radius:4px;cursor:pointer;">Add note</button>
+                </form>
+            </div>
+
             <!-- Fantasy Doubles Section -->
             <div class="fantasy-section">
                 <h3>🎾 Fantasy Doubles Assignment</h3>

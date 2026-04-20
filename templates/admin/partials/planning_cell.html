@@ -1,0 +1,27 @@
+{{/* One planning-matrix cell. Rendered both inside the main matrix table
+     and standalone (hx-swap="outerHTML") when a toggle flips selection state. */}}
+<td class="matrix-cell{{if .Cell.InTeamSelection}} matrix-cell-selected{{end}}"
+    style="text-align:center;padding:0.5rem;border-bottom:1px solid #f2f2f2;cursor:pointer;{{if .Cell.InTeamSelection}}background:#e8f4ff;{{end}}"
+    title="{{if .Cell.InTeamSelection}}In {{.Col.TeamName}} selection — click to remove{{else}}Click to add to {{.Col.TeamName}} selection{{end}}{{if .Cell.Reason}} · {{.Cell.Reason}}{{end}}"
+    data-testid="cell-{{.Player.ID}}-{{.Col.Fixture.ID}}-{{.Col.PerspectiveTeamID}}"
+    data-status="{{.Cell.Status}}"
+    data-in-selection="{{.Cell.InTeamSelection}}"
+    role="button"
+    tabindex="0"
+    hx-post="/admin/league/planning/cell"
+    hx-vals='{"fixture_id":"{{.Col.Fixture.ID}}","player_id":"{{.Player.ID}}","team_id":"{{.Col.PerspectiveTeamID}}","is_home":"{{.Col.IsHome}}"}'
+    hx-target="this"
+    hx-swap="outerHTML">
+    {{if eq (printf "%s" .Cell.Status) "Available"}}
+        <span style="color:#1b8a3a;" aria-label="Available">●</span>
+    {{else if eq (printf "%s" .Cell.Status) "Unavailable"}}
+        <span style="color:#c33;" aria-label="Unavailable">●</span>
+    {{else if eq (printf "%s" .Cell.Status) "IfNeeded"}}
+        <span style="color:#e0a000;" aria-label="If needed">◐</span>
+    {{else}}
+        <span style="color:#bbb;" aria-label="Unknown">○</span>
+    {{end}}
+    {{if .Cell.InTeamSelection}}
+        <span style="color:#1a5490;font-weight:600;margin-left:0.2rem;" aria-label="In team selection">✓</span>
+    {{end}}
+</td>

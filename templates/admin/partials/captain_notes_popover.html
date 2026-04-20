@@ -1,0 +1,121 @@
+{{/*
+    Captain notes popover partial — admin-only surface. Never include this
+    template from a player-facing handler. The handler under
+    internal/admin/captain_notes.go is the only entry point and it runs under
+    the admin-session middleware.
+*/}}
+<div class="captain-notes-popover" data-testid="captain-notes-popover" data-player-id="{{.Player.ID}}">
+    <div class="cnp-header">
+        <strong>Captain notes (private)</strong>
+        <span class="cnp-sub">{{.Player.FirstName}} {{.Player.LastName}}</span>
+        <button type="button"
+                class="cnp-close"
+                aria-label="Close"
+                data-testid="captain-notes-close"
+                onclick="document.getElementById('captain-notes-slot').innerHTML = '';">×</button>
+    </div>
+
+    <p class="cnp-hint">
+        Visible only to captains and admins. Never shown to the player or on token URLs.
+    </p>
+
+    {{if .Notes}}
+    <ul class="cnp-list" data-testid="captain-notes-list">
+        {{range .Notes}}
+        <li data-testid="captain-note-{{.Note.ID}}">
+            <div class="cnp-meta">
+                <span class="cnp-kind cnp-kind-{{.Note.Kind}}">{{.Note.Kind}}</span>
+                <span class="cnp-author">{{.AuthorName}} · {{.Note.UpdatedAt.Format "2 Jan 15:04"}}</span>
+            </div>
+            <div class="cnp-body">{{.Note.Body}}</div>
+            <form method="post"
+                  action="/admin/league/captain-notes/{{.Note.ID}}/delete"
+                  hx-post="/admin/league/captain-notes/{{.Note.ID}}/delete"
+                  hx-target="#captain-notes-slot"
+                  hx-swap="innerHTML"
+                  style="display:inline;">
+                <button type="submit" class="cnp-delete" data-testid="captain-note-delete-{{.Note.ID}}"
+                        onclick="return confirm('Delete this note?');">Delete</button>
+            </form>
+        </li>
+        {{end}}
+    </ul>
+    {{else}}
+    <p class="cnp-empty" data-testid="captain-notes-empty">No notes yet.</p>
+    {{end}}
+
+    <form class="cnp-add"
+          method="post"
+          action="/admin/league/captain-notes"
+          hx-post="/admin/league/captain-notes"
+          hx-target="#captain-notes-slot"
+          hx-swap="innerHTML"
+          data-testid="captain-notes-add-form">
+        <input type="hidden" name="player_id" value="{{.Player.ID}}">
+        <label class="cnp-kind-picker">
+            <select name="kind" data-testid="captain-note-kind">
+                <option value="general">General</option>
+                <option value="partnership">Partnership</option>
+            </select>
+        </label>
+        <textarea name="body"
+                  rows="2"
+                  required
+                  placeholder="e.g. 'Works better apart from X' or 'Always late on Tuesdays'"
+                  data-testid="captain-note-body"></textarea>
+        <button type="submit" class="cnp-submit" data-testid="captain-note-submit">Add note</button>
+    </form>
+</div>
+
+<style>
+    .captain-notes-popover {
+        position: fixed;
+        top: 15%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(480px, 90vw);
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+        padding: 1rem 1.25rem;
+        z-index: 1000;
+        font-size: 0.92rem;
+    }
+    .cnp-header {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 0.4rem;
+        margin-bottom: 0.5rem;
+    }
+    .cnp-header strong { flex: 0 0 auto; }
+    .cnp-sub { color: #666; font-size: 0.85rem; flex: 1; }
+    .cnp-close {
+        background: none; border: none; font-size: 1.3rem;
+        cursor: pointer; color: #888;
+    }
+    .cnp-hint { font-size: 0.78rem; color: #7a5800; background: #fff8e1;
+        padding: 0.3rem 0.5rem; border-radius: 4px; margin: 0 0 0.6rem 0; }
+    .cnp-list { list-style: none; padding: 0; margin: 0 0 0.8rem 0; max-height: 240px; overflow-y: auto; }
+    .cnp-list li { border-bottom: 1px solid #f2f2f2; padding: 0.5rem 0; }
+    .cnp-meta { display: flex; gap: 0.4rem; align-items: center; font-size: 0.8rem; color: #666; }
+    .cnp-kind {
+        text-transform: uppercase; letter-spacing: 0.3px;
+        padding: 0.05rem 0.45rem; border-radius: 999px; font-size: 0.7rem;
+        background: #eef3f9; color: #1a5490;
+    }
+    .cnp-kind-partnership { background: #ffe5f0; color: #a02063; }
+    .cnp-body { margin: 0.3rem 0 0.25rem 0; white-space: pre-wrap; }
+    .cnp-delete { background: none; border: none; color: #c33; cursor: pointer; font-size: 0.8rem; padding: 0; }
+    .cnp-empty { color: #888; font-size: 0.85rem; margin: 0.5rem 0 0.8rem 0; }
+    .cnp-add { display: flex; gap: 0.4rem; flex-direction: column; }
+    .cnp-add textarea { border: 1px solid #dee2e6; border-radius: 4px; padding: 0.4rem; font: inherit; resize: vertical; }
+    .cnp-add select { padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 4px; }
+    .cnp-submit {
+        align-self: flex-end;
+        background: var(--primary-color, #1a5490);
+        color: white; border: none; padding: 0.4rem 0.9rem; border-radius: 4px; cursor: pointer;
+    }
+</style>

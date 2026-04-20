@@ -194,6 +194,7 @@ check: vet fmt lint deadcode
 # Sets MY_TENNIS_ENABLED=1 so the My Tennis CTA is visible in tests regardless
 # of local dev env defaults.
 test-e2e: export MY_TENNIS_ENABLED=1
+test-e2e: export HOME_CLUB_ID=1
 test-e2e:
 	@echo "Running E2E tests..."
 	$(DOCKER_COMPOSE) --profile test build e2e
@@ -201,6 +202,7 @@ test-e2e:
 
 # Run E2E tests with visible browser (usage: make test-e2e-headed [WORKERS=1])
 test-e2e-headed: export MY_TENNIS_ENABLED=1
+test-e2e-headed: export HOME_CLUB_ID=1
 test-e2e-headed:
 	@echo "Running E2E tests (headed, workers=$(or $(WORKERS),1))..."
 	xhost +local:docker 2>/dev/null || true
@@ -214,6 +216,7 @@ test-e2e-headed:
 
 # Run E2E tests matching a grep pattern (usage: make test-e2e-grep FILTER="login" [WORKERS=4])
 test-e2e-grep: export MY_TENNIS_ENABLED=1
+test-e2e-grep: export HOME_CLUB_ID=1
 test-e2e-grep:
 	@echo "Running E2E tests matching: $(FILTER)..."
 	$(DOCKER_COMPOSE) --profile test build e2e
@@ -221,6 +224,7 @@ test-e2e-grep:
 		sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --project=chromium --grep '$(FILTER)'"
 
 # Re-run only previously failed tests
+test-e2e-failed: export HOME_CLUB_ID=1
 test-e2e-failed:
 	@echo "Re-running failed E2E tests..."
 	$(DOCKER_COMPOSE) --profile test run --rm e2e \

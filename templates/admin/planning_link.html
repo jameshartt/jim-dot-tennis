@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link your player — Planning — Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <style>
+        .planning-link-wrapper {
+            max-width: 640px;
+            margin: 3rem auto;
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .planning-link-wrapper h1 { margin-top: 0; }
+        .planning-link-wrapper .hint { color: #555; margin-bottom: 1.5rem; }
+        .picker-search {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            font-size: 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+        .picker-list {
+            max-height: 360px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            padding: 0;
+            list-style: none;
+            margin: 0 0 1rem 0;
+        }
+        .picker-list li {
+            padding: 0.6rem 0.9rem;
+            border-bottom: 1px solid #f2f2f2;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .picker-list li:hover { background: #f8f9fa; }
+        .picker-list li.selected { background: #e7f3ff; }
+        .picker-actions { display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center; }
+        .picker-actions .skip { margin-right: auto; color: #6c757d; font-size: 0.9rem; }
+        .btn-primary {
+            background: var(--primary-color, #1a5490);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-ghost {
+            background: transparent;
+            border: 1px solid #dee2e6;
+            padding: 0.6rem 1.2rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+<div class="planning-link-wrapper">
+    <h1>Which player are you?</h1>
+    <p class="hint">
+        Pick your player record so the planning dashboard can default to
+        <strong>your teams</strong>. You can still see every team — this only
+        sets what loads first. Change it any time from the dashboard settings.
+    </p>
+
+    <form id="picker-form" method="POST" action="/admin/league/planning/link">
+        <input
+            type="text"
+            class="picker-search"
+            placeholder="Start typing a name…"
+            id="picker-search"
+            autocomplete="off"
+            aria-label="Search players"
+        />
+
+        <ul class="picker-list" id="picker-list" role="listbox">
+            {{range .Players}}
+            <li role="option"
+                data-id="{{.ID}}"
+                data-name="{{.FirstName}} {{.LastName}}{{if .PreferredName}} ({{.PreferredName}}){{end}}"
+                {{if $.LinkedID}}{{if eq .ID (deref $.LinkedID)}}class="selected" aria-selected="true"{{end}}{{end}}>
+                <span>{{.FirstName}} {{.LastName}}{{if .PreferredName}} <em>({{.PreferredName}})</em>{{end}}</span>
+                <span class="chip" aria-hidden="true">{{.Gender}}</span>
+            </li>
+            {{end}}
+        </ul>
+
+        <input type="hidden" name="player_id" id="chosen-id" value="{{if .LinkedID}}{{deref .LinkedID}}{{end}}" />
+
+        <div class="picker-actions">
+            <a class="skip" href="/admin/league/planning?skip-link=1">Skip for now</a>
+            {{if .LinkedID}}
+            <button type="submit" class="btn-ghost" name="player_id" value="" formnovalidate>Unlink</button>
+            {{end}}
+            <button type="submit" class="btn-primary" id="save-btn" {{if not .LinkedID}}disabled{{end}}>
+                That's me
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+(function(){
+    var search = document.getElementById('picker-search');
+    var list = document.getElementById('picker-list');
+    var chosen = document.getElementById('chosen-id');
+    var save = document.getElementById('save-btn');
+
+    search.addEventListener('input', function(){
+        var q = search.value.trim().toLowerCase();
+        Array.prototype.forEach.call(list.children, function(li){
+            li.style.display = li.dataset.name.toLowerCase().indexOf(q) === -1 ? 'none' : '';
+        });
+    });
+
+    list.addEventListener('click', function(e){
+        var li = e.target.closest('li');
+        if(!li) return;
+        Array.prototype.forEach.call(list.children, function(x){
+            x.classList.remove('selected');
+            x.setAttribute('aria-selected', 'false');
+        });
+        li.classList.add('selected');
+        li.setAttribute('aria-selected', 'true');
+        chosen.value = li.dataset.id;
+        save.disabled = false;
+    });
+})();
+</script>
+</body>
+</html>

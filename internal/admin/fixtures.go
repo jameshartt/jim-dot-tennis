@@ -442,8 +442,8 @@ func (h *FixturesHandler) handleFixtureDetailGet(w http.ResponseWriter, r *http.
 		"FixtureDetail":     fixtureDetail,
 		"AvailablePlayers":  availablePlayers,
 		"NavigationContext": navigationContext,
-		"IsHomeClub":      isHomeClub,
-		"IsAwayClub":      isAwayClub,
+		"IsHomeClub":        isHomeClub,
+		"IsAwayClub":        isAwayClub,
 		"IsDerby":           isDerby,
 		"ManagingTeam":      managingTeam,
 		"HomeClubName":      homeClubNameFromContext(r),
@@ -687,7 +687,7 @@ func (h *FixturesHandler) handlePlayerSelection(w http.ResponseWriter, r *http.R
 
 			` + renderPlayerGroup("Team Players", availableTeamPlayers, fixtureID, isHomeClub) + `
 
-			` + renderPlayerGroup("All " + homeClubNameFromContext(r) + " Players", availableHomeClubPlayers, fixtureID, isHomeClub) + `
+			` + renderPlayerGroup("All "+homeClubNameFromContext(r)+" Players", availableHomeClubPlayers, fixtureID, isHomeClub) + `
 		</div>
 	`)); err != nil {
 		log.Printf("Failed to write player selection response: %v", err)

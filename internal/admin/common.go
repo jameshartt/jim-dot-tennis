@@ -131,6 +131,31 @@ func parseTemplate(templateDir, templatePath string) (*template.Template, error)
 		// prefLabel maps a stored enum value (see PlayerTennisPreferences) to
 		// a human-friendly, positively-framed label for the 'My Tennis' summary
 		// partial. Returns the raw value if no mapping is known.
+		"list": func(items ...string) []string {
+			return items
+		},
+		"has": func(haystack []string, needle string) bool {
+			for _, h := range haystack {
+				if strings.EqualFold(h, needle) {
+					return true
+				}
+			}
+			return false
+		},
+		// Condenses "Division 1" → "D1" for tight headers (planning matrix).
+		"shortDivision": func(s string) string {
+			return strings.Replace(s, "Division ", "D", 1)
+		},
+		// Bundles the three values a planning-matrix cell needs into a map so
+		// the cell partial can be used from both the full-matrix render and
+		// the single-cell HTMX swap (see planning.go HandlePlanningCellToggle).
+		"cellCtx": func(cell interface{}, col interface{}, player interface{}) map[string]interface{} {
+			return map[string]interface{}{
+				"Cell":   cell,
+				"Col":    col,
+				"Player": player,
+			}
+		},
 		"prefLabel": func(field string, v *string) string {
 			if v == nil || *v == "" {
 				return ""

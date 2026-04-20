@@ -354,6 +354,14 @@ func (h *PlayersHandler) handlePlayerEditGet(w http.ResponseWriter, r *http.Requ
 		myTennisSummary = nil // degrade gracefully — summary card just won't render
 	}
 
+	// Captain notes — admin-session only. Never queried from any player-facing
+	// handler (token routes, /my-profile, /my-availability, etc.).
+	captainNotes, err := h.service.captainNoteRepository.ListByPlayer(r.Context(), playerID)
+	if err != nil {
+		log.Printf("Failed to load captain notes for %s: %v", playerID, err)
+		captainNotes = nil
+	}
+
 	// Load the player edit template
 	tmpl, err := parseTemplate(h.templateDir, "admin/player_edit.html")
 	if err != nil {
@@ -391,6 +399,7 @@ func (h *PlayersHandler) handlePlayerEditGet(w http.ResponseWriter, r *http.Requ
 		"HasPushNotifications":  hasPushNotifications,
 		"FantasyAuthToken":      fantasyAuthToken,
 		"MyTennisSummary":       myTennisSummary,
+		"CaptainNotes":          captainNotes,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}

@@ -15,25 +15,26 @@ import (
 
 // Service handles admin business logic
 type Service struct {
-	db                      *database.DB
-	homeClubID              uint
-	bhpltaClubCode          string
-	loginAttemptRepository  repository.LoginAttemptRepository
-	playerRepository        repository.PlayerRepository
-	clubRepository          repository.ClubRepository
-	fixtureRepository       repository.FixtureRepository
-	teamRepository          repository.TeamRepository
-	weekRepository          repository.WeekRepository
-	divisionRepository      repository.DivisionRepository
-	seasonRepository        repository.SeasonRepository
-	matchupRepository       repository.MatchupRepository
-	fantasyRepository       repository.FantasyMixedDoublesRepository
-	tennisPlayerRepository  repository.ProTennisPlayerRepository
-	availabilityRepository  repository.AvailabilityRepository
+	db                           *database.DB
+	homeClubID                   uint
+	bhpltaClubCode               string
+	loginAttemptRepository       repository.LoginAttemptRepository
+	playerRepository             repository.PlayerRepository
+	clubRepository               repository.ClubRepository
+	fixtureRepository            repository.FixtureRepository
+	teamRepository               repository.TeamRepository
+	weekRepository               repository.WeekRepository
+	divisionRepository           repository.DivisionRepository
+	seasonRepository             repository.SeasonRepository
+	matchupRepository            repository.MatchupRepository
+	fantasyRepository            repository.FantasyMixedDoublesRepository
+	tennisPlayerRepository       repository.ProTennisPlayerRepository
+	availabilityRepository       repository.AvailabilityRepository
 	venueOverrideRepository      repository.VenueOverrideRepository
 	tournamentProviderRepository repository.TournamentProviderRepository
 	tournamentRepository         repository.TournamentRepository
 	tennisPreferenceRepository   repository.PlayerTennisPreferenceRepository
+	captainNoteRepository        repository.CaptainNoteRepository
 	weatherService               *services.WeatherService
 	teamEligibilityService       *TeamEligibilityService
 	pushService                  *webpush.Service
@@ -62,6 +63,7 @@ func NewService(db *database.DB, courthiveAPIURL string, homeClubID uint, bhplta
 		tournamentProviderRepository: repository.NewTournamentProviderRepository(db),
 		tournamentRepository:         repository.NewTournamentRepository(db),
 		tennisPreferenceRepository:   repository.NewPlayerTennisPreferenceRepository(db),
+		captainNoteRepository:        repository.NewCaptainNoteRepository(db),
 		weatherService:               services.NewWeatherService(),
 		courthiveAPIURL:              courthiveAPIURL,
 	}

@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planning — {{.ClubName}}</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
+    <script>
+        // Build the next URL by overlaying `overrides` on the CURRENT URL's
+        // query string — keeps HTMX-pushed state (team_id=…, filters) intact
+        // when the user scrubs weeks or toggles past-seasons. Pass null to
+        // delete a param (including multi-valued ones like team_id).
+        function planningGoto(overrides) {
+            var params = new URLSearchParams(window.location.search);
+            Object.keys(overrides).forEach(function (k) {
+                var v = overrides[k];
+                if (v === null || v === undefined || v === '') {
+                    params.delete(k);
+                } else if (Array.isArray(v)) {
+                    params.delete(k);
+                    v.forEach(function (item) { params.append(k, item); });
+                } else {
+                    params.set(k, v);
+                }
+            });
+            // Drop blank-valued keys so the pushed URL stays clean
+            // (HTMX serializes empty inputs, which otherwise pollute history).
+            var blanks = [];
+            params.forEach(function (val, key) { if (val === '') { blanks.push(key); } });
+            blanks.forEach(function (k) { params.delete(k); });
+            var qs = params.toString();
+            window.location = '/admin/league/planning' + (qs ? '?' + qs : '');
+        }
+        // Strip blank filter values before HTMX pushes the URL, so the history
+        // stack doesn't collect '?comp-min=&comp-max=' noise from default form state.
+        document.addEventListener('htmx:configRequest', function (evt) {
+            var p = evt.detail.parameters;
+            Object.keys(p).forEach(function (k) {
+                if (p[k] === '' || p[k] === null || p[k] === undefined) {
+                    delete p[k];
+                }
+            });
+        });
+    </script>
+    <style>
+        body { background: #f5f6f8; }
+        .planning-header {
+            background: var(--primary-color, #1a5490);
+            color: white;
+            padding: 1rem 1.5rem;
+        }
+        .planning-header h1 { margin: 0; font-size: 1.35rem; }
+        .planning-header .sub { font-size: 0.85rem; opacity: 0.85; }
+        .planning-header a { color: white; text-decoration: none; }
+
+        .planning-wrap { max-width: 1600px; margin: 0 auto; padding: 1.25rem 1.5rem 3rem; }
+
+        .planning-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            background: white;
+            padding: 1rem 1.25rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .planning-controls h3 { margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #555; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .teams-row, .week-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+        .team-check {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0.7rem;
+            border-radius: 999px;
+            border: 1px solid #dee2e6;
+            background: white;
+            font-size: 0.88rem;
+            cursor: pointer;
+            user-select: none;
+        }
+        .team-check input { margin: 0; }
+        .team-check:hover { border-color: #999; }
+        .team-check.mine { border-color: #ffd54f; background: #fffbea; }
+        /* Live styling — :has() keeps ticked/active state in sync even after
+           HTMX partial matrix swaps, which don't re-render the server classes. */
+        .team-check:has(input:checked) { background: var(--primary-color, #1a5490); border-color: var(--primary-color, #1a5490); color: white; }
+        .team-check.mine:has(input:checked) { background: #c57f00; border-color: #c57f00; color: white; }
+        .teams-row:not(:has(input[name="team_id"]:checked)) [data-testid="teams-all"] { background: var(--primary-color, #1a5490); border-color: var(--primary-color, #1a5490); color: white; }
+        .pill {
+            padding: 0.4rem 0.85rem;
+            border-radius: 999px;
+            border: 1px solid #dee2e6;
+            background: white;
+            font-size: 0.9rem;
+            cursor: pointer;
+            text-decoration: none;
+            color: #333;
+            display: inline-block;
+        }
+        .pill.active { background: var(--primary-color, #1a5490); border-color: var(--primary-color, #1a5490); color: white; }
+        .pill:hover { border-color: #999; }
+
+        .week-row select, .week-row button {
+            padding: 0.45rem 0.8rem;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            background: white;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .matrix-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            overflow-x: auto;
+        }
+
+        .fixture-col-link {
+            display: block;
+            padding: 0.5rem;
+            color: inherit;
+            text-decoration: none;
+        }
+        .fixture-col-link:hover,
+        .fixture-col-link:focus-visible {
+            background: #eef3f8;
+            text-decoration: underline;
+            outline: none;
+        }
+
+        .planning-layout {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 1rem;
+            align-items: start;
+        }
+        @media (max-width: 900px) {
+            .planning-layout { grid-template-columns: 1fr; }
+            .filters-card { position: static !important; }
+        }
+        .filters-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            position: sticky;
+            top: 1rem;
+            font-size: 0.88rem;
+        }
+        .filters-card h3 {
+            margin: 0 0 0.4rem 0;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: #555;
+            letter-spacing: 0.5px;
+        }
+        .filters-card .filter-group { margin-bottom: 0.9rem; }
+        .filters-card label.check {
+            display: block;
+            margin: 0.15rem 0;
+            cursor: pointer;
+            user-select: none;
+        }
+        .filters-card input[type=checkbox] { margin-right: 0.35rem; }
+        .filters-card .comp-range {
+            display: flex;
+            gap: 0.35rem;
+            align-items: center;
+        }
+        .filters-card .comp-range input {
+            width: 3rem;
+            padding: 0.3rem;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+        .filters-card .btn-row {
+            display: flex;
+            gap: 0.4rem;
+            margin-top: 0.5rem;
+        }
+        .filters-card button {
+            padding: 0.4rem 0.7rem;
+            font-size: 0.85rem;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            background: white;
+            cursor: pointer;
+        }
+        .filters-card button.primary {
+            background: var(--primary-color, #1a5490);
+            color: white;
+            border-color: var(--primary-color, #1a5490);
+        }
+        .filters-card .active-count {
+            display: inline-block;
+            margin-left: 0.35rem;
+            background: #ffe58f;
+            color: #7a5800;
+            border-radius: 999px;
+            padding: 0 0.5rem;
+            font-size: 0.75rem;
+        }
+
+        .pref-chips { display: inline-flex; gap: 0.2rem; margin-left: 0.35rem; vertical-align: middle; flex-wrap: wrap; }
+        .chip-pref {
+            display: inline-block;
+            min-width: 1.2rem;
+            padding: 0 0.32rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-align: center;
+            line-height: 1.3rem;
+            background: #eef3f9;
+            color: #1a5490;
+            border: 1px solid #d6e3f0;
+        }
+        .chip-pref.chip-star { background: #fff6dc; border-color: #ffe58f; color: #7a5800; }
+        .chip-pref.chip-comp {
+            background: #f0f4fa;
+            letter-spacing: -1px;
+            color: #1a5490;
+        }
+        .chip-pref.chip-muted {
+            background: #f5f5f5;
+            border-color: #e6e6e6;
+            color: #999;
+        }
+
+        .note-icon {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-left: 0.3rem;
+            padding: 0.05rem 0.25rem;
+            border-radius: 4px;
+            line-height: 1;
+            opacity: 0.45;
+        }
+        .note-icon.note-icon-has { opacity: 1; }
+        .note-icon:hover { background: #f0f4fa; opacity: 1; }
+        .note-count {
+            display: inline-block;
+            margin-left: 0.1rem;
+            background: #1a5490;
+            color: white;
+            font-size: 0.68rem;
+            border-radius: 999px;
+            min-width: 1.1rem;
+            line-height: 1.1rem;
+            padding: 0 0.3rem;
+            vertical-align: top;
+        }
+
+        .defaulted-banner {
+            background: #fff8e1;
+            border: 1px solid #ffe58f;
+            color: #7a5800;
+            padding: 0.6rem 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        /* Viewport nudge for narrow portrait mobile */
+        .viewport-nudge {
+            display: none;
+            background: #fff8e1;
+            border: 1px solid #ffe58f;
+            color: #7a5800;
+            padding: 1rem 1.25rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.92rem;
+        }
+        .viewport-nudge .view-anyway {
+            display: inline-block;
+            margin-top: 0.4rem;
+            font-size: 0.85rem;
+            color: #7a5800;
+            text-decoration: underline;
+        }
+        @media (max-width: 700px) and (orientation: portrait) {
+            .viewport-nudge { display: block; }
+            body.nudge-dismissed .viewport-nudge { display: none; }
+            body:not(.nudge-dismissed) .planning-wrap .matrix-card { opacity: 0.35; pointer-events: none; }
+        }
+
+        .settings-link { font-size: 0.8rem; float: right; }
+    </style>
+</head>
+<body>
+
+<header class="planning-header">
+    <div class="planning-wrap" style="padding-top:0;padding-bottom:0;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <div>
+                <h1>Planning — {{.ClubName}}</h1>
+                <div class="sub">
+                    {{if .Season}}{{.Season.Name}} · {{end}}
+                    {{if .Week}}{{.Week.Name}} ({{.Week.StartDate.Format "Mon 2 Jan"}} – {{.Week.EndDate.Format "Mon 2 Jan"}}){{end}}
+                </div>
+            </div>
+            <div>
+                <a href="/admin/league/dashboard">← Dashboard</a>
+                <a class="settings-link" href="/admin/league/planning/link?force=1">
+                    {{if .LinkedPlayer}}You are: {{.LinkedPlayer.FirstName}} {{.LinkedPlayer.LastName}}{{else}}Link to a player{{end}}
+                </a>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="planning-wrap">
+
+    <div class="viewport-nudge" data-testid="viewport-nudge">
+        Planning works best on a larger screen — rotate your phone or open on a tablet / desktop.
+        <br><a href="#" class="view-anyway" data-testid="view-anyway" onclick="document.body.classList.add('nudge-dismissed');return false;">View anyway</a>
+    </div>
+
+    <div class="planning-controls">
+        <div>
+            <h3>Teams
+                {{if not .IsAllTeams}}<span class="active-count" data-testid="teams-selected-count">{{len .SelectedTeamIDs}}</span>{{end}}
+            </h3>
+            <form class="teams-row" data-testid="teams-row"
+                  hx-get="/admin/league/planning/matrix"
+                  hx-target="#planning-matrix"
+                  hx-push-url="true"
+                  hx-trigger="change delay:100ms"
+                  hx-include="#filters-form">
+                {{/* week/past hidden inputs live on #filters-form only — hx-include
+                     pulls them in, so duplicating them here would push ?week=1&week=1. */}}
+
+                <button type="button" class="pill {{if .IsAllTeams}}active{{end}}" data-testid="teams-all"
+                   onclick="planningGoto({team_id: null})"
+                   title="Clear team selection (show every team)">All Teams</button>
+
+                {{range .TeamOptions}}
+                <label class="team-check {{if .IsMine}}mine{{end}} {{if .IsSelected}}ticked{{end}}"
+                       data-testid="team-check-{{.TeamID}}"
+                       title="{{.TeamName}}{{if .IsMine}} (you captain this team){{end}}">
+                    <input type="checkbox" name="team_id" value="{{.TeamID}}" {{if .IsSelected}}checked{{end}}>
+                    <span>{{.TeamName}}{{if .IsMine}} ★{{end}}</span>
+                </label>
+                {{end}}
+            </form>
+        </div>
+
+        <div>
+            <h3>Week</h3>
+            <div class="week-row" data-testid="week-row">
+                {{$prev := 0}}{{$next := 0}}
+                {{range $i, $w := .AllWeeks}}
+                    {{if $.Week}}
+                        {{if eq $w.ID $.Week.ID}}
+                            {{if gt $i 0}}{{$prev = (index $.AllWeeks (sub $i 1)).ID}}{{end}}
+                            {{if lt (add $i 1) (len $.AllWeeks)}}{{$next = (index $.AllWeeks (add $i 1)).ID}}{{end}}
+                        {{end}}
+                    {{end}}
+                {{end}}
+
+                <button data-testid="week-prev" onclick="planningGoto({week: {{$prev}}})" {{if eq $prev 0}}disabled{{end}}>← Prev</button>
+
+                <select data-testid="week-select" onchange="planningGoto({week: this.value})">
+                    {{range .AllWeeks}}
+                    <option value="{{.ID}}" {{if $.Week}}{{if eq .ID $.Week.ID}}selected{{end}}{{end}}>
+                        {{.Name}} · {{.StartDate.Format "Mon 2 Jan"}}
+                    </option>
+                    {{end}}
+                </select>
+
+                <button data-testid="week-next" onclick="planningGoto({week: {{$next}}})" {{if eq $next 0}}disabled{{end}}>Next →</button>
+
+                <label style="font-size:0.85rem;color:#666;">
+                    <input type="checkbox" data-testid="past-toggle"
+                           {{if .ShowingPast}}checked{{end}}
+                           onchange="planningGoto({past: this.checked ? '1' : null})">
+                    Show past seasons
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="planning-layout">
+
+        <aside class="filters-card" data-testid="filters-card">
+            <form id="filters-form"
+                  hx-get="/admin/league/planning/matrix"
+                  hx-target="#planning-matrix"
+                  hx-push-url="true"
+                  hx-trigger="change delay:100ms, submit"
+                  hx-include="this, [data-testid='teams-row'] input[name='team_id']:checked">
+                {{if .Week}}<input type="hidden" name="week" value="{{.Week.ID}}">{{end}}
+                {{if .ShowingPast}}<input type="hidden" name="past" value="1">{{end}}
+
+                <h3>Filters
+                    {{$n := .ActiveFilterCount}}{{if gt $n 0}}<span class="active-count" data-testid="active-filter-count">{{$n}}</span>{{end}}
+                </h3>
+
+                <div class="filter-group" data-testid="filter-open-fillin">
+                    <label class="check">
+                        <input type="checkbox" name="open-only" value="1"
+                               {{if .Filters.OpenToFillInOnly}}checked{{end}}>
+                        Open to fill-in only
+                    </label>
+                </div>
+
+                <div class="filter-group" data-testid="filter-handedness">
+                    <h3>Handedness</h3>
+                    {{$h := .Filters.Handedness}}
+                    {{range $opt := list "Right" "Left" "Ambidextrous"}}
+                    <label class="check">
+                        <input type="checkbox" name="handedness" value="{{$opt}}"
+                               {{if has $h $opt}}checked{{end}}> {{$opt}}
+                    </label>
+                    {{end}}
+                </div>
+
+                <div class="filter-group" data-testid="filter-court-side">
+                    <h3>Court side</h3>
+                    {{$c := .Filters.CourtSide}}
+                    {{range $opt := list "Deuce" "Ad" "Either"}}
+                    <label class="check">
+                        <input type="checkbox" name="court-side" value="{{$opt}}"
+                               {{if has $c $opt}}checked{{end}}> {{$opt}}
+                    </label>
+                    {{end}}
+                </div>
+
+                <div class="filter-group" data-testid="filter-mixed">
+                    <h3>Mixed doubles</h3>
+                    {{$m := .Filters.MixedAppetite}}
+                    {{range $opt := list "Love" "Happy" "Neutral" "Avoid"}}
+                    <label class="check">
+                        <input type="checkbox" name="mixed" value="{{$opt}}"
+                               {{if has $m $opt}}checked{{end}}> {{$opt}}
+                    </label>
+                    {{end}}
+                </div>
+
+                <div class="filter-group" data-testid="filter-same-gender">
+                    <h3>Same-gender doubles</h3>
+                    {{$sg := .Filters.SameGenderAppetite}}
+                    {{range $opt := list "Love" "Happy" "Neutral" "Avoid"}}
+                    <label class="check">
+                        <input type="checkbox" name="same-gender" value="{{$opt}}"
+                               {{if has $sg $opt}}checked{{end}}> {{$opt}}
+                    </label>
+                    {{end}}
+                </div>
+
+                <div class="filter-group" data-testid="filter-competitiveness">
+                    <h3>Competitiveness</h3>
+                    <div class="comp-range">
+                        {{/* Only surface value= when non-default so the pushed URL
+                             stays clean (blank input submits '' → server default). */}}
+                        <input type="number" name="comp-min" min="1" max="5"
+                               value="{{if gt .Filters.MinCompetitiveness 1}}{{.Filters.MinCompetitiveness}}{{end}}"
+                               placeholder="1" aria-label="Min competitiveness">
+                        <span>–</span>
+                        <input type="number" name="comp-max" min="1" max="5"
+                               value="{{if lt .Filters.MaxCompetitiveness 5}}{{.Filters.MaxCompetitiveness}}{{end}}"
+                               placeholder="5" aria-label="Max competitiveness">
+                    </div>
+                </div>
+
+                <div class="btn-row">
+                    <a class="" href="{{.ClearFiltersURL}}" data-testid="clear-filters"
+                       style="padding:0.4rem 0.7rem;border:1px solid #dee2e6;border-radius:4px;text-decoration:none;color:#333;background:white;">
+                        Clear all
+                    </a>
+                </div>
+            </form>
+        </aside>
+
+        <div id="planning-matrix" class="matrix-card" data-testid="matrix-card">
+            {{template "admin/partials/planning_matrix.html" .}}
+        </div>
+
+    </div>
+
+    <div id="captain-notes-slot" data-testid="captain-notes-slot"></div>
+
+</div>
+</body>
+</html>

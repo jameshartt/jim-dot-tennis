@@ -217,3 +217,23 @@ INSERT OR IGNORE INTO captain_player_notes (
   'CAPTAIN_NOTE_LEAK_CANARY_2026 — tactical note that must not appear on any player-facing surface.',
   '2026-04-01 00:00:00', '2026-04-01 00:00:00'
 );
+
+-- ============================================================
+-- Sprint 017 WI-107: planning dashboard regression seeds.
+-- Link testadmin → p-alice so the 'My Teams' scope default fires,
+-- flag p-alice as a captain of St Ann's A, and stash a lineup draft
+-- so the draft→selection hand-off spec has something to promote.
+-- ============================================================
+UPDATE users SET player_id = 'p-alice' WHERE id = 1;
+
+INSERT OR IGNORE INTO captains (id, player_id, team_id, role, season_id, is_active, created_at, updated_at)
+VALUES (1, 'p-alice', 1, 'Team', 1, 1, '2026-04-01 00:00:00', '2026-04-01 00:00:00');
+
+-- Planning matrix toggle tests mutate fixture_players for (p-alice, fixture 1).
+-- The Docker volume persists, so stale state from a prior run must be cleared
+-- here — the seed is additive elsewhere and doesn't otherwise touch this row.
+DELETE FROM fixture_players WHERE fixture_id = 1 AND player_id = 'p-alice';
+
+-- A past season so the "past-season toggle" test has something to reveal.
+INSERT OR REPLACE INTO seasons (id, name, year, start_date, end_date, is_active)
+VALUES (2, 'Summer 2024 (past)', 2024, '2024-04-15', '2024-08-19', 0);
