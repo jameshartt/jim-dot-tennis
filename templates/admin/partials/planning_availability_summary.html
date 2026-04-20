@@ -1,0 +1,66 @@
+{{/* Collapsible per-team availability summary above the matrix.
+     Data context: *admin.AvailabilitySummary. */}}
+{{$shortTeams := 0}}
+{{range .Teams}}{{if and .HasFixture .Short}}{{$shortTeams = 1}}{{end}}{{end}}
+
+<details class="avail-summary" data-testid="availability-summary" {{if $shortTeams}}open{{end}}>
+    <summary>
+        <span class="summary-label">Availability for this week</span>
+        {{if $shortTeams}}
+            <span class="badge-short" data-testid="avail-any-short">Short on players</span>
+        {{else}}
+            <span class="badge-ok" data-testid="avail-all-ok">Enough players</span>
+        {{end}}
+        <span class="summary-overview">{{len .Teams}} team{{if ne (len .Teams) 1}}s{{end}}</span>
+    </summary>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Team</th>
+                <th>Fixture</th>
+                <th class="num">Men</th>
+                <th class="num">Women</th>
+                <th class="num">No reply</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        {{range .Teams}}
+            <tr data-testid="avail-team-{{.TeamID}}">
+                <td><strong>{{.TeamName}}</strong></td>
+                {{if .HasFixture}}
+                    <td>{{if .IsHome}}vs {{.OpponentName}} (H){{else}}at {{.OpponentName}} (A){{end}}<br>
+                        <span style="font-size:0.75rem;color:#666;">{{.ScheduledDate.Format "Mon 2 Jan"}}</span>
+                    </td>
+                    <td class="num{{if .ShortMen}} short{{end}}" data-testid="avail-men-{{.TeamID}}">
+                        {{.AvailableMen}} / {{.RequiredMen}}
+                    </td>
+                    <td class="num{{if .ShortWomen}} short{{end}}" data-testid="avail-women-{{.TeamID}}">
+                        {{.AvailableWomen}} / {{.RequiredWomen}}
+                    </td>
+                    <td class="num" data-testid="avail-unknown-{{.TeamID}}">
+                        {{add .UnknownMen .UnknownWomen}}
+                    </td>
+                    <td>
+                        {{if .Short}}
+                            <form method="post" action="/admin/league/players/remind-all?team_id={{.TeamID}}"
+                                  hx-post="/admin/league/players/remind-all?team_id={{.TeamID}}"
+                                  hx-target="this" hx-swap="outerHTML" style="display:inline;">
+                                <button type="submit" class="remind-btn"
+                                        data-testid="avail-remind-{{.TeamID}}"
+                                        {{if eq (add .UnknownMen .UnknownWomen) 0}}disabled
+                                            title="No players left to notify"{{else}}title="Send availability reminder to players without a response"{{end}}>
+                                    Remind {{.TeamName}}
+                                </button>
+                            </form>
+                        {{end}}
+                    </td>
+                {{else}}
+                    <td class="bye" colspan="5">No fixture this week ({{.RosterMen}}M / {{.RosterWomen}}W on roster)</td>
+                {{end}}
+            </tr>
+        {{end}}
+        </tbody>
+    </table>
+</details>

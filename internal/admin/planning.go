@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"jim-dot-tennis/internal/models"
 )
@@ -191,7 +192,7 @@ func (h *PlanningHandler) HandleDashboard(w http.ResponseWriter, r *http.Request
 	h.renderFullPage(w, r, user)
 }
 
-// handleMatrixPartial serves the matrix re-render for HTMX selection/filter changes.
+// handleMatrixPartial serves the matrix re-render for HTMX selection changes.
 func (h *PlanningHandler) handleMatrixPartial(w http.ResponseWriter, r *http.Request, user *models.User) {
 	view, err := h.buildDashboardView(r.Context(), r, user)
 	if err != nil {
@@ -228,23 +229,21 @@ func (h *PlanningHandler) renderFullPage(w http.ResponseWriter, r *http.Request,
 
 // PlanningDashboardView is the full template data shape.
 type PlanningDashboardView struct {
-	User              *models.User
-	LinkedPlayer      *models.Player
-	ClubName          string
-	Season            *models.Season
-	PastSeasons       []models.Season
-	ShowingPast       bool
-	Week              *models.Week
-	AllWeeks          []models.Week
-	ResolvedScope     *ResolvedScope
-	TeamOptions       []TeamOption
-	SelectedTeamIDs   []uint
-	IsAllTeams        bool
-	Matrix            *PlanningMatrix
-	QueryString       string
-	Filters           MatrixFilters
-	ActiveFilterCount int
-	ClearFiltersURL   string
+	User            *models.User
+	LinkedPlayer    *models.Player
+	ClubName        string
+	Season          *models.Season
+	PastSeasons     []models.Season
+	ShowingPast     bool
+	Week            *models.Week
+	AllWeeks        []models.Week
+	ResolvedScope   *ResolvedScope
+	TeamOptions     []TeamOption
+	SelectedTeamIDs []uint
+	IsAllTeams      bool
+	Matrix          *PlanningMatrix
+	Summary         *AvailabilitySummary
+	QueryString     string
 }
 
 // TeamOption is a single team checkbox row (all active home-club teams in
@@ -294,12 +293,7 @@ func (h *PlanningHandler) buildDashboardView(ctx context.Context, r *http.Reques
 		}
 	}
 	if week == nil {
-		w, err := h.service.GetCurrentOrNextWeek(season.ID)
-		if err == nil && w != nil {
-			week = w
-		} else if len(allWeeks) > 0 {
-			week = &allWeeks[0]
-		}
+		week = pickDefaultWeek(allWeeks)
 	}
 
 	selectedTeamIDs := parseTeamIDs(r.URL.Query()["team_id"])
@@ -360,37 +354,35 @@ func (h *PlanningHandler) buildDashboardView(ctx context.Context, r *http.Reques
 		}
 	}
 
-	filters := parseMatrixFilters(r)
 	var matrix *PlanningMatrix
+	var summary *AvailabilitySummary
 	if week != nil {
-		matrix, err = h.service.ResolveAvailabilityMatrix(ctx, resolved, week, filters)
+		matrix, err = h.service.ResolveAvailabilityMatrix(ctx, resolved, week)
 		if err != nil {
 			log.Printf("matrix build warning: %v", err)
 		}
+		summary, err = h.service.BuildAvailabilitySummary(ctx, resolved, week)
+		if err != nil {
+			log.Printf("summary build warning: %v", err)
+		}
 	}
 
-	// Clearing filters preserves team selection + week; 'All teams' (cleared
-	// team selection) is the canonical empty state.
-	clearURL := "/admin/league/planning?" + buildQueryString(selectedTeamIDs, week, showPast)
-
 	return &PlanningDashboardView{
-		User:              user,
-		LinkedPlayer:      linked,
-		ClubName:          homeClubNameFromContext(r),
-		Season:            season,
-		PastSeasons:       pastSeasons,
-		ShowingPast:       showPast,
-		Week:              week,
-		AllWeeks:          allWeeks,
-		ResolvedScope:     resolved,
-		TeamOptions:       teamOpts,
-		SelectedTeamIDs:   selectedTeamIDs,
-		IsAllTeams:        len(selectedTeamIDs) == 0,
-		Matrix:            matrix,
-		QueryString:       buildQueryString(selectedTeamIDs, nil, showPast),
-		Filters:           filters,
-		ActiveFilterCount: filters.ActiveCount(),
-		ClearFiltersURL:   clearURL,
+		User:            user,
+		LinkedPlayer:    linked,
+		ClubName:        homeClubNameFromContext(r),
+		Season:          season,
+		PastSeasons:     pastSeasons,
+		ShowingPast:     showPast,
+		Week:            week,
+		AllWeeks:        allWeeks,
+		ResolvedScope:   resolved,
+		TeamOptions:     teamOpts,
+		SelectedTeamIDs: selectedTeamIDs,
+		IsAllTeams:      len(selectedTeamIDs) == 0,
+		Matrix:          matrix,
+		Summary:         summary,
+		QueryString:     buildQueryString(selectedTeamIDs, nil, showPast),
 	}, nil
 }
 
@@ -420,81 +412,23 @@ func parseTeamIDs(raw []string) []uint {
 	return out
 }
 
-// MatrixFilters is the decoded preference filter state from the URL.
-// WI-104 will extend this with additional chips; shell keeps the
-// structure in place so the handler contract is stable.
-type MatrixFilters struct {
-	Handedness         []string
-	CourtSide          []string
-	MixedAppetite      []string
-	SameGenderAppetite []string
-	OpenToFillInOnly   bool
-	MinCompetitiveness int
-	MaxCompetitiveness int
-}
-
-// parseMatrixFilters reads filter state from the URL. Repeated checkbox params
-// (?handedness=Right&handedness=Left) and legacy comma-separated values are
-// both accepted so deep-links stay portable.
-func parseMatrixFilters(r *http.Request) MatrixFilters {
-	f := MatrixFilters{MinCompetitiveness: 1, MaxCompetitiveness: 5}
-	q := r.URL.Query()
-	f.Handedness = readMulti(q["handedness"])
-	f.CourtSide = readMulti(q["court-side"])
-	f.MixedAppetite = readMulti(q["mixed"])
-	f.SameGenderAppetite = readMulti(q["same-gender"])
-	f.OpenToFillInOnly = q.Get("open-only") == "1"
-	if v := q.Get("comp-min"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 1 && n <= 5 {
-			f.MinCompetitiveness = n
+// pickDefaultWeek picks the week the dashboard lands on when no ?week= is
+// supplied: the first week whose start_date is strictly after today — i.e. if
+// it's Friday of week N, default to week N+1. For an all-past season (no
+// upcoming week) we fall back to the first week of the season so captains can
+// scroll forward rather than backward through history.
+func pickDefaultWeek(weeks []models.Week) *models.Week {
+	if len(weeks) == 0 {
+		return nil
+	}
+	today := time.Now().Truncate(24 * time.Hour)
+	for i := range weeks {
+		startDay := weeks[i].StartDate.Truncate(24 * time.Hour)
+		if startDay.After(today) {
+			return &weeks[i]
 		}
 	}
-	if v := q.Get("comp-max"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 1 && n <= 5 {
-			f.MaxCompetitiveness = n
-		}
-	}
-	return f
-}
-
-// readMulti flattens repeated values AND comma-separated forms into a single
-// slice, skipping blanks.
-func readMulti(raw []string) []string {
-	var out []string
-	for _, v := range raw {
-		for _, part := range strings.Split(v, ",") {
-			p := strings.TrimSpace(part)
-			if p != "" {
-				out = append(out, p)
-			}
-		}
-	}
-	return out
-}
-
-// ActiveCount reports how many filters are non-default — drives the badge on
-// the filters header so captains can see 'I've got stuff narrowed' at a glance.
-func (f MatrixFilters) ActiveCount() int {
-	n := 0
-	if f.OpenToFillInOnly {
-		n++
-	}
-	if len(f.Handedness) > 0 {
-		n++
-	}
-	if len(f.CourtSide) > 0 {
-		n++
-	}
-	if len(f.MixedAppetite) > 0 {
-		n++
-	}
-	if len(f.SameGenderAppetite) > 0 {
-		n++
-	}
-	if f.MinCompetitiveness > 1 || f.MaxCompetitiveness < 5 {
-		n++
-	}
-	return n
+	return &weeks[0]
 }
 
 // buildQueryString rebuilds the ?team_id=…&team_id=…&week=…&past=1 chain that

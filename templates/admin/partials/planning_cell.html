@@ -1,7 +1,7 @@
 {{/* One planning-matrix cell. Rendered both inside the main matrix table
      and standalone (hx-swap="outerHTML") when a toggle flips selection state. */}}
 <td class="matrix-cell{{if .Cell.InTeamSelection}} matrix-cell-selected{{end}}"
-    style="text-align:center;padding:0.5rem;border-bottom:1px solid #f2f2f2;cursor:pointer;{{if .Cell.InTeamSelection}}background:#e8f4ff;{{end}}"
+    style="text-align:center;padding:0.2rem 0.35rem;border-bottom:1px solid #f2f2f2;cursor:pointer;{{if .Cell.InTeamSelection}}background:#e8f4ff;{{end}}"
     title="{{if .Cell.InTeamSelection}}In {{.Col.TeamName}} selection — click to remove{{else}}Click to add to {{.Col.TeamName}} selection{{end}}{{if .Cell.Reason}} · {{.Cell.Reason}}{{end}}"
     data-testid="cell-{{.Player.ID}}-{{.Col.Fixture.ID}}-{{.Col.PerspectiveTeamID}}"
     data-status="{{.Cell.Status}}"

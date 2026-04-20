@@ -1,7 +1,6 @@
 // Sprint 017 WI-107: regression coverage for the captain planning dashboard.
-// Covers: auth gating, scope chooser, 'My Teams' default, week scrubber,
-// past-season toggle, deep-linkable URL state, preference filters, and the
-// narrow-viewport nudge.
+// Covers: auth gating, scope chooser, week scrubber, past-season toggle,
+// deep-linkable URL state, availability summary, and the viewport nudge.
 
 import { test, expect } from "../fixtures/test-fixtures";
 
@@ -117,41 +116,23 @@ test.describe("Captain Planning Dashboard", () => {
     await expect(toggle).toBeChecked();
   });
 
-  test("preference filter reduces visible rows", async ({ adminPage }) => {
-    // p-alice is seeded with handedness=right and open-only=1. Filter
-    // by open-to-fill-in: the row count should be >0 and not exceed the
-    // unfiltered count.
+  test("availability summary renders with per-team counts", async ({
+    adminPage,
+  }) => {
     await adminPage.goto("/admin/league/planning?week=1");
-    const unfilteredRows = await adminPage
-      .locator('[data-testid^="matrix-row-"]')
-      .count();
-    await adminPage.goto(
-      "/admin/league/planning?week=1&open-only=1",
-    );
-    const filteredRows = await adminPage
-      .locator('[data-testid^="matrix-row-"]')
-      .count();
-    expect(filteredRows).toBeLessThanOrEqual(unfilteredRows);
-    // Active-filter chip should show >=1.
-    const activeCount = adminPage.locator(
-      '[data-testid="active-filter-count"]',
-    );
-    if (await activeCount.count()) {
-      const text = (await activeCount.textContent())?.trim() ?? "";
-      expect(parseInt(text)).toBeGreaterThanOrEqual(1);
-    }
-  });
-
-  test("clear-filters link resets filter state", async ({ adminPage }) => {
-    await adminPage.goto(
-      "/admin/league/planning?week=1&open-only=1",
-    );
-    const clear = adminPage.locator('[data-testid="clear-filters"]');
-    if (await clear.count()) {
-      await clear.click();
-      await adminPage.waitForLoadState("networkidle");
-      expect(adminPage.url()).not.toContain("open-only");
-    }
+    const summary = adminPage.locator('[data-testid="availability-summary"]');
+    await expect(summary).toBeVisible();
+    // At least one team row with Men/Women counts. The seed has St Ann's A
+    // (team 1) with a week-1 fixture, so that row must be present.
+    await expect(
+      adminPage.locator('[data-testid="avail-team-1"]'),
+    ).toBeVisible();
+    await expect(
+      adminPage.locator('[data-testid="avail-men-1"]'),
+    ).toBeVisible();
+    await expect(
+      adminPage.locator('[data-testid="avail-women-1"]'),
+    ).toBeVisible();
   });
 
   test("narrow-viewport nudge is present on mobile portrait", async ({

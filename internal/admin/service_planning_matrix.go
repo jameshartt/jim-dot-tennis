@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strings"
 
 	"jim-dot-tennis/internal/models"
 )
@@ -43,9 +42,8 @@ type MatrixColumnGroup struct {
 
 // MatrixRow is one player row with cells keyed by MatrixColumn.Key.
 type MatrixRow struct {
-	Player      *models.Player
-	Preferences *models.PlayerTennisPreferences
-	Cells       map[string]MatrixCell
+	Player *models.Player
+	Cells  map[string]MatrixCell
 	// PrimaryDivisionLevel / PrimaryTeamName rank the row by the player's
 	// highest team: 1st-team players sort before 2nd-team, and so on. This
 	// mirrors the real picking order — you pick the 1st team first, then
@@ -72,7 +70,7 @@ type MatrixCell struct {
 // one week of fixtures) this runs fine as a straightforward query-per-player
 // loop against the existing repos. If scope='all' on a larger club starts
 // showing latency, the follow-up is a single bulk join.
-func (s *Service) ResolveAvailabilityMatrix(ctx context.Context, scope *ResolvedScope, week *models.Week, filters MatrixFilters) (*PlanningMatrix, error) {
+func (s *Service) ResolveAvailabilityMatrix(ctx context.Context, scope *ResolvedScope, week *models.Week) (*PlanningMatrix, error) {
 	if week == nil {
 		return &PlanningMatrix{EmptyReason: "No week selected"}, nil
 	}
@@ -170,21 +168,32 @@ func (s *Service) ResolveAvailabilityMatrix(ctx context.Context, scope *Resolved
 
 	// ---------- Selection state: prefetch fixture_players for all
 	// in-scope fixtures so each cell knows whether its player is already in
-	// that column's team-selection pool. ----------
-	selectionByColumn := map[string]map[string]bool{}
-	seenFixture := map[uint]bool{}
+	// that column's team-selection pool.
+	//
+	// Non-derby fixtures have exactly one column in scope, so any fixture_players
+	// row for that fixture must belong to it — regardless of what managing_team_id
+	// says. Historic rows written by the old team-selection page always hardcoded
+	// is_home=true, which made migration 011's trigger set managing_team_id to the
+	// home_team_id even when the home-club team was playing away. Derby fixtures
+	// (both sides in scope) still need managing_team_id to disambiguate. ----------
+	fixtureColumns := map[uint][]*MatrixColumn{}
 	for _, col := range matrix.Columns {
-		if seenFixture[col.Fixture.ID] {
-			continue
-		}
-		seenFixture[col.Fixture.ID] = true
-		players, err := s.fixtureRepository.FindSelectedPlayers(ctx, col.Fixture.ID)
+		fixtureColumns[col.Fixture.ID] = append(fixtureColumns[col.Fixture.ID], col)
+	}
+	selectionByColumn := map[string]map[string]bool{}
+	for fixtureID, cols := range fixtureColumns {
+		players, err := s.fixtureRepository.FindSelectedPlayers(ctx, fixtureID)
 		if err != nil {
 			continue
 		}
 		for i := range players {
 			fp := &players[i]
-			key := selectionColumnKey(col.Fixture, fp)
+			var key string
+			if len(cols) == 1 {
+				key = cols[0].Key
+			} else {
+				key = selectionColumnKey(cols[0].Fixture, fp)
+			}
 			if selectionByColumn[key] == nil {
 				selectionByColumn[key] = map[string]bool{}
 			}
@@ -235,17 +244,30 @@ func (s *Service) ResolveAvailabilityMatrix(ctx context.Context, scope *Resolved
 		}
 	}
 
-	// Attach preferences + build cells.
-	for pid, player := range playerByID {
-		prefs, _ := s.tennisPreferenceRepository.FindByPlayerID(ctx, pid)
-
-		if !matchFilters(prefs, filters) {
-			continue
+	// Tail the matrix with any remaining home-club players who aren't on one of
+	// the in-scope teams this season — gives captains a single place to reach
+	// the whole pool (e.g. a new joiner not yet rostered). Default rank leaves
+	// them sorted below every ranked team via the 9999 sentinel.
+	if s.homeClubID > 0 {
+		allHomeClubPlayers, err := s.playerRepository.FindByClub(ctx, s.homeClubID)
+		if err == nil {
+			for i := range allHomeClubPlayers {
+				p := &allHomeClubPlayers[i]
+				if _, seen := playerByID[p.ID]; seen {
+					continue
+				}
+				playerByID[p.ID] = p
+				primaryTeam[p.ID] = teamRank{divisionLevel: 9999, teamName: "~unassigned"}
+			}
 		}
+	}
 
+	// Build cells. Preferences are no longer rendered inline on the dashboard —
+	// initial selection is driven by availability + team membership; fit-style
+	// analysis happens on the matchup page.
+	for pid, player := range playerByID {
 		row := &MatrixRow{
 			Player:               player,
-			Preferences:          prefs,
 			Cells:                map[string]MatrixCell{},
 			PrimaryDivisionLevel: primaryTeam[pid].divisionLevel,
 			PrimaryTeamName:      primaryTeam[pid].teamName,
@@ -334,53 +356,6 @@ func resolveCell(ctx context.Context, s *Service, playerID string, fixture *mode
 		}
 	}
 	return cell
-}
-
-func matchFilters(prefs *models.PlayerTennisPreferences, f MatrixFilters) bool {
-	if f.OpenToFillInOnly {
-		if prefs == nil || prefs.OpenToFillIn == nil || !*prefs.OpenToFillIn {
-			return false
-		}
-	}
-	if len(f.Handedness) > 0 {
-		if prefs == nil || prefs.Handedness == nil || !contains(f.Handedness, *prefs.Handedness) {
-			return false
-		}
-	}
-	if len(f.CourtSide) > 0 {
-		if prefs == nil || prefs.PreferredCourtSide == nil || !contains(f.CourtSide, *prefs.PreferredCourtSide) {
-			return false
-		}
-	}
-	if len(f.MixedAppetite) > 0 {
-		if prefs == nil || prefs.MixedDoublesAppetite == nil || !contains(f.MixedAppetite, *prefs.MixedDoublesAppetite) {
-			return false
-		}
-	}
-	if len(f.SameGenderAppetite) > 0 {
-		if prefs == nil || prefs.SameGenderDoublesAppetite == nil || !contains(f.SameGenderAppetite, *prefs.SameGenderDoublesAppetite) {
-			return false
-		}
-	}
-	if f.MinCompetitiveness > 1 || f.MaxCompetitiveness < 5 {
-		if prefs == nil || prefs.Competitiveness == nil {
-			return false
-		}
-		c := *prefs.Competitiveness
-		if c < f.MinCompetitiveness || c > f.MaxCompetitiveness {
-			return false
-		}
-	}
-	return true
-}
-
-func contains(haystack []string, needle string) bool {
-	for _, h := range haystack {
-		if strings.EqualFold(h, needle) {
-			return true
-		}
-	}
-	return false
 }
 
 // selectionColumnKey picks the right column for a fixture_players row: in
