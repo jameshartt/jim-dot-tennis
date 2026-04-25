@@ -1,0 +1,60 @@
+{
+  "id": "WI-109",
+  "title": "Wizard handler: tier-aware GET, advance/finish POST, monotonic progress",
+  "description": "Refactor the My Tennis handler to serve the form one tier at a time. GET reads wizard_progress_tier and renders only the next-up tier (or tier 1 for new users). POST accepts a submitted tier and an intent ('finish' or 'continue'); merge-saves the tier's fields, bumps wizard_progress_tier via the repo method from WI-108, and routes the response: 'finish' → confirmation page; 'continue' → render the next tier inline. Re-edit affordance: a separate POST endpoint (or query param) lets a returning player re-open an earlier tier as a blank form (merge semantics handle the rest); re-edit does NOT decrement progress. Write-only contract preserved end-to-end — the GET payload must contain the tier definition (field names, enum options, copy) but ZERO stored answers.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": ["WI-108"],
+  "acceptance_criteria": [
+    "Tier definitions live in a single Go source of truth (e.g. internal/players/my_tennis_tiers.go) — both the handler and the backfill SQL in WI-108 reference this same field grouping",
+    "GET /my-profile/{token} reads wizard_progress_tier from the DB and renders the form for tier MIN(wizard_progress_tier + 1, MAX_TIER)",
+    "When wizard_progress_tier == MAX_TIER, GET renders a 'you've shared everything — want to update something?' state with re-edit links to each tier",
+    "GET payload contains no stored answer values — verified by an HTML snapshot test that fails if any tier-field value attribute is non-empty",
+    "POST accepts 'tier' (int) and 'intent' (finish|continue) form fields; merges only the submitted tier's fields using existing merge semantics from Sprint 016 WI-097",
+    "After successful POST, repo.BumpWizardProgressTier(playerID, tier) is called",
+    "intent=continue advances the user to tier+1 inline (or to the 'all done' state if tier was MAX_TIER); intent=finish renders the confirmation page from Sprint 016",
+    "Re-edit flow: GET /my-profile/{token}?edit=N renders tier N as a blank form regardless of progress; POST behaves identically (still merge-save, still bump-only)",
+    "All handler logic continues to delegate to the auth.GetPlayerFromContext pattern; no session auth introduced"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "internal/players/my_tennis_tiers.go — canonical tier definition (id, title, intro copy, fields)"
+    ],
+    "files_to_modify": [
+      "internal/players/my_tennis.go — refactor HandleGet and HandlePost to be tier-aware",
+      "internal/players/profile.go — no changes expected; routing stays the same"
+    ],
+    "tier_definitions_summary": {
+      "tier_1": "Team basics — match types appetite, fill-in willingness, contact preference, last-minute window",
+      "tier_2": "When & where — preferred days, times, transport, max travel, home court preference",
+      "tier_3": "How you play — handedness, backhand, serve, net comfort, court side, signature shot, shot working on, favourite tactic",
+      "tier_4": "Partners & pressure — partner consistency, on-court vibe, partner picker (clicks_with + would_love_to_try), competitiveness, pressure response",
+      "tier_5": "Goals & anything to know — season goal, improvement focus, what to know about my game, accessibility, weather tolerance, notes to captain",
+      "tier_6": "The fun stuff — years playing, how I got into tennis, hero, pre-match ritual, spirit animal, walkout song, celebration, post-match, one-liner"
+    },
+    "key_decisions": [
+      "Tier definition lives in Go, not the template — the template iterates over the tier the handler hands it, so adding/removing fields is a single-source change",
+      "intent=continue renders the next tier inline rather than redirecting — preserves any tier-level transient state (banners, copy variations) and avoids a flash",
+      "Re-edit always opens a BLANK form — never serves stored answers. This keeps the privacy contract identical for fresh and returning users alike"
+    ],
+    "open_questions_for_implementer": [
+      "Whether 'continue' should POST then 302 to the next tier's GET, or render inline. Inline is simpler and avoids a round-trip; pick whichever the existing my_tennis.go code makes cleanest"
+    ]
+  },
+  "testing_requirements": [
+    "Unit test: tier definition is exhaustive and disjoint — every field on PlayerTennisPreferences appears in exactly one tier; partner picker appears in tier 4 only",
+    "Handler test: GET with wizard_progress_tier=0 renders tier 1; with =3 renders tier 4; with =6 renders the 'all done' state",
+    "Handler test: GET payload never contains stored answer values (snapshot test on a populated DB)",
+    "Handler test: POST with intent=continue bumps progress and renders next tier; POST with intent=finish bumps progress and renders confirmation",
+    "Handler test: POST tier=2 by a user at wizard_progress_tier=4 keeps wizard_progress_tier at 4 (monotonic)"
+  ],
+  "context": {
+    "user_story": "As a player, when I open My Tennis I want to be shown one bite-sized chunk of the form at a time, with a clear way to stop once I've shared what I'm comfortable with — and a quiet way back in to add more later if I want to.",
+    "design_principles": [
+      "Enthusiastic consent at every boundary — never trick a user into seeing more than they asked for",
+      "One tier on screen at a time — no implicit reveal of what's coming next beyond a simple progress strip"
+    ]
+  }
+}

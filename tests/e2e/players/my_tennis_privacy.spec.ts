@@ -90,6 +90,38 @@ test.describe("My Tennis — privacy sweep of /my-profile/{token}", () => {
   });
 });
 
+// Sprint 018 WI-111: the wizard reshaped the GET surface — re-edit links
+// (?edit=N) open any tier as a blank form. We sweep every tier individually
+// to guarantee none of them ever paint a stored answer back into an input.
+test.describe("My Tennis wizard — tier-aware GET privacy sweep", () => {
+  for (const tier of [1, 2, 3, 4, 5, 6]) {
+    test(`?edit=${tier} renders blank and leaks no seeded answer`, async ({
+      page,
+    }) => {
+      await page.goto(`/my-profile/${VALID_TOKEN}?edit=${tier}`);
+      const html = await page.content();
+      for (const leak of SEEDED_STORED_ANSWERS) {
+        expect(
+          html,
+          `?edit=${tier} echoed stored answer "${leak}"`,
+        ).not.toContain(leak);
+      }
+      expect(html).not.toContain(CAPTAIN_NOTE_CANARY);
+      // Every text/number input on the rendered tier must be empty.
+      const values = await page
+        .locator('form[data-testid="wizard-form"] input[type="text"], form[data-testid="wizard-form"] input[type="number"], form[data-testid="wizard-form"] textarea')
+        .evaluateAll((els) =>
+          (els as Array<HTMLInputElement | HTMLTextAreaElement>).map(
+            (el) => el.value,
+          ),
+        );
+      for (const v of values) {
+        expect(v, `?edit=${tier} populated an input with stored value`).toBe("");
+      }
+    });
+  }
+});
+
 test.describe("My Tennis — privacy sweep of /my-availability/{token}", () => {
   test("availability page does not leak captain notes or stored answers", async ({
     page,

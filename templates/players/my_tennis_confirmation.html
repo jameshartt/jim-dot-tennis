@@ -90,7 +90,7 @@
             <h1 data-testid="confirmation-heading">Thanks — we've saved your answers.</h1>
             <p class="lede">
                 {{ if gt .FieldCount 0 }}
-                    Updated {{ .FieldCount }} field{{ if ne .FieldCount 1 }}s{{ end }}{{ if .Section }} in the <strong>{{ .Section }}</strong> section{{ end }}.
+                    Updated {{ .FieldCount }} field{{ if ne .FieldCount 1 }}s{{ end }}{{ if .TierLabel }} in the <strong>{{ .TierLabel }}</strong> tier{{ end }}.
                 {{ else }}
                     No fields were submitted — nothing changed.
                 {{ end }}
@@ -103,7 +103,7 @@
                 {{ end }}
             </ul>
             {{ else }}
-            <p class="empty">Tip: to change a single section, fill in just that part and hit save — other sections stay untouched.</p>
+            <p class="empty">Tip: to change something, fill in just that part and hit save — untouched fields stay exactly as they were.</p>
             {{ end }}
 
             <!-- Deliberate privacy choice: no 'view my full profile' link.
@@ -114,7 +114,9 @@
             </div>
 
             <div class="actions">
-                <a href="/my-profile/{{.AuthToken}}" class="btn btn-ghost" data-testid="update-another">Update another section</a>
+                <a href="/my-profile/{{.AuthToken}}" class="btn btn-ghost" data-testid="update-another">
+                    {{ if .IsLastTier }}Update something else{{ else }}Update another tier{{ end }}
+                </a>
                 <a href="/my-availability/{{.AuthToken}}" class="btn" data-testid="back-to-availability">Back to availability</a>
             </div>
         </div>

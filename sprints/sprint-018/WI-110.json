@@ -1,0 +1,66 @@
+{
+  "id": "WI-110",
+  "title": "Wizard template + localStorage drafts: stepped UI, progress strip, dual CTAs",
+  "description": "Replace the long-scroll collapsible-sections layout in templates/players/my_tennis.html with a single-tier stepped view. Add a minimal celebratory progress strip (ticked tiers + current). Each tier ends with two equal-weight buttons: 'Save & finish here' (terminal — POSTs intent=finish) and 'Save & keep going' (advance — POSTs intent=continue). Add localStorage drafts keyed by player token (my-tennis-draft-{token}) that persist in-progress answers across reloads and clear automatically on successful POST. The progress strip is celebratory ('two tiers shared — lovely'), never pressuring ('2 of 6'). Returning users at tier > 0 see a warm welcome banner: 'You've already told us plenty. Want to share a bit more?' with the next tier ready to go and an unobtrusive link to re-open earlier tiers.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": ["WI-109"],
+  "acceptance_criteria": [
+    "templates/players/my_tennis.html renders a single tier — no nine-section collapsible layout",
+    "Progress strip shows ticked completed tiers and the current tier; uses warm copy not numerical 'X of 6'",
+    "Each tier ends with two visually equal-weight CTAs: 'Save & finish here' and 'Save & keep going'. The terminal CTA is at LEAST as prominent as the advance CTA",
+    "Tier 6 (final tier) shows only 'Save & finish here' (no advance possible)",
+    "Returning user at wizard_progress_tier > 0 sees a warm welcome banner above the tier form",
+    "User at wizard_progress_tier == MAX_TIER sees the 'all done' state with re-edit affordances per tier",
+    "localStorage drafts persist field values keyed by player token; clear on successful POST of that tier",
+    "Drafts are scoped per-tier so submitting tier 2 doesn't clear drafted tier 3 inputs",
+    "Mobile-first CSS preserved — works at 375px width as Sprint 016 established",
+    "Confirmation page (templates/players/my_tennis_confirmation.html) reused with minor copy adjustment for 'finish here' vs Sprint 016's per-section save copy"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "templates/players/my_tennis.html — replace section list with single-tier render driven by handler-supplied tier definition",
+      "templates/players/my_tennis_confirmation.html — light copy adjustment, keep echo-only behaviour"
+    ],
+    "localStorage_pattern": {
+      "keys": [
+        "my-tennis-draft-{token} — JSON object {tier1: {...}, tier2: {...}, ...} of in-progress field values",
+        "Existing localStorage usage in availability.html establishes the pattern"
+      ],
+      "lifecycle": [
+        "On input change: write current tier's fields to localStorage",
+        "On page load for current tier: hydrate inputs from localStorage if present",
+        "On successful POST (detected via confirmation page render or HTMX swap): clear that tier's draft from localStorage",
+        "Never hydrate from server-supplied values — server never supplies them"
+      ]
+    },
+    "copy_direction": [
+      "Tier 1 intro: warm, brief, frames the wizard — 'A few quick things that help us schedule fairly. Stop whenever you've shared enough.'",
+      "Boundary copy: equal-weight invitation, never guilting — 'You've shared plenty. Save and finish here, or keep going if you'd like.'",
+      "Final-tier copy: gentle landing — 'This is the fun stuff. Pure colour. Lots of people stop before here, and that's perfect.'",
+      "Returning user banner: 'Welcome back. You've already told us X. Want to share a little more?' — never 'You haven't finished'",
+      "Progress strip: tick + tier name, never 'X of 6'"
+    ],
+    "key_decisions": [
+      "No skip button — saving with empty fields IS skipping, given merge semantics. Adds clarity without an extra control.",
+      "Terminal CTA at least as prominent as advance CTA — the visual hierarchy must not push users forward",
+      "localStorage drafts are best-effort UX; the server is still authoritative on submitted data"
+    ]
+  },
+  "testing_requirements": [
+    "Visual: tier 1 form renders cleanly at 375px viewport",
+    "Functional: typing in tier 2 fields, reloading the page, sees values restored from localStorage",
+    "Functional: completing tier 2 clears tier 2 draft but not any tier-3 draft",
+    "Copy review: every CTA, banner, and intro phrase passes the 'positive framing only' test (existing memory)",
+    "Final-tier flow: only 'Save & finish here' visible on tier 6"
+  ],
+  "context": {
+    "user_story": "As a player, I want to fill in my tennis profile in small comfortable chunks, never feel like I'm being pushed to share more than I want, and trust that what I've drafted won't be lost if I come back tomorrow.",
+    "design_principles": [
+      "Encourage stopping — every tier boundary celebrates having shared, not 'completing'",
+      "The wizard is for the player's enjoyment first, the captain's data second"
+    ]
+  }
+}

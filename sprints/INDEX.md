@@ -12,6 +12,23 @@ None currently active.
 
 Listed newest first.
 
+### Sprint 018: My Tennis — Tiered Wizard & Enthusiastic Consent
+- **Status**: Completed (2026-04-25)
+- **Work Items**: 4 (WI-108 to WI-111) — all completed
+- **Goal**: Reshape the Sprint 016 My Tennis form into a stepped wizard of six priority-ordered tiers, ending each tier with equal-weight "finish here" / "keep going" CTAs that encourage stopping
+- **Key Features**: Six-tier ordering (team basics → when/where → how you play → partners & pressure → goals → fun); canonical tier definitions in `internal/players/my_tennis_tiers.go`; single integer `wizard_progress_tier` on `player_tennis_preferences` (migration 027) with cascading backfill; monotonic progress (never decrements); re-edit affordance (`?edit=N`) always opens blank forms; localStorage drafts keyed per-token+per-tier; write-only privacy contract preserved end-to-end (31 my_tennis e2e tests pass)
+- **Directory**: `sprint-018/`
+- **Summary**: [sprint-018/SUMMARY.md](sprint-018/SUMMARY.md)
+
+### Sprint 017: Captain Planning Dashboard — Big-Picture Week Planning
+- **Status**: Completed
+- **Work Items**: 7 (WI-101 to WI-107) — all completed
+- **Focus**: Unified captain dashboard with week scrubbing, availability × preferences roll-up, private captain notes, and draft lineup → selection hand-off
+- **Key Features**: `/admin/league/planning` dashboard; scope chooser (My Teams / My Division / Team / All); week scrubber (season-aware, past-season toggle); availability matrix with preference chips; captain-managed private notes ('no-nos' live here, never on player profile); non-binding draft lineups that promote into the existing selection_overview flow
+- **Directory**: `sprint-017/`
+- **Summary**: [sprint-017/SUMMARY.md](sprint-017/SUMMARY.md)
+- **Schema delivered**: migration 026 (lineup_drafts, lineup_draft_players)
+
 ### Sprint 015: PWA Push Notifications
 - **Status**: Completed
 - **Work Items**: 5 (WI-088 to WI-092) — all completed
@@ -129,14 +146,7 @@ Listed newest first.
 
 ## Planned Sprints
 
-### Sprint 017: Captain Planning Dashboard — Big-Picture Week Planning
-- **Status**: Planned
-- **Work Items**: 7 (WI-101 to WI-107)
-- **Focus**: Unified captain dashboard with week scrubbing, availability × preferences roll-up, private captain notes, and draft lineup → selection hand-off
-- **Key Features**: `/admin/league/planning` dashboard; scope chooser (My Teams / My Division / Team / All); week scrubber (season-aware, past-season toggle); availability matrix with preference chips; captain-managed private notes ('no-nos' live here, never on player profile); non-binding draft lineups that promote into the existing selection_overview flow
-- **Directory**: `sprint-017/`
-- **Summary**: [sprint-017/SUMMARY.md](sprint-017/SUMMARY.md)
-- **Dependencies**: depends on Sprint 016 (WI-094 schema delivering migration 025 user.player_id, WI-098 preference summary partial); internal: WI-102 → WI-101; WI-103 → WI-102+WI-098; WI-104/105/106 → WI-103; WI-107 → all
+_None currently planned. Add new sprints with the next available work-item ID (WI-112)._
 
 ### Sprint 016: My Tennis — Profile Revamp & Player Self-Expression
 - **Status**: Completed (2026-04-18)
@@ -183,8 +193,9 @@ All completed sprints. Granular `completed_items` accounting in sprint.json may 
 Work items are numbered sequentially:
 - **WI-001 through WI-092** — sprints 001 through 015
 - **WI-093 through WI-100** — Sprint 016 (completed 2026-04-18)
-- **WI-101 through WI-107** — Sprint 017 (planned)
-- **Next available**: WI-108
+- **WI-101 through WI-107** — Sprint 017 (completed)
+- **WI-108 through WI-111** — Sprint 018 (completed)
+- **Next available**: WI-112
 
 ## Migrations Relationship
 
@@ -192,7 +203,8 @@ Sprint work items that deliver migrations document the migration number in their
 - **024** (player_tennis_preferences, player_preferred_partners, captain_player_notes) — Sprint 016 WI-094
 - **025** (users.player_id FK) — Sprint 016 WI-094 (used by Sprint 017)
 - **026** (lineup_drafts, lineup_draft_players) — Sprint 017 WI-106
-- **Next available**: 027
+- **027** (player_tennis_preferences.wizard_progress_tier) — Sprint 018 WI-108
+- **Next available**: 028
 
 ## How to Use This Index
 

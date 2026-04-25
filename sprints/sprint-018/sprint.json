@@ -1,0 +1,24 @@
+{
+  "sprint": {
+    "id": "sprint-018",
+    "name": "My Tennis — Tiered Wizard & Enthusiastic Consent",
+    "goal": "Reshape the My Tennis form from a single long page of 9 sections into a stepped wizard of 6 priority-ordered tiers, where every tier ends with an equal-weight 'save and finish here' off-ramp and players are encouraged — never pressured — to stop once they've shared enough. Server stores answers as before (admin-readable only), client uses localStorage for in-progress drafts, server tracks only a wizard_progress_tier integer so completion state can be shown without ever serving stored answers back to the player.",
+    "start_date": "2026-04-25",
+    "end_date": "2026-04-25",
+    "duration_weeks": 2,
+    "type": "numbered",
+    "status": "completed",
+    "focus_areas": [
+      "Priority-ordered tiers — what captains actually use first, pure colour last",
+      "Enthusiastic consent at every tier boundary — equal-weight 'finish here' and 'keep going' CTAs",
+      "Privacy preserved — write-only contract intact; only tier completion state ever sent back to the player",
+      "No data loss for existing testers — migration backfills wizard_progress_tier from non-null answers"
+    ],
+    "work_items": [
+      "WI-108",
+      "WI-109",
+      "WI-110",
+      "WI-111"
+    ]
+  }
+}

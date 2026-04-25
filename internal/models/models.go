@@ -435,6 +435,10 @@ type PlayerTennisPreferences struct {
 	BestWindowForLastMinute *string `json:"best_window_for_last_minute,omitempty" db:"best_window_for_last_minute"`
 	NotesToCaptain          *string `json:"notes_to_captain,omitempty" db:"notes_to_captain"`
 
+	// Sprint 018: monotonic wizard progress. 0 = not started, 1..6 = highest
+	// completed tier. Bumped only via repository.BumpWizardProgressTier.
+	WizardProgressTier int `json:"wizard_progress_tier" db:"wizard_progress_tier"`
+
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }

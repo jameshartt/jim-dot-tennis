@@ -1,0 +1,100 @@
+{
+  "id": "WI-108",
+  "title": "Schema: wizard_progress_tier column + backfill from existing answers",
+  "description": "Migration 027 adds wizard_progress_tier INTEGER NOT NULL DEFAULT 0 to player_tennis_preferences and backfills it from existing data so anyone who already filled the form during Sprint 016 testing keeps their progress. Backfill is cascading: wizard_progress_tier = the highest tier N for which any tier-N field is non-null (or any tier-N row exists in player_preferred_partners for tier 4). Tiers are defined in WI-109 — this work item lands the column and the SQL backfill expression. Model + repository updated to read/write the new column; the repo gains a BumpWizardProgressTier(playerID, tier) method that does MAX(current, submitted) so progress never decrements.",
+  "type": "migration",
+  "priority": "high",
+  "complexity": "S",
+  "parallelisable": false,
+  "dependencies": [],
+  "acceptance_criteria": [
+    "Migration 027 adds wizard_progress_tier INTEGER NOT NULL DEFAULT 0 to player_tennis_preferences",
+    "Migration 027 backfills the new column using cascading logic: any non-null tier-N field promotes the row to at least tier N",
+    "Tier-to-field mapping in the backfill SQL matches the canonical mapping from WI-109 exactly",
+    "Down migration drops the column cleanly without touching other data",
+    "Model PlayerTennisPreferences gains WizardProgressTier int field",
+    "Repository gains BumpWizardProgressTier(ctx, playerID, tier) using MAX(wizard_progress_tier, ?) — never decrements",
+    "Repository GetTennisSummary continues to expose all fields to the admin partial unchanged",
+    "Migration applies cleanly on a fresh DB and on a populated DB seeded with partial Sprint 016 answers"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "migrations/027_add_wizard_progress_tier.up.sql",
+      "migrations/027_add_wizard_progress_tier.down.sql"
+    ],
+    "files_to_modify": [
+      "internal/models/models.go — add WizardProgressTier int to PlayerTennisPreferences",
+      "internal/repository/player_tennis_preferences.go (or equivalent) — add BumpWizardProgressTier; include new column in scans/inserts"
+    ],
+    "tier_to_field_mapping": {
+      "tier_1_team_basics": [
+        "mixed_doubles_appetite",
+        "same_gender_doubles_appetite",
+        "open_to_fill_in",
+        "preferred_contact",
+        "best_window_for_last_minute"
+      ],
+      "tier_2_when_and_where": [
+        "preferred_days",
+        "preferred_times",
+        "max_travel_miles",
+        "transport",
+        "home_court_matters"
+      ],
+      "tier_3_how_you_play": [
+        "handedness",
+        "backhand",
+        "serve_style",
+        "net_comfort",
+        "preferred_court_side",
+        "signature_shot",
+        "shot_im_working_on",
+        "favourite_tactic"
+      ],
+      "tier_4_partners_and_pressure": [
+        "partner_consistency",
+        "on_court_vibe",
+        "competitiveness",
+        "pressure_response",
+        "any row in player_preferred_partners for this player_id"
+      ],
+      "tier_5_goals_and_anything_to_know": [
+        "season_goal",
+        "improvement_focus",
+        "what_to_know_about_my_game",
+        "accessibility_notes",
+        "weather_tolerance",
+        "notes_to_captain"
+      ],
+      "tier_6_the_fun_stuff": [
+        "years_playing",
+        "how_i_got_into_tennis",
+        "tennis_hero_or_style",
+        "pre_match_ritual",
+        "tennis_spirit_animal",
+        "walkout_song",
+        "celebration_style",
+        "post_match",
+        "my_tennis_in_one_line"
+      ]
+    },
+    "key_decisions": [
+      "wizard_progress_tier is monotonic — POST handlers MAX it up, never reset. A user re-editing tier 2 after completing tier 4 stays at tier 4.",
+      "Backfill is cascading, not exact — if tier 4 has data but tier 2 doesn't, the user is still considered 'past tier 4' for gating purposes. They simply skipped tiers, which is fine under the optional-everything model.",
+      "0 means no submissions at all — distinguishes 'never started' from 'started and skipped tier 1'."
+    ]
+  },
+  "testing_requirements": [
+    "Migration applies cleanly on fresh DB",
+    "Migration applies cleanly on a DB pre-seeded with partial Sprint 016 answers and produces correct cascading wizard_progress_tier values",
+    "Down migration removes the column and is reversible",
+    "BumpWizardProgressTier never decrements (unit test: bump from 4 with value 2 stays 4)"
+  ],
+  "context": {
+    "user_story": "As the system, I need a single integer per player capturing how far through the wizard they've progressed, so the player-facing UI can show completion state and resume position without ever needing the server to send stored answers back.",
+    "design_principles": [
+      "Privacy preserved — only an integer ever crosses the wire to the player; answers stay admin-only as in Sprint 016",
+      "No regressions for existing testers — backfill respects everything they've already shared"
+    ]
+  }
+}

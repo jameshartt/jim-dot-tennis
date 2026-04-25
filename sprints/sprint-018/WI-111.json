@@ -1,0 +1,45 @@
+{
+  "id": "WI-111",
+  "title": "E2E tests — wizard gating, progress monotonicity, write-only regression",
+  "description": "Lock in the new wizard contract with browser tests. The headline tests are: (1) GET /my-profile/{token} on a fully-populated player still returns ZERO stored answer values in the HTML — the privacy regression test from Sprint 016 must continue to pass under the new tier-aware GET; (2) POSTing tier 2 with intent=continue advances a fresh user to tier 3 visibly; (3) POSTing tier 2 by a user at wizard_progress_tier=4 keeps progress at 4; (4) the 'Save & finish here' button on any tier renders the confirmation page and does NOT advance the user; (5) localStorage draft hydration round-trip; (6) backfill: a player seeded directly with tier-3 answers but wizard_progress_tier=0 gets bumped to 3 by the migration.",
+  "type": "tests",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": ["WI-108", "WI-109", "WI-110"],
+  "acceptance_criteria": [
+    "Privacy regression test: GET on a fully-populated player returns no stored answer values in the rendered HTML (extends Sprint 016 my_tennis_privacy.spec.ts)",
+    "Wizard progression test: fresh user lands on tier 1; POST intent=continue advances to tier 2; repeat through tier 6",
+    "Terminal CTA test: clicking 'Save & finish here' on any tier renders confirmation, never the next tier",
+    "Monotonicity test: a user at progress=4 who POSTs tier=2 has wizard_progress_tier still =4 afterwards (verified via admin read view)",
+    "All-done state test: a user with wizard_progress_tier=6 sees the re-edit affordance, not a fresh tier 1",
+    "localStorage test: drafted fields in tier 3 survive a page reload; clearing happens after a successful POST",
+    "Backfill test: a SQL fixture seeds answers in tier 3 only, runs migration 027, asserts wizard_progress_tier=3",
+    "Existing Sprint 016 tests (write-only contract, merge semantics, captain-note leak regression) all still pass"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/players/my_tennis_wizard.spec.ts — the new wizard-specific tests",
+      "tests/migrations/027_backfill_test.sql — fixture + assertions for backfill behaviour (or equivalent Go test)"
+    ],
+    "files_to_modify": [
+      "tests/e2e/players/my_tennis_privacy.spec.ts — extend to cover tier-aware GET",
+      "tests/e2e/fixtures/seed.sql — may need a player at varying wizard_progress_tier values for tests"
+    ],
+    "key_decisions": [
+      "Backfill correctness is best tested at the SQL/Go level rather than in the browser — it's deterministic on raw data",
+      "Browser tests focus on user-visible contracts (no answers in HTML, CTAs do what they say, progress is monotonic)"
+    ]
+  },
+  "testing_requirements": [
+    "Run via existing make test-e2e infrastructure",
+    "All Sprint 016 my_tennis specs continue to pass — no regressions"
+  ],
+  "context": {
+    "user_story": "As the maintainer, I want the wizard's privacy and progression contracts to be encoded as automated tests so that future template or handler refactors can't silently leak stored answers or invert the consent flow.",
+    "design_principles": [
+      "Privacy is enforced by tests, not just code review",
+      "Every named contract in the SUMMARY has at least one test"
+    ]
+  }
+}

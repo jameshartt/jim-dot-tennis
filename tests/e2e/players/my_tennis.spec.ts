@@ -23,22 +23,23 @@ test.describe("My Tennis — CTA on availability page", () => {
   });
 });
 
-test.describe("My Tennis — write-only GET contract", () => {
-  test("GET renders a blank form even after a POST wrote values", async ({
+test.describe("My Tennis — write-only GET contract (tier-aware)", () => {
+  test("GET ?edit=N renders a blank tier even after a POST wrote values", async ({
     page,
   }) => {
     const unique = `ritual-${Date.now()}`;
-    // POST a single field via the token URL (no cookies required).
+    // POST a single tier-6 field via the token URL (pre_match_ritual lives there).
     const res = await page.request.post(`/my-profile/${VALID_TOKEN}`, {
       form: {
-        section: "identity",
+        tier: "6",
+        intent: "finish",
         pre_match_ritual: unique,
       },
     });
     expect(res.status()).toBe(200);
 
-    // Navigate to the GET form — it must be blank, not pre-filled.
-    await page.goto(`/my-profile/${VALID_TOKEN}`);
+    // Open tier 6 via the re-edit affordance — it must be blank, not pre-filled.
+    await page.goto(`/my-profile/${VALID_TOKEN}?edit=6`);
     const ritualInput = page.locator('input[name="pre_match_ritual"]');
     await expect(ritualInput).toBeVisible();
     await expect(ritualInput).toHaveValue("");
@@ -46,10 +47,10 @@ test.describe("My Tennis — write-only GET contract", () => {
     expect(html).not.toContain(unique);
   });
 
-  test("GET does NOT echo seeded stored preferences into inputs", async ({
+  test("GET ?edit=6 does NOT echo seeded stored tier-6 preferences", async ({
     page,
   }) => {
-    await page.goto(`/my-profile/${VALID_TOKEN}`);
+    await page.goto(`/my-profile/${VALID_TOKEN}?edit=6`);
     const oneLiner = page.locator('input[name="my_tennis_in_one_line"]');
     await expect(oneLiner).toBeVisible();
     await expect(oneLiner).toHaveValue("");
@@ -68,7 +69,8 @@ test.describe("My Tennis — confirmation page", () => {
     const unique = `signature-${Date.now()}`;
     const res = await page.request.post(`/my-profile/${VALID_TOKEN}`, {
       form: {
-        section: "style",
+        tier: "3",
+        intent: "finish",
         signature_shot: unique,
       },
     });
@@ -100,20 +102,22 @@ test.describe("My Tennis — merge semantics (round-trip via admin)", () => {
     const firstValue = `round-trip-first-${Date.now()}`;
     const secondValue = `round-trip-second-${Date.now() + 1}`;
 
-    // 1) Write field A (walkout_song).
+    // 1) Write field A (walkout_song), tier 6.
     let res = await page.request.post(`/my-profile/${VALID_TOKEN}`, {
       form: {
-        section: "fun",
+        tier: "6",
+        intent: "finish",
         walkout_song: firstValue,
       },
     });
     expect(res.status()).toBe(200);
 
-    // 2) Write field B (tennis_spirit_animal) in a separate POST.
+    // 2) Write field B (tennis_spirit_animal) in a separate POST, same tier.
     //    If merge semantics are correct, field A is preserved.
     res = await page.request.post(`/my-profile/${VALID_TOKEN}`, {
       form: {
-        section: "fun",
+        tier: "6",
+        intent: "finish",
         tennis_spirit_animal: secondValue,
       },
     });
@@ -145,7 +149,8 @@ test.describe("My Tennis — merge semantics (round-trip via admin)", () => {
     // POST the explicit clear — repo should set the column to `[]`.
     const res = await page.request.post(`/my-profile/${VALID_TOKEN}`, {
       form: {
-        section: "intensity",
+        tier: "5",
+        intent: "finish",
         __clear_improvement_focus: "1",
       },
     });

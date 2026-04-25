@@ -16,75 +16,99 @@
             color: #333;
             line-height: 1.45;
         }
-        .page { max-width: 860px; margin: 0 auto; }
+        .page { max-width: 720px; margin: 0 auto; }
 
         .hero {
             background: white;
             border-radius: 16px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             padding: 24px;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
             text-align: center;
         }
-        .hero h1 { font-size: 28px; color: #2c5530; margin: 0 0 8px 0; }
-        .hero .subtitle { color: #4a7c59; font-size: 16px; margin: 0 0 6px 0; font-weight: 500; }
+        .hero h1 { font-size: 26px; color: #2c5530; margin: 0 0 6px 0; }
+        .hero .subtitle { color: #4a7c59; font-size: 15px; margin: 0 0 6px 0; font-weight: 500; }
         .hero .lede { color: #555; font-size: 14px; margin: 0; }
-        .hero .back-link { display: inline-block; margin-top: 14px; color: #4a7c59; text-decoration: none; font-weight: 600; font-size: 14px; }
+        .hero .back-link { display: inline-block; margin-top: 12px; color: #4a7c59; text-decoration: none; font-weight: 600; font-size: 14px; }
         .hero .back-link:hover { text-decoration: underline; }
 
         .privacy-note {
             background: #fffbe6;
             border: 1px solid #ffe58f;
             border-radius: 12px;
-            padding: 14px 16px;
-            margin-bottom: 20px;
+            padding: 12px 14px;
+            margin-bottom: 16px;
             font-size: 13px;
             color: #614700;
         }
         .privacy-note strong { color: #2c5530; }
 
-        .section {
+        .progress-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            padding: 12px 14px;
+            margin-bottom: 16px;
+            font-size: 13px;
+        }
+        .progress-strip .pip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #f8f9fa;
+            border: 1px solid #e8f5e8;
+            color: #777;
+        }
+        .progress-strip .pip.shared {
+            background: #e8f5e8;
+            border-color: #4a7c59;
+            color: #2c5530;
+            font-weight: 600;
+        }
+        .progress-strip .pip.current {
+            background: #4a7c59;
+            border-color: #2c5530;
+            color: white;
+            font-weight: 700;
+        }
+        .progress-strip .pip a { color: inherit; text-decoration: none; }
+        .progress-strip .pip a:hover { text-decoration: underline; }
+
+        .welcome-banner {
+            background: #f1faf1;
+            border: 1px solid #c9e7c9;
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            color: #2c5530;
+        }
+        .welcome-banner strong { font-weight: 700; }
+
+        .card {
             background: white;
             border-radius: 16px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             margin-bottom: 16px;
             overflow: hidden;
         }
-        .section-header {
+        .card-header {
             padding: 16px 20px;
-            cursor: pointer;
-            user-select: none;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
             background: linear-gradient(135deg, #f8f9fa 0%, #e8f5e8 100%);
             border-bottom: 1px solid #e8f5e8;
         }
-        .section-header h2 { margin: 0; font-size: 18px; color: #2c5530; }
-        .section-header .caret { font-size: 14px; color: #4a7c59; transition: transform 0.2s ease; }
-        .section.collapsed .caret { transform: rotate(-90deg); }
-        .section.collapsed .section-body { display: none; }
+        .card-header h2 { margin: 0 0 4px 0; font-size: 20px; color: #2c5530; }
+        .card-header p { margin: 0; color: #4a7c59; font-size: 14px; font-style: italic; }
+        .card-body { padding: 18px 20px; }
 
-        .section-body { padding: 18px 20px; }
-        .section-intro { margin: 0 0 14px 0; color: #4a7c59; font-size: 14px; font-style: italic; }
-
-        label.field {
-            display: block;
-            margin-bottom: 14px;
-        }
-        label.field > span.label {
-            display: block;
-            font-weight: 600;
-            color: #2c5530;
-            font-size: 14px;
-            margin-bottom: 4px;
-        }
-        label.field > span.hint {
-            display: block;
-            color: #888;
-            font-size: 12px;
-            margin-bottom: 6px;
-        }
+        label.field { display: block; margin-bottom: 14px; }
+        label.field > span.label { display: block; font-weight: 600; color: #2c5530; font-size: 14px; margin-bottom: 4px; }
+        label.field > span.hint { display: block; color: #888; font-size: 12px; margin-bottom: 6px; }
         label.field input[type=text],
         label.field input[type=number],
         label.field textarea,
@@ -98,42 +122,26 @@
             background: #fafffa;
             transition: border-color 0.2s ease;
         }
-        label.field input:focus,
-        label.field textarea:focus,
-        label.field select:focus {
-            outline: none;
-            border-color: #4a7c59;
-            background: white;
+        label.field input:focus, label.field textarea:focus, label.field select:focus {
+            outline: none; border-color: #4a7c59; background: white;
         }
         label.field textarea { resize: vertical; min-height: 70px; }
 
-        .radio-group, .chip-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
+        .radio-group, .chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
         .radio-group label, .chip-group label {
-            display: inline-flex;
-            align-items: center;
+            display: inline-flex; align-items: center;
             padding: 8px 14px;
             background: #f8f9fa;
             border: 2px solid #e8f5e8;
             border-radius: 20px;
-            font-size: 14px;
-            cursor: pointer;
+            font-size: 14px; cursor: pointer;
             transition: all 0.15s ease;
         }
         .radio-group label:hover, .chip-group label:hover { border-color: #4a7c59; }
         .radio-group input, .chip-group input { position: absolute; opacity: 0; }
-        .radio-group input:checked + span,
-        .chip-group input:checked + span {
-            font-weight: 600;
-        }
-        .radio-group label:has(input:checked),
-        .chip-group label:has(input:checked) {
-            background: #4a7c59;
-            color: white;
-            border-color: #2c5530;
+        .radio-group input:checked + span, .chip-group input:checked + span { font-weight: 600; }
+        .radio-group label:has(input:checked), .chip-group label:has(input:checked) {
+            background: #4a7c59; color: white; border-color: #2c5530;
         }
 
         .slider-row { display: flex; align-items: center; gap: 12px; }
@@ -141,81 +149,81 @@
         .slider-row .value { font-weight: 700; color: #2c5530; min-width: 36px; text-align: center; }
         .slider-ticks { display: flex; justify-content: space-between; font-size: 11px; color: #999; margin-top: 4px; }
 
-        .partner-picker {
-            border: 2px solid #e8f5e8;
-            border-radius: 12px;
-            padding: 12px;
-            background: #fafffa;
-        }
-        .partner-search {
-            width: 100%;
-            padding: 8px 12px;
-            border: 2px solid #e8f5e8;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
-        .partner-list {
-            max-height: 220px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .partner-option {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 8px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-        }
+        .partner-picker { border: 2px solid #e8f5e8; border-radius: 12px; padding: 12px; background: #fafffa; }
+        .partner-search { width: 100%; padding: 8px 12px; border: 2px solid #e8f5e8; border-radius: 8px; margin-bottom: 10px; font-size: 14px; }
+        .partner-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+        .partner-option { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 14px; }
         .partner-option:hover { background: #e8f5e8; }
         .partner-option input { margin: 0; }
-        .partner-empty {
-            color: #888;
-            font-style: italic;
-            font-size: 13px;
-            padding: 8px;
+
+        .boundary-copy {
+            margin: 16px 0 12px 0;
+            padding: 14px 16px;
+            background: #f8fbf8;
+            border-left: 4px solid #4a7c59;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #2c5530;
         }
 
-        .section-actions {
+        .actions {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 16px;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 18px;
             padding-top: 14px;
             border-top: 1px dashed #e8f5e8;
-            gap: 8px;
-            flex-wrap: wrap;
         }
         .btn {
-            background: #4a7c59;
-            color: white;
-            padding: 10px 18px;
+            padding: 14px 18px;
             border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 700;
             cursor: pointer;
-            transition: background-color 0.15s ease;
+            text-align: center;
             font-family: inherit;
+            transition: background-color 0.15s ease, transform 0.05s ease;
         }
-        .btn:hover { background: #2c5530; }
-        .btn-ghost {
-            background: transparent;
-            color: #888;
+        .btn:active { transform: translateY(1px); }
+        /* Equal-weight CTAs: terminal first, advance second. The terminal is at
+           least as visually prominent as the advance — never undermine the
+           consent gesture by pushing users forward. */
+        .btn-finish {
+            background: #2c5530;
+            color: white;
+        }
+        .btn-finish:hover { background: #1f3d23; }
+        .btn-advance {
+            background: white;
+            color: #2c5530;
+            border: 2px solid #4a7c59;
+        }
+        .btn-advance:hover { background: #f1faf1; }
+
+        .all-done-card { text-align: center; }
+        .all-done-card h2 { color: #2c5530; font-size: 22px; margin: 0 0 8px 0; }
+        .all-done-card p { margin: 0 0 14px 0; color: #555; font-size: 14px; }
+        .reedit-list { list-style: none; padding: 0; margin: 16px 0 0 0; display: flex; flex-direction: column; gap: 8px; }
+        .reedit-list a {
+            display: block;
+            padding: 12px 14px;
+            background: #f8fbf8;
             border: 1px solid #e8f5e8;
+            border-radius: 10px;
+            color: #2c5530;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
         }
-        .btn-ghost:hover { color: #2c5530; background: #f8f9fa; border-color: #4a7c59; }
+        .reedit-list a:hover { border-color: #4a7c59; background: #f1faf1; }
 
         footer { text-align: center; color: #999; padding: 24px 0; font-size: 13px; }
         footer a { color: #4a7c59; text-decoration: none; }
 
         @media (max-width: 480px) {
             .hero h1 { font-size: 22px; }
-            .section-header h2 { font-size: 16px; }
+            .card-header h2 { font-size: 18px; }
             .partner-list { max-height: 180px; }
         }
     </style>
@@ -225,7 +233,7 @@
         <header class="hero">
             <h1 data-testid="profile-initials">My Tennis — {{ printf "%.1s" .Player.FirstName }}.{{ printf "%.1s" .Player.LastName }}.</h1>
             <p class="subtitle">Help us play our best tennis — together.</p>
-            <p class="lede">Every strength, every quirk, every style makes the team stronger.</p>
+            <p class="lede">Share as much or as little as feels right. Stop whenever you like.</p>
             <a href="/my-availability/{{.AuthToken}}" class="back-link">← Back to Availability</a>
         </header>
 
@@ -234,54 +242,66 @@
             We don't show them back on this page because the link is shareable. You can update anytime.
         </div>
 
-        <!-- Identity & Vibe -->
-        <form class="section" method="POST" action="/my-profile/{{.AuthToken}}" data-section="identity">
-            <input type="hidden" name="section" value="identity">
-            <div class="section-header" onclick="toggleSection(event)">
-                <h2>Identity & Vibe</h2><span class="caret">▼</span>
+        <!-- Progress strip — celebratory, never numerical 'X of 6'. -->
+        <div class="progress-strip" data-testid="progress-strip" aria-label="Wizard progress">
+            {{ $progress := .Progress }}
+            {{ $current := .CurrentTier }}
+            {{ range .Tiers }}
+                {{ if le .ID $progress }}
+                    <span class="pip shared" data-tier="{{ .ID }}" data-state="shared">✓ {{ .Title }}</span>
+                {{ else if eq .ID $current }}
+                    <span class="pip current" data-tier="{{ .ID }}" data-state="current">{{ .Title }}</span>
+                {{ else }}
+                    <span class="pip" data-tier="{{ .ID }}" data-state="upcoming">{{ .Title }}</span>
+                {{ end }}
+            {{ end }}
+        </div>
+
+        {{ if .AllDone }}
+        <!-- ============================================================
+             All-done state: returning user has shared everything.
+             No inputs, no answers — only re-edit affordances.
+             ============================================================ -->
+        <section class="card all-done-card" data-testid="all-done">
+            <div class="card-body">
+                <h2>You've shared everything — thank you.</h2>
+                <p>Captains have a full picture for fair scheduling. Want to update something? Pick a tier below — it'll open as a fresh form (we never read your stored answers back here).</p>
+                <ul class="reedit-list" data-testid="reedit-list">
+                    {{ range .Tiers }}
+                    <li><a href="/my-profile/{{$.AuthToken}}?edit={{ .ID }}" data-tier="{{ .ID }}">Update {{ .Title }} →</a></li>
+                    {{ end }}
+                </ul>
+                <p style="margin-top:16px;"><a href="/my-availability/{{.AuthToken}}" class="back-link">← Back to availability</a></p>
             </div>
-            <div class="section-body">
-                <p class="section-intro">The shape of your tennis — how you started, who inspires you, and how you arrive on court.</p>
+        </section>
+        {{ else }}
 
-                <label class="field">
-                    <span class="label">Years playing</span>
-                    <span class="hint">Roughly — just a number.</span>
-                    <input type="number" name="years_playing" min="0" max="80" inputmode="numeric">
-                </label>
+        {{ if and (gt .Progress 0) (not .IsEditing) }}
+        <div class="welcome-banner" data-testid="welcome-banner">
+            <strong>Welcome back.</strong> You've already shared {{ .Progress }} tier{{ if ne .Progress 1 }}s{{ end }} — lovely. Want to share a little more?
+        </div>
+        {{ end }}
 
-                <label class="field">
-                    <span class="label">How I got into tennis</span>
-                    <span class="hint">A childhood summer, a pandemic habit, a dare — whatever the story is.</span>
-                    <textarea name="how_i_got_into_tennis" maxlength="400"></textarea>
-                </label>
+        {{ if .IsEditing }}
+        <div class="welcome-banner" data-testid="edit-banner">
+            <strong>Updating "{{ .Tier.Title }}".</strong> Nothing's been read back — fill in only what you'd like to change. Untouched fields stay exactly as they were.
+        </div>
+        {{ end }}
 
-                <label class="field">
-                    <span class="label">Tennis hero or style I love</span>
-                    <input type="text" name="tennis_hero_or_style" maxlength="120" placeholder="e.g. Sabalenka's forehand, Alcaraz's joy, Federer's grace">
-                </label>
-
-                <label class="field">
-                    <span class="label">Pre-match ritual</span>
-                    <span class="hint">Totally optional — some people have one, some don't.</span>
-                    <input type="text" name="pre_match_ritual" maxlength="160" placeholder="e.g. banana and a strong coffee">
-                </label>
-
-                <div class="section-actions">
-                    <button type="button" class="btn-ghost btn" onclick="resetSection(this)">Clear section</button>
-                    <button type="submit" class="btn">Save this section</button>
-                </div>
+        <!-- ============================================================
+             Single-tier wizard form. The handler decides which tier;
+             this template renders just the one. CurrentTier = {{.CurrentTier}}.
+             ============================================================ -->
+        <form class="card" method="POST" action="/my-profile/{{.AuthToken}}"
+              data-testid="wizard-form" data-tier="{{.CurrentTier}}">
+            <input type="hidden" name="tier" value="{{.CurrentTier}}">
+            <div class="card-header">
+                <h2 data-testid="tier-title">{{ .Tier.Title }}</h2>
+                <p data-testid="tier-intro">{{ .Tier.Intro }}</p>
             </div>
-        </form>
+            <div class="card-body">
 
-        <!-- Match Types -->
-        <form class="section" method="POST" action="/my-profile/{{.AuthToken}}" data-section="match_types">
-            <input type="hidden" name="section" value="match_types">
-            <div class="section-header" onclick="toggleSection(event)">
-                <h2>Match Types</h2><span class="caret">▼</span>
-            </div>
-            <div class="section-body">
-                <p class="section-intro">What kinds of matches light you up — and which ones would you rather sit out.</p>
-
+            {{ if eq .CurrentTier 1 }}
                 <label class="field">
                     <span class="label">Mixed doubles appetite</span>
                     <div class="radio-group">
@@ -323,22 +343,70 @@
                     </div>
                 </label>
 
-                <div class="section-actions">
-                    <button type="button" class="btn-ghost btn" onclick="resetSection(this)">Clear section</button>
-                    <button type="submit" class="btn">Save this section</button>
-                </div>
-            </div>
-        </form>
+                <label class="field">
+                    <span class="label">Preferred contact</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="preferred_contact" value="whatsapp"><span>WhatsApp</span></label>
+                        <label><input type="radio" name="preferred_contact" value="text"><span>Text</span></label>
+                        <label><input type="radio" name="preferred_contact" value="email"><span>Email</span></label>
+                        <label><input type="radio" name="preferred_contact" value="call"><span>Call</span></label>
+                    </div>
+                </label>
 
-        <!-- Playing Style -->
-        <form class="section" method="POST" action="/my-profile/{{.AuthToken}}" data-section="style">
-            <input type="hidden" name="section" value="style">
-            <div class="section-header" onclick="toggleSection(event)">
-                <h2>Playing Style</h2><span class="caret">▼</span>
-            </div>
-            <div class="section-body">
-                <p class="section-intro">The texture of your game — the shots, sides, and situations that feel like home.</p>
+                <label class="field">
+                    <span class="label">Best window for last-minute asks</span>
+                    <input type="text" name="best_window_for_last_minute" maxlength="160" placeholder="e.g. evenings after 7pm">
+                </label>
+            {{ end }}
 
+            {{ if eq .CurrentTier 2 }}
+                <label class="field">
+                    <span class="label">Preferred match nights</span>
+                    <span class="hint">League matches happen Tue–Thu. Tick any you can usually make.</span>
+                    <div class="chip-group" data-testid="preferred-days">
+                        <label><input type="checkbox" name="preferred_days" value="tuesday"><span>Tue</span></label>
+                        <label><input type="checkbox" name="preferred_days" value="wednesday"><span>Wed</span></label>
+                        <label><input type="checkbox" name="preferred_days" value="thursday"><span>Thu</span></label>
+                    </div>
+                </label>
+
+                <label class="field">
+                    <span class="label">Preferred times</span>
+                    <div class="chip-group" data-testid="preferred-times">
+                        <label><input type="checkbox" name="preferred_times" value="morning"><span>Morning</span></label>
+                        <label><input type="checkbox" name="preferred_times" value="afternoon"><span>Afternoon</span></label>
+                        <label><input type="checkbox" name="preferred_times" value="evening"><span>Evening</span></label>
+                    </div>
+                </label>
+
+                <label class="field">
+                    <span class="label">Max travel (miles)</span>
+                    <span class="hint">Roughly how far you're happy to drive for an away match.</span>
+                    <input type="number" name="max_travel_miles" min="0" max="200" inputmode="numeric">
+                </label>
+
+                <label class="field">
+                    <span class="label">Transport</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="transport" value="car"><span>Car</span></label>
+                        <label><input type="radio" name="transport" value="public"><span>Public</span></label>
+                        <label><input type="radio" name="transport" value="walk"><span>Walking distance</span></label>
+                        <label><input type="radio" name="transport" value="lift"><span>Need a lift</span></label>
+                    </div>
+                </label>
+
+                <label class="field">
+                    <span class="label">Home court matters?</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="home_court_matters" value="strong_preference"><span>Strongly prefer home</span></label>
+                        <label><input type="radio" name="home_court_matters" value="slight_preference"><span>Slight preference</span></label>
+                        <label><input type="radio" name="home_court_matters" value="no_preference"><span>No preference</span></label>
+                        <label><input type="radio" name="home_court_matters" value="away_please"><span>Enjoy away days</span></label>
+                    </div>
+                </label>
+            {{ end }}
+
+            {{ if eq .CurrentTier 3 }}
                 <label class="field">
                     <span class="label">Handedness</span>
                     <div class="radio-group">
@@ -403,25 +471,11 @@
                     <span class="label">Favourite tactic</span>
                     <input type="text" name="favourite_tactic" maxlength="160" placeholder="e.g. poach early, cross at the net">
                 </label>
+            {{ end }}
 
-                <div class="section-actions">
-                    <button type="button" class="btn-ghost btn" onclick="resetSection(this)">Clear section</button>
-                    <button type="submit" class="btn">Save this section</button>
-                </div>
-            </div>
-        </form>
-
-        <!-- Partnership -->
-        <form class="section" method="POST" action="/my-profile/{{.AuthToken}}" data-section="partnership">
-            <input type="hidden" name="section" value="partnership">
-            <!-- Presence of these hidden controls signals 'replace the stored list with what's ticked' -->
-            <input type="hidden" name="__update_partners_clicks_with" value="1">
-            <input type="hidden" name="__update_partners_would_love_to_try" value="1">
-            <div class="section-header" onclick="toggleSection(event)">
-                <h2>Partnership</h2><span class="caret">▼</span>
-            </div>
-            <div class="section-body">
-                <p class="section-intro">Positive only — this list is about who brings out your best tennis.</p>
+            {{ if eq .CurrentTier 4 }}
+                <input type="hidden" name="__update_partners_clicks_with" value="1">
+                <input type="hidden" name="__update_partners_would_love_to_try" value="1">
 
                 <label class="field">
                     <span class="label">Partner consistency</span>
@@ -475,24 +529,8 @@
                     </div>
                 </label>
                 {{ else }}
-                <p class="section-intro">No other roster-mates found — partner picker will appear once your club's roster is populated.</p>
+                <p class="hint">Partner picker appears once your club's roster is populated.</p>
                 {{ end }}
-
-                <div class="section-actions">
-                    <button type="button" class="btn-ghost btn" onclick="resetSection(this)">Clear section</button>
-                    <button type="submit" class="btn">Save partnership choices</button>
-                </div>
-            </div>
-        </form>
-
-        <!-- Intensity & Goals -->
-        <form class="section" method="POST" action="/my-profile/{{.AuthToken}}" data-section="intensity">
-            <input type="hidden" name="section" value="intensity">
-            <div class="section-header" onclick="toggleSection(event)">
-                <h2>Intensity & Goals</h2><span class="caret">▼</span>
-            </div>
-            <div class="section-body">
-                <p class="section-intro">Dial your competitive heat and share what you're chasing this season.</p>
 
                 <label class="field">
                     <span class="label">Competitiveness</span>
@@ -511,7 +549,9 @@
                         <label><input type="radio" name="pressure_response" value="needs_calm"><span>Needs calm</span></label>
                     </div>
                 </label>
+            {{ end }}
 
+            {{ if eq .CurrentTier 5 }}
                 <label class="field">
                     <span class="label">Season goal</span>
                     <input type="text" name="season_goal" maxlength="200" placeholder="e.g. stay injury-free and hit a cleaner first serve">
@@ -520,7 +560,6 @@
                 <label class="field">
                     <span class="label">Improvement focus</span>
                     <span class="hint">Tick any that apply. Captains use these to match you with complementary partners.</span>
-                    <input type="hidden" name="__clear_improvement_focus_control" value="1" disabled>
                     <div class="chip-group" data-testid="improvement-focus">
                         <label><input type="checkbox" name="improvement_focus" value="serve"><span>Serve</span></label>
                         <label><input type="checkbox" name="improvement_focus" value="return"><span>Return</span></label>
@@ -534,61 +573,7 @@
                         <label><input type="checkbox" name="improvement_focus" value="strategy"><span>Strategy</span></label>
                         <label><input type="checkbox" name="improvement_focus" value="mental"><span>Mental game</span></label>
                     </div>
-                    <button type="button" class="btn-ghost btn" style="margin-top:8px;font-size:12px;padding:6px 12px;" onclick="clearMulti(this, 'improvement_focus')">Clear this list</button>
                 </label>
-
-                <div class="section-actions">
-                    <button type="button" class="btn-ghost btn" onclick="resetSection(this)">Clear section</button>
-                    <button type="submit" class="btn">Save this section</button>
-                </div>
-            </div>
-        </form>
-
-        <!-- Logistics -->
-        <form class="section" method="POST" action="/my-profile/{{.AuthToken}}" data-section="logistics">
-            <input type="hidden" name="section" value="logistics">
-            <div class="section-header" onclick="toggleSection(event)">
-                <h2>Logistics</h2><span class="caret">▼</span>
-            </div>
-            <div class="section-body">
-                <p class="section-intro">The practical stuff — which league nights and home-vs-away preferences.</p>
-
-                <label class="field">
-                    <span class="label">Preferred match nights</span>
-                    <span class="hint">League matches happen Tue–Thu. Tick any you can usually make.</span>
-                    <div class="chip-group" data-testid="preferred-days">
-                        <label><input type="checkbox" name="preferred_days" value="tuesday"><span>Tue</span></label>
-                        <label><input type="checkbox" name="preferred_days" value="wednesday"><span>Wed</span></label>
-                        <label><input type="checkbox" name="preferred_days" value="thursday"><span>Thu</span></label>
-                    </div>
-                    <button type="button" class="btn-ghost btn" style="margin-top:8px;font-size:12px;padding:6px 12px;" onclick="clearMulti(this, 'preferred_days')">Clear this list</button>
-                </label>
-
-                <label class="field">
-                    <span class="label">Home court matters?</span>
-                    <div class="radio-group">
-                        <label><input type="radio" name="home_court_matters" value="strong_preference"><span>Strongly prefer home</span></label>
-                        <label><input type="radio" name="home_court_matters" value="slight_preference"><span>Slight preference</span></label>
-                        <label><input type="radio" name="home_court_matters" value="no_preference"><span>No preference</span></label>
-                        <label><input type="radio" name="home_court_matters" value="away_please"><span>Enjoy away days</span></label>
-                    </div>
-                </label>
-
-                <div class="section-actions">
-                    <button type="button" class="btn-ghost btn" onclick="resetSection(this)">Clear section</button>
-                    <button type="submit" class="btn">Save this section</button>
-                </div>
-            </div>
-        </form>
-
-        <!-- Health & Access -->
-        <form class="section" method="POST" action="/my-profile/{{.AuthToken}}" data-section="health">
-            <input type="hidden" name="section" value="health">
-            <div class="section-header" onclick="toggleSection(event)">
-                <h2>Health & Access</h2><span class="caret">▼</span>
-            </div>
-            <div class="section-body">
-                <p class="section-intro">Anything captains should know so you can play at your best.</p>
 
                 <label class="field">
                     <span class="label">What to know about my game</span>
@@ -612,21 +597,35 @@
                     </div>
                 </label>
 
-                <div class="section-actions">
-                    <button type="button" class="btn-ghost btn" onclick="resetSection(this)">Clear section</button>
-                    <button type="submit" class="btn">Save this section</button>
-                </div>
-            </div>
-        </form>
+                <label class="field">
+                    <span class="label">Notes to captain</span>
+                    <span class="hint">Anything else that'd help.</span>
+                    <textarea name="notes_to_captain" maxlength="500"></textarea>
+                </label>
+            {{ end }}
 
-        <!-- Fun -->
-        <form class="section" method="POST" action="/my-profile/{{.AuthToken}}" data-section="fun">
-            <input type="hidden" name="section" value="fun">
-            <div class="section-header" onclick="toggleSection(event)">
-                <h2>Fun</h2><span class="caret">▼</span>
-            </div>
-            <div class="section-body">
-                <p class="section-intro">The bits that make tennis yours. Totally optional, totally you.</p>
+            {{ if eq .CurrentTier 6 }}
+                <label class="field">
+                    <span class="label">Years playing</span>
+                    <span class="hint">Roughly — just a number.</span>
+                    <input type="number" name="years_playing" min="0" max="80" inputmode="numeric">
+                </label>
+
+                <label class="field">
+                    <span class="label">How I got into tennis</span>
+                    <span class="hint">A childhood summer, a pandemic habit, a dare — whatever the story is.</span>
+                    <textarea name="how_i_got_into_tennis" maxlength="400"></textarea>
+                </label>
+
+                <label class="field">
+                    <span class="label">Tennis hero or style I love</span>
+                    <input type="text" name="tennis_hero_or_style" maxlength="120" placeholder="e.g. Sabalenka's forehand, Alcaraz's joy, Federer's grace">
+                </label>
+
+                <label class="field">
+                    <span class="label">Pre-match ritual</span>
+                    <input type="text" name="pre_match_ritual" maxlength="160" placeholder="e.g. banana and a strong coffee">
+                </label>
 
                 <label class="field">
                     <span class="label">Tennis spirit animal</span>
@@ -661,91 +660,107 @@
                     <span class="label">My tennis in one line</span>
                     <input type="text" name="my_tennis_in_one_line" maxlength="120" placeholder="e.g. 'Crafty lefty who plays better after coffee.'">
                 </label>
+            {{ end }}
 
-                <div class="section-actions">
-                    <button type="button" class="btn-ghost btn" onclick="resetSection(this)">Clear section</button>
-                    <button type="submit" class="btn">Save this section</button>
-                </div>
+            <div class="boundary-copy" data-testid="boundary-copy">
+                {{ if .IsLastTier }}
+                    This is the fun stuff. Pure colour. Lots of people stop before here, and that's perfect. Save whatever you'd like to share.
+                {{ else }}
+                    You've shared plenty. Save and finish here, or keep going if you'd like.
+                {{ end }}
+            </div>
+
+            <div class="actions">
+                <button type="submit" name="intent" value="finish"
+                        class="btn btn-finish" data-testid="finish-cta">
+                    Save &amp; finish here
+                </button>
+                {{ if not .IsLastTier }}
+                <button type="submit" name="intent" value="continue"
+                        class="btn btn-advance" data-testid="continue-cta">
+                    Save &amp; keep going
+                </button>
+                {{ end }}
+            </div>
+
             </div>
         </form>
-
-        <!-- Comms -->
-        <form class="section" method="POST" action="/my-profile/{{.AuthToken}}" data-section="comms">
-            <input type="hidden" name="section" value="comms">
-            <div class="section-header" onclick="toggleSection(event)">
-                <h2>Comms</h2><span class="caret">▼</span>
-            </div>
-            <div class="section-body">
-                <p class="section-intro">How captains can reach you, and when.</p>
-
-                <label class="field">
-                    <span class="label">Preferred contact</span>
-                    <div class="radio-group">
-                        <label><input type="radio" name="preferred_contact" value="whatsapp"><span>WhatsApp</span></label>
-                        <label><input type="radio" name="preferred_contact" value="text"><span>Text</span></label>
-                        <label><input type="radio" name="preferred_contact" value="email"><span>Email</span></label>
-                        <label><input type="radio" name="preferred_contact" value="call"><span>Call</span></label>
-                    </div>
-                </label>
-
-                <label class="field">
-                    <span class="label">Best window for last-minute asks</span>
-                    <input type="text" name="best_window_for_last_minute" maxlength="160" placeholder="e.g. evenings after 7pm">
-                </label>
-
-                <label class="field">
-                    <span class="label">Notes to captain</span>
-                    <span class="hint">Anything else that'd help.</span>
-                    <textarea name="notes_to_captain" maxlength="500"></textarea>
-                </label>
-
-                <div class="section-actions">
-                    <button type="button" class="btn-ghost btn" onclick="resetSection(this)">Clear section</button>
-                    <button type="submit" class="btn">Save this section</button>
-                </div>
-            </div>
-        </form>
+        {{ end }}
     </div>
 
     <footer>&copy; {{currentYear}} Jim.Tennis &middot; <a href="/about">About</a></footer>
 
     <script>
-        // Collapsible sections.
-        function toggleSection(e) {
-            var header = e.currentTarget || e.target.closest('.section-header');
-            var section = header.closest('.section');
-            section.classList.toggle('collapsed');
-        }
-        // Collapse all sections by default on mobile for a calmer first view.
-        (function initCollapse() {
-            if (window.innerWidth < 700) {
-                document.querySelectorAll('.section').forEach(function(s) { s.classList.add('collapsed'); });
+        // Sprint 018 WI-110: localStorage drafts.
+        //
+        // Drafts are keyed per-token+per-tier so a user drafting tier 3 won't lose
+        // it when they save tier 2. The store is best-effort UX — the server is
+        // authoritative on submitted data, and the GET payload never reads from
+        // localStorage to populate values from the *server's* memory; only the
+        // client's own un-submitted typing is restored. Cleared on successful POST.
+        (function() {
+            var token = {{.AuthToken}};
+            var tier  = {{.CurrentTier}};
+            if (!token || !tier) return; // all-done state has no form to draft.
+
+            var storageKey = "my-tennis-draft-" + token;
+            var form = document.querySelector('form[data-testid="wizard-form"]');
+            if (!form) return;
+
+            function readAll() {
+                try { return JSON.parse(localStorage.getItem(storageKey) || "{}") || {}; }
+                catch (e) { return {}; }
             }
+            function writeAll(obj) {
+                try { localStorage.setItem(storageKey, JSON.stringify(obj)); } catch (e) {}
+            }
+
+            // Hydrate the current tier's draft (if any) into form inputs.
+            var all = readAll();
+            var tierKey = "tier" + tier;
+            var draft = all[tierKey] || {};
+            for (var name in draft) {
+                if (!Object.prototype.hasOwnProperty.call(draft, name)) continue;
+                var values = draft[name];
+                if (!Array.isArray(values)) values = [values];
+                var nodes = form.querySelectorAll('[name="' + CSS.escape(name) + '"]');
+                nodes.forEach(function(el) {
+                    if (el.type === "radio" || el.type === "checkbox") {
+                        el.checked = values.indexOf(el.value) !== -1;
+                    } else if (el.type === "range") {
+                        el.value = values[0];
+                        var v = el.parentElement && el.parentElement.querySelector('.value');
+                        if (v) v.textContent = el.value;
+                    } else {
+                        el.value = values[0] || "";
+                    }
+                });
+            }
+
+            // Persist the current tier's field values on every change.
+            function snapshot() {
+                var data = new FormData(form);
+                var collected = {};
+                data.forEach(function(value, name) {
+                    if (name === "tier" || name === "intent" || name.indexOf("__") === 0) return;
+                    if (!collected[name]) collected[name] = [];
+                    collected[name].push(value);
+                });
+                var bag = readAll();
+                bag[tierKey] = collected;
+                writeAll(bag);
+            }
+            form.addEventListener("input", snapshot);
+            form.addEventListener("change", snapshot);
+
+            // On submit: clear THIS tier's draft optimistically. If the POST
+            // fails the page won't navigate; the user can retype.
+            form.addEventListener("submit", function() {
+                var bag = readAll();
+                delete bag[tierKey];
+                writeAll(bag);
+            });
         })();
-
-        // Per-section "clear section" — clears inputs locally; nothing is sent.
-        function resetSection(btn) {
-            var form = btn.closest('form');
-            form.querySelectorAll('input[type=text], input[type=number], textarea').forEach(function(el){ el.value = ''; });
-            form.querySelectorAll('input[type=radio], input[type=checkbox]').forEach(function(el){ el.checked = false; });
-            form.querySelectorAll('input[type=range]').forEach(function(el){ el.value = el.getAttribute('value') || 3; var v = el.parentElement.querySelector('.value'); if (v) v.textContent = el.value; });
-        }
-
-        // Explicit clear for multi-select JSON-array fields — adds a hidden
-        // __clear_<name>=1 and removes all ticks, so the server replaces the
-        // stored list with [] on submit.
-        function clearMulti(btn, name) {
-            var form = btn.closest('form');
-            form.querySelectorAll('input[type=checkbox][name="' + name + '"]').forEach(function(el){ el.checked = false; });
-            var existing = form.querySelector('input[type=hidden][name="__clear_' + name + '"]');
-            if (!existing) {
-                var h = document.createElement('input');
-                h.type = 'hidden';
-                h.name = '__clear_' + name;
-                h.value = '1';
-                form.appendChild(h);
-            }
-        }
 
         // Simple type-ahead filter for partner pickers.
         function filterPartners(inputEl) {

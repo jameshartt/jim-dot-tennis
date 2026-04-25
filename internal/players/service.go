@@ -1073,6 +1073,28 @@ type PartnerListUpdate struct {
 	Set []string
 }
 
+// GetWizardProgress reads the player's monotonic wizard tier (0..MaxTier).
+// Returns 0 for a fresh player with no preferences row yet. Only the integer
+// crosses the wire to the player — never any stored answer.
+func (s *Service) GetWizardProgress(playerID string) (int, error) {
+	ctx := context.Background()
+	tier, err := s.tennisPreferenceRepository.GetWizardProgressTier(ctx, playerID)
+	if err != nil {
+		return 0, fmt.Errorf("get wizard progress: %w", err)
+	}
+	return tier, nil
+}
+
+// BumpWizardProgress raises the player's stored progress to MAX(current, tier).
+// Never decrements — a user re-editing tier 2 after completing tier 4 stays at 4.
+func (s *Service) BumpWizardProgress(playerID string, tier int) error {
+	ctx := context.Background()
+	if err := s.tennisPreferenceRepository.BumpWizardProgressTier(ctx, playerID, tier); err != nil {
+		return fmt.Errorf("bump wizard progress: %w", err)
+	}
+	return nil
+}
+
 // UpdateMyTennisPreferences applies merge semantics on the scalar/JSON columns
 // and replaces-or-leaves each partner list independently.
 //

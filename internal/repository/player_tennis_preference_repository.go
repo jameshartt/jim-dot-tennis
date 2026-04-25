@@ -22,6 +22,15 @@ type PlayerTennisPreferenceRepository interface {
 	FindByPlayerID(ctx context.Context, playerID string) (*models.PlayerTennisPreferences, error)
 	UpsertMerge(ctx context.Context, prefs *models.PlayerTennisPreferences) error
 
+	// GetWizardProgressTier returns the player's stored wizard progress (0
+	// when no row exists yet for the player). Safe to call from the
+	// player-facing GET — only the integer crosses the wire, no answers.
+	GetWizardProgressTier(ctx context.Context, playerID string) (int, error)
+
+	// BumpWizardProgressTier raises wizard_progress_tier to MAX(current, tier).
+	// Never decrements. Inserts a row at tier if none exists yet.
+	BumpWizardProgressTier(ctx context.Context, playerID string, tier int) error
+
 	ListPreferredPartners(ctx context.Context, playerID string) ([]models.PlayerPreferredPartner, error)
 	ReplacePartnersOfKind(ctx context.Context, playerID string, kind models.PreferredPartnerKind, partnerPlayerIDs []string) error
 }
@@ -47,6 +56,7 @@ const playerTennisPreferenceColumns = `
 	what_to_know_about_my_game, accessibility_notes, weather_tolerance,
 	tennis_spirit_animal, walkout_song, celebration_style, post_match, my_tennis_in_one_line,
 	preferred_contact, best_window_for_last_minute, notes_to_captain,
+	wizard_progress_tier,
 	created_at, updated_at`
 
 func (r *playerTennisPreferenceRepository) FindByPlayerID(ctx context.Context, playerID string) (*models.PlayerTennisPreferences, error) {
@@ -144,6 +154,43 @@ func (r *playerTennisPreferenceRepository) UpsertMerge(ctx context.Context, pref
 			notes_to_captain            = COALESCE(excluded.notes_to_captain,            player_tennis_preferences.notes_to_captain),
 			updated_at                  = excluded.updated_at
 	`, prefs)
+	return err
+}
+
+// GetWizardProgressTier reads the monotonic wizard tier for the given player.
+// Returns 0 when no preferences row exists yet. NEVER reads any answer field —
+// safe to call from the player-facing /my-profile/{token} GET.
+func (r *playerTennisPreferenceRepository) GetWizardProgressTier(ctx context.Context, playerID string) (int, error) {
+	var tier int
+	err := r.db.GetContext(ctx, &tier, `
+		SELECT wizard_progress_tier
+		FROM player_tennis_preferences
+		WHERE player_id = ?
+	`, playerID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return tier, nil
+}
+
+// BumpWizardProgressTier raises wizard_progress_tier to MAX(current, tier).
+// Inserts a bare row at the supplied tier if one doesn't exist yet. Never
+// decrements — a user re-editing tier 2 after completing tier 4 stays at 4.
+func (r *playerTennisPreferenceRepository) BumpWizardProgressTier(ctx context.Context, playerID string, tier int) error {
+	if tier < 0 {
+		tier = 0
+	}
+	now := time.Now()
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO player_tennis_preferences (player_id, wizard_progress_tier, created_at, updated_at)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(player_id) DO UPDATE SET
+			wizard_progress_tier = MAX(player_tennis_preferences.wizard_progress_tier, excluded.wizard_progress_tier),
+			updated_at           = excluded.updated_at
+	`, playerID, tier, now, now)
 	return err
 }
 

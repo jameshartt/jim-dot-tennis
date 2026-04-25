@@ -184,6 +184,7 @@ INSERT OR REPLACE INTO player_tennis_preferences (
   what_to_know_about_my_game, accessibility_notes, weather_tolerance,
   tennis_spirit_animal, walkout_song, celebration_style, post_match, my_tennis_in_one_line,
   preferred_contact, best_window_for_last_minute, notes_to_captain,
+  wizard_progress_tier,
   created_at, updated_at
 ) VALUES (
   'p-alice',
@@ -197,6 +198,9 @@ INSERT OR REPLACE INTO player_tennis_preferences (
   'Chronic tennis elbow flares up after three sets — better doubles than singles.', 'No special needs.', 'all_weather',
   'Border collie', 'Seeded Walkout Song — Stored Answer Canary', 'fist_pump', 'Pint in the clubhouse', 'Crafty baseliner who plays better after coffee.',
   'whatsapp', 'Evenings after 7pm', 'Happy to share a ride from central Brighton.',
+  -- Sprint 018: this player is a Sprint 016 tester whose progress is
+  -- backfilled to MaxTier (all-done state) by migration 027.
+  6,
   '2026-04-01 00:00:00', '2026-04-01 00:00:00'
 );
 

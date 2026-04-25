@@ -12,24 +12,19 @@ import (
 	"jim-dot-tennis/internal/models"
 )
 
-// MyTennisHandler renders the 'My Tennis' self-expression form and applies
-// merge-semantic POST updates.
+// MyTennisHandler renders the 'My Tennis' wizard and applies merge-semantic
+// POST updates one tier at a time.
 //
-// PRIVACY CONTRACT (WI-097):
+// PRIVACY CONTRACT (WI-097, preserved by Sprint 018):
 //
-//   - GET never queries player_tennis_preferences or player_preferred_partners.
-//     The form renders with all inputs blank regardless of stored state.
-//   - POST applies merge semantics — absent / empty fields leave stored values
-//     in place — and the confirmation page echoes only what was submitted in
-//     this request. It must never read stored state.
-//   - Partner lists are replaced only if the partnership section was saved
-//     (signalled by an explicit hidden control); absent = no change.
-//   - Stored answers are only readable via the admin-session surfaces
-//     (WI-099 and the Sprint 017 planning dashboard).
-//
-// Future editors: preserve the blank GET contract. If you need read-back for
-// players, add a magic-link flow over email (Sprint 007 infrastructure).
-// Do not read stored state from this handler.
+//   - GET never queries stored answers from player_tennis_preferences or
+//     player_preferred_partners. Only the integer wizard_progress_tier crosses
+//     the wire to the player; the form renders blank inputs regardless.
+//   - POST applies merge semantics on the submitted tier's fields and bumps
+//     wizard_progress_tier monotonically (never decrements).
+//   - Re-edit (?edit=N) always opens a BLANK form — the privacy contract is
+//     identical for fresh and returning users.
+//   - Stored answers are only readable via the admin-session surfaces.
 type MyTennisHandler struct {
 	service     *Service
 	templateDir string
@@ -40,46 +35,46 @@ func NewMyTennisHandler(service *Service, templateDir string) *MyTennisHandler {
 	return &MyTennisHandler{service: service, templateDir: templateDir}
 }
 
-// HandleGet renders the blank My Tennis form. Does NOT read preferences.
+// HandleGet renders the wizard for the player's next-up tier (or the
+// 'all done' state once they've reached MaxTier). Reads only the integer
+// wizard_progress_tier — never any stored answer.
 func (h *MyTennisHandler) HandleGet(w http.ResponseWriter, r *http.Request, player *models.Player, authToken string) {
-	roster, err := h.service.GetPartnerRoster(player.ID)
+	progress, err := h.service.GetWizardProgress(player.ID)
 	if err != nil {
-		log.Printf("my_tennis: partner roster lookup failed for %s: %v", player.ID, err)
-		// A degraded picker is fine — the rest of the form is usable.
-		roster = nil
+		log.Printf("my_tennis: progress lookup failed for %s: %v", player.ID, err)
+		// Degrade to tier 1 — losing the resume position beats blocking the form.
+		progress = 0
 	}
 
-	data := map[string]interface{}{
-		"Player":    player,
-		"AuthToken": authToken,
-		"Gender":    string(player.Gender),
-		"Roster":    roster,
-		// Intentionally NO stored preferences fields — the page is write-only.
+	// Re-edit takes precedence: a returning player explicitly chose this tier.
+	editParam := strings.TrimSpace(r.URL.Query().Get("edit"))
+	if editParam != "" {
+		if n, err := strconv.Atoi(editParam); err == nil && n >= 1 && n <= MaxTier {
+			h.renderTier(w, player, authToken, n, progress, true)
+			return
+		}
 	}
 
-	tmpl, err := parseTemplate(h.templateDir, "players/my_tennis.html")
-	if err != nil {
-		log.Printf("my_tennis: template parse failed: %v", err)
-		renderFallbackHTML(w, "My Tennis", "My Tennis",
-			"Sorry — the My Tennis form could not be loaded.",
-			"/my-availability/"+authToken)
+	if progress >= MaxTier {
+		h.renderAllDone(w, player, authToken, progress)
 		return
 	}
-	if err := renderTemplate(w, tmpl, data); err != nil {
-		logAndError(w, err.Error(), err, http.StatusInternalServerError)
-	}
+
+	h.renderTier(w, player, authToken, progress+1, progress, false)
 }
 
-// HandlePost parses a partial form submission, applies merge semantics to the
-// stored preferences, and renders a confirmation page showing ONLY the fields
-// submitted in this request.
+// HandlePost merge-saves the submitted tier's fields, bumps the wizard
+// progress monotonically, and routes the response: 'finish' renders the
+// confirmation page, 'continue' renders the next tier inline (or the
+// 'all done' state when the user just completed MaxTier).
 func (h *MyTennisHandler) HandlePost(w http.ResponseWriter, r *http.Request, player *models.Player, authToken string) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Bad form submission", http.StatusBadRequest)
 		return
 	}
 
-	section := strings.TrimSpace(r.FormValue("section"))
+	tier := parseTierForm(r.FormValue("tier"))
+	intent := strings.TrimSpace(r.FormValue("intent"))
 
 	prefs, submitted := buildPartialPreferences(r)
 	partnerUpdates := map[models.PreferredPartnerKind]PartnerListUpdate{}
@@ -108,12 +103,135 @@ func (h *MyTennisHandler) HandlePost(w http.ResponseWriter, r *http.Request, pla
 		return
 	}
 
+	if tier > 0 {
+		if err := h.service.BumpWizardProgress(player.ID, tier); err != nil {
+			log.Printf("my_tennis: progress bump failed for %s: %v", player.ID, err)
+			// Best-effort — keep going to the success path.
+		}
+	}
+
+	// Continue routing: render the next tier inline so any tier-level transient
+	// state (banners, copy variations) survives without a 302 round-trip.
+	if intent == "continue" && tier > 0 && tier < MaxTier {
+		progress, err := h.service.GetWizardProgress(player.ID)
+		if err != nil {
+			progress = tier // best guess if the read fails
+		}
+		h.renderTier(w, player, authToken, tier+1, progress, false)
+		return
+	}
+	if intent == "continue" && tier >= MaxTier {
+		progress, err := h.service.GetWizardProgress(player.ID)
+		if err != nil {
+			progress = MaxTier
+		}
+		h.renderAllDone(w, player, authToken, progress)
+		return
+	}
+
+	// Finish (or legacy section-mode POST): render confirmation.
+	h.renderConfirmation(w, authToken, tier, submitted)
+}
+
+// renderTier renders my_tennis.html for a single tier. progress is the
+// player's stored wizard_progress_tier (used only to drive the progress
+// strip + banner copy — never to populate inputs). When editing is true,
+// the page is opened from a re-edit link rather than the natural advance.
+func (h *MyTennisHandler) renderTier(w http.ResponseWriter, player *models.Player, authToken string, tierID, progress int, editing bool) {
+	tier := TierByID(tierID)
+	if tier.ID == 0 {
+		// Out of range — fall back to tier 1 rather than 500.
+		tier = TierByID(1)
+		tierID = 1
+	}
+
+	// Roster is only loaded when the player needs the partner picker — the
+	// tier 4 contract. Other tiers leave Roster nil.
+	var roster []PartnerOption
+	if tier.HasField("partners_clicks_with") {
+		r, err := h.service.GetPartnerRoster(player.ID)
+		if err != nil {
+			log.Printf("my_tennis: partner roster lookup failed for %s: %v", player.ID, err)
+		} else {
+			roster = r
+		}
+	}
+
+	tierList := Tiers()
+
 	data := map[string]interface{}{
-		"Player":          player,
+		"Player":      player,
+		"AuthToken":   authToken,
+		"Gender":      string(player.Gender),
+		"Roster":      roster,
+		"Tier":        tier,
+		"CurrentTier": tierID,
+		"Progress":    progress,
+		"MaxTier":     MaxTier,
+		"IsLastTier":  IsLastTier(tierID),
+		"IsEditing":   editing,
+		"AllDone":     false,
+		"Tiers":       tierList,
+		// Intentionally NO stored preferences fields — the page is write-only.
+	}
+
+	tmpl, err := parseTemplate(h.templateDir, "players/my_tennis.html")
+	if err != nil {
+		log.Printf("my_tennis: template parse failed: %v", err)
+		renderFallbackHTML(w, "My Tennis", "My Tennis",
+			"Sorry — the My Tennis form could not be loaded.",
+			"/my-availability/"+authToken)
+		return
+	}
+	if err := renderTemplate(w, tmpl, data); err != nil {
+		logAndError(w, err.Error(), err, http.StatusInternalServerError)
+	}
+}
+
+// renderAllDone shows the warm 'you've shared everything' state with
+// re-edit links to every tier. No inputs, no answers — just affordances.
+func (h *MyTennisHandler) renderAllDone(w http.ResponseWriter, player *models.Player, authToken string, progress int) {
+	data := map[string]interface{}{
+		"Player":      player,
+		"AuthToken":   authToken,
+		"Gender":      string(player.Gender),
+		"Tier":        Tier{},
+		"CurrentTier": 0,
+		"Progress":    progress,
+		"MaxTier":     MaxTier,
+		"IsLastTier":  false,
+		"IsEditing":   false,
+		"AllDone":     true,
+		"Tiers":       Tiers(),
+	}
+
+	tmpl, err := parseTemplate(h.templateDir, "players/my_tennis.html")
+	if err != nil {
+		log.Printf("my_tennis: template parse failed: %v", err)
+		renderFallbackHTML(w, "My Tennis", "My Tennis",
+			"Sorry — the My Tennis form could not be loaded.",
+			"/my-availability/"+authToken)
+		return
+	}
+	if err := renderTemplate(w, tmpl, data); err != nil {
+		logAndError(w, err.Error(), err, http.StatusInternalServerError)
+	}
+}
+
+// renderConfirmation renders the post-finish confirmation page, echoing
+// only the just-submitted fields (never any stored state).
+func (h *MyTennisHandler) renderConfirmation(w http.ResponseWriter, authToken string, tier int, submitted []submittedField) {
+	tierLabel := ""
+	if t := TierByID(tier); t.ID != 0 {
+		tierLabel = t.Title
+	}
+	data := map[string]interface{}{
 		"AuthToken":       authToken,
-		"Section":         section,
+		"Tier":            tier,
+		"TierLabel":       tierLabel,
 		"SubmittedFields": submitted,
 		"FieldCount":      len(submitted),
+		"IsLastTier":      tier == MaxTier,
 	}
 
 	tmpl, err := parseTemplate(h.templateDir, "players/my_tennis_confirmation.html")
@@ -127,6 +245,20 @@ func (h *MyTennisHandler) HandlePost(w http.ResponseWriter, r *http.Request, pla
 	if err := renderTemplate(w, tmpl, data); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
+}
+
+// parseTierForm extracts a 1..MaxTier integer from the submitted 'tier'
+// field; returns 0 (legacy / no-op) for missing or out-of-range values.
+func parseTierForm(s string) int {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil || n < 1 || n > MaxTier {
+		return 0
+	}
+	return n
 }
 
 // submittedField is echoed only on the confirmation page — sourced from the
@@ -146,9 +278,9 @@ func has(r *http.Request, key string) bool {
 // PlayerTennisPreferences struct. Fields that were not submitted (or submitted
 // empty) are left nil so merge-semantic upsert leaves stored values alone.
 //
-// Multi-select JSON columns (preferred_days, improvement_focus) follow an
-// explicit-clear convention: an accompanying '__clear_<name>' hidden sets the
-// column to '[]'; otherwise absent == no change.
+// Multi-select JSON columns (preferred_days, preferred_times, improvement_focus)
+// follow an explicit-clear convention: an accompanying '__clear_<name>' hidden
+// sets the column to '[]'; otherwise absent == no change.
 func buildPartialPreferences(r *http.Request) (*models.PlayerTennisPreferences, []submittedField) {
 	var submitted []submittedField
 	p := &models.PlayerTennisPreferences{}
@@ -254,6 +386,9 @@ func buildPartialPreferences(r *http.Request) (*models.PlayerTennisPreferences, 
 
 	// Logistics
 	setJSONArray("Preferred match nights", "preferred_days", &p.PreferredDays)
+	setJSONArray("Preferred times", "preferred_times", &p.PreferredTimes)
+	setInt("Max travel (miles)", "max_travel_miles", &p.MaxTravelMiles)
+	setStr("Transport", "transport", &p.Transport)
 	setStr("Home court matters", "home_court_matters", &p.HomeCourtMatters)
 
 	// Health & Access
@@ -306,4 +441,3 @@ func describePartnerSet(ids []string, s *Service, self string) string {
 	return strings.Join(parts, ", ")
 }
 
-// logAndError is defined elsewhere in the package (availability.go) — shared.
