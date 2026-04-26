@@ -53,6 +53,16 @@ BACKUP_DIR="./exported-backups"
 SNAPSHOT_NAME="pre-e2e-current.db"
 SNAPSHOT_PATH="${BACKUP_DIR}/${SNAPSHOT_NAME}"
 
+# Ownership: docker containers run as root by default, so files they write
+# end up uid 0 on the host volume. The app container runs as `appuser`
+# (uid 1000 from Dockerfile), so a root-owned tennis.db opens as
+# read-only — sqlite then fails every write with "attempt to write a
+# readonly database". Chown after each operation to the right uid:gid.
+APP_UID=1000
+APP_GID=1000
+HOST_UID="$(id -u)"
+HOST_GID="$(id -g)"
+
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
@@ -105,7 +115,8 @@ snapshot_db() {
     -v "${REPO_ROOT}/${BACKUP_DIR}:/backup" \
     alpine:latest sh -c "
       apk add --no-cache sqlite >/dev/null &&
-      sqlite3 /data/tennis.db \".backup /backup/${SNAPSHOT_NAME}\"
+      sqlite3 /data/tennis.db \".backup /backup/${SNAPSHOT_NAME}\" &&
+      chown ${HOST_UID}:${HOST_GID} /backup/${SNAPSHOT_NAME}
     "
   if [ ! -s "${SNAPSHOT_PATH}" ]; then
     err "Snapshot is missing or empty at ${SNAPSHOT_PATH}. Aborting."
@@ -126,6 +137,7 @@ restore_db() {
     -v "${REPO_ROOT}/${BACKUP_DIR}:/backup:ro" \
     alpine:latest sh -c "
       cp /backup/${SNAPSHOT_NAME} /data/tennis.db &&
+      chown ${APP_UID}:${APP_GID} /data/tennis.db &&
       rm -f /data/tennis.db-wal /data/tennis.db-shm
     "
   log "Starting app..."
