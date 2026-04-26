@@ -1,7 +1,8 @@
 .PHONY: build run stop clean backup logs restart build-local run-local local \
 	build-tmx courthive courthive-up courthive-down courthive-restart courthive-logs \
 	vet fmt fmt-fix imports imports-fix lint deadcode tidy check \
-	test-e2e test-e2e-headed test-e2e-grep test-e2e-failed \
+	test-e2e test-e2e-safe test-e2e-safe-keep test-e2e-restore \
+	test-e2e-headed test-e2e-grep test-e2e-failed \
 	test-e2e-report test-e2e-results test-e2e-clean test-e2e-multiclub
 
 # Docker compose command
@@ -202,6 +203,23 @@ test-e2e:
 	@echo "Running E2E tests..."
 	$(DOCKER_COMPOSE) --profile test build e2e
 	$(DOCKER_COMPOSE) --profile test run --rm $(if $(WORKERS),-e WORKERS=$(WORKERS)) e2e
+
+# Run E2E tests with prod-DB snapshot/restore (usage: make test-e2e-safe [WORKERS=4])
+# Wraps `make test-e2e` so the local dev database (often a prod pull) is
+# preserved across the test run. See scripts/test-e2e-safe.sh for full options
+# (--keep to leave test state in place, --restore-only, target/args passthrough).
+test-e2e-safe:
+	@./scripts/test-e2e-safe.sh $(if $(WORKERS),WORKERS=$(WORKERS))
+
+# Run E2E tests, then leave the test-seeded DB in place so you can iterate
+# (e.g. follow up with `make test-e2e-safe-keep TARGET=test-e2e-failed`).
+# Roll back with `make test-e2e-restore` when done.
+test-e2e-safe-keep:
+	@./scripts/test-e2e-safe.sh --keep $(if $(TARGET),$(TARGET)) $(if $(WORKERS),WORKERS=$(WORKERS)) $(if $(FILTER),FILTER=$(FILTER))
+
+# Restore the DB from the snapshot left behind by a `--keep` run.
+test-e2e-restore:
+	@./scripts/test-e2e-safe.sh --restore-only
 
 # Run E2E tests with visible browser (usage: make test-e2e-headed [WORKERS=1])
 test-e2e-headed: export MY_TENNIS_ENABLED=1

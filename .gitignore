@@ -74,6 +74,7 @@ temp/
 tennis.db
 pdf_output
 players-import/*
+exported-backups/
 
 # Scripts with sensitive data (passwords, tokens, etc.)
 scripts/test_matchcard_api.sh
