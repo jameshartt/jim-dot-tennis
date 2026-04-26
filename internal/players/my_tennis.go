@@ -386,8 +386,6 @@ func buildPartialPreferences(r *http.Request) (*models.PlayerTennisPreferences, 
 
 	// Logistics
 	setJSONArray("Preferred match nights", "preferred_days", &p.PreferredDays)
-	setJSONArray("Preferred times", "preferred_times", &p.PreferredTimes)
-	setInt("Max travel (miles)", "max_travel_miles", &p.MaxTravelMiles)
 	setStr("Transport", "transport", &p.Transport)
 	setStr("Home court matters", "home_court_matters", &p.HomeCourtMatters)
 

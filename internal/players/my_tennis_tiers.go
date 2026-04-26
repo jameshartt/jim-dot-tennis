@@ -59,8 +59,6 @@ var tiers = []Tier{
 		Intro: "The practical stuff — which nights work, how you get to courts, and whether home or away matters.",
 		Fields: []string{
 			"preferred_days",
-			"preferred_times",
-			"max_travel_miles",
 			"transport",
 			"home_court_matters",
 		},

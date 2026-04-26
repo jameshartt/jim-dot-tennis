@@ -56,8 +56,6 @@ SET wizard_progress_tier = CASE
       OR favourite_tactic    IS NOT NULL
         THEN 3
     WHEN preferred_days      IS NOT NULL
-      OR preferred_times     IS NOT NULL
-      OR max_travel_miles    IS NOT NULL
       OR transport           IS NOT NULL
       OR home_court_matters  IS NOT NULL
         THEN 2

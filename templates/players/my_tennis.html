@@ -362,27 +362,12 @@
             {{ if eq .CurrentTier 2 }}
                 <label class="field">
                     <span class="label">Preferred match nights</span>
-                    <span class="hint">League matches happen Tue–Thu. Tick any you can usually make.</span>
+                    <span class="hint">League matches kick off at 6pm Tue–Thu. Tick any you can usually make.</span>
                     <div class="chip-group" data-testid="preferred-days">
                         <label><input type="checkbox" name="preferred_days" value="tuesday"><span>Tue</span></label>
                         <label><input type="checkbox" name="preferred_days" value="wednesday"><span>Wed</span></label>
                         <label><input type="checkbox" name="preferred_days" value="thursday"><span>Thu</span></label>
                     </div>
-                </label>
-
-                <label class="field">
-                    <span class="label">Preferred times</span>
-                    <div class="chip-group" data-testid="preferred-times">
-                        <label><input type="checkbox" name="preferred_times" value="morning"><span>Morning</span></label>
-                        <label><input type="checkbox" name="preferred_times" value="afternoon"><span>Afternoon</span></label>
-                        <label><input type="checkbox" name="preferred_times" value="evening"><span>Evening</span></label>
-                    </div>
-                </label>
-
-                <label class="field">
-                    <span class="label">Max travel (miles)</span>
-                    <span class="hint">Roughly how far you're happy to drive for an away match.</span>
-                    <input type="number" name="max_travel_miles" min="0" max="200" inputmode="numeric">
                 </label>
 
                 <label class="field">
