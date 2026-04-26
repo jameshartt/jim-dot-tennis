@@ -33,7 +33,10 @@ test.describe("My Tennis — /my-profile/{token}", () => {
 
   test("back to availability link is present", async ({ page }) => {
     await page.goto(`/my-profile/${VALID_TOKEN}`);
-    const backLink = page.locator(".back-link");
+    // The hero's back-link is always rendered. The all-done state adds a
+    // second one inside the card; scope to the hero so this stays a single
+    // match regardless of tier completion state.
+    const backLink = page.locator(".hero .back-link");
     await expect(backLink).toBeVisible();
     const href = await backLink.getAttribute("href");
     expect(href).toBe(`/my-availability/${VALID_TOKEN}`);
