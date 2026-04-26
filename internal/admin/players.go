@@ -256,7 +256,7 @@ func (h *PlayersHandler) handlePlayerNewPost(w http.ResponseWriter, r *http.Requ
 		LastName:         lastName,
 		Gender:           models.PlayerGender(gender),
 		ReportingPrivacy: models.PlayerReportingVisible, // Default to visible
-		ClubID:           homeClubID,                  // Auto-assign to home club instead of 0
+		ClubID:           homeClubID,                    // Auto-assign to home club instead of 0
 	}
 
 	// Create the player
@@ -896,50 +896,62 @@ func (s *Service) GetDeactivationImpact(playerID string) (*DeactivationImpact, e
 	var teamCaptainTeams []struct {
 		TeamName string `db:"name"`
 	}
-	s.db.SelectContext(ctx, &teamCaptainTeams, `
+	if err := s.db.SelectContext(ctx, &teamCaptainTeams, `
 		SELECT t.name FROM captains c
 		INNER JOIN teams t ON t.id = c.team_id
 		WHERE c.player_id = ? AND c.season_id = ? AND c.role = 'Team' AND c.is_active = TRUE
-	`, playerID, season.ID)
+	`, playerID, season.ID); err != nil {
+		log.Printf("GetDeactivationImpact: failed to load team captain teams for %s: %v", playerID, err)
+	}
 	for _, t := range teamCaptainTeams {
 		impact.TeamCaptainTeams = append(impact.TeamCaptainTeams, t.TeamName)
 	}
 	impact.IsTeamCaptain = len(impact.TeamCaptainTeams) > 0
 
 	// Count upcoming fixtures where player is selected
-	s.db.GetContext(ctx, &impact.UpcomingFixtures, `
+	if err := s.db.GetContext(ctx, &impact.UpcomingFixtures, `
 		SELECT COUNT(*) FROM fixture_players fp
 		INNER JOIN fixtures f ON f.id = fp.fixture_id
 		WHERE fp.player_id = ? AND f.status NOT IN ('Completed', 'Cancelled')
-	`, playerID)
+	`, playerID); err != nil {
+		log.Printf("GetDeactivationImpact: failed to count upcoming fixtures for %s: %v", playerID, err)
+	}
 
 	// Count upcoming fixtures where player is day captain
-	s.db.GetContext(ctx, &impact.DayCaptainFixtures, `
+	if err := s.db.GetContext(ctx, &impact.DayCaptainFixtures, `
 		SELECT COUNT(*) FROM fixtures
 		WHERE day_captain_id = ? AND status NOT IN ('Completed', 'Cancelled')
-	`, playerID)
+	`, playerID); err != nil {
+		log.Printf("GetDeactivationImpact: failed to count day captain fixtures for %s: %v", playerID, err)
+	}
 
 	// Count availability records that will be deleted
 	var availCount int
-	s.db.GetContext(ctx, &availCount, `
+	if err := s.db.GetContext(ctx, &availCount, `
 		SELECT COUNT(*) FROM player_general_availability
 		WHERE player_id = ? AND season_id = ?
-	`, playerID, season.ID)
+	`, playerID, season.ID); err != nil {
+		log.Printf("GetDeactivationImpact: failed to count general availability for %s: %v", playerID, err)
+	}
 	impact.AvailabilityCount += availCount
 
-	s.db.GetContext(ctx, &availCount, `
+	if err := s.db.GetContext(ctx, &availCount, `
 		SELECT COUNT(*) FROM player_fixture_availability
 		WHERE player_id = ? AND fixture_id IN (
 			SELECT id FROM fixtures WHERE status NOT IN ('Completed', 'Cancelled')
 		)
-	`, playerID)
+	`, playerID); err != nil {
+		log.Printf("GetDeactivationImpact: failed to count fixture availability for %s: %v", playerID, err)
+	}
 	impact.AvailabilityCount += availCount
 
 	// Check for linked user account
 	var userCount int
-	s.db.GetContext(ctx, &userCount, `
+	if err := s.db.GetContext(ctx, &userCount, `
 		SELECT COUNT(*) FROM users WHERE player_id = ? AND is_active = TRUE
-	`, playerID)
+	`, playerID); err != nil {
+		log.Printf("GetDeactivationImpact: failed to count linked user accounts for %s: %v", playerID, err)
+	}
 	impact.HasUserAccount = userCount > 0
 
 	return impact, nil
@@ -979,7 +991,9 @@ func (h *PlayersHandler) handleDeactivateConfirm(w http.ResponseWriter, r *http.
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	tmpl.Execute(w, impact)
+	if err := tmpl.Execute(w, impact); err != nil {
+		log.Printf("Error executing player_deactivate_confirm template: %v", err)
+	}
 }
 
 // handleDeactivate processes the player deactivation

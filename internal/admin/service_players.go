@@ -21,16 +21,6 @@ type PlayerWithAvailabilityInfo struct {
 	DivisionAppearanceCounts map[uint]int  `json:"division_appearance_counts"`
 }
 
-// GetPlayers retrieves all players for admin management
-func (s *Service) GetPlayers() ([]models.Player, error) {
-	// Use the player repository to fetch all players
-	players, err := s.playerRepository.FindAll(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	return players, nil
-}
-
 // GetFilteredPlayersWithAvailability retrieves players with availability information
 // Supports additional filters: teamID (specific team) and divisionID
 func (s *Service) GetFilteredPlayersWithAvailability(query string, activeFilter string, seasonID uint, teamIDs []uint, divisionIDs []uint) ([]PlayerWithAvailabilityInfo, error) {

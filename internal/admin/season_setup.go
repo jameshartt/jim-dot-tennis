@@ -4,6 +4,7 @@ package admin
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -229,7 +230,9 @@ func (h *SeasonSetupHandler) handleReviewAwayTeamsPost(w http.ResponseWriter, r 
 				continue
 			}
 			if team.DivisionID != uint(newDivID) {
-				h.service.MoveTeamToDivision(uint(teamID), uint(newDivID))
+				if err := h.service.MoveTeamToDivision(uint(teamID), uint(newDivID)); err != nil {
+					log.Printf("HandleAwayTeamReviewSubmit: failed to move team %d to division %d: %v", teamID, newDivID, err)
+				}
 			}
 		}
 
@@ -248,7 +251,9 @@ func (h *SeasonSetupHandler) handleReviewAwayTeamsPost(w http.ResponseWriter, r 
 			}
 			if !team.Active {
 				team.Active = true
-				h.service.UpdateTeam(team)
+				if err := h.service.UpdateTeam(team); err != nil {
+					log.Printf("HandleAwayTeamReviewSubmit: failed to reactivate team %d: %v", teamID, err)
+				}
 			}
 		}
 	}
@@ -278,7 +283,9 @@ func (h *SeasonSetupHandler) handleReviewAwayTeamsPost(w http.ResponseWriter, r 
 		}
 		if team.Active {
 			team.Active = false
-			h.service.UpdateTeam(team)
+			if err := h.service.UpdateTeam(team); err != nil {
+				log.Printf("HandleAwayTeamReviewSubmit: failed to deactivate team %d: %v", teamID, err)
+			}
 		}
 	}
 
@@ -309,7 +316,9 @@ func (h *SeasonSetupHandler) handleReviewAwayTeamsPost(w http.ResponseWriter, r 
 			DivisionID: uint(divisionID),
 			SeasonID:   uint(seasonID),
 		}
-		h.service.CreateTeam(team)
+		if err := h.service.CreateTeam(team); err != nil {
+			log.Printf("HandleAwayTeamReviewSubmit: failed to create team %q: %v", name, err)
+		}
 	}
 
 	http.Redirect(w, r, fmt.Sprintf("/admin/league/seasons/review-away-teams?id=%d&success=updated", seasonID), http.StatusSeeOther)

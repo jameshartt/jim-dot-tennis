@@ -16,77 +16,77 @@ import (
 // template dumb.
 var myTennisEnumLabels = map[string]string{
 	// Match Types
-	"mixed_doubles_appetite::love_it":           "Loves mixed doubles",
-	"mixed_doubles_appetite::happy_to":          "Happy with mixed",
-	"mixed_doubles_appetite::prefer_not":        "Prefers singles-gender doubles",
-	"mixed_doubles_appetite::open_to_learn":     "Open to learning mixed",
-	"same_gender_doubles_appetite::love_it":     "Loves same-gender doubles",
-	"same_gender_doubles_appetite::happy_to":    "Happy with same-gender",
-	"same_gender_doubles_appetite::prefer_not":  "Prefers mixed",
+	"mixed_doubles_appetite::love_it":          "Loves mixed doubles",
+	"mixed_doubles_appetite::happy_to":         "Happy with mixed",
+	"mixed_doubles_appetite::prefer_not":       "Prefers singles-gender doubles",
+	"mixed_doubles_appetite::open_to_learn":    "Open to learning mixed",
+	"same_gender_doubles_appetite::love_it":    "Loves same-gender doubles",
+	"same_gender_doubles_appetite::happy_to":   "Happy with same-gender",
+	"same_gender_doubles_appetite::prefer_not": "Prefers mixed",
 
 	// Playing Style
-	"handedness::right":                         "Right-handed",
-	"handedness::left":                          "Left-handed",
-	"handedness::ambidextrous":                  "Both hands",
-	"backhand::one_handed":                      "One-handed backhand",
-	"backhand::two_handed":                      "Two-handed backhand",
-	"backhand::slice_specialist":                "Slice specialist",
-	"serve_style::cannon":                       "Big serve",
-	"serve_style::placement":                    "Placement serve",
-	"serve_style::spin":                         "Heavy-spin serve",
-	"serve_style::slice":                        "Slice serve",
-	"serve_style::kick":                         "Kick serve",
-	"serve_style::reliable":                     "Reliable serve",
-	"serve_style::developing":                   "Serve still developing",
-	"net_comfort::love":                         "Lives at the net",
-	"net_comfort::happy":                        "Happy at the net",
-	"net_comfort::working_on_it":                "Working on the net",
-	"net_comfort::rather_not":                   "Prefers the baseline",
-	"preferred_court_side::deuce":               "Deuce side",
-	"preferred_court_side::ad":                  "Ad side",
-	"preferred_court_side::either":              "Either side",
+	"handedness::right":            "Right-handed",
+	"handedness::left":             "Left-handed",
+	"handedness::ambidextrous":     "Both hands",
+	"backhand::one_handed":         "One-handed backhand",
+	"backhand::two_handed":         "Two-handed backhand",
+	"backhand::slice_specialist":   "Slice specialist",
+	"serve_style::cannon":          "Big serve",
+	"serve_style::placement":       "Placement serve",
+	"serve_style::spin":            "Heavy-spin serve",
+	"serve_style::slice":           "Slice serve",
+	"serve_style::kick":            "Kick serve",
+	"serve_style::reliable":        "Reliable serve",
+	"serve_style::developing":      "Serve still developing",
+	"net_comfort::love":            "Lives at the net",
+	"net_comfort::happy":           "Happy at the net",
+	"net_comfort::working_on_it":   "Working on the net",
+	"net_comfort::rather_not":      "Prefers the baseline",
+	"preferred_court_side::deuce":  "Deuce side",
+	"preferred_court_side::ad":     "Ad side",
+	"preferred_court_side::either": "Either side",
 
 	// Partnership
-	"partner_consistency::same_always":          "Same partner always",
-	"partner_consistency::few_regulars":         "A few regulars",
-	"partner_consistency::mix_it_up":            "Loves mixing it up",
-	"on_court_vibe::quiet_focus":                "Quiet focus",
-	"on_court_vibe::chatty_encouraging":         "Chatty + encouraging",
-	"on_court_vibe::fiery_competitive":          "Fiery competitor",
-	"on_court_vibe::laid_back":                  "Laid back",
+	"partner_consistency::same_always":  "Same partner always",
+	"partner_consistency::few_regulars": "A few regulars",
+	"partner_consistency::mix_it_up":    "Loves mixing it up",
+	"on_court_vibe::quiet_focus":        "Quiet focus",
+	"on_court_vibe::chatty_encouraging": "Chatty + encouraging",
+	"on_court_vibe::fiery_competitive":  "Fiery competitor",
+	"on_court_vibe::laid_back":          "Laid back",
 
 	// Intensity
-	"pressure_response::thrive":                 "Thrives under pressure",
-	"pressure_response::even_keel":              "Even keel",
-	"pressure_response::needs_calm":             "Plays best calm",
+	"pressure_response::thrive":     "Thrives under pressure",
+	"pressure_response::even_keel":  "Even keel",
+	"pressure_response::needs_calm": "Plays best calm",
 
 	// Logistics
-	"home_court_matters::strong_preference":     "Strongly prefers home",
-	"home_court_matters::slight_preference":     "Slight preference for home",
-	"home_court_matters::no_preference":         "No preference",
-	"home_court_matters::away_please":           "Enjoys away days",
+	"home_court_matters::strong_preference": "Strongly prefers home",
+	"home_court_matters::slight_preference": "Slight preference for home",
+	"home_court_matters::no_preference":     "No preference",
+	"home_court_matters::away_please":       "Enjoys away days",
 
 	// Health & Access
-	"weather_tolerance::all_weather":            "All-weather player",
-	"weather_tolerance::no_cold":                "Not a fan of the cold",
-	"weather_tolerance::no_heat":                "Not a fan of the heat",
-	"weather_tolerance::fair_weather":           "Fair-weather only",
+	"weather_tolerance::all_weather":  "All-weather player",
+	"weather_tolerance::no_cold":      "Not a fan of the cold",
+	"weather_tolerance::no_heat":      "Not a fan of the heat",
+	"weather_tolerance::fair_weather": "Fair-weather only",
 
 	// Fun
-	"celebration_style::fist_pump":              "Fist pump",
-	"celebration_style::quiet_nod":              "Quiet nod",
-	"celebration_style::silent_satisfaction":    "Silent satisfaction",
-	"celebration_style::racquet_twirl":          "Racquet twirl",
-	"celebration_style::high_five_partner":      "High-fives with partner",
-	"celebration_style::whole_routine":          "Whole routine",
-	"celebration_style::depends_on_the_moment":  "Depends on the moment",
-	"celebration_style::save_for_match":         "Saves it for match point",
+	"celebration_style::fist_pump":             "Fist pump",
+	"celebration_style::quiet_nod":             "Quiet nod",
+	"celebration_style::silent_satisfaction":   "Silent satisfaction",
+	"celebration_style::racquet_twirl":         "Racquet twirl",
+	"celebration_style::high_five_partner":     "High-fives with partner",
+	"celebration_style::whole_routine":         "Whole routine",
+	"celebration_style::depends_on_the_moment": "Depends on the moment",
+	"celebration_style::save_for_match":        "Saves it for match point",
 
 	// Comms
-	"preferred_contact::whatsapp":               "WhatsApp",
-	"preferred_contact::text":                   "Text",
-	"preferred_contact::email":                  "Email",
-	"preferred_contact::call":                   "Call",
+	"preferred_contact::whatsapp": "WhatsApp",
+	"preferred_contact::text":     "Text",
+	"preferred_contact::email":    "Email",
+	"preferred_contact::call":     "Call",
 }
 
 // PartnerSummary pairs a stored preferred-partner row with the partner's
@@ -218,8 +218,5 @@ func preferencesHaveAnyValue(p *models.PlayerTennisPreferences) bool {
 			return true
 		}
 	}
-	if p.OpenToFillIn != nil {
-		return true
-	}
-	return false
+	return p.OpenToFillIn != nil
 }

@@ -13,12 +13,12 @@ import (
 
 // SeasonDeletionStats holds counts of entities removed during a cascading delete
 type SeasonDeletionStats struct {
-	Fixtures   int
-	Teams      int
-	Divisions  int
-	Weeks      int
-	Players    int // player_teams rows
-	Captains   int
+	Fixtures  int
+	Teams     int
+	Divisions int
+	Weeks     int
+	Players   int // player_teams rows
+	Captains  int
 }
 
 // SeasonRepository defines the interface for season data access
@@ -128,56 +128,48 @@ func (r *seasonRepository) DeleteCascade(ctx context.Context, id uint) (*SeasonD
 	}
 	defer tx.Rollback()
 
-	// Collect stats before deleting
-	tx.GetContext(ctx, &stats.Fixtures, `SELECT COUNT(*) FROM fixtures WHERE season_id = ?`, id)
-	tx.GetContext(ctx, &stats.Teams, `SELECT COUNT(*) FROM teams WHERE season_id = ?`, id)
-	tx.GetContext(ctx, &stats.Divisions, `SELECT COUNT(*) FROM divisions WHERE season_id = ?`, id)
-	tx.GetContext(ctx, &stats.Weeks, `SELECT COUNT(*) FROM weeks WHERE season_id = ?`, id)
-	tx.GetContext(ctx, &stats.Players, `SELECT COUNT(*) FROM player_teams WHERE season_id = ?`, id)
-	tx.GetContext(ctx, &stats.Captains, `SELECT COUNT(*) FROM captains WHERE season_id = ?`, id)
+	// Best-effort stats for the response; failures here don't affect the cascade.
+	_ = tx.GetContext(ctx, &stats.Fixtures, `SELECT COUNT(*) FROM fixtures WHERE season_id = ?`, id)
+	_ = tx.GetContext(ctx, &stats.Teams, `SELECT COUNT(*) FROM teams WHERE season_id = ?`, id)
+	_ = tx.GetContext(ctx, &stats.Divisions, `SELECT COUNT(*) FROM divisions WHERE season_id = ?`, id)
+	_ = tx.GetContext(ctx, &stats.Weeks, `SELECT COUNT(*) FROM weeks WHERE season_id = ?`, id)
+	_ = tx.GetContext(ctx, &stats.Players, `SELECT COUNT(*) FROM player_teams WHERE season_id = ?`, id)
+	_ = tx.GetContext(ctx, &stats.Captains, `SELECT COUNT(*) FROM captains WHERE season_id = ?`, id)
+
+	exec := func(label, query string) error {
+		if _, err := tx.ExecContext(ctx, query, id); err != nil {
+			return fmt.Errorf("failed to delete %s: %w", label, err)
+		}
+		return nil
+	}
 
 	// Level 1: Delete fixture-related data (joined through fixtures)
-	tx.ExecContext(ctx, `
-		DELETE FROM player_availability WHERE fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
-	`, id)
-	tx.ExecContext(ctx, `
-		DELETE FROM availability_time_slots WHERE fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
-	`, id)
-	tx.ExecContext(ctx, `
-		DELETE FROM player_fixture_availability WHERE fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
-	`, id)
-	tx.ExecContext(ctx, `
-		DELETE FROM matchup_players WHERE matchup_id IN (
-			SELECT id FROM matchups WHERE fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
-		)
-	`, id)
-	tx.ExecContext(ctx, `
-		DELETE FROM matchups WHERE fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
-	`, id)
-	tx.ExecContext(ctx, `
-		DELETE FROM fixture_players WHERE fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
-	`, id)
-
-	// Level 2: Delete fixtures and team assignments
-	if _, err := tx.ExecContext(ctx, `DELETE FROM fixtures WHERE season_id = ?`, id); err != nil {
-		return nil, fmt.Errorf("failed to delete fixtures: %w", err)
+	steps := []struct{ label, query string }{
+		{"player_availability", `DELETE FROM player_availability WHERE fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)`},
+		{"availability_time_slots", `DELETE FROM availability_time_slots WHERE fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)`},
+		{"player_fixture_availability", `DELETE FROM player_fixture_availability WHERE fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)`},
+		{"matchup_players", `DELETE FROM matchup_players WHERE matchup_id IN (SELECT id FROM matchups WHERE fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?))`},
+		{"matchups", `DELETE FROM matchups WHERE fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)`},
+		{"fixture_players", `DELETE FROM fixture_players WHERE fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)`},
+		// Level 2: Delete fixtures and team assignments
+		{"fixtures", `DELETE FROM fixtures WHERE season_id = ?`},
+		{"player_teams", `DELETE FROM player_teams WHERE season_id = ?`},
+		{"captains", `DELETE FROM captains WHERE season_id = ?`},
+		// Level 3: Delete structural data
+		{"player_divisions", `DELETE FROM player_divisions WHERE season_id = ?`},
+		{"player_general_availability", `DELETE FROM player_general_availability WHERE season_id = ?`},
+		{"weeks", `DELETE FROM weeks WHERE season_id = ?`},
+		{"teams", `DELETE FROM teams WHERE season_id = ?`},
+		{"divisions", `DELETE FROM divisions WHERE season_id = ?`},
+		// Level 4: Delete relationships
+		{"league_seasons", `DELETE FROM league_seasons WHERE season_id = ?`},
+		// Level 5: Delete the season itself
+		{"season", `DELETE FROM seasons WHERE id = ?`},
 	}
-	tx.ExecContext(ctx, `DELETE FROM player_teams WHERE season_id = ?`, id)
-	tx.ExecContext(ctx, `DELETE FROM captains WHERE season_id = ?`, id)
-
-	// Level 3: Delete structural data
-	tx.ExecContext(ctx, `DELETE FROM player_divisions WHERE season_id = ?`, id)
-	tx.ExecContext(ctx, `DELETE FROM player_general_availability WHERE season_id = ?`, id)
-	tx.ExecContext(ctx, `DELETE FROM weeks WHERE season_id = ?`, id)
-	tx.ExecContext(ctx, `DELETE FROM teams WHERE season_id = ?`, id)
-	tx.ExecContext(ctx, `DELETE FROM divisions WHERE season_id = ?`, id)
-
-	// Level 4: Delete relationships
-	tx.ExecContext(ctx, `DELETE FROM league_seasons WHERE season_id = ?`, id)
-
-	// Level 5: Delete the season itself
-	if _, err := tx.ExecContext(ctx, `DELETE FROM seasons WHERE id = ?`, id); err != nil {
-		return nil, fmt.Errorf("failed to delete season: %w", err)
+	for _, s := range steps {
+		if err := exec(s.label, s.query); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

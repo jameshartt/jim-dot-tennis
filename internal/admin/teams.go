@@ -750,7 +750,9 @@ func (h *TeamsHandler) handleDivisionReviewPost(w http.ResponseWriter, r *http.R
 			continue
 		}
 		if team.DivisionID != uint(newDivID) {
-			h.service.MoveTeamToDivision(uint(teamID), uint(newDivID))
+			if err := h.service.MoveTeamToDivision(uint(teamID), uint(newDivID)); err != nil {
+				log.Printf("HandleAwayTeamsReviewSubmit: failed to move team %d to division %d: %v", teamID, newDivID, err)
+			}
 		}
 	}
 

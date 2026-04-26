@@ -521,7 +521,7 @@ func (s *Service) GetClubTeams(clubID uint) ([]ClubTeamsBySeason, error) {
 		}
 
 		info := ClubTeamInfo{
-			Team:     team,
+			Team:       team,
 			IsHomeClub: team.ClubID == homeClubID,
 		}
 

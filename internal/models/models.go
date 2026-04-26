@@ -61,7 +61,7 @@ type Player struct {
 	ReportingPrivacy PlayerReportingPrivacy `json:"reporting_privacy" db:"reporting_privacy"`         // Controls visibility on public reports
 	ClubID           uint                   `json:"club_id" db:"club_id"`                             // Player belongs to a club, not directly to a team
 	FantasyMatchID   *uint                  `json:"fantasy_match_id,omitempty" db:"fantasy_match_id"` // Links player to fantasy mixed doubles match for auth
-	IsActive         bool                   `json:"is_active" db:"is_active"`                        // Whether the player is active (soft-delete support)
+	IsActive         bool                   `json:"is_active" db:"is_active"`                         // Whether the player is active (soft-delete support)
 	CreatedAt        time.Time              `json:"created_at" db:"created_at"`
 	UpdatedAt        time.Time              `json:"updated_at" db:"updated_at"`
 	Teams            []uint                 `json:"teams,omitempty"` // Player can be part of multiple teams through PlayerTeam
@@ -351,8 +351,8 @@ type TournamentProvider struct {
 	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
 
 	// Not stored in DB — populated by queries
-	Tournaments    []Tournament `json:"tournaments,omitempty"`
-	TournamentCount int         `json:"tournament_count,omitempty" db:"tournament_count"`
+	Tournaments     []Tournament `json:"tournaments,omitempty"`
+	TournamentCount int          `json:"tournament_count,omitempty" db:"tournament_count"`
 }
 
 // Tournament represents a tournament synced from CourtHive
@@ -381,10 +381,10 @@ type PlayerTennisPreferences struct {
 	PlayerID string `json:"player_id" db:"player_id"`
 
 	// Identity & Vibe
-	YearsPlaying       *int    `json:"years_playing,omitempty" db:"years_playing"`
-	HowIGotIntoTennis  *string `json:"how_i_got_into_tennis,omitempty" db:"how_i_got_into_tennis"`
-	TennisHeroOrStyle  *string `json:"tennis_hero_or_style,omitempty" db:"tennis_hero_or_style"`
-	PreMatchRitual     *string `json:"pre_match_ritual,omitempty" db:"pre_match_ritual"`
+	YearsPlaying      *int    `json:"years_playing,omitempty" db:"years_playing"`
+	HowIGotIntoTennis *string `json:"how_i_got_into_tennis,omitempty" db:"how_i_got_into_tennis"`
+	TennisHeroOrStyle *string `json:"tennis_hero_or_style,omitempty" db:"tennis_hero_or_style"`
+	PreMatchRitual    *string `json:"pre_match_ritual,omitempty" db:"pre_match_ritual"`
 
 	// Match Types
 	MixedDoublesAppetite      *string `json:"mixed_doubles_appetite,omitempty" db:"mixed_doubles_appetite"`
@@ -406,10 +406,10 @@ type PlayerTennisPreferences struct {
 	OnCourtVibe        *string `json:"on_court_vibe,omitempty" db:"on_court_vibe"`
 
 	// Intensity & Goals
-	Competitiveness   *int    `json:"competitiveness,omitempty" db:"competitiveness"`
-	PressureResponse  *string `json:"pressure_response,omitempty" db:"pressure_response"`
-	SeasonGoal        *string `json:"season_goal,omitempty" db:"season_goal"`
-	ImprovementFocus  *string `json:"improvement_focus,omitempty" db:"improvement_focus"` // JSON array of tokens
+	Competitiveness  *int    `json:"competitiveness,omitempty" db:"competitiveness"`
+	PressureResponse *string `json:"pressure_response,omitempty" db:"pressure_response"`
+	SeasonGoal       *string `json:"season_goal,omitempty" db:"season_goal"`
+	ImprovementFocus *string `json:"improvement_focus,omitempty" db:"improvement_focus"` // JSON array of tokens
 
 	// Logistics
 	PreferredDays    *string `json:"preferred_days,omitempty" db:"preferred_days"`   // JSON array
@@ -431,7 +431,7 @@ type PlayerTennisPreferences struct {
 	MyTennisInOneLine  *string `json:"my_tennis_in_one_line,omitempty" db:"my_tennis_in_one_line"`
 
 	// Communications
-	PreferredContact       *string `json:"preferred_contact,omitempty" db:"preferred_contact"`
+	PreferredContact        *string `json:"preferred_contact,omitempty" db:"preferred_contact"`
 	BestWindowForLastMinute *string `json:"best_window_for_last_minute,omitempty" db:"best_window_for_last_minute"`
 	NotesToCaptain          *string `json:"notes_to_captain,omitempty" db:"notes_to_captain"`
 

@@ -33,7 +33,7 @@ type TeamStanding struct {
 	ClubID        uint
 	TeamName      string
 	ClubName      string
-	IsHomeClub      bool
+	IsHomeClub    bool
 	Played        int
 	Won           int
 	Lost          int
@@ -241,10 +241,10 @@ func (h *StandingsHandler) calculateDivisionStandings(seasonID, divisionID, home
 	ensureTeam := func(teamID, clubID uint, teamName, clubName string) {
 		if _, ok := teamMap[teamID]; !ok {
 			teamMap[teamID] = &TeamStanding{
-				TeamID:   teamID,
-				ClubID:   clubID,
-				TeamName: teamName,
-				ClubName: clubName,
+				TeamID:     teamID,
+				ClubID:     clubID,
+				TeamName:   teamName,
+				ClubName:   clubName,
 				IsHomeClub: clubID == homeClubID,
 			}
 		}
@@ -292,10 +292,10 @@ func (h *StandingsHandler) calculateDivisionStandings(seasonID, divisionID, home
 					clubName = club.Name
 				}
 				teamMap[t.ID] = &TeamStanding{
-					TeamID:   t.ID,
-					ClubID:   t.ClubID,
-					TeamName: t.Name,
-					ClubName: clubName,
+					TeamID:     t.ID,
+					ClubID:     t.ClubID,
+					TeamName:   t.Name,
+					ClubName:   clubName,
 					IsHomeClub: t.ClubID == homeClubID,
 				}
 			}

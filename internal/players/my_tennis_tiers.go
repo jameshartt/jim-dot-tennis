@@ -142,16 +142,5 @@ func TierByID(id int) Tier {
 	return tiers[id-1]
 }
 
-// TierForField returns the 1-based tier ID that owns the given form-field
-// name, or 0 if the name is not part of any tier.
-func TierForField(name string) int {
-	for _, t := range tiers {
-		if t.HasField(name) {
-			return t.ID
-		}
-	}
-	return 0
-}
-
 // IsLastTier reports whether tier id is the terminal tier of the wizard.
 func IsLastTier(id int) bool { return id == MaxTier }

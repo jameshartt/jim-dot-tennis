@@ -129,11 +129,11 @@ type openMeteoResponse struct {
 }
 
 type openMeteoDailyData struct {
-	Time                []string  `json:"time"`
-	TemperatureMax      []float64 `json:"temperature_2m_max"`
-	TemperatureMin      []float64 `json:"temperature_2m_min"`
-	PrecipitationProbMax []int    `json:"precipitation_probability_max"`
-	WeatherCode         []int     `json:"weathercode"`
+	Time                 []string  `json:"time"`
+	TemperatureMax       []float64 `json:"temperature_2m_max"`
+	TemperatureMin       []float64 `json:"temperature_2m_min"`
+	PrecipitationProbMax []int     `json:"precipitation_probability_max"`
+	WeatherCode          []int     `json:"weathercode"`
 }
 
 // weatherCodeToInfo maps WMO weather codes to descriptions and emoji icons

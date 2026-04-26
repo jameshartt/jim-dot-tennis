@@ -438,4 +438,3 @@ func describePartnerSet(ids []string, s *Service, self string) string {
 	}
 	return strings.Join(parts, ", ")
 }
-

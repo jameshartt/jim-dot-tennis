@@ -17,8 +17,8 @@ import (
 // CourtHive calendar API response types
 
 type courthiveCalendarResponse struct {
-	Success  bool                   `json:"success"`
-	Calendar courthiveCalendarData  `json:"calendar"`
+	Success  bool                  `json:"success"`
+	Calendar courthiveCalendarData `json:"calendar"`
 }
 
 type courthiveCalendarData struct {
@@ -82,16 +82,6 @@ func (s *Service) DeleteTournamentProvider(id uint) error {
 func (s *Service) GetAllTournaments() ([]models.Tournament, error) {
 	ctx := context.Background()
 	return s.tournamentRepository.FindAll(ctx)
-}
-
-func (s *Service) GetTournamentsByProvider(providerID uint) ([]models.Tournament, error) {
-	ctx := context.Background()
-	return s.tournamentRepository.FindByProviderID(ctx, providerID)
-}
-
-func (s *Service) GetVisibleTournaments() ([]models.Tournament, error) {
-	ctx := context.Background()
-	return s.tournamentRepository.FindVisible(ctx)
 }
 
 func (s *Service) GetTournamentByID(id uint) (*models.Tournament, error) {

@@ -146,25 +146,28 @@ vet:
 	@echo "Running go vet..."
 	@$(DOCKER_GO_CGO) go vet ./..."
 
+# First-party Go source paths (excludes .go-mod-cache and other vendored trees)
+GO_SRC_PATHS = ./cmd ./internal
+
 # Check formatting (list unformatted files)
 fmt:
 	@echo "Checking formatting..."
-	@$(DOCKER_GO) gofmt -l .
+	@$(DOCKER_GO) gofmt -l $(GO_SRC_PATHS)
 
 # Fix formatting in-place
 fmt-fix:
 	@echo "Fixing formatting..."
-	@$(DOCKER_GO) gofmt -w .
+	@$(DOCKER_GO) gofmt -w $(GO_SRC_PATHS)
 
 # Check import ordering (list files with import issues)
 imports:
 	@echo "Checking imports..."
-	@$(DOCKER_GO) sh -c "go install golang.org/x/tools/cmd/goimports@latest && goimports -l -local jim-dot-tennis ."
+	@$(DOCKER_GO) sh -c "go install golang.org/x/tools/cmd/goimports@latest && goimports -l -local jim-dot-tennis $(GO_SRC_PATHS)"
 
 # Fix import ordering in-place
 imports-fix:
 	@echo "Fixing imports..."
-	@$(DOCKER_GO) sh -c "go install golang.org/x/tools/cmd/goimports@latest && goimports -w -local jim-dot-tennis ."
+	@$(DOCKER_GO) sh -c "go install golang.org/x/tools/cmd/goimports@latest && goimports -w -local jim-dot-tennis $(GO_SRC_PATHS)"
 
 # Run golangci-lint (comprehensive linting)
 lint:

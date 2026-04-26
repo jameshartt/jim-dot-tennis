@@ -31,49 +31,14 @@ func TestTiersAreOrderedAndContiguous(t *testing.T) {
 	}
 }
 
-func TestTierForField(t *testing.T) {
-	cases := map[string]int{
-		"mixed_doubles_appetite":    1,
-		"preferred_contact":         1,
-		"preferred_days":            2,
-		"transport":                 2,
-		"handedness":                3,
-		"signature_shot":            3,
-		"partner_consistency":       4,
-		"partners_clicks_with":      4,
-		"partners_would_love_to_try": 4,
-		"competitiveness":           4,
-		"season_goal":               5,
-		"weather_tolerance":         5,
-		"years_playing":             6,
-		"my_tennis_in_one_line":     6,
-		"unknown_field":             0,
-	}
-	for field, want := range cases {
-		if got := TierForField(field); got != want {
-			t.Errorf("TierForField(%q) = %d; want %d", field, got, want)
-		}
-	}
-}
-
-// Partner picker fields are unique to tier 4 — guards against accidental
-// duplication when the picker UI is touched.
-func TestPartnerPickerOnlyOnTier4(t *testing.T) {
-	for _, picker := range []string{"partners_clicks_with", "partners_would_love_to_try"} {
-		if got := TierForField(picker); got != 4 {
-			t.Errorf("partner picker field %q on tier %d; want tier 4", picker, got)
-		}
-	}
-}
-
 func TestParseTierForm(t *testing.T) {
 	cases := map[string]int{
-		"":  0,
-		"0": 0,
-		"1": 1,
-		"6": 6,
-		"7": 0,
-		"-1": 0,
+		"":    0,
+		"0":   0,
+		"1":   1,
+		"6":   6,
+		"7":   0,
+		"-1":  0,
 		"abc": 0,
 	}
 	for in, want := range cases {
