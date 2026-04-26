@@ -12,6 +12,17 @@
 
 ### 1. Update Go Application (jim-dot-tennis)
 
+**Preferred: use the script.** Wraps the rsync set, build, restart, and a health check.
+
+```bash
+cd ~/Development/Tennis/jim-dot-tennis
+./scripts/deploy-app.sh             # full deploy: rsync + build + restart + verify
+./scripts/deploy-app.sh --dry-run   # show what would change, no side effects
+./scripts/deploy-app.sh --skip-build # rsync only (inspect on server before rebuilding)
+```
+
+**Or run the steps by hand (kept for reference / overrides):**
+
 ```bash
 # Transfer and rebuild
 cd ~/Development/Tennis/jim-dot-tennis
@@ -23,7 +34,7 @@ rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" migrations/ root@144.12
 ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker compose build app && docker compose up -d app"
 ```
 
-> **Do not forget `migrations/`!** Migrations are `COPY`'d into the Docker image at build time and run automatically on app startup. If new migrations exist in the source but are missing from the server, the build will bake in stale migration files and the app will fail with "no such column" errors at runtime.
+> **Do not forget `migrations/`!** Migrations are `COPY`'d into the Docker image at build time and run automatically on app startup. If new migrations exist in the source but are missing from the server, the build will bake in stale migration files and the app will fail with "no such column" errors at runtime. (The script always includes them.)
 
 **Time:** ~2 minutes
 **Downtime:** ~10 seconds
