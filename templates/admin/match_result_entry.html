@@ -218,7 +218,7 @@
             </div>
         </div>
 
-        <form method="POST" action="/admin/league/fixtures/{{.FixtureDetail.ID}}/results">
+        <form method="POST" action="/admin/league/fixtures/{{.FixtureDetail.ID}}/results{{if .IsDerby}}?managingTeam={{.ManagingTeamID}}{{end}}">
             {{range .Matchups}}
             <div class="matchup-card" id="matchup-{{.Matchup.ID}}">
                 <h3>{{.Matchup.Type}}</h3>
@@ -296,12 +296,25 @@
                             <input type="checkbox" name="matchup_{{.Matchup.ID}}_conceded" value="true"
                                    class="conceded-checkbox" data-matchup="{{.Matchup.ID}}"
                                    {{if .Matchup.ConcededBy}}checked{{end}}>
-                            Matchup conceded
+                            Matchup conceded (no play)
                         </label>
                         <select name="matchup_{{.Matchup.ID}}_conceded_by" class="conceded-select {{if not .Matchup.ConcededBy}}hidden{{end}}" id="conceded_by_{{.Matchup.ID}}">
                             <option value="">-- Who conceded? --</option>
-                            <option value="Home" {{if eq .Matchup.HomeScore 0}}{{if eq .Matchup.AwayScore 2}}{{if .Matchup.ConcededBy}}selected{{end}}{{end}}{{end}}>Home</option>
-                            <option value="Away" {{if eq .Matchup.AwayScore 0}}{{if eq .Matchup.HomeScore 2}}{{if .Matchup.ConcededBy}}selected{{end}}{{end}}{{end}}>Away</option>
+                            <option value="Home" {{if isConceded .Matchup.ConcededBy "Home"}}selected{{end}}>Home</option>
+                            <option value="Away" {{if isConceded .Matchup.ConcededBy "Away"}}selected{{end}}>Away</option>
+                        </select>
+                    </div>
+                    <div class="conceded-toggle">
+                        <label>
+                            <input type="checkbox" name="matchup_{{.Matchup.ID}}_retired" value="true"
+                                   class="retired-checkbox" data-matchup="{{.Matchup.ID}}"
+                                   {{if .Matchup.RetiredBy}}checked{{end}}>
+                            Match retired (play started, then stopped)
+                        </label>
+                        <select name="matchup_{{.Matchup.ID}}_retired_by" class="conceded-select {{if not .Matchup.RetiredBy}}hidden{{end}}" id="retired_by_{{.Matchup.ID}}">
+                            <option value="">-- Who retired? --</option>
+                            <option value="Home" {{if isRetired .Matchup.RetiredBy "Home"}}selected{{end}}>Home</option>
+                            <option value="Away" {{if isRetired .Matchup.RetiredBy "Away"}}selected{{end}}>Away</option>
                         </select>
                     </div>
                     {{with index $.Errors (printf "matchup_%d" .Matchup.ID)}}
@@ -342,19 +355,49 @@
             });
         });
 
-        // Toggle conceded section
+        // Toggle conceded section. Conceded and retired are mutually exclusive: conceded
+        // means no play, retired means partial play (so set scores remain visible).
         document.querySelectorAll('.conceded-checkbox').forEach(function(cb) {
             cb.addEventListener('change', function() {
                 var matchupId = this.dataset.matchup;
                 var select = document.getElementById('conceded_by_' + matchupId);
                 var scores = document.getElementById('scores_' + matchupId);
+                var retiredCb = document.querySelector('.retired-checkbox[data-matchup="' + matchupId + '"]');
+                var retiredSelect = document.getElementById('retired_by_' + matchupId);
                 if (this.checked) {
                     select.classList.remove('hidden');
                     scores.classList.add('hidden');
+                    if (retiredCb) {
+                        retiredCb.checked = false;
+                        retiredCb.disabled = true;
+                    }
+                    if (retiredSelect) {
+                        retiredSelect.classList.add('hidden');
+                        retiredSelect.value = '';
+                    }
                 } else {
                     select.classList.add('hidden');
                     select.value = '';
                     scores.classList.remove('hidden');
+                    if (retiredCb) retiredCb.disabled = false;
+                }
+            });
+        });
+
+        // Toggle retired section. Set scores remain visible because partial scores
+        // are valid — server-side validation skips tennis-rule checks when retired.
+        document.querySelectorAll('.retired-checkbox').forEach(function(cb) {
+            cb.addEventListener('change', function() {
+                var matchupId = this.dataset.matchup;
+                var select = document.getElementById('retired_by_' + matchupId);
+                var concededCb = document.querySelector('.conceded-checkbox[data-matchup="' + matchupId + '"]');
+                if (this.checked) {
+                    select.classList.remove('hidden');
+                    if (concededCb) concededCb.disabled = true;
+                } else {
+                    select.classList.add('hidden');
+                    select.value = '';
+                    if (concededCb) concededCb.disabled = false;
                 }
             });
         });

@@ -44,6 +44,7 @@ type MatchupData struct {
 	HomeSets    int    // Number of sets won by home team
 	AwaySets    int    // Number of sets won by away team
 	ConcededBy  string // "Home" or "Away" if a concession occurred
+	RetiredBy   string // "Home" or "Away" if a side retired mid-match (play started but stopped)
 	Halved      bool   // Match halved (not played)
 }
 
@@ -261,11 +262,16 @@ func (p *MatchCardParser) parseMatchupTable(matchupType string, table *goquery.S
 		matchup.ConcededBy = "Away"
 	}
 
-	// Detect "Match Halved" note after the table
+	// Detect "Match Halved" / "Home Team Retired" / "Away Team Retired" note after the table
 	if table.Parent().Find("p.archive_early_finish").Length() > 0 {
-		text := strings.TrimSpace(table.Parent().Find("p.archive_early_finish").Text())
-		if strings.Contains(strings.ToLower(text), "match halved") {
+		text := strings.ToLower(strings.TrimSpace(table.Parent().Find("p.archive_early_finish").Text()))
+		switch {
+		case strings.Contains(text, "match halved"):
 			matchup.Halved = true
+		case strings.Contains(text, "home team retired"):
+			matchup.RetiredBy = "Home"
+		case strings.Contains(text, "away team retired"):
+			matchup.RetiredBy = "Away"
 		}
 	}
 

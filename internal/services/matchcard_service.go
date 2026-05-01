@@ -473,6 +473,19 @@ func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConf
 		homePoints, awayPoints = 1, 1
 	}
 
+	// Retirement: play started but stopped mid-match. Non-retiring side gets a full match win,
+	// and the points table awards them both sets regardless of the partial set scores recorded.
+	var retiredBy *models.RetiredBy
+	if strings.EqualFold(matchupData.RetiredBy, "Home") {
+		rb := models.RetiredHome
+		retiredBy = &rb
+		homePoints, awayPoints = 0, 2
+	} else if strings.EqualFold(matchupData.RetiredBy, "Away") {
+		rb := models.RetiredAway
+		retiredBy = &rb
+		homePoints, awayPoints = 2, 0
+	}
+
 	// Check if matchup already exists
 	existingMatchup, err := s.matchupRepo.FindByFixtureTypeAndTeam(ctx, fixtureID, matchupType, managingTeamID)
 	if err != nil || existingMatchup == nil {
@@ -485,6 +498,7 @@ func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConf
 			AwayScore:      awayPoints,
 			ManagingTeamID: &managingTeamID,
 			ConcededBy:     concededBy,
+			RetiredBy:      retiredBy,
 		}
 
 		// If conceded, mark as Defaulted
@@ -510,6 +524,7 @@ func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConf
 		existingMatchup.HomeScore = homePoints
 		existingMatchup.AwayScore = awayPoints
 		existingMatchup.ConcededBy = concededBy
+		existingMatchup.RetiredBy = retiredBy
 
 		s.setIndividualSetScores(existingMatchup, matchupData)
 
@@ -1215,6 +1230,19 @@ func (s *MatchCardService) processMatchupForTeam(ctx context.Context, config Imp
 		homePoints, awayPoints = 1, 1
 	}
 
+	// Retirement: non-retiring side wins the match outright; both sets go to them in the
+	// points table regardless of the partial set scores recorded on the card.
+	var retiredBy *models.RetiredBy
+	if strings.EqualFold(matchupData.RetiredBy, "Home") {
+		rb := models.RetiredHome
+		retiredBy = &rb
+		homePoints, awayPoints = 0, 2
+	} else if strings.EqualFold(matchupData.RetiredBy, "Away") {
+		rb := models.RetiredAway
+		retiredBy = &rb
+		homePoints, awayPoints = 2, 0
+	}
+
 	// Create new matchup (since we cleared existing ones)
 	matchup := &models.Matchup{
 		FixtureID:      fixtureID,
@@ -1224,6 +1252,7 @@ func (s *MatchCardService) processMatchupForTeam(ctx context.Context, config Imp
 		AwayScore:      awayPoints,
 		ManagingTeamID: &managingTeamID,
 		ConcededBy:     concededBy,
+		RetiredBy:      retiredBy,
 	}
 
 	// If conceded, mark as Defaulted

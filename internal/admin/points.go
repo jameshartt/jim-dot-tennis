@@ -228,7 +228,7 @@ func (h *PointsHandler) getCompletedMatchupsWithPlayers(ctx context.Context, sea
 	query := `
 		SELECT m.id, m.fixture_id, m.type, m.status, m.home_score, m.away_score,
 		       m.home_set1, m.away_set1, m.home_set2, m.away_set2, m.home_set3, m.away_set3,
-		       m.notes, m.managing_team_id, m.created_at, m.updated_at, f.status as fixture_status
+		       m.notes, m.managing_team_id, m.conceded_by, m.retired_by, m.created_at, m.updated_at, f.status as fixture_status
 		FROM matchups m
 		INNER JOIN fixtures f ON m.fixture_id = f.id
 		WHERE m.status = 'Finished' AND f.status = 'Completed'
@@ -262,6 +262,7 @@ func (h *PointsHandler) getCompletedMatchupsWithPlayers(ctx context.Context, sea
 			&matchup.HomeScore, &matchup.AwayScore,
 			&matchup.HomeSet1, &matchup.AwaySet1, &matchup.HomeSet2, &matchup.AwaySet2,
 			&matchup.HomeSet3, &matchup.AwaySet3, &matchup.Notes, &matchup.ManagingTeamID,
+			&matchup.ConcededBy, &matchup.RetiredBy,
 			&matchup.CreatedAt, &matchup.UpdatedAt, &fixtureStatusStr,
 		)
 		if err != nil {
@@ -359,13 +360,23 @@ func (h *PointsHandler) processMatchupPoints(matchup CompletedMatchupWithPlayers
 		}
 	}
 
+	// Retirement: the non-retiring side gets a full match win plus both sets, regardless
+	// of the partial set scores recorded. A retiring player's points are denied entirely.
+	if matchup.Matchup.RetiredBy != nil {
+		if *matchup.Matchup.RetiredBy == models.RetiredHome {
+			homeSetsWon, awaySetsWon = 0, 2
+		} else if *matchup.Matchup.RetiredBy == models.RetiredAway {
+			homeSetsWon, awaySetsWon = 2, 0
+		}
+	}
+
 	// Determine match result.
 	// A halved match is marked with HomeScore == 1 && AwayScore == 1 (matchup-points convention).
 	// Check that first so halved matches with uneven set counts (e.g. 1-0 when play was
 	// interrupted mid-second-set) don't get scored as a decisive win.
 	var homeWinPoints, awayWinPoints float64
 
-	isHalved := matchup.Matchup.HomeScore == 1 && matchup.Matchup.AwayScore == 1
+	isHalved := matchup.Matchup.HomeScore == 1 && matchup.Matchup.AwayScore == 1 && matchup.Matchup.RetiredBy == nil
 
 	switch {
 	case isHalved:

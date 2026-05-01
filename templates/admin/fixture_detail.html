@@ -32,7 +32,7 @@
             <div class="action-bar">
                 <h2>Fixture Information</h2>
                 <div class="action-buttons">
-                    <a href="/admin/league/fixtures/{{.FixtureDetail.ID}}/results" class="btn-edit">{{if eq .FixtureDetail.Status "Completed"}}📊 Edit Results{{else}}📊 Enter Results{{end}}</a>
+                    <a href="/admin/league/fixtures/{{.FixtureDetail.ID}}/results{{if and .IsDerby .ManagingTeam}}?managingTeam={{.ManagingTeam.ID}}{{end}}" class="btn-edit">{{if eq .FixtureDetail.Status "Completed"}}📊 Edit Results{{else}}📊 Enter Results{{end}}</a>
                     {{if ne .FixtureDetail.Status "Completed"}}
                         <a href="/admin/league/fixtures/{{.FixtureDetail.ID}}/edit" class="btn-edit">📅 Edit Schedule</a>
                     {{end}}

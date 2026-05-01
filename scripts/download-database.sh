@@ -7,7 +7,7 @@ set -e
 # Configuration - matches deploy-digitalocean.sh
 DROPLET_IP="144.126.228.64"              # Your droplet's IP address
 SSH_USER="root"                           # SSH user
-SSH_KEY_PATH=""                           # Path to your SSH private key (leave empty for default)
+SSH_KEY_PATH="$HOME/.ssh/digital_ocean_ssh"  # Path to your SSH private key (leave empty for default)
 DEPLOY_DIR="/opt/jim-dot-tennis"          # Deployment directory on the server
 DB_PATH_SERVER="/var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db"  # Database path on server (Docker volume)
 DB_PATH_LOCAL="./tennis.db"               # Local database path

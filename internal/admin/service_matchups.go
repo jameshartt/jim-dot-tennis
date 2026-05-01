@@ -356,10 +356,12 @@ func (s *Service) SaveMatchupResults(fixtureID uint, entries []MatchupScoreEntry
 			return fmt.Errorf("matchup %d not found: %w", entry.MatchupID, err)
 		}
 
-		if entry.Conceded {
+		switch {
+		case entry.Conceded:
 			// Handle conceded matchup
 			concededBy := entry.ConcededBy
 			matchup.ConcededBy = &concededBy
+			matchup.RetiredBy = nil
 			matchup.Status = models.Defaulted
 			// Conceding side gets 0 points, other side gets 2
 			if concededBy == models.ConcededHome {
@@ -376,7 +378,28 @@ func (s *Service) SaveMatchupResults(fixtureID uint, entries []MatchupScoreEntry
 			matchup.AwaySet2 = nil
 			matchup.HomeSet3 = nil
 			matchup.AwaySet3 = nil
-		} else {
+		case entry.Retired:
+			// Handle retired matchup: play started, partial set scores preserved.
+			// Non-retiring side gets the full match win; the points table will
+			// award them both set points regardless of the recorded scores.
+			retiredBy := entry.RetiredBy
+			matchup.RetiredBy = &retiredBy
+			matchup.ConcededBy = nil
+			matchup.Status = models.Finished
+			matchup.HomeSet1 = entry.HomeSet1
+			matchup.AwaySet1 = entry.AwaySet1
+			matchup.HomeSet2 = entry.HomeSet2
+			matchup.AwaySet2 = entry.AwaySet2
+			matchup.HomeSet3 = entry.HomeSet3
+			matchup.AwaySet3 = entry.AwaySet3
+			if retiredBy == models.RetiredHome {
+				matchup.HomeScore = 0
+				matchup.AwayScore = 2
+			} else {
+				matchup.HomeScore = 2
+				matchup.AwayScore = 0
+			}
+		default:
 			// Set scores
 			matchup.HomeSet1 = entry.HomeSet1
 			matchup.AwaySet1 = entry.AwaySet1
@@ -386,6 +409,7 @@ func (s *Service) SaveMatchupResults(fixtureID uint, entries []MatchupScoreEntry
 			matchup.AwaySet3 = entry.AwaySet3
 			matchup.Status = models.Finished
 			matchup.ConcededBy = nil
+			matchup.RetiredBy = nil
 
 			// Calculate HomeScore/AwayScore from sets won
 			homeSetsWon, awaySetsWon := countSetsWon(entry)
@@ -403,6 +427,97 @@ func (s *Service) SaveMatchupResults(fixtureID uint, entries []MatchupScoreEntry
 
 		if err := s.matchupRepository.Update(ctx, matchup); err != nil {
 			return fmt.Errorf("failed to update matchup %d: %w", entry.MatchupID, err)
+		}
+	}
+
+	return nil
+}
+
+// MergeDerbyOpponentPlayers augments a derby slate's matchups with the players
+// from the OTHER managing team's matchup of the same type. For derbies, each
+// slate only stores its own roster (D's players in D's slate, C's in C's), so
+// without this merge the results form would render only one side of the "vs".
+// The active slate's players are kept as-is; opponent players are appended.
+func (s *Service) MergeDerbyOpponentPlayers(fixtureID uint, activeManagingTeamID uint, matchups []MatchupWithPlayers) ([]MatchupWithPlayers, error) {
+	ctx := context.Background()
+
+	allMatchups, err := s.matchupRepository.FindByFixture(ctx, fixtureID)
+	if err != nil {
+		return matchups, fmt.Errorf("failed to load matchups for fixture %d: %w", fixtureID, err)
+	}
+
+	// Index mirror matchup IDs by type (skipping the active slate's matchups).
+	mirrorIDsByType := make(map[models.MatchupType]uint)
+	for _, m := range allMatchups {
+		if m.ManagingTeamID == nil || *m.ManagingTeamID == activeManagingTeamID {
+			continue
+		}
+		mirrorIDsByType[m.Type] = m.ID
+	}
+
+	for i := range matchups {
+		mirrorID, ok := mirrorIDsByType[matchups[i].Matchup.Type]
+		if !ok {
+			continue
+		}
+		mirrorPlayers, err := s.matchupRepository.FindPlayersInMatchup(ctx, mirrorID)
+		if err != nil {
+			continue
+		}
+		for _, mp := range mirrorPlayers {
+			player, err := s.playerRepository.FindByID(ctx, mp.PlayerID)
+			if err != nil {
+				continue
+			}
+			matchups[i].Players = append(matchups[i].Players, MatchupPlayerWithInfo{
+				MatchupPlayer: mp,
+				Player:        *player,
+			})
+		}
+	}
+
+	return matchups, nil
+}
+
+// MirrorDerbyResults copies score/concession/retirement fields from each entry's
+// matchup onto the same-type matchup belonging to the OTHER managing team in the
+// same fixture. Players are not mirrored — each slate keeps its own roster.
+// activeManagingTeamID is the slate the user just edited; we mirror onto the rest.
+func (s *Service) MirrorDerbyResults(fixtureID uint, activeManagingTeamID uint, entries []MatchupScoreEntry) error {
+	ctx := context.Background()
+
+	allMatchups, err := s.matchupRepository.FindByFixture(ctx, fixtureID)
+	if err != nil {
+		return fmt.Errorf("failed to load matchups for fixture %d: %w", fixtureID, err)
+	}
+
+	for _, entry := range entries {
+		// Look up the source matchup so we can copy its now-saved fields.
+		source, err := s.matchupRepository.FindByID(ctx, entry.MatchupID)
+		if err != nil {
+			return fmt.Errorf("source matchup %d not found: %w", entry.MatchupID, err)
+		}
+
+		for i := range allMatchups {
+			mirror := &allMatchups[i]
+			if mirror.ID == source.ID || mirror.Type != source.Type {
+				continue
+			}
+			if mirror.ManagingTeamID == nil || *mirror.ManagingTeamID == activeManagingTeamID {
+				continue
+			}
+			mirror.Status = source.Status
+			mirror.HomeScore = source.HomeScore
+			mirror.AwayScore = source.AwayScore
+			mirror.HomeSet1, mirror.AwaySet1 = source.HomeSet1, source.AwaySet1
+			mirror.HomeSet2, mirror.AwaySet2 = source.HomeSet2, source.AwaySet2
+			mirror.HomeSet3, mirror.AwaySet3 = source.HomeSet3, source.AwaySet3
+			mirror.ConcededBy = source.ConcededBy
+			mirror.RetiredBy = source.RetiredBy
+
+			if err := s.matchupRepository.Update(ctx, mirror); err != nil {
+				return fmt.Errorf("failed to mirror matchup %d → %d: %w", source.ID, mirror.ID, err)
+			}
 		}
 	}
 

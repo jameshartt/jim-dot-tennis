@@ -279,6 +279,18 @@ const (
 	ConcededAway ConcededBy = "Away"
 )
 
+// RetiredBy indicates which side retired during play.
+// Distinct from conceding: retirement means play started but stopped mid-match,
+// so any completed set scores remain meaningful and the non-retiring side is
+// credited with a full match win plus both sets in the points table.
+type RetiredBy string
+
+const (
+	RetiredNone RetiredBy = ""
+	RetiredHome RetiredBy = "Home"
+	RetiredAway RetiredBy = "Away"
+)
+
 // Matchup represents one of the four matchups in a fixture
 type Matchup struct {
 	ID             uint          `json:"id" db:"id"`
@@ -296,6 +308,7 @@ type Matchup struct {
 	Notes          string        `json:"notes" db:"notes"`
 	ManagingTeamID *uint         `json:"managing_team_id,omitempty" db:"managing_team_id"` // Which team is managing this matchup (for derby matches)
 	ConcededBy     *ConcededBy   `json:"conceded_by,omitempty" db:"conceded_by"`
+	RetiredBy      *RetiredBy    `json:"retired_by,omitempty" db:"retired_by"`
 	CreatedAt      time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt      time.Time     `json:"updated_at" db:"updated_at"`
 }

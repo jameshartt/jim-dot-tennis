@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/models"
 )
 
@@ -28,11 +29,13 @@ func NewResultsHandler(service *Service, templateDir string) *ResultsHandler {
 
 // ResultsPageData holds data for the results entry template
 type ResultsPageData struct {
-	FixtureDetail *FixtureDetail
-	Matchups      []MatchupWithPlayers
-	Errors        map[string]string
-	IsEdit        bool
-	Success       bool
+	FixtureDetail  *FixtureDetail
+	Matchups       []MatchupWithPlayers
+	Errors         map[string]string
+	IsEdit         bool
+	Success        bool
+	IsDerby        bool
+	ManagingTeamID uint // populated when IsDerby; the slate the form is editing
 }
 
 // MatchupScoreEntry represents submitted scores for a single matchup
@@ -46,6 +49,8 @@ type MatchupScoreEntry struct {
 	AwaySet3   *int
 	Conceded   bool
 	ConcededBy models.ConcededBy
+	Retired    bool
+	RetiredBy  models.RetiredBy
 }
 
 // HandleResults handles both GET and POST for result entry
@@ -68,6 +73,27 @@ func (h *ResultsHandler) HandleResults(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// resolveResultsManagingTeam mirrors the derby-handling pattern used by
+// /admin/league/fixtures/{id}: derbies are filtered to a single managing team's
+// slate so only four matchup cards render. The query string ?managingTeam=N
+// chooses which slate; if absent on a derby, we default to the fixture's home
+// team. For non-derby fixtures it returns 0 (no filtering needed).
+func (h *ResultsHandler) resolveResultsManagingTeam(r *http.Request, fixture *FixtureDetail) (uint, bool) {
+	homeClubID := config.GetHomeClubID(r.Context())
+	homeIsHomeClub := fixture.HomeTeam != nil && fixture.HomeTeam.ClubID == homeClubID
+	awayIsHomeClub := fixture.AwayTeam != nil && fixture.AwayTeam.ClubID == homeClubID
+	isDerby := homeIsHomeClub && awayIsHomeClub
+	if !isDerby {
+		return 0, false
+	}
+	if param := r.URL.Query().Get("managingTeam"); param != "" {
+		if v, err := strconv.ParseUint(param, 10, 32); err == nil {
+			return uint(v), true
+		}
+	}
+	return fixture.HomeTeamID, true
+}
+
 // handleResultsGet renders the results entry form
 func (h *ResultsHandler) handleResultsGet(w http.ResponseWriter, r *http.Request, fixtureID uint) {
 	fixtureDetail, err := h.service.GetFixtureDetail(fixtureID)
@@ -76,11 +102,18 @@ func (h *ResultsHandler) handleResultsGet(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Ensure all four matchup types exist
-	h.ensureAllMatchups(fixtureID, fixtureDetail)
+	managingTeamID, isDerby := h.resolveResultsManagingTeam(r, fixtureDetail)
 
-	// Re-fetch to get the created matchups
-	fixtureDetail, err = h.service.GetFixtureDetail(fixtureID)
+	// Ensure all four matchup types exist for the active slate
+	h.ensureAllMatchups(fixtureID, fixtureDetail, managingTeamID, isDerby)
+
+	// Re-fetch to get the created matchups, scoped to the active managing team
+	// for derbies so only four cards render.
+	if isDerby {
+		fixtureDetail, err = h.service.GetFixtureDetailWithTeamContext(fixtureID, managingTeamID)
+	} else {
+		fixtureDetail, err = h.service.GetFixtureDetail(fixtureID)
+	}
 	if err != nil {
 		logAndError(w, "Failed to reload fixture", err, http.StatusInternalServerError)
 		return
@@ -94,11 +127,23 @@ func (h *ResultsHandler) handleResultsGet(w http.ResponseWriter, r *http.Request
 		}
 	}
 
+	// In a derby each slate only stores its own players. Merge the mirror slate's
+	// players so the form shows both sides of the "vs".
+	if isDerby {
+		if merged, mergeErr := h.service.MergeDerbyOpponentPlayers(fixtureID, managingTeamID, fixtureDetail.Matchups); mergeErr == nil {
+			fixtureDetail.Matchups = merged
+		} else {
+			log.Printf("Warning: failed to merge derby opponent players for fixture %d: %v", fixtureID, mergeErr)
+		}
+	}
+
 	data := ResultsPageData{
-		FixtureDetail: fixtureDetail,
-		Matchups:      fixtureDetail.Matchups,
-		Errors:        make(map[string]string),
-		IsEdit:        isEdit,
+		FixtureDetail:  fixtureDetail,
+		Matchups:       fixtureDetail.Matchups,
+		Errors:         make(map[string]string),
+		IsEdit:         isEdit,
+		IsDerby:        isDerby,
+		ManagingTeamID: managingTeamID,
 	}
 
 	tmpl, err := parseTemplate(h.templateDir, "admin/match_result_entry.html")
@@ -125,6 +170,15 @@ func (h *ResultsHandler) handleResultsPost(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		logAndError(w, "Fixture not found", err, http.StatusNotFound)
 		return
+	}
+
+	managingTeamID, isDerby := h.resolveResultsManagingTeam(r, fixtureDetail)
+	// Scope the form's matchups to the active slate for derbies so we only
+	// process the four IDs that were actually rendered.
+	if isDerby {
+		if scoped, scopedErr := h.service.GetFixtureDetailWithTeamContext(fixtureID, managingTeamID); scopedErr == nil {
+			fixtureDetail = scoped
+		}
 	}
 
 	// Parse and validate all matchup scores
@@ -157,8 +211,37 @@ func (h *ResultsHandler) handleResultsPost(w http.ResponseWriter, r *http.Reques
 			continue
 		}
 
+		// Check if retired (play started but stopped mid-match — partial set scores
+		// are accepted because they may not reach a completed set)
+		retired := r.FormValue(prefix+"_retired") == "true"
+
 		// Parse set scores
 		entry := MatchupScoreEntry{MatchupID: matchup.ID}
+
+		if retired {
+			retiredByStr := r.FormValue(prefix + "_retired_by")
+			var retiredBy models.RetiredBy
+			switch retiredByStr {
+			case "Home":
+				retiredBy = models.RetiredHome
+			case "Away":
+				retiredBy = models.RetiredAway
+			default:
+				errors[prefix] = "Retired matchup must specify which side retired"
+				continue
+			}
+			entry.Retired = true
+			entry.RetiredBy = retiredBy
+
+			// Accept whatever partial scores were entered without tennis-rule validation,
+			// then save the entry and move to the next matchup.
+			entry.HomeSet1, entry.AwaySet1 = parseRetiredSetScore(r, prefix+"_home_set1", prefix+"_away_set1")
+			entry.HomeSet2, entry.AwaySet2 = parseRetiredSetScore(r, prefix+"_home_set2", prefix+"_away_set2")
+			entry.HomeSet3, entry.AwaySet3 = parseRetiredSetScore(r, prefix+"_home_set3", prefix+"_away_set3")
+
+			entries = append(entries, entry)
+			continue
+		}
 
 		homeSet1, awaySet1, err := parseSetScore(r, prefix+"_home_set1", prefix+"_away_set1")
 		if err != nil {
@@ -245,10 +328,12 @@ func (h *ResultsHandler) handleResultsPost(w http.ResponseWriter, r *http.Reques
 	// If validation errors, re-render with errors
 	if len(errors) > 0 {
 		data := ResultsPageData{
-			FixtureDetail: fixtureDetail,
-			Matchups:      fixtureDetail.Matchups,
-			Errors:        errors,
-			IsEdit:        fixtureDetail.Status == models.Completed,
+			FixtureDetail:  fixtureDetail,
+			Matchups:       fixtureDetail.Matchups,
+			Errors:         errors,
+			IsEdit:         fixtureDetail.Status == models.Completed,
+			IsDerby:        isDerby,
+			ManagingTeamID: managingTeamID,
 		}
 
 		tmpl, err := parseTemplate(h.templateDir, "admin/match_result_entry.html")
@@ -269,31 +354,55 @@ func (h *ResultsHandler) handleResultsPost(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// For derbies, mirror the score/concession/retirement fields onto the other
+	// team's slate so both captain views stay in sync. Players are NOT mirrored
+	// — each slate keeps its own roster (the whole reason dual slates exist).
+	if isDerby {
+		if err := h.service.MirrorDerbyResults(fixtureID, managingTeamID, entries); err != nil {
+			log.Printf("Warning: failed to mirror derby results for fixture %d: %v", fixtureID, err)
+		}
+	}
+
 	// Mark fixture as completed
 	if err := h.service.CompleteFixtureWithResults(fixtureID); err != nil {
 		logAndError(w, "Failed to complete fixture", err, http.StatusInternalServerError)
 		return
 	}
 
-	// Redirect back to fixture detail
-	http.Redirect(w, r, fmt.Sprintf("/admin/league/fixtures/%d", fixtureID), http.StatusSeeOther)
+	// Redirect back to fixture detail, preserving the active managing team for derbies
+	redirectURL := fmt.Sprintf("/admin/league/fixtures/%d", fixtureID)
+	if isDerby {
+		redirectURL = fmt.Sprintf("%s?managingTeam=%d", redirectURL, managingTeamID)
+	}
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
 
-// ensureAllMatchups creates any missing standard matchup types for a fixture
-func (h *ResultsHandler) ensureAllMatchups(fixtureID uint, detail *FixtureDetail) {
+// ensureAllMatchups creates any missing standard matchup types for a fixture.
+// For derbies, the active managingTeamID scopes the check so we don't accidentally
+// look at the other team's slate when deciding what to create.
+func (h *ResultsHandler) ensureAllMatchups(fixtureID uint, detail *FixtureDetail, managingTeamID uint, isDerby bool) {
 	standardTypes := []models.MatchupType{models.FirstMixed, models.SecondMixed, models.Mens, models.Womens}
 
 	existingTypes := make(map[models.MatchupType]bool)
 	for _, m := range detail.Matchups {
+		if isDerby && m.Matchup.ManagingTeamID != nil && *m.Matchup.ManagingTeamID != managingTeamID {
+			continue
+		}
 		existingTypes[m.Matchup.Type] = true
 	}
 
 	for _, mt := range standardTypes {
-		if !existingTypes[mt] {
-			_, err := h.service.GetOrCreateMatchup(fixtureID, mt)
-			if err != nil {
-				log.Printf("Warning: failed to create matchup type %s for fixture %d: %v", mt, fixtureID, err)
-			}
+		if existingTypes[mt] {
+			continue
+		}
+		var err error
+		if isDerby {
+			_, err = h.service.GetOrCreateMatchupWithTeam(fixtureID, mt, managingTeamID)
+		} else {
+			_, err = h.service.GetOrCreateMatchup(fixtureID, mt)
+		}
+		if err != nil {
+			log.Printf("Warning: failed to create matchup type %s for fixture %d: %v", mt, fixtureID, err)
 		}
 	}
 }
@@ -322,6 +431,31 @@ func parseSetScore(r *http.Request, homeKey, awayKey string) (*int, *int, error)
 	}
 
 	return &home, &away, nil
+}
+
+// parseRetiredSetScore parses a home/away set score pair without enforcing tennis
+// completion rules. Used for retired matches where set scores may be partial.
+// Returns nil pointers when both inputs are blank.
+func parseRetiredSetScore(r *http.Request, homeKey, awayKey string) (*int, *int) {
+	homeStr := strings.TrimSpace(r.FormValue(homeKey))
+	awayStr := strings.TrimSpace(r.FormValue(awayKey))
+
+	if homeStr == "" && awayStr == "" {
+		return nil, nil
+	}
+
+	var home, away int
+	if homeStr != "" {
+		if v, err := strconv.Atoi(homeStr); err == nil {
+			home = v
+		}
+	}
+	if awayStr != "" {
+		if v, err := strconv.Atoi(awayStr); err == nil {
+			away = v
+		}
+	}
+	return &home, &away
 }
 
 // ValidateTennisScore validates a single set score

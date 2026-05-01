@@ -125,6 +125,12 @@ func parseTemplate(templateDir, templatePath string) (*template.Template, error)
 			}
 			return false
 		},
+		"isConceded": func(c *models.ConcededBy, side string) bool {
+			return c != nil && string(*c) == side
+		},
+		"isRetired": func(r *models.RetiredBy, side string) bool {
+			return r != nil && string(*r) == side
+		},
 		"sub": func(a, b int) int {
 			return a - b
 		},
