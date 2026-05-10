@@ -82,9 +82,15 @@ rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" dist/ root@144.126.228.
 ```bash
 # Transfer and rebuild
 cd ~/Development/Tennis/competition-factory-server
-rsync -avz --exclude='node_modules' --exclude='dist' --exclude='.git' -e "ssh -i ~/.ssh/digital_ocean_ssh" ./ root@144.126.228.64:/opt/jim-dot-tennis/competition-factory-server/
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker compose build courthive-server && docker compose up -d courthive-server"
+rsync -avz --exclude='node_modules' --exclude='dist' --exclude='.git' --exclude='build' -e "ssh -i ~/.ssh/digital_ocean_ssh" ./ root@144.126.228.64:/opt/competition-factory-server/
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker compose stop courthive-server && docker compose build courthive-server && docker compose up -d courthive-server"
 ```
+
+> **Source path:** The compose files use `context: ../competition-factory-server` (relative to `/opt/jim-dot-tennis/`), so the rsync target is `/opt/competition-factory-server/` — sibling to `jim-dot-tennis/`, not inside it.
+
+> **Stop before build (1GB RAM droplet):** Stopping `courthive-server` first frees memory; without it the Nest build can OOM. Brings the ~15s downtime forward but avoids a stuck build.
+
+> **pnpm pinned in Dockerfile:** The Dockerfile uses `corepack prepare pnpm@10.27.0 --activate` to match the lockfile. If you bump pnpm, regenerate `pnpm-lock.yaml` locally first or the Docker `--frozen-lockfile` install will fail with `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` or refuse on `ignoredBuiltDependencies`.
 
 **Time:** ~3 minutes
 **Downtime:** ~15 seconds
@@ -176,6 +182,74 @@ async function createAdminUser() {
 }
 
 createAdminUser();
+EOFNODE
+```
+
+---
+
+### 8b. Reset CourtHive User Password
+
+For when someone has signed up via an invite link but can't log in. The most common cause was mobile keyboards capitalizing the first character of the email — fixed upstream in TMX `loginModal.ts` (`type: 'email'`) and `competition-factory-server` `users.service.ts` (lowercase normalization), but worth knowing about for any user who registered before those fixes shipped.
+
+```bash
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker exec -i courthive-server node" << 'EOFNODE'
+const bcrypt = require('bcryptjs');
+const netLevelClient = require('@gridspace/net-level-client');
+
+async function resetPassword() {
+  const db = new netLevelClient();
+  try {
+    await db.open('localhost', 3838);
+    await db.auth('admin', 'adminpass');
+    await db.use('user', { create: true });
+
+    const email = 'user@example.com';                // CHANGE THIS
+    const newPassword = 'memorable-passphrase-XX';   // CHANGE THIS
+
+    // db.get takes a key string directly; passing { key: email } returns nothing
+    // and silently looks like "user not found". See src/scripts/admin-user.mjs.
+    const existing = await db.get(email);
+    if (!existing) {
+      console.error('User not found: ' + email);
+      await db.close();
+      process.exit(1);
+    }
+
+    const user = typeof existing === 'string' ? JSON.parse(existing) : existing;
+    user.password = await bcrypt.hash(newPassword, 10);
+
+    await db.put(email, user);
+    console.log('Password reset for: ' + email);
+    console.log('Roles: ' + (user.roles || []).join(', '));
+    await db.close();
+  } catch (error) {
+    console.error('Error:', error.message);
+    process.exit(1);
+  }
+}
+
+resetPassword();
+EOFNODE
+```
+
+For a memorable-but-decent-entropy password, a 3–4 word passphrase like `marina-cobalt-piano-17` hits ~40–50 bits and reads easily over a call. Server-side enforcement is minimum 8 characters (TMX validator post-fix; see `TMX/src/components/validators/passwordValidator.ts`). Tell the user to change it from their profile page after first login.
+
+To list users (useful to confirm the email casing in storage before resetting):
+
+```bash
+ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker exec -i courthive-server node" << 'EOFNODE'
+const netLevelClient = require('@gridspace/net-level-client');
+(async () => {
+  const db = new netLevelClient();
+  await db.open('localhost', 3838);
+  await db.auth('admin', 'adminpass');
+  await db.use('user', { create: true });
+  const all = await db.list({ all: true });
+  for (const e of all || []) {
+    console.log('  ' + (e?.key || e) + '  [' + ((e?.value?.roles) || []).join(',') + ']');
+  }
+  await db.close();
+})();
 EOFNODE
 ```
 
