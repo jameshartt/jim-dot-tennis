@@ -1,6 +1,6 @@
 # CourtHive LevelDB → PostgreSQL Migration Plan
 
-Status: **Phases 0, 1, 2a, 2c done; only cutover (Phase 3) + cleanup remain** (drafted 2026-05-10, Phases 0–2c completed 2026-05-18; 2a was already done pre-migration)
+Status: **Phase 3 complete; only Phase 4 cleanup remains** (drafted 2026-05-10, executed end-to-end 2026-05-18)
 Owner: jameshartt
 Target: jim.tennis production deployment of `competition-factory-server`
 
@@ -515,7 +515,8 @@ Wait for at least one league night + a tournament weekend before declaring the m
 - [x] **Phase 1 deploy-branch rebuild** — done 2026-05-18. Safety tag `jim-tennis-deploy-pre-pg-migration` at `4f6c9f5` (pushed to origin). New `jim-tennis-deploy` HEAD `54e588c` = `upstream/main` (`13606b1`) + 5 commits: gitignore-seed-admin, parks-cup pipeline, parentOrganisation fix, Dockerfile, migrations-COPY fix. Local build + boot against pgpoc Postgres verified; image serves Parks Cup 2026 via the API.
 - [x] **Phase 2a server resize** — already done before this migration started (droplet has been on 2 GB / 49 GB for some time). No action needed.
 - [x] **Phase 2c compose diff prepared** — done 2026-05-18. Diffs in `courthive_postgres_phase2c_diff.md`; the validated full target compose is `courthive_postgres_phase2c.docker-compose.courthive.yml` (parses cleanly via `docker compose config`).
-- [ ] **Schedule cutover window** — pick a specific weekday evening with no live tournament
+- [x] **Phase 3 cutover** — executed 2026-05-18, ~20 min window (10:13:52 → 10:33 BST). Approach A (local migrate + dump/restore) ran clean: 1 tournament + 4 users + 2 providers + 1 calendar + 4 user-provider backfills landed in prod Postgres. Initial smoke test green. All three forks deployed in the same window (factory-server new image + TMX/courthive-public fresh dist/ rsynced).
+- [ ] **Phase 4 cleanup** (wait 1–2 weeks): remove `courthive-data` LevelDB volume, delete `jim-tennis-deploy-pre-pg-migration` tag, remove `.pre-pg` files from prod, retire `jim-dot-tennis-courthive-server:pre-pg-migration` image tag, update `PRODUCTION_QUICK_REFERENCE.md` to use psql for admin user CRUD, baseline a pg_dump backup cadence.
 
 ---
 
