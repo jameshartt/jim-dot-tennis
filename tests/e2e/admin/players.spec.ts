@@ -50,3 +50,30 @@ test.describe("Admin Players", () => {
     await expect(addBtn).toBeVisible();
   });
 });
+
+// Regression for the nested-form bug introduced with the captain notes section
+// (Sprint 017 WI-105). Captain notes contained their own <form> elements nested
+// inside the player edit form, which is invalid HTML. The browser parser
+// honours inner </form> closing tags, prematurely closing the outer form and
+// orphaning the "Update Player" button — so clicking it submitted nothing.
+test.describe("Admin Players — edit form submission", () => {
+  test("Update Player button is a descendant of the edit form", async ({
+    adminPage,
+  }) => {
+    await adminPage.goto("/admin/league/players/p-alice/edit");
+    const updateButton = adminPage.locator(
+      'form.edit-form button.btn-primary:has-text("Update Player")',
+    );
+    await expect(updateButton).toBeVisible();
+  });
+
+  test("clicking Update Player submits the form and redirects to the players list", async ({
+    adminPage,
+  }) => {
+    await adminPage.goto("/admin/league/players/p-alice/edit");
+    await adminPage
+      .locator('button.btn-primary:has-text("Update Player")')
+      .click();
+    await expect(adminPage).toHaveURL(/\/admin\/league\/players\/?$/);
+  });
+});
