@@ -31,6 +31,12 @@ type Subscription struct {
 	CreatedAt   time.Time `db:"created_at" json:"createdAt,omitempty"`
 }
 
+// subscriptionColumns is the explicit column list for SELECTs into Subscription.
+// Using it instead of `SELECT *` keeps reads robust when a migration adds a
+// column the struct doesn't map (sqlx errors on an unmapped `*` column —
+// migration 023's player_token was exactly that kind of addition).
+const subscriptionColumns = "id, endpoint, p256dh, auth, platform, user_agent, player_token, created_at"
+
 // SubscriptionRequest represents the incoming subscription data from the browser
 type SubscriptionRequest struct {
 	Endpoint    string `json:"endpoint"`
@@ -183,7 +189,7 @@ func (s *Service) DeleteSubscription(endpoint string) error {
 // GetAllSubscriptions retrieves all push subscriptions
 func (s *Service) GetAllSubscriptions() ([]Subscription, error) {
 	var subs []Subscription
-	err := s.db.Select(&subs, "SELECT * FROM push_subscriptions")
+	err := s.db.Select(&subs, "SELECT "+subscriptionColumns+" FROM push_subscriptions")
 	return subs, err
 }
 
@@ -207,7 +213,7 @@ func (s *Service) CleanupStaleSubscriptions(maxAge time.Duration) (int64, error)
 // GetSubscriptionsByPlayerToken returns all push subscriptions for a given player token
 func (s *Service) GetSubscriptionsByPlayerToken(playerToken string) ([]Subscription, error) {
 	var subs []Subscription
-	err := s.db.Select(&subs, "SELECT * FROM push_subscriptions WHERE player_token = $1", playerToken)
+	err := s.db.Select(&subs, "SELECT "+subscriptionColumns+" FROM push_subscriptions WHERE player_token = $1", playerToken)
 	return subs, err
 }
 

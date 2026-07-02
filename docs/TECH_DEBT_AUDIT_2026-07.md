@@ -134,7 +134,7 @@ No `Begin` in any of: `CreateSeasonWithWeeks` (`service_seasons.go:61-99`), `Cop
 
 ### 3.5 N+1 queries and misc — MED/LOW
 50+ verified N+1 sites in admin services — worst: the team-selection screen runs two availability queries **per player** (`admin/fixtures.go:1771-1780`, 100+ queries per request), per-fixture team/week lookups in list loops (`service_fixtures.go:310-331, 558-579`), per-fixture lookups in the points table (`points.go:596-598`). **Fix (M):** batch `FindByIDs` methods for teams/weeks/players + one joined availability query covers ~80% mechanically.
-Also: ~123 lines of SQL in 12 non-repo files (sessions/users queried from two packages with no shared repo; `SELECT *` in `webpush.go:186,210` breaks on column adds — migration 023 already added one); `context.Background()` ~117× in admin services so request cancellation never propagates; date functions wrapped around indexed columns defeat `idx_fixtures_scheduled_date` (`repository/fixture.go:387,606`). Index coverage otherwise verified good; models verified clean (consistent pointer-based nullables, no phantom fields).
+Also: ~123 lines of SQL in 12 non-repo files (sessions/users queried from two packages with no shared repo; ~~`SELECT *` in `webpush.go:186,210` breaks on column adds~~ ✅ **fixed 2026-07-02** — both now use an explicit `subscriptionColumns` const, guarded by a reflection test that keeps it in lockstep with the struct's `db` tags); `context.Background()` ~117× in admin services so request cancellation never propagates; date functions wrapped around indexed columns defeat `idx_fixtures_scheduled_date` (`repository/fixture.go:387,606`). Index coverage otherwise verified good; models verified clean (consistent pointer-based nullables, no phantom fields).
 
 ---
 
