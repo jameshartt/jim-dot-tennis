@@ -1,34 +1,57 @@
 # Version control
 .git
 .gitignore
+.github/
 
 # Build artifacts and binaries
 /bin/
+/jim-dot-tennis
 *.exe
 *.dll
 *.so
 *.dylib
 
+# Local Go module cache (228MB — must never enter the build context)
+.go-mod-cache/
+
+# Secrets — never copy into the build context / image layers
+.env
+.env.*
+
+# Database files and backups (created in the container)
+*.db
+tennis.db
+*.db.backup*
+tennis.db.backup.*
+exported-backups/
+
 # IDE and editor files
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 .cursor/
 
-# Database files (we'll create these in the container)
-*.db
-tennis.db
-
-# Project specific
+# Docs and planning material (not needed to build; avoids cache-busting on edits)
 README.md
 LICENSE
+CONTRIBUTING.md
+CLAUDE.md
+PROFILE_IMPLEMENTATION.md
+COURTHIVE_SETUP.md
+docs/
+sprints/
+
+# Docker/compose files (not needed inside the build context)
 Dockerfile
-docker-compose.yml
+Dockerfile.import
+Dockerfile.e2e
+docker-compose*.yml
 .dockerignore
 
 # Temporary files
 /tmp/
 *.tmp
 *.bak
-*.log 
+*.log

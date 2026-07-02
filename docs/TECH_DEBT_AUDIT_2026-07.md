@@ -10,6 +10,11 @@
 > - **Fantasy tokens:** guessability is **by design** — the goal is resistance to crawlers/bots, not humans, and the intended blast radius of a guessed token is small writes only (availability, name request, profile edit). Entropy/rate-limit findings downgraded to optional; the open question is the PII read-back, which exceeds that intended blast radius (§2.1).
 > - **CI:** downgraded for a solo-maintainer project — full CI carries less weight without a team; wiring the existing unit tests into `make test` remains worthwhile (§1.3).
 > - **SQLite pragmas:** ✅ **fixed 2026-07-02** — WAL, busy_timeout, synchronous=NORMAL, and foreign_keys enabled in `internal/database/database.go`, with a regression test (§3.1).
+>
+> **Follow-up fixes 2026-07-02 (second pass):**
+> - **`make test` target:** ✅ done — Docker-based `make test` (PKG/ARGS passthrough) folded into `make check`; documented in CLAUDE.md (§1.3).
+> - **Migration footguns:** ✅ done — wrote the missing 012 down file (verified round-trips in isolation); `migrate-down` now requires an explicit `-version` with a confirmation prompt (no more silent default of 5); dirty-state startup now fails fast instead of auto-forcing, with `MIGRATE_ALLOW_DIRTY_FORCE=true` as a dev-only escape hatch; README updated (§3.4). **Newly discovered:** full rollback below v16 is still blocked by a *separate* pre-existing bug — migration 013's `chk_preferred_name_unique` trigger conflicts with the table-rebuild down files in 015/016 (`no such table: main.players`). Filed as a follow-up (§3.4).
+> - **Docker build waste:** ✅ done — dropped `go build -a`, added BuildKit cache mounts (module + build cache), pinned the final stage to `alpine:3.23` (matches the `golang:1.25-alpine` builder), aligned `Dockerfile.import` to Go 1.25, and rewrote `.dockerignore` to exclude `.env`, `.go-mod-cache/`, the root binary, and db backups from the build context (§7.1).
 
 ---
 
@@ -40,9 +45,9 @@ Almost nothing here requires a rewrite. The highest-risk items are mostly S-effo
 | 7 | Unify matchcard derby code paths | League-scoring divergence between import types | M | open |
 | 8 | Transactions on season copy/create/activate + result saves | Half-written seasons and match cards | M | open |
 | 9 | De-fork `fixture_team_selection` templates via partial | Silent UI drift after every HTMX swap | M | open |
-| 10 | Migration footguns (012 down file, migrate-down default, dirty auto-force) | Destructive/dirty schema states | S | open |
-| 11 | Unit tests for parser/matcher/points + `make test` target | Silent data-corrupting regressions | M | open |
-| 12 | Docker build speed (`-a`, cache mounts, `.dockerignore`) | 1-CPU server pegged per deploy; secrets in build context | S | open |
+| 10 | Migration footguns (012 down file, migrate-down default, dirty auto-force) | Destructive/dirty schema states | S | ✅ done 2026-07-02 |
+| 11 | Unit tests for parser/matcher/points + `make test` target | Silent data-corrupting regressions | M | partial — `make test` ✅ 2026-07-02; parser/matcher/points tests open |
+| 12 | Docker build speed (`-a`, cache mounts, `.dockerignore`) | 1-CPU server pegged per deploy; secrets in build context | S | ✅ done 2026-07-02 |
 | 13 | Decide on fantasy-token PII read-back (exceeds intended blast radius) | Guessed token reads full name + match history | S (decision) | open |
 | 14 | CI pipeline | Deploy gating (low weight for solo maintainer) | M | deprioritized |
 | — | SQLite pragmas (WAL, busy_timeout, foreign_keys) | Lock errors, unenforced cascades | S | ✅ done 2026-07-02 |
@@ -61,7 +66,8 @@ Almost nothing here requires a rewrite. The highest-risk items are mostly S-effo
 `git grep` confirms the CourtHive admin password in `docs/PRODUCTION_QUICK_REFERENCE.md` (~line 389) and `COURTHIVE_SETUP.md`. The repo has a GitHub remote; it lives in history forever. *(The `WRAPPED_ACCESS_PASSWORD` values also present in docs are accepted as committed — the gate is deliberately decorative, see §2.5.)*
 **Fix (S):** rotate the CourtHive admin password; replace the doc value with a pointer to the server `.env`.
 
-### 1.3 No CI pipeline; unit tests wired into nothing — MED *(revised: was HIGH — solo maintainer)*
+### 1.3 No CI pipeline; unit tests wired into nothing — PARTIAL *(revised: was HIGH — solo maintainer)*
+**`make test` ✅ done 2026-07-02** — a Docker-based `make test` target (using the `DOCKER_GO_CGO` pattern, with `PKG=`/`ARGS=` passthrough) now runs the Go unit tests and is folded into `make check`. A GitHub Actions workflow remains a nice-to-have (see below).
 `.github/` has issue/PR templates but **no `workflows/` directory**. For a solo-maintainer project this carries less weight than it would for a team — nobody else's broken commits need gating. The part that still bites solo: there is no `make test` target anywhere, so the existing unit tests (456 lines vs 35.5k production lines, ~1.3%) can only be run by hand-crafting a Docker command and will silently rot. `make check` (vet/fmt/lint/deadcode) excludes them.
 **Fix (S for the part that matters):** add a Docker-based `make test` target using the existing `DOCKER_GO_CGO` pattern and fold it into `check`, so the pre-deploy habit is one command. A GitHub Actions workflow (M) remains a nice-to-have safety net for future contributors, not a priority. If ever added, note the CI e2e job will hit the fresh-volume bootstrap deadlock (§6.3).
 
@@ -119,11 +125,12 @@ No `Begin` in any of: `CreateSeasonWithWeeks` (`service_seasons.go:61-99`), `Cop
 `internal/admin/club_wrapped.go` — the largest concentration of SQL outside the repository layer; 14 queries use `_ = ...Scan(...)` so schema drift renders zeros silently on a **public page**; `grep -c season_id` returns **0** — every stat spans all seasons — and `SeasonYear: 2025` is hardcoded (line 593). The moment a second season has finished matchups, every Wrapped stat is wrong.
 **Fix (M):** thread `season_id` through all queries, resolve year from the active season, log errors. Extracting to a `WrappedStatsService` is polish; the season filter is urgent.
 
-### 3.4 Migration footguns — MED
-- Migration **012 has no down file** (never did, per git history) — any rollback through v12 fails, making versions 1–11 unreachable. **Fix (S):** write it.
-- `cmd/migrate-down/main.go:21` **defaults to rolling back to version 5** — a no-arg run on prod destroys 23 migrations of schema (and would fail dirty at 012). **Fix (S):** required flag + confirmation.
-- `internal/database/database.go:127-133` **auto-forces dirty migration state** on startup and continues — a half-applied migration self-"heals" into silent schema drift instead of stopping the deploy. **Fix (S):** fail fast; keep auto-force behind a dev-only env flag.
-- Numbering gap: 026 was never committed (sprint docs reference it). Note "never reuse 026" in `migrations/README.md` (S).
+### 3.4 Migration footguns — ✅ MOSTLY FIXED 2026-07-02
+- ~~Migration **012 has no down file**~~ ✅ **fixed** — `012_add_match_card_fields.down.sql` written and verified to round-trip (up 12 → down 11 → up 12) in isolation.
+- ~~`cmd/migrate-down/main.go:21` **defaults to rolling back to version 5**~~ ✅ **fixed** — `-version` is now required (no default), a `>= current` target is rejected, and a confirmation prompt guards the rollback (`-yes` to skip).
+- ~~`internal/database/database.go:127-133` **auto-forces dirty migration state**~~ ✅ **fixed** — startup now fails fast on a dirty DB with a remediation message; auto-force is retained only behind the dev-only `MIGRATE_ALLOW_DIRTY_FORCE=true` flag.
+- ~~Numbering gap: 026 was never committed~~ ✅ **documented** in `migrations/README.md` ("never reuse 026").
+- **NEW follow-up (found while verifying the above) — MED:** full rollback below **v16** still fails with `error in trigger chk_preferred_name_unique: no such table: main.players`. Migration 013 adds a trigger on `players`; the table-rebuild ("recreate players_new, drop players, rename") down files for **015** and **016** fire/dangle that trigger mid-rebuild. Down migrations are dev/test-only, so this is not a prod hazard, but it does mean versions 1–15 remain unreachable via rollback until 013/015/016's down files drop-and-recreate the trigger (or the rebuilds run with the trigger temporarily removed). Left as a distinct fix.
 
 ### 3.5 N+1 queries and misc — MED/LOW
 50+ verified N+1 sites in admin services — worst: the team-selection screen runs two availability queries **per player** (`admin/fixtures.go:1771-1780`, 100+ queries per request), per-fixture team/week lookups in list loops (`service_fixtures.go:310-331, 558-579`), per-fixture lookups in the points table (`points.go:596-598`). **Fix (M):** batch `FindByIDs` methods for teams/weeks/players + one joined availability query covers ~80% mechanically.
@@ -203,11 +210,10 @@ Fresh `tennis-data` volume: app fatals on missing club config (`cmd/jim-dot-tenn
 
 ## 7. Build, deploy config & docs
 
-### 7.1 Docker build waste on a 1-CPU server — HIGH (cheap fix)
-- `Dockerfile:19` uses `go build -a`, forcing recompilation of the entire stdlib + CGO sqlite driver on **every** build — most of the documented 60–90s server build. `-a` is unnecessary for static linking. No BuildKit cache mounts either.
-- `.dockerignore` misses `.go-mod-cache/` (228MB), the 20MB root binary, `.env` (**secrets enter the build context** via `COPY . .`), `tennis.db.backup.*`, `docs/`, `sprints/`, `tests/` — slow context, cache-busting on doc edits, secrets in intermediate layers.
-- `Dockerfile.import` builds with Go **1.24.1** vs the app's 1.25; final stages use unpinned `alpine:latest`.
-**Fix (S):** drop `-a`, add cache mounts, fix `.dockerignore` (or invert to allowlist), align Go versions, pin alpine.
+### 7.1 Docker build waste on a 1-CPU server — ✅ FIXED 2026-07-02 (cheap fix)
+- ~~`Dockerfile:19` uses `go build -a`~~ ✅ **dropped**; added BuildKit cache mounts on `/go/pkg/mod` and `/root/.cache/go-build` for both `go mod download` and the build step, so incremental builds reuse the stdlib/driver compilation.
+- ~~`.dockerignore` misses `.go-mod-cache/`, the root binary, `.env`, backups~~ ✅ **rewritten** to exclude `.env`/`.env.*` (secrets), `.go-mod-cache/` (228MB), the root `jim-dot-tennis` binary, `*.db.backup*`, `exported-backups/`, `docs/`, `sprints/`, `.github/`, `.claude/`. **`tests/` is deliberately kept** — `Dockerfile.e2e` copies `tests/e2e/` from the same shared context.
+- ~~`Dockerfile.import` builds with Go 1.24.1; final stages use unpinned `alpine:latest`~~ ✅ **aligned to Go 1.25** and both final stages **pinned to `alpine:3.23`** (matches the `golang:1.25-alpine` builder's Alpine release, keeping the CGO binary ABI-compatible). Verified with a clean image build.
 
 ### 7.2 Compose duplication and drift — MED
 `docker-compose.yml` and `docker-compose.courthive.yml` both define `app` + `backup` with identical container names and already-drifted env (`MY_TENNIS_ENABLED` in one only). The backup service `apk add`s sqlite from the network on every start, sleep-loops, and has no backup-freshness healthcheck. `version: '3.8'` keys are obsolete noise.
@@ -225,7 +231,7 @@ Fresh `tennis-data` volume: app fatals on missing club config (`cmd/jim-dot-tenn
 ## Suggested sequencing
 
 **Day 1 — the cheap high-impact sweep (all S):**
-rotate the CourtHive admin password · ~~SQLite DSN pragmas~~ ✅ done · test a snapshot restore + confirm cadence · deploy-app.sh sync set + pre-deploy backup + image tag rollback · drop `go build -a` + fix `.dockerignore` · `make test` target · migrate-down safety + dirty-state fail-fast + 012 down file · stop logging session tokens · delete `deploy-with-import.sh`.
+rotate the CourtHive admin password · ~~SQLite DSN pragmas~~ ✅ done · test a snapshot restore + confirm cadence · deploy-app.sh sync set + pre-deploy backup + image tag rollback · ~~drop `go build -a` + fix `.dockerignore`~~ ✅ done · ~~`make test` target~~ ✅ done · ~~migrate-down safety + dirty-state fail-fast + 012 down file~~ ✅ done · stop logging session tokens · delete `deploy-with-import.sh`.
 
 **Sprint-sized chunk A — public-surface security (M):**
 auth-gate push endpoints (incl. the token-validity oracle) · CSRF for admin POSTs + destructive GET→POST · decide on the fantasy-token PII read-back (§2.1) · optional: per-IP backoff on token lookups.

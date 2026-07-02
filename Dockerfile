@@ -9,17 +9,25 @@ WORKDIR /app
 # Copy go mod and sum files
 COPY go.mod go.sum ./
 
-# Download dependencies
-RUN go mod download
+# Download dependencies (module cache persists across builds via BuildKit cache mount)
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 # Copy source code
 COPY . .
 
-# Build the application with SQLite compatibility flags
-RUN CGO_ENABLED=1 GOOS=linux CGO_CFLAGS="-D_LARGEFILE64_SOURCE" go build -a -ldflags '-extldflags "-static"' -tags 'sqlite_omit_load_extension' -o /app/bin/jim-dot-tennis ./cmd/jim-dot-tennis
+# Build the application with SQLite compatibility flags.
+# `-a` is intentionally omitted: static linking does not require rebuilding the
+# whole stdlib, and the build cache mount makes incremental builds far faster on
+# the 1-CPU server.
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=1 GOOS=linux CGO_CFLAGS="-D_LARGEFILE64_SOURCE" go build -ldflags '-extldflags "-static"' -tags 'sqlite_omit_load_extension' -o /app/bin/jim-dot-tennis ./cmd/jim-dot-tennis
 
-# Use a smaller image for the final application
-FROM alpine:latest
+# Use a smaller image for the final application.
+# Pinned to match the builder's Alpine release (golang:1.25-alpine == 3.23.x)
+# so the runtime libc/sqlite-libs stay ABI-compatible with the CGO binary.
+FROM alpine:3.23
 
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates sqlite-libs tzdata
