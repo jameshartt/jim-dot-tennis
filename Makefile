@@ -82,8 +82,15 @@ run:
 stop:
 	$(DOCKER_COMPOSE) down
 
-# Stop the application and remove volumes
+# Stop the application and DESTROY the data volume.
+# `down -v` removes the named `jim-dot-tennis-data` volume — on the server this
+# is the production database. Requires typing 'delete' to confirm (or FORCE=1).
 clean:
+	@echo "WARNING: this runs 'docker compose down -v' and DELETES the"
+	@echo "         jim-dot-tennis-data volume (the production database on the server)."
+	@if [ "$(FORCE)" != "1" ]; then \
+		printf "Type 'delete' to confirm: " && read ans && [ "$$ans" = "delete" ] || { echo "Aborted."; exit 1; }; \
+	fi
 	$(DOCKER_COMPOSE) down -v
 
 # Restart the application
@@ -276,9 +283,16 @@ test-e2e-results:
 		echo "No test results found. Run make test-e2e first."; \
 	fi
 
-# Tear down test containers and clean up volumes
+# Tear down test containers and clean up volumes.
+# NOTE: the e2e service shares the `jim-dot-tennis-data` volume, so `down -v`
+# also deletes the local/prod database. Guarded like `clean` (FORCE=1 to skip).
+# For a snapshot-protected run, use `make test-e2e-safe` instead.
 test-e2e-clean:
 	@echo "Cleaning up E2E test environment..."
+	@echo "WARNING: 'down -v' also removes the shared jim-dot-tennis-data volume (your local/prod DB)."
+	@if [ "$(FORCE)" != "1" ]; then \
+		printf "Type 'delete' to confirm: " && read ans && [ "$$ans" = "delete" ] || { echo "Aborted."; exit 1; }; \
+	fi
 	$(DOCKER_COMPOSE) --profile test down -v
 	rm -rf tests/e2e/test-results tests/e2e/playwright-report
 

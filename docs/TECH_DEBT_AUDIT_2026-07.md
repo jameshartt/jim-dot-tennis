@@ -78,9 +78,9 @@ Almost nothing here requires a rewrite. The highest-risk items are mostly S-effo
 - Two stale deploy scripts linger: `deploy-with-import.sh` rsyncs `./` wholesale (would push `.go-mod-cache/` 228MB + local `.env` over prod's) and `deploy-digitalocean.sh` half-duplicates config.
 **Fix (S–M):** extend `deploy-app.sh`'s sync set; add pre-deploy sqlite `.backup` + `docker tag jim-dot-tennis:latest :prev` before build; copy the real prod compose back into the repo; delete `deploy-with-import.sh`.
 
-### 1.5 `make clean` / `down -v` destroys the data volume unguarded — MED
+### 1.5 `make clean` / `down -v` destroys the data volume unguarded — PARTIAL
 Both `clean` and `test-e2e-clean` run `down -v`, removing the live database volume. On the server (where the quick-ref encourages compose commands) this deletes prod data with only a same-disk backup. The 100-line `scripts/test-e2e-safe.sh` snapshot machinery exists because this footgun has teeth.
-**Fix (S):** confirmation prompt or rename to `clean-destroy-data`; give the e2e profile its own volume (`tennis-data-test`), retiring `test-e2e-safe.sh` (M).
+**✅ Confirmation guard done 2026-07-02:** both targets now require typing `delete` (or `FORCE=1` for scripted use) before running `down -v`, with a warning naming the shared `jim-dot-tennis-data` volume. Verified: empty/wrong input aborts before compose runs; `delete`/`FORCE=1` proceed. **Still open (M):** give the e2e profile its own `tennis-data-test` volume so the cleanup can't touch prod data at all, retiring `test-e2e-safe.sh`.
 
 ---
 
