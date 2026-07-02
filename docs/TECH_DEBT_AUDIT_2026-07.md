@@ -75,7 +75,7 @@ Almost nothing here requires a rewrite. The highest-risk items are mostly S-effo
 - ~~`scripts/deploy-app.sh:67` syncs only `internal cmd templates static migrations` — **not** `go.mod`/`go.sum`, nor `Dockerfile`~~ ✅ **fixed 2026-07-02** — the script now also syncs `go.mod`, `go.sum`, `Dockerfile`, `Dockerfile.import`, `.dockerignore`, and (best-effort) takes a pre-deploy sqlite `.backup` + tags the running image `jim-dot-tennis-app:prev` before building. Verified against prod (deployed the §7.1 Dockerfile this way: image is now Alpine 3.23.5 and `.env` no longer leaks into it). Compose files remain **deliberately unsynced** (prod compose has diverged from the repo — see below).
 - `docker-compose.courthive.yml` in the repo still describes the **pre-Postgres** stack (LevelDB/net-level, hardcoded `admin/adminpass`, port 4040 published). Production's post-cutover compose exists only as a doc artifact (`docs/courthive_postgres_phase2c.docker-compose.courthive.yml`). Disaster recovery from the repo would resurrect the dead stack.
 - No rollback: `docker compose build app` overwrites the only image; migrations auto-apply on start with no pre-deploy backup; daily backup means a botched migration can cost up to 24h of data.
-- Two stale deploy scripts linger: `deploy-with-import.sh` rsyncs `./` wholesale (would push `.go-mod-cache/` 228MB + local `.env` over prod's) and `deploy-digitalocean.sh` half-duplicates config.
+- ~~`deploy-with-import.sh` rsyncs `./` wholesale (would push `.go-mod-cache/` 228MB + local `.env` over prod's)~~ ✅ **deleted 2026-07-02** (unreferenced, superseded by `deploy-app.sh`). `deploy-digitalocean.sh` still half-duplicates config but is referenced in `docs/`, so it stays for now.
 **Fix (S–M):** extend `deploy-app.sh`'s sync set; add pre-deploy sqlite `.backup` + `docker tag jim-dot-tennis:latest :prev` before build; copy the real prod compose back into the repo; delete `deploy-with-import.sh`.
 
 ### 1.5 `make clean` / `down -v` destroys the data volume unguarded — PARTIAL
@@ -231,7 +231,7 @@ Fresh `tennis-data` volume: app fatals on missing club config (`cmd/jim-dot-tenn
 ## Suggested sequencing
 
 **Day 1 — the cheap high-impact sweep (all S):**
-rotate the CourtHive admin password · ~~SQLite DSN pragmas~~ ✅ done · test a snapshot restore + confirm cadence · deploy-app.sh sync set + pre-deploy backup + image tag rollback · ~~drop `go build -a` + fix `.dockerignore`~~ ✅ done · ~~`make test` target~~ ✅ done · ~~migrate-down safety + dirty-state fail-fast + 012 down file~~ ✅ done · stop logging session tokens · delete `deploy-with-import.sh`.
+rotate the CourtHive admin password · ~~SQLite DSN pragmas~~ ✅ done · test a snapshot restore + confirm cadence · ~~deploy-app.sh sync set + pre-deploy backup + image tag rollback~~ ✅ done · ~~drop `go build -a` + fix `.dockerignore`~~ ✅ done · ~~`make test` target~~ ✅ done · ~~migrate-down safety + dirty-state fail-fast + 012 down file~~ ✅ done · ~~stop logging session tokens~~ ✅ done · ~~delete `deploy-with-import.sh`~~ ✅ done.
 
 **Sprint-sized chunk A — public-surface security (M):**
 auth-gate push endpoints (incl. the token-validity oracle) · CSRF for admin POSTs + destructive GET→POST · decide on the fantasy-token PII read-back (§2.1) · optional: per-IP backoff on token lookups.
