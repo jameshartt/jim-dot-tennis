@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -130,11 +131,21 @@ func (db *DB) ExecuteMigrations(migrationsPath string) error {
 		return fmt.Errorf("failed to get migration version: %w", err)
 	}
 
-	// If the database is in a dirty state, force the version
+	// If the database is in a dirty state, a previous migration failed partway
+	// through and the schema may be inconsistent. Fail fast so the deploy stops
+	// and the state can be inspected, instead of silently "healing" into schema
+	// drift. Auto-forcing is only allowed in development, behind an explicit
+	// opt-in env flag.
 	if dirty {
-		log.Printf("Database is in a dirty state at version %d. Forcing version.", version)
-		if err := m.Force(int(version)); err != nil {
-			return fmt.Errorf("failed to force migration version: %w", err)
+		if os.Getenv("MIGRATE_ALLOW_DIRTY_FORCE") == "true" {
+			log.Printf("WARNING: database is dirty at version %d; MIGRATE_ALLOW_DIRTY_FORCE=true, forcing version (dev only).", version)
+			if err := m.Force(int(version)); err != nil {
+				return fmt.Errorf("failed to force migration version: %w", err)
+			}
+		} else {
+			return fmt.Errorf("database is in a dirty state at version %d: a previous migration did not complete. "+
+				"Inspect the schema, roll back to a clean version with cmd/migrate-down, then re-run. "+
+				"To auto-force the dirty version in development only, set MIGRATE_ALLOW_DIRTY_FORCE=true", version)
 		}
 	}
 

@@ -67,7 +67,12 @@ The tool will migrate down to the specified version, running all down migrations
 #### Migrate Down Tool (cmd/migrate-down/main.go)
 - `-path`: Path to migration files (default: "./migrations")
 - `-db-path`: Database file path (default: "./tennis.db")
-- `-version`: Target migration version to migrate down to (default: 5)
+- `-version`: Target migration version to migrate down to (**required** — no default)
+- `-yes`: Skip the interactive confirmation prompt (for non-interactive use)
+
+> **Safety:** `-version` is required and rolling back prompts for confirmation.
+> There is deliberately no default target — a no-arg run must never silently
+> destroy schema.
 
 ### Environment Variables
 
@@ -95,9 +100,19 @@ To create a new migration:
 
 4. Run the migration tool to apply the new migration.
 
+### Version numbering notes
+
+- **Every migration must have both an `.up.sql` and a `.down.sql` file.** A missing
+  down file makes any rollback through that version fail, which strands all
+  earlier versions as unreachable. (Migration 012 was missing its down file for a
+  long time — now fixed.)
+- **Never reuse version 026.** It was assigned during Sprint 017 (`lineup_drafts`)
+  but never committed, leaving a permanent gap in the sequence (…025, 027, 028…).
+  The next available version is **029**. Do not backfill 026.
+
 ## Troubleshooting
 
-- **Dirty Database State**: If a migration fails partway through, the database may be marked as "dirty". The migration tool will automatically attempt to handle this by forcing the version before retrying.
+- **Dirty Database State**: If a migration fails partway through, the database is marked as "dirty" and the schema may be inconsistent. On startup the app now **fails fast** on a dirty database rather than silently forcing the version (which used to mask schema drift). Inspect the schema, roll back to a clean version with the migrate-down tool, then re-run. In development only, you may set `MIGRATE_ALLOW_DIRTY_FORCE=true` to restore the old auto-force behaviour.
 
 - **Migration Version Mismatch**: If you need to force a specific migration version, you can use the migrate down tool to roll back to a specific version, then run the migration tool again to apply migrations up to the desired version.
 
