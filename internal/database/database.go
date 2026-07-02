@@ -49,7 +49,13 @@ func New(cfg Config) (*DB, error) {
 			cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode,
 		)
 	case "sqlite3":
-		dataSourceName = cfg.FilePath
+		// WAL + busy_timeout let concurrent readers/writers wait instead of
+		// failing with "database is locked"; foreign_keys is off by default
+		// in mattn/go-sqlite3, so cascades are unenforced without it.
+		dataSourceName = fmt.Sprintf(
+			"file:%s?_journal_mode=WAL&_busy_timeout=5000&_synchronous=NORMAL&_foreign_keys=on",
+			cfg.FilePath,
+		)
 	default:
 		return nil, fmt.Errorf("unsupported database driver: %s", cfg.Driver)
 	}
