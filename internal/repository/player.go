@@ -134,6 +134,10 @@ func (r *playerRepository) Create(ctx context.Context, player *models.Player) er
 	now := time.Now()
 	player.CreatedAt = now
 	player.UpdatedAt = now
+	// New players are active by default. The struct zero value for IsActive is
+	// false, which would otherwise hide the player from the (active-only) list.
+	// Players are deactivated later via Update, never at creation time.
+	player.IsActive = true
 
 	_, err := r.db.NamedExecContext(ctx, `
 		INSERT INTO players (id, first_name, last_name, preferred_name, gender, reporting_privacy, club_id, fantasy_match_id, is_active, created_at, updated_at)

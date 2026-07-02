@@ -257,6 +257,7 @@ func (h *PlayersHandler) handlePlayerNewPost(w http.ResponseWriter, r *http.Requ
 		Gender:           models.PlayerGender(gender),
 		ReportingPrivacy: models.PlayerReportingVisible, // Default to visible
 		ClubID:           homeClubID,                    // Auto-assign to home club instead of 0
+		IsActive:         true,                          // New players are active so they appear in the list
 	}
 
 	// Create the player
