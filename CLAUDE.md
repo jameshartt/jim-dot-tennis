@@ -48,6 +48,14 @@ make app-logs        # View app logs only
 make backup          # Create manual backup
 ```
 
+### Go Unit Tests (in Docker)
+```bash
+make test                                 # Run all Go unit tests (CGO/sqlite via Docker)
+make test PKG=./internal/database/...     # Test a single package
+make test ARGS="-run TestName -v"         # Pass flags through to `go test`
+# `make check` runs vet + fmt + lint + deadcode + test.
+```
+
 ### E2E Testing (Playwright in Docker)
 ```bash
 make test-e2e                      # Run full E2E test suite (default: 2 workers)

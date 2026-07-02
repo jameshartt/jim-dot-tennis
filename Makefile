@@ -186,8 +186,14 @@ tidy:
 	@echo "Running go mod tidy..."
 	@$(DOCKER_GO_CGO) go mod tidy"
 
+# Run Go unit tests (CGO required for the sqlite-backed repository/db tests)
+# Usage: make test [PKG=./internal/database/...] [ARGS="-run TestName -v"]
+test:
+	@echo "Running Go unit tests..."
+	@$(DOCKER_GO_CGO) go test $(if $(PKG),$(PKG),./...) $(ARGS)"
+
 # Run all read-only checks
-check: vet fmt lint deadcode
+check: vet fmt lint deadcode test
 	@echo "All checks complete."
 
 # ============================================================
