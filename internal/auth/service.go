@@ -42,27 +42,34 @@ var (
 
 // Config holds configuration for the auth service
 type Config struct {
-	SessionDuration    time.Duration
-	CookieName         string
-	CookieSecure       bool
-	CookieHttpOnly     bool
-	CookieSameSite     http.SameSite
-	CookiePath         string
-	MaxLoginAttempts   int
-	LoginAttemptWindow time.Duration
+	SessionDuration time.Duration
+	// AbsoluteSessionDuration is the hard ceiling on a session's lifetime,
+	// measured from when it was created. Because ExpiresAt slides forward on
+	// every request, an active (or stolen-and-active) session would otherwise
+	// never expire; this caps how long any single login can live. Set to 0 to
+	// disable the absolute cap.
+	AbsoluteSessionDuration time.Duration
+	CookieName              string
+	CookieSecure            bool
+	CookieHttpOnly          bool
+	CookieSameSite          http.SameSite
+	CookiePath              string
+	MaxLoginAttempts        int
+	LoginAttemptWindow      time.Duration
 }
 
 // DefaultConfig returns the default configuration
 func DefaultConfig() Config {
 	return Config{
-		SessionDuration:    7 * 24 * time.Hour, // 7 days
-		CookieName:         "session_token",
-		CookieSecure:       true,
-		CookieHttpOnly:     true,
-		CookieSameSite:     http.SameSiteStrictMode,
-		CookiePath:         "/",
-		MaxLoginAttempts:   5,
-		LoginAttemptWindow: 15 * time.Minute,
+		SessionDuration:         7 * 24 * time.Hour,  // 7 days sliding
+		AbsoluteSessionDuration: 30 * 24 * time.Hour, // 30 day hard ceiling
+		CookieName:              "session_token",
+		CookieSecure:            true,
+		CookieHttpOnly:          true,
+		CookieSameSite:          http.SameSiteStrictMode,
+		CookiePath:              "/",
+		MaxLoginAttempts:        5,
+		LoginAttemptWindow:      15 * time.Minute,
 	}
 }
 
@@ -185,11 +192,22 @@ func (s *Service) ValidateSession(sessionID string, r *http.Request) (*models.Se
 		return nil, ErrSessionInvalid
 	}
 
-	// Check if session has expired
+	// Check if session has expired (sliding window)
 	if time.Now().After(session.ExpiresAt) {
 		log.Printf("Session expired: %s (expired at %v)", redactToken(sessionID), session.ExpiresAt)
 		s.InvalidateSession(sessionID)
 		return nil, ErrSessionExpired
+	}
+
+	// Enforce the absolute lifetime cap so a continuously-refreshed session
+	// cannot live forever (a stolen token in active use must eventually die).
+	if s.config.AbsoluteSessionDuration > 0 {
+		absoluteExpiry := session.CreatedAt.Add(s.config.AbsoluteSessionDuration)
+		if time.Now().After(absoluteExpiry) {
+			log.Printf("Session exceeded absolute lifetime: %s (created at %v)", redactToken(sessionID), session.CreatedAt)
+			s.InvalidateSession(sessionID)
+			return nil, ErrSessionExpired
+		}
 	}
 
 	// Optional: You could validate IP and user agent for additional security

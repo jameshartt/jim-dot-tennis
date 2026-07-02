@@ -100,7 +100,7 @@ Both `clean` and `test-e2e-clean` run `down -v`, removing the live database volu
 ### 2.4 Session and CSRF hardening — MED
 - ~~Session tokens logged in plaintext on every request (`auth/middleware.go:58`, `auth/service.go:220-221`)~~ ✅ **fixed 2026-07-02** — added a `redactToken` helper (non-reversible `sha256:` fingerprint) and applied it to all 8 session-ID log sites across `auth/{middleware,service,handlers}.go`. First unit test in `internal/auth` (`service_test.go`) asserts the raw token never appears. Remaining debug-spam volume is unchanged (fingerprints still print), which is acceptable now that they are non-sensitive.
 - No CSRF protection anywhere; several destructive admin actions are plain GET links (`/seasons/delete`, `/tournaments/toggle-visibility/`). `SameSite=Strict` is the only mitigation. **Fix (M):** CSRF token for admin POSTs; convert destructive GETs to POST.
-- Sliding session expiry with no absolute cap (`auth/service.go:194-199`) — a stolen token in use never expires. **Fix (S):** add an absolute lifetime.
+- ~~Sliding session expiry with no absolute cap (`auth/service.go:194-199`) — a stolen token in use never expires.~~ ✅ **fixed 2026-07-02** — added `Config.AbsoluteSessionDuration` (default 30d, 0 disables) enforced in `ValidateSession` against `session.CreatedAt`, so a continuously-refreshed session dies at the ceiling. Covered by `TestValidateSessionAbsoluteLifetimeCap` (old-but-active session rejected, fresh one passes, cap-disabled survives).
 - Login throttle keyed on username+IP (`auth/service.go:262-280`) — evaded by IP rotation or password spraying; and it fetches `LIMIT 5` rows before filtering by window. **Fix (M).**
 
 ### 2.5 Smaller items — LOW/MED
