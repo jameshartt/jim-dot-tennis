@@ -55,7 +55,7 @@ func (m *Middleware) RequireAuth(next http.Handler) http.Handler {
 			http.Redirect(w, r, loginURL, http.StatusSeeOther)
 			return
 		}
-		log.Printf("Found session cookie: %s", cookie.Value)
+		log.Printf("Found session cookie: %s", redactToken(cookie.Value))
 
 		// Validate session
 		session, err := m.service.ValidateSession(cookie.Value, r)
@@ -69,7 +69,7 @@ func (m *Middleware) RequireAuth(next http.Handler) http.Handler {
 			http.Redirect(w, r, loginURL, http.StatusSeeOther)
 			return
 		}
-		log.Printf("Session validated: %s (User ID: %d, Role: %s)", session.ID, session.UserID, session.Role)
+		log.Printf("Session validated: %s (User ID: %d, Role: %s)", redactToken(session.ID), session.UserID, session.Role)
 
 		// Get user details
 		var user models.User

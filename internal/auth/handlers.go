@@ -39,7 +39,7 @@ func (h *Handler) LoginHandler() http.HandlerFunc {
 		// If already logged in, redirect
 		cookie, err := r.Cookie(h.service.config.CookieName)
 		if err == nil {
-			log.Printf("Found existing cookie: %s", cookie.Value)
+			log.Printf("Found existing cookie: %s", redactToken(cookie.Value))
 			// Validate the session
 			_, err := h.service.ValidateSession(cookie.Value, r)
 			if err == nil {
@@ -134,7 +134,7 @@ func (h *Handler) LoginHandler() http.HandlerFunc {
 			h.service.SetSessionCookie(w, session)
 
 			// Ensure cookie is actually set before redirecting
-			log.Printf("Session cookie set with value: %s, expires: %v", session.ID, session.ExpiresAt)
+			log.Printf("Session cookie set with value: %s, expires: %v", redactToken(session.ID), session.ExpiresAt)
 
 			// Check for redirect parameter from URL
 			redirectTo := r.URL.Query().Get("redirect")

@@ -4,7 +4,9 @@ package auth
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
@@ -17,6 +19,18 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 )
+
+// redactToken returns a short, non-reversible fingerprint of a session token
+// for logging. It lets log lines be correlated to a session without ever
+// writing the token itself (which is the bearer credential — anyone with the
+// value can hijack the session), so logs are safe to share for debugging.
+func redactToken(token string) string {
+	if token == "" {
+		return "<empty>"
+	}
+	sum := sha256.Sum256([]byte(token))
+	return "sha256:" + hex.EncodeToString(sum[:])[:12]
+}
 
 var (
 	ErrInvalidCredentials = errors.New("invalid username or password")
@@ -159,7 +173,7 @@ func (s *Service) Login(username, password string, r *http.Request) (*models.Ses
 
 // ValidateSession checks if a session is valid and refreshes it
 func (s *Service) ValidateSession(sessionID string, r *http.Request) (*models.Session, error) {
-	log.Printf("Validating session: %s", sessionID)
+	log.Printf("Validating session: %s", redactToken(sessionID))
 
 	var session models.Session
 	err := s.db.Get(&session, `
@@ -173,7 +187,7 @@ func (s *Service) ValidateSession(sessionID string, r *http.Request) (*models.Se
 
 	// Check if session has expired
 	if time.Now().After(session.ExpiresAt) {
-		log.Printf("Session expired: %s (expired at %v)", sessionID, session.ExpiresAt)
+		log.Printf("Session expired: %s (expired at %v)", redactToken(sessionID), session.ExpiresAt)
 		s.InvalidateSession(sessionID)
 		return nil, ErrSessionExpired
 	}
@@ -183,7 +197,7 @@ func (s *Service) ValidateSession(sessionID string, r *http.Request) (*models.Se
 	// Uncomment this if you want stricter security
 	/*
 		if session.IP != r.RemoteAddr || session.UserAgent != r.UserAgent() {
-			log.Printf("Session security warning: IP/UserAgent mismatch for session %s", sessionID)
+			log.Printf("Session security warning: IP/UserAgent mismatch for session %s", redactToken(sessionID))
 			// You might choose to invalidate or just log the discrepancy
 			// s.InvalidateSession(sessionID)
 			// return nil, ErrSessionInvalid
@@ -199,7 +213,7 @@ func (s *Service) ValidateSession(sessionID string, r *http.Request) (*models.Se
 	`, time.Now(), time.Now().Add(s.config.SessionDuration), sessionID); err != nil {
 		log.Printf("Failed to update session activity: %v", err)
 	} else {
-		log.Printf("Session validated and refreshed: %s (user ID: %d, role: %s)", sessionID, session.UserID, session.Role)
+		log.Printf("Session validated and refreshed: %s (user ID: %d, role: %s)", redactToken(sessionID), session.UserID, session.Role)
 	}
 
 	return &session, nil
@@ -218,7 +232,7 @@ func (s *Service) InvalidateSession(sessionID string) error {
 // SetSessionCookie sets the session cookie in the response
 func (s *Service) SetSessionCookie(w http.ResponseWriter, session *models.Session) {
 	log.Printf("Setting session cookie: name=%s, value=%s, expires=%v, secure=%v, httpOnly=%v, path=%s",
-		s.config.CookieName, session.ID, session.ExpiresAt, s.config.CookieSecure, s.config.CookieHttpOnly, s.config.CookiePath)
+		s.config.CookieName, redactToken(session.ID), session.ExpiresAt, s.config.CookieSecure, s.config.CookieHttpOnly, s.config.CookiePath)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     s.config.CookieName,
