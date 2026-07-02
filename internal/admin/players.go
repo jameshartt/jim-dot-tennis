@@ -1159,7 +1159,7 @@ func (h *PlayersHandler) handleRemindAllPlayers(w http.ResponseWriter, r *http.R
 		}
 
 		// Get player's fantasy token for push
-		token := h.getPlayerFantasyToken(ctx, player)
+		token := h.service.getPlayerFantasyToken(ctx, player)
 		if token == "" {
 			noSubscription++
 			continue
@@ -1193,16 +1193,4 @@ func (h *PlayersHandler) handleRemindAllPlayers(w http.ResponseWriter, r *http.R
 	}
 	fmt.Fprintf(w, `<span style="color:#28a745;">Reminded %d of %s (%d already set, %d without notifications)</span>`,
 		remindedCount, scope, alreadyUpdated, noSubscription)
-}
-
-// getPlayerFantasyToken looks up the fantasy auth token for a player
-func (h *PlayersHandler) getPlayerFantasyToken(ctx context.Context, player models.Player) string {
-	if player.FantasyMatchID == nil {
-		return ""
-	}
-	match, err := h.service.fantasyRepository.FindByID(ctx, *player.FantasyMatchID)
-	if err != nil || match == nil {
-		return ""
-	}
-	return match.AuthToken
 }

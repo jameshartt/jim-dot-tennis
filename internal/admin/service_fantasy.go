@@ -194,6 +194,17 @@ func (s *Service) UpdatePlayerFantasyMatch(playerID string, fantasyMatchID *uint
 	return nil
 }
 
+func (s *Service) getPlayerFantasyToken(ctx context.Context, player models.Player) string {
+	if player.FantasyMatchID == nil {
+		return ""
+	}
+	match, err := s.fantasyRepository.FindByID(ctx, *player.FantasyMatchID)
+	if err != nil || match == nil {
+		return ""
+	}
+	return match.AuthToken
+}
+
 // GenerateAndAssignRandomFantasyMatch creates a random fantasy doubles pairing and assigns it to a player
 func (s *Service) GenerateAndAssignRandomFantasyMatch(playerID string) (*FantasyDoublesDetail, error) {
 	ctx := context.Background()

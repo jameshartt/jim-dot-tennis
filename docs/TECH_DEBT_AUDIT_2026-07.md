@@ -155,7 +155,7 @@ Also: ~123 lines of SQL in 12 non-repo files (sessions/users queried from two pa
 **Fix (M each):** extract Points/Wrapped SQL to services; migrate to ServeMux patterns; convert string-built HTML to template partials.
 
 ### 4.4 Duplication and dead code — MED/LOW
-- Availability-reminder push flow duplicated (`fixtures.go:1707-1815` vs `players.go:1080-1197`); `getPlayerFantasyToken` byte-identical in both files. **Fix (S).**
+- Availability-reminder push flow duplicated (`fixtures.go:1707-1815` vs `players.go:1080-1197`); ~~`getPlayerFantasyToken` byte-identical in both files~~ ✅ **fixed 2026-07-02** — hoisted to a single `(*Service).getPlayerFantasyToken` in `service_fantasy.go`; both handlers call through it. The larger reminder-flow duplication remains. **Fix (S).**
 - Team-name parsing has two divergent algorithms (`cmd/populate-db/main.go:438-467` Fields-based vs `repository/club.go:348-364` regex). **Fix (S).**
 - `cmd/` sprawl: only 4 of 13 commands are built by the Makefile. Dead/stale: `cmd/scraper` (hardcoded 2025 PDF URLs, superseded), `cmd/collect_tennis_data` + `cmd/import-tennis-players` (one-off fantasy-name scrape), `cmd/test-tennis-pairings` (should be a test), `cmd/populate-db` (914 lines, predates import-season). All compile against `internal/` so every refactor must keep them building. **Fix (S):** delete/archive.
 - Legacy `/player-selection` endpoint + its HTML-in-Go renderer (~100 lines) superseded by `/team-selection`. **Fix (S).**

@@ -1609,19 +1609,6 @@ func (h *FixturesHandler) handleWeather(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// getPlayerFantasyToken looks up the fantasy auth token for a player.
-// Returns empty string if the player has no fantasy match assigned.
-func (h *FixturesHandler) getPlayerFantasyToken(ctx context.Context, player models.Player) string {
-	if player.FantasyMatchID == nil {
-		return ""
-	}
-	match, err := h.service.fantasyRepository.FindByID(ctx, *player.FantasyMatchID)
-	if err != nil || match == nil {
-		return ""
-	}
-	return match.AuthToken
-}
-
 // handleNotifySelectedPlayers sends push notifications to players selected for a fixture (WI-090)
 func (h *FixturesHandler) handleNotifySelectedPlayers(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -1674,7 +1661,7 @@ func (h *FixturesHandler) handleNotifySelectedPlayers(w http.ResponseWriter, r *
 	totalSelected := len(detail.SelectedPlayers)
 
 	for _, sp := range detail.SelectedPlayers {
-		token := h.getPlayerFantasyToken(ctx, sp.Player)
+		token := h.service.getPlayerFantasyToken(ctx, sp.Player)
 		if token == "" {
 			continue
 		}
@@ -1783,7 +1770,7 @@ func (h *FixturesHandler) handleRemindAvailability(w http.ResponseWriter, r *htt
 			continue
 		}
 
-		token := h.getPlayerFantasyToken(ctx, player)
+		token := h.service.getPlayerFantasyToken(ctx, player)
 		if token == "" {
 			noSubscription++
 			continue
