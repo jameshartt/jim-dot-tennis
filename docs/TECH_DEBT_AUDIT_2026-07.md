@@ -46,7 +46,7 @@ Almost nothing here requires a rewrite. The highest-risk items are mostly S-effo
 | 8 | Transactions on season copy/create/activate + result saves | Half-written seasons and match cards | M | open |
 | 9 | De-fork `fixture_team_selection` templates via partial | Silent UI drift after every HTMX swap | M | open |
 | 10 | Migration footguns (012 down file, migrate-down default, dirty auto-force) | Destructive/dirty schema states | S | ✅ done 2026-07-02 |
-| 11 | Unit tests for parser/matcher/points + `make test` target | Silent data-corrupting regressions | M | partial — `make test` ✅, parser + matcher tests ✅ 2026-07-02; points-calc golden test open |
+| 11 | Unit tests for parser/matcher/points + `make test` target | Silent data-corrupting regressions | M | ✅ done — `make test` + parser/matcher tests (2026-07-02) + points-calc golden test (2026-07-03) |
 | 12 | Docker build speed (`-a`, cache mounts, `.dockerignore`) | 1-CPU server pegged per deploy; secrets in build context | S | ✅ done 2026-07-02 |
 | 13 | Decide on fantasy-token PII read-back (exceeds intended blast radius) | Guessed token reads full name + match history | S (decision) | open |
 | 14 | CI pipeline | Deploy gating (low weight for solo maintainer) | M | deprioritized |
@@ -192,7 +192,7 @@ The player-facing flagship page: 1,474 lines of inline CSS + 902 of inline JS. C
 
 ### 6.1 Test coverage gaps — PARTIAL
 Zero unit tests in: `internal/admin` (18,913 lines incl. points/scoring), ~~`internal/services/matchcard_*`~~, ~~`internal/auth`~~. **No computed points value is asserted anywhere in the entire test estate** — the e2e points spec only checks page structure. The existing tests are good templates (table-driven, real migration-backed SQLite harness with `findMigrationsPath` ready to reuse).
-**✅ Done 2026-07-02:** `player_matcher_test.go` (normalise/levenshtein/similarity + `MatchPlayer` exact/fuzzy-threshold/apostrophe/no-match via an embedded-interface fake repo) and `matchcard_parser_test.go` (team names, division/week, dates, and the concatenated-name BHPLTA case). `internal/auth` also now has `service_test.go` (token redaction + absolute session cap, §2.4). **Still open (M):** extract the points calculation from its handler and golden-test it (the highest-value gap — no computed points value is asserted anywhere); `internal/admin` scoring coverage.
+**✅ Done 2026-07-02/03:** `player_matcher_test.go` (normalise/levenshtein/similarity + `MatchPlayer` exact/fuzzy-threshold/apostrophe/no-match via an embedded-interface fake repo) and `matchcard_parser_test.go` (team names, division/week, dates, and the concatenated-name BHPLTA case). `internal/auth` now has `service_test.go` (token redaction + absolute session cap, §2.4). **`internal/admin` now has `points_test.go`** — golden tests of `processMatchupPoints` across straight-sets win, three-set win, halved (1-1 marker), retirement (overrides partial scores), even-sets-draw, and accumulation. This closes the "no computed points value is asserted anywhere" gap (`processMatchupPoints` is pure — it never touches the handler receiver, so it tests directly). **Still open:** broader `internal/admin` service coverage; e2e value-level assertions (§6.2).
 
 ### 6.2 E2E value-level assertions — MED
 19 Playwright specs (~2,300 lines) with solid infrastructure (shared auth state, helpers, axe-core, idempotent seed) but the admin specs are mostly "element visible" smoke checks. For the top 3 flows, assert actual values computed from `seed.sql` (e.g. expected points after seeded results). (M)
