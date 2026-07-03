@@ -1,6 +1,10 @@
 -- Remove gender column from players table
 -- SQLite doesn't support DROP COLUMN directly, so we need to recreate the table
 
+-- Rebuilding players fails otherwise: migration 013's chk_preferred_name_unique
+-- trigger references players, and SQLite re-validates it during DROP/RENAME.
+PRAGMA legacy_alter_table = ON;
+
 CREATE TABLE players_new (
     id TEXT PRIMARY KEY,
     first_name VARCHAR(255) NOT NULL,

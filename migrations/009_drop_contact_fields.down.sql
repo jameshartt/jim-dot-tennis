@@ -1,4 +1,9 @@
 -- Restore email and phone columns to players table
+
+-- Guard the players rebuild against triggers that reference the table during
+-- DROP/RENAME (see 015/016 down for the chk_preferred_name_unique case).
+PRAGMA legacy_alter_table = ON;
+
 CREATE TABLE players_old (
     id TEXT PRIMARY KEY,
     first_name VARCHAR(255) NOT NULL,

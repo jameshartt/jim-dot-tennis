@@ -1,5 +1,10 @@
 -- Remove reporting privacy functionality from players table
 
+-- Rebuilding players below fails otherwise: migration 013's
+-- chk_preferred_name_unique trigger references players, and SQLite tries to
+-- re-validate it during the DROP/RENAME. legacy_alter_table skips that.
+PRAGMA legacy_alter_table = ON;
+
 -- Drop the triggers first
 DROP TRIGGER IF EXISTS check_reporting_privacy_insert;
 DROP TRIGGER IF EXISTS check_reporting_privacy_update;
