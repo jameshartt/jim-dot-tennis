@@ -46,10 +46,27 @@ ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && d
 ```bash
 # Build and transfer
 cd ~/Development/Tennis/TMX
+git checkout jim-tennis-deploy   # MUST build from this branch — see warning below
 nvm use 24
 pnpm build                # Uses .env.production → https://jim.tennis/api/courthive
 rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" dist/ root@144.126.228.64:/opt/jim-dot-tennis/TMX/dist/
 ```
+
+> **⚠️ Build ONLY from the `jim-tennis-deploy` branch.** The production `.env.production`
+> — with `SERVER=https://jim.tennis/api/courthive` and `BASE_URL=tournaments` — lives on
+> that branch. `upstream/main` (and any feature branch cut from it) has an `.env.production`
+> with **both values blank**, and a `pnpm build` from there silently produces a broken deploy:
+> - **No `BASE_URL`** → relative `./assets/` paths. The app loads on `jim.tennis/tournaments/`
+>   (trailing slash) but **white-screens on `jim.tennis/tournaments`** (no slash), because
+>   `./assets/` resolves to `/assets/` at the root and hits the Go-app catch-all (`text/plain`
+>   → blocked module). Confirm after building: `grep '<script' dist/index.html` must show
+>   `src="/tournaments/assets/..."`, not `src="./assets/..."`.
+> - **Blank `SERVER`** → login POSTs to `jim.tennis/auth/login` instead of
+>   `.../api/courthive/auth/login` → **404 on login**. Confirm:
+>   `grep -o 'https://jim.tennis/api/courthive' dist/assets/*.js` must return a match.
+>
+> A trailing-slash smoke test hides both bugs — always test the **no-trailing-slash** URL and
+> an actual login. (History: cost several bad deploys on 2026-07-13.)
 
 > **Remember to rebuild for local after deploying:** `pnpm build --mode development`
 > and restart Caddy: `docker compose -f docker-compose.courthive.yml restart caddy`
@@ -82,11 +99,15 @@ rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" dist/ root@144.126.228.
 ```bash
 # Transfer and rebuild
 cd ~/Development/Tennis/competition-factory-server
-rsync -avz --exclude='node_modules' --exclude='dist' --exclude='.git' --exclude='build' -e "ssh -i ~/.ssh/digital_ocean_ssh" ./ root@144.126.228.64:/opt/competition-factory-server/
+rsync -avz --delete --exclude='node_modules' --exclude='dist' --exclude='.git' --exclude='build' --exclude='backups' --exclude='.env' -e "ssh -i ~/.ssh/digital_ocean_ssh" ./ root@144.126.228.64:/opt/competition-factory-server/
 ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker compose stop courthive-server && docker compose build courthive-server && docker compose up -d courthive-server"
 ```
 
 > **Source path:** The compose files use `context: ../competition-factory-server` (relative to `/opt/jim-dot-tennis/`), so the rsync target is `/opt/competition-factory-server/` — sibling to `jim-dot-tennis/`, not inside it.
+
+> **`--delete` is required (learned 2026-07-11):** without it, files removed from the repo linger on the server and get swept into the Docker build context — a stale `src/modules/email/email.service.ts` (removed upstream) broke `pnpm build` with phantom `mailgun.js` import errors. `--exclude='.env'` protects the server-local env file from deletion; `.env` lives only on the server and must never be clobbered.
+
+> **Failed build ≠ outage:** if `docker compose build` fails, `up -d` restarts the previous image — the API comes back on the old version. Fix the build and re-run; nothing is lost.
 
 > **Stop before build (1GB RAM droplet):** Stopping `courthive-server` first frees memory; without it the Nest build can OOM. Brings the ~15s downtime forward but avoids a stuck build.
 
