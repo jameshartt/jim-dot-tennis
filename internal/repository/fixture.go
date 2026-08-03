@@ -282,9 +282,9 @@ func (r *fixtureRepository) FindByClubAndDateRange(ctx context.Context, clubID u
         INNER JOIN teams ta ON ta.id = f.away_team_id
         WHERE (th.club_id = ? OR ta.club_id = ?)
           AND f.scheduled_date >= ? AND f.scheduled_date <= ?
-          AND f.status IN (?, ?)
+          AND f.status IN (?, ?, ?)
         ORDER BY f.scheduled_date ASC
-    `, clubID, clubID, startDate, endDate, string(models.Scheduled), string(models.InProgress))
+    `, clubID, clubID, startDate, endDate, string(models.Scheduled), string(models.InProgress), string(models.Rescheduled))
 	return fixtures, err
 }
 
@@ -371,10 +371,10 @@ func (r *fixtureRepository) FindUpcoming(ctx context.Context, limit int) ([]mode
 	err := r.db.SelectContext(ctx, &fixtures, `
 		SELECT `+fixtureColumns+`
 		FROM fixtures 
-		WHERE scheduled_date >= CURRENT_TIMESTAMP AND status IN (?, ?)
+		WHERE scheduled_date >= CURRENT_TIMESTAMP AND status IN (?, ?, ?)
 		ORDER BY scheduled_date ASC
 		LIMIT ?
-	`, string(models.Scheduled), string(models.InProgress), limit)
+	`, string(models.Scheduled), string(models.InProgress), string(models.Rescheduled), limit)
 	return fixtures, err
 }
 
@@ -422,9 +422,9 @@ func (r *fixtureRepository) FindOverdue(ctx context.Context) ([]models.Fixture, 
 	err := r.db.SelectContext(ctx, &fixtures, `
 		SELECT `+fixtureColumns+`
 		FROM fixtures 
-		WHERE scheduled_date < CURRENT_TIMESTAMP AND status = ?
+		WHERE scheduled_date < CURRENT_TIMESTAMP AND status IN (?, ?)
 		ORDER BY scheduled_date ASC
-	`, string(models.Scheduled))
+	`, string(models.Scheduled), string(models.Rescheduled))
 	return fixtures, err
 }
 
@@ -604,7 +604,7 @@ func (r *fixtureRepository) FindUpcomingFixturesForPlayer(ctx context.Context, p
 		INNER JOIN fixture_players fp ON f.id = fp.fixture_id
 		WHERE fp.player_id = ?
 		  AND date(f.scheduled_date) >= date('now')
-		  AND f.status IN ('Scheduled', 'InProgress')
+		  AND f.status IN ('Scheduled', 'InProgress', 'Rescheduled')
 				ORDER BY f.scheduled_date ASC
 	`, playerID)
 

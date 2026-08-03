@@ -90,7 +90,7 @@ func (s *Service) GetHomeClubFixtures() (*models.Club, []FixtureWithRelations, e
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	tomorrowStart := todayStart.Add(24 * time.Hour)
 	for _, fixture := range allFixtures {
-		if fixture.Status == models.Scheduled || fixture.Status == models.InProgress {
+		if fixture.Status.IsPending() {
 			// Upcoming list excludes today's fixtures; those are shown separately
 			if !fixture.ScheduledDate.Before(tomorrowStart) {
 				upcomingFixtures = append(upcomingFixtures, fixture)
@@ -187,9 +187,11 @@ func (s *Service) GetHomeClubPastFixtures() (*models.Club, []FixtureWithRelation
 			continue
 		}
 
-		if fixture.Status == models.Completed || fixture.Status == models.Cancelled || fixture.Status == models.Postponed {
+		// AwaitingReschedule fixtures had their window pass with no result, so they
+		// belong in past fixtures where a captain can find them and set a new date.
+		if fixture.Status == models.Completed || fixture.Status == models.Cancelled || fixture.Status == models.Postponed || fixture.Status == models.AwaitingReschedule {
 			pastFixtures = append(pastFixtures, fixture)
-		} else if fixture.Status == models.Scheduled || fixture.Status == models.InProgress {
+		} else if fixture.Status.IsPending() {
 			if fixture.ScheduledDate.Before(todayStart) {
 				pastFixtures = append(pastFixtures, fixture)
 			}
@@ -221,6 +223,66 @@ func (s *Service) GetHomeClubPastFixtures() (*models.Club, []FixtureWithRelation
 
 		// For ascending order, return i < j
 		return divisionI < divisionJ
+	})
+
+	return homeClub, fixturesWithRelations, nil
+}
+
+// GetHomeClubAwaitingRescheduleFixtures returns the home club's active-season
+// fixtures currently in AwaitingReschedule status (window passed, no result), sorted
+// oldest first so the most overdue reschedules surface at the top. Used to
+// prominently nudge captains who have been slow to re-book cancelled fixtures.
+func (s *Service) GetHomeClubAwaitingRescheduleFixtures() (*models.Club, []FixtureWithRelations, error) {
+	ctx := context.Background()
+
+	activeSeason, err := s.seasonRepository.FindActive(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	if activeSeason == nil {
+		return nil, nil, nil // No active season
+	}
+
+	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	teams, err := s.teamRepository.FindByClub(ctx, homeClub.ID)
+	if err != nil {
+		return homeClub, nil, err
+	}
+	if len(teams) == 0 {
+		return homeClub, nil, nil
+	}
+
+	// Collect home-club fixtures, deduplicated (derbies appear under two teams).
+	fixtureMap := make(map[uint]models.Fixture)
+	for _, team := range teams {
+		teamFixtures, err := s.fixtureRepository.FindByTeam(ctx, team.ID)
+		if err != nil {
+			continue
+		}
+		for _, fixture := range teamFixtures {
+			fixtureMap[fixture.ID] = fixture
+		}
+	}
+
+	var awaiting []models.Fixture
+	for _, fixture := range fixtureMap {
+		if fixture.SeasonID != activeSeason.ID {
+			continue
+		}
+		if fixture.Status == models.AwaitingReschedule {
+			awaiting = append(awaiting, fixture)
+		}
+	}
+
+	fixturesWithRelations := s.buildFixturesWithRelations(ctx, awaiting, homeClub)
+
+	// Oldest scheduled date first — the longest-overdue reschedules lead.
+	sort.Slice(fixturesWithRelations, func(i, j int) bool {
+		return fixturesWithRelations[i].ScheduledDate.Before(fixturesWithRelations[j].ScheduledDate)
 	})
 
 	return homeClub, fixturesWithRelations, nil
@@ -272,7 +334,7 @@ func (s *Service) GetHomeClubTodaysFixtures() (*models.Club, []FixtureWithRelati
 	// Filter for today's fixtures
 	var todaysFixtures []models.Fixture
 	for _, fixture := range allFixtures {
-		if fixture.Status == models.Scheduled || fixture.Status == models.InProgress {
+		if fixture.Status.IsPending() {
 			if !fixture.ScheduledDate.Before(todayStart) && fixture.ScheduledDate.Before(tomorrowStart) {
 				todaysFixtures = append(todaysFixtures, fixture)
 			}
@@ -539,7 +601,7 @@ func (s *Service) GetUpcomingFixturesForTeam(teamID uint, limit int) ([]FixtureW
 	for _, fixture := range teamFixtures {
 		// Include fixtures that are today or in the future, and are scheduled or in progress
 		if (fixture.ScheduledDate.After(now) || fixture.ScheduledDate.After(today)) &&
-			(fixture.Status == models.Scheduled || fixture.Status == models.InProgress) {
+			(fixture.Status.IsPending()) {
 			upcomingFixtures = append(upcomingFixtures, fixture)
 		}
 	}
@@ -804,7 +866,7 @@ func (s *Service) GetHomeClubNextWeekFixturesByDivision() (map[string][]FixtureW
 		// Filter fixtures for next week and add to map to automatically deduplicate
 		for _, fixture := range teamFixtures {
 			if fixture.ScheduledDate.After(weekStart) && fixture.ScheduledDate.Before(weekEnd) {
-				if fixture.Status == models.Scheduled || fixture.Status == models.InProgress {
+				if fixture.Status.IsPending() {
 					fixtureMap[fixture.ID] = fixture
 				}
 			}
@@ -889,6 +951,10 @@ func (s *Service) UpdateFixtureSchedule(fixtureID uint, newScheduledDate time.Ti
 	updatedFixture.ScheduledDate = newScheduledDate
 	updatedFixture.PreviousDates = previousDates
 	updatedFixture.RescheduledReason = &rescheduleReason
+	// Moving a fixture to a new date marks it Rescheduled: still to-be-played
+	// (behaves like Scheduled for selection/availability) but distinguishable, and
+	// clears any AwaitingReschedule flag once a real future date is chosen.
+	updatedFixture.Status = models.Rescheduled
 	if notes != "" {
 		updatedFixture.Notes = notes
 	}
@@ -900,9 +966,37 @@ func (s *Service) UpdateFixtureSchedule(fixtureID uint, newScheduledDate time.Ti
 		return fmt.Errorf("failed to update fixture: %w", err)
 	}
 
+	// Always clear existing player selections AND matchups on reschedule. By the
+	// time a fixture rolls around (often months later) the same players won't all be
+	// available or destined for the same team, so captains expect a clean slate — a
+	// whole new fixture from the human perspective.
+	if err := s.ClearFixturePlayerSelection(fixtureID); err != nil {
+		// Non-fatal: the reschedule itself succeeded. Log and continue so a stale
+		// selection never blocks the date change.
+		log.Printf("Warning: failed to clear player selections after rescheduling fixture %d: %v", fixtureID, err)
+	}
+	if err := s.clearFixtureMatchups(ctx, fixtureID); err != nil {
+		log.Printf("Warning: failed to clear matchups after rescheduling fixture %d: %v", fixtureID, err)
+	}
+
 	log.Printf("Fixture %d rescheduled from %v to %v for reason: %s",
 		fixtureID, currentFixture.ScheduledDate, newScheduledDate, rescheduleReason)
 
+	return nil
+}
+
+// clearFixtureMatchups deletes all matchups for a fixture (matchup_players cascade
+// via the matchup delete). Used when rescheduling clears the pairings.
+func (s *Service) clearFixtureMatchups(ctx context.Context, fixtureID uint) error {
+	matchups, err := s.matchupRepository.FindByFixture(ctx, fixtureID)
+	if err != nil {
+		return err
+	}
+	for _, m := range matchups {
+		if err := s.matchupRepository.Delete(ctx, m.ID); err != nil {
+			return fmt.Errorf("failed to delete matchup %d: %w", m.ID, err)
+		}
+	}
 	return nil
 }
 

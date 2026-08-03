@@ -167,6 +167,121 @@ func TestPlayDownEligibilitySecondHalf(t *testing.T) {
 	}
 }
 
+// Regression test for the July 2026 "Liv" bug: fixtures that were scheduled for a
+// higher team but never played (rained/heated off, or simply not yet imported)
+// were counting toward Rule 16 and wrongly locking players out of a lower team.
+// Only Completed matches — matches actually played — must count.
+func TestPlayDownIgnoresUnplayedHigherTeamFixtures(t *testing.T) {
+	tmp := t.TempDir()
+	dbPath := filepath.Join(tmp, "eligibility_unplayed_test.db")
+
+	db, err := database.New(database.Config{Driver: "sqlite3", FilePath: dbPath})
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	if err := db.ExecuteMigrations(findMigrationsPathAdmin(t)); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	ctx := context.Background()
+	exec := func(query string, args ...interface{}) {
+		t.Helper()
+		if _, err := db.ExecContext(ctx, query, args...); err != nil {
+			t.Fatalf("seed %q: %v", query, err)
+		}
+	}
+
+	seasonStart := time.Date(2026, 4, 14, 0, 0, 0, 0, time.UTC)
+	seasonEnd := time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)
+	exec(`INSERT INTO seasons (id, name, year, start_date, end_date, is_active) VALUES (1, '2026 Season', 2026, ?, ?, 1)`, seasonStart, seasonEnd)
+
+	const numWeeks = 18
+	totalDays := seasonEnd.Sub(seasonStart).Hours() / 24
+	daysPerWeek := totalDays / float64(numWeeks)
+	for i := 1; i <= numWeeks; i++ {
+		weekStart := seasonStart.AddDate(0, 0, int(float64(i-1)*daysPerWeek))
+		weekEnd := seasonStart.AddDate(0, 0, int(float64(i)*daysPerWeek)-1)
+		if i == numWeeks {
+			weekEnd = seasonEnd
+		}
+		exec(`INSERT INTO weeks (id, week_number, season_id, start_date, end_date, name) VALUES (?, ?, 1, ?, ?, ?)`,
+			i, i, weekStart, weekEnd, fmt.Sprintf("Week %d", i))
+	}
+
+	exec(`INSERT INTO leagues (id, name, type, year, region) VALUES (1, 'Test League', 'Parks', 2026, 'Brighton')`)
+	exec(`INSERT INTO divisions (id, name, level, play_day, league_id, season_id) VALUES (1, 'Division 1', 1, 'Tuesday', 1, 1)`)
+	exec(`INSERT INTO clubs (id, name) VALUES (1, 'St Ann''s'), (2, 'Rivals')`)
+	exec(`INSERT INTO teams (id, name, club_id, division_id, season_id) VALUES
+		(1, 'St Ann''s',   1, 1, 1),
+		(2, 'St Ann''s B', 1, 1, 1),
+		(3, 'St Ann''s C', 1, 1, 1),
+		(4, 'Rivals',      2, 1, 1),
+		(5, 'Rivals B',    2, 1, 1)`)
+	exec(`INSERT INTO players (id, first_name, last_name, club_id) VALUES ('p1', 'Liv', 'Player', 1)`)
+
+	fixtureDate := func(weekNumber int) time.Time {
+		return seasonStart.AddDate(0, 0, (weekNumber-1)*7)
+	}
+
+	// A higher-team (rank 1) fixture in the given league week with the player
+	// selected, at an arbitrary status. status 'Completed' = actually played.
+	playedUpWithStatus := func(weekNumber int, status string) {
+		t.Helper()
+		fixtureID := 100 + weekNumber
+		matchupID := 100 + weekNumber
+		exec(`INSERT INTO fixtures (id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, venue_location, status, notes)
+			VALUES (?, 1, 4, 1, 1, ?, ?, '', ?, '')`, fixtureID, weekNumber, fixtureDate(weekNumber), status)
+		exec(`INSERT INTO matchups (id, fixture_id, type, status) VALUES (?, ?, 'Mens', 'Finished')`, matchupID, fixtureID)
+		exec(`INSERT INTO matchup_players (matchup_id, player_id, is_home) VALUES (?, 'p1', 1)`, matchupID)
+	}
+
+	// Target: lower team (St Ann's B) in league week 15.
+	const targetFixtureID = 500
+	exec(`INSERT INTO fixtures (id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, venue_location, status, notes)
+		VALUES (?, 2, 5, 1, 1, 15, ?, '', 'Scheduled', '')`, targetFixtureID, fixtureDate(15))
+
+	svc := NewService(db, "", 1, "")
+	elig := svc.teamEligibilityService
+
+	remaining := func(name string) *PlayerEligibilityInfo {
+		t.Helper()
+		got, err := elig.GetPlayerEligibilityForTeam(ctx, "p1", 2, targetFixtureID)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		return got
+	}
+
+	// Two matches actually played up (weeks 10, 11) → 2 count, 2 remaining.
+	playedUpWithStatus(10, "Completed")
+	playedUpWithStatus(11, "Completed")
+	if got := remaining("2 completed"); got.RemainingHigherTeamPlays != 2 || !got.CanPlay {
+		t.Fatalf("2 completed: got Remaining=%d CanPlay=%v, want Remaining=2 CanPlay=true", got.RemainingHigherTeamPlays, got.CanPlay)
+	}
+
+	// Three MORE higher-team fixtures that never got played: Scheduled,
+	// Rescheduled, and AwaitingReschedule. Under the old bug these would push the
+	// tally to 5 and lock the player out. They must be ignored entirely.
+	playedUpWithStatus(12, "Scheduled")
+	playedUpWithStatus(13, "Rescheduled")
+	playedUpWithStatus(14, "AwaitingReschedule")
+	if got := remaining("unplayed ignored"); got.RemainingHigherTeamPlays != 2 || !got.CanPlay || got.IsLockedToHigherTeam {
+		t.Fatalf("unplayed ignored: got Remaining=%d CanPlay=%v Locked=%v, want Remaining=2 CanPlay=true Locked=false",
+			got.RemainingHigherTeamPlays, got.CanPlay, got.IsLockedToHigherTeam)
+	}
+
+	// Flip the three unplayed higher-team fixtures (weeks 12-14, ids 112-114) to
+	// Completed: now 5 matches actually played up in the counted window (weeks
+	// 10-14), which locks the player. Confirms the rule itself is intact — only
+	// unplayed fixtures were being wrongly counted before the fix.
+	exec(`UPDATE fixtures SET status = 'Completed' WHERE id IN (112, 113, 114)`)
+	if got := remaining("5 completed locks"); got.CanPlay || !got.IsLockedToHigherTeam {
+		t.Fatalf("5 completed locks: got CanPlay=%v Locked=%v, want CanPlay=false Locked=true", got.CanPlay, got.IsLockedToHigherTeam)
+	}
+}
+
 // findMigrationsPathAdmin walks up from the package directory to locate the
 // project's migrations directory.
 func findMigrationsPathAdmin(t *testing.T) string {

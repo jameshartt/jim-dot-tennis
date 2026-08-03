@@ -240,7 +240,11 @@ func (s *TeamEligibilityService) hasPlayerPlayedInCalendarWeek(ctx context.Conte
 		LEFT JOIN fixture_players fp ON fp.fixture_id = f.id AND fp.player_id = ?
 		WHERE f.scheduled_date >= ? AND f.scheduled_date < ?
 		  AND f.id != ?
-		  AND f.status IN ('Scheduled', 'InProgress', 'Completed')
+		  -- Rule 1 forbids playing OR being scheduled to play for two teams in the
+		  -- same calendar week, so pending fixtures count. Rescheduled is still
+		  -- to-be-played and is included; AwaitingReschedule (no valid date),
+		  -- Cancelled and Postponed are not.
+		  AND f.status IN ('Scheduled', 'InProgress', 'Completed', 'Rescheduled')
 		  AND (mp.player_id IS NOT NULL OR fp.player_id IS NOT NULL)
 		  AND (
 		    (COALESCE(mp.is_home, fp.is_home) = 1 AND th.club_id = ?) OR
@@ -289,7 +293,10 @@ func (s *TeamEligibilityService) countHigherTeamMatchesInWeekRange(ctx context.C
 		  AND f.season_id = ?
 		  AND w.week_number >= ? AND w.week_number <= ?
 		  AND f.id != ?
-		  AND f.status IN ('Scheduled', 'InProgress', 'Completed')
+		  -- Rule 16 (played-down) counts matches actually PLAYED, so only Completed
+		  -- fixtures count. Fixtures that were scheduled but never played (rained
+		  -- off, or not yet imported) must not lock a player out of a lower team.
+		  AND f.status = 'Completed'
 		  AND t.id IN (` + s.createPlaceholders(len(higherTeamIDs)) + `)
 	`
 
@@ -331,7 +338,9 @@ func (s *TeamEligibilityService) countCurrentTeamMatchesInWeekRange(ctx context.
 		  AND f.season_id = ?
 		  AND w.week_number >= ? AND w.week_number <= ?
 		  AND f.id != ?
-		  AND f.status IN ('Scheduled', 'InProgress', 'Completed')
+		  -- Rule 16 (played-down) counts matches actually PLAYED, so only Completed
+		  -- fixtures count toward a player's tally for this team.
+		  AND f.status = 'Completed'
 		  AND (
 			(f.home_team_id = ? AND mp.is_home = 1) OR
 			(f.away_team_id = ? AND mp.is_home = 0)

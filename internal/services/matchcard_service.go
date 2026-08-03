@@ -47,6 +47,10 @@ type ImportConfig struct {
 	DryRun                bool          // If true, don't save to database
 	Verbose               bool          // If true, output detailed logs
 	ClearExistingMatchups bool          // If true, clear existing matchups before processing
+	// ClearUnplayedPairings, when true, also clears player selections on fixtures the
+	// post-import sweep flips to AwaitingReschedule (their window passed with no
+	// result). Captains treat a fixture that needs rescheduling as a clean slate.
+	ClearUnplayedPairings bool
 }
 
 // ImportResult holds the results of an import operation
@@ -56,8 +60,12 @@ type ImportResult struct {
 	CreatedMatchups  int
 	UpdatedMatchups  int
 	MatchedPlayers   int
-	UnmatchedPlayers []string
-	Errors           []string
+	// AwaitingRescheduleFixtures counts home-club fixtures the post-import sweep
+	// flipped to AwaitingReschedule (window passed, no result imported). On a dry
+	// run this reports how many WOULD be flipped without persisting.
+	AwaitingRescheduleFixtures int
+	UnmatchedPlayers           []string
+	Errors                     []string
 }
 
 // NewMatchCardService creates a new match card service
@@ -167,12 +175,131 @@ func (s *MatchCardService) ImportWeekMatchCards(ctx context.Context, config Impo
 		totalResult.Errors = append(totalResult.Errors, result.Errors...)
 	}
 
+	// After processing all cards, sweep any home-club fixtures for this week whose
+	// play window has passed with no result imported: flip them to AwaitingReschedule
+	// so captains know a new date is needed. Fixtures that got a card above are now
+	// Completed and are excluded from the sweep.
+	swept, err := s.sweepUnplayedFixtures(ctx, config, week)
+	if err != nil {
+		// Non-fatal: the import itself succeeded. Surface as a warning.
+		totalResult.Errors = append(totalResult.Errors,
+			fmt.Sprintf("Failed to sweep unplayed fixtures for week %d: %v", week, err))
+	} else {
+		totalResult.AwaitingRescheduleFixtures += swept
+	}
+
 	// Rate limiting
 	if config.RateLimit > 0 {
 		time.Sleep(config.RateLimit)
 	}
 
 	return totalResult, nil
+}
+
+// sweepUnplayedFixtures marks home-club fixtures for the given league week as
+// AwaitingReschedule when their start time has passed and no match card imported a
+// result. Importing implies the cards are ready, so a started home-club fixture with
+// no result genuinely needs rescheduling. It returns the number of fixtures affected
+// (or, on a dry run, the number that would be affected). When
+// config.ClearUnplayedPairings is set, it also clears player selections on the swept
+// fixtures.
+func (s *MatchCardService) sweepUnplayedFixtures(ctx context.Context, config ImportConfig, week int) (int, error) {
+	// Resolve the season(s) for the import year. Normally one per year for a league.
+	seasons, err := s.seasonRepo.FindByYear(ctx, config.Year)
+	if err != nil {
+		return 0, fmt.Errorf("failed to look up seasons for year %d: %w", config.Year, err)
+	}
+	if len(seasons) == 0 {
+		return 0, nil // Nothing to sweep — no season for this year
+	}
+
+	now := time.Now()
+	swept := 0
+
+	for _, season := range seasons {
+		fixtures, err := s.fixtureRepo.FindByWeekNumber(ctx, season.ID, week)
+		if err != nil {
+			return swept, fmt.Errorf("failed to load fixtures for season %d week %d: %w", season.ID, week, err)
+		}
+
+		for i := range fixtures {
+			fixture := fixtures[i]
+
+			// Only sweep fixtures still awaiting play (Scheduled/InProgress/Rescheduled).
+			// Completed/Cancelled/Postponed and already-AwaitingReschedule are skipped.
+			if !fixture.Status.IsPending() {
+				continue
+			}
+
+			// Only sweep once the fixture's start time has passed. If we're importing,
+			// the match cards are ready, so a started fixture with no imported result
+			// genuinely has no result — it needs rescheduling.
+			if !now.After(fixture.ScheduledDate) {
+				continue
+			}
+
+			// Only sweep fixtures the home club is involved in — those are the ones
+			// this app manages selections for.
+			involvesHomeClub, err := s.fixtureInvolvesHomeClub(ctx, &fixture)
+			if err != nil {
+				return swept, err
+			}
+			if !involvesHomeClub {
+				continue
+			}
+
+			swept++
+
+			if config.Verbose {
+				fmt.Printf("Sweep: fixture %d (%s) window passed with no result — marking AwaitingReschedule\n",
+					fixture.ID, fixture.ScheduledDate.Format("2006-01-02 15:04"))
+			}
+
+			if config.DryRun {
+				continue
+			}
+
+			if err := s.fixtureRepo.UpdateStatus(ctx, fixture.ID, models.AwaitingReschedule); err != nil {
+				return swept, fmt.Errorf("failed to mark fixture %d AwaitingReschedule: %w", fixture.ID, err)
+			}
+
+			if config.ClearUnplayedPairings {
+				if err := s.fixtureRepo.ClearSelectedPlayers(ctx, fixture.ID); err != nil {
+					return swept, fmt.Errorf("failed to clear selections on fixture %d: %w", fixture.ID, err)
+				}
+				// Also remove the matchups (the doubles pairings). Clearing the squad
+				// selection alone leaves stale pairings on a fixture that needs
+				// rescheduling — the captain expects a clean slate.
+				if err := s.clearExistingMatchups(ctx, config, fixture.ID, false, 0, 0); err != nil {
+					return swept, fmt.Errorf("failed to clear matchups on fixture %d: %w", fixture.ID, err)
+				}
+			}
+		}
+	}
+
+	return swept, nil
+}
+
+// fixtureInvolvesHomeClub reports whether either team in the fixture belongs to the
+// home club.
+func (s *MatchCardService) fixtureInvolvesHomeClub(ctx context.Context, fixture *models.Fixture) (bool, error) {
+	homeTeam, err := s.teamRepo.FindByID(ctx, fixture.HomeTeamID)
+	if err != nil {
+		return false, fmt.Errorf("failed to load home team %d: %w", fixture.HomeTeamID, err)
+	}
+	if homeTeam != nil && homeTeam.ClubID == s.homeClubID {
+		return true, nil
+	}
+
+	awayTeam, err := s.teamRepo.FindByID(ctx, fixture.AwayTeamID)
+	if err != nil {
+		return false, fmt.Errorf("failed to load away team %d: %w", fixture.AwayTeamID, err)
+	}
+	if awayTeam != nil && awayTeam.ClubID == s.homeClubID {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // fetchMatchCards fetches match card data from BHPLTA API

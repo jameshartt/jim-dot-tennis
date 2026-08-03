@@ -20,6 +20,13 @@ type Season struct {
 	Weeks     []Week    `json:"weeks,omitempty"`   // Weeks in this season
 }
 
+// HasStarted reports whether the season's start date has passed. Once a season is
+// under way its fixture list is fixed — mid-season changes are made by rescheduling
+// an existing fixture, not by creating new ones.
+func (s Season) HasStarted() bool {
+	return !s.StartDate.IsZero() && !time.Now().Before(s.StartDate)
+}
+
 // Week represents a specific week within a season
 type Week struct {
 	ID         uint      `json:"id" db:"id"`
@@ -215,7 +222,36 @@ const (
 	Completed  FixtureStatus = "Completed"  // Fixture is completed
 	Cancelled  FixtureStatus = "Cancelled"  // Fixture was cancelled
 	Postponed  FixtureStatus = "Postponed"  // Fixture was postponed
+	// Rescheduled is a still-to-be-played fixture that a captain moved to a new
+	// future date. It behaves like Scheduled for selection and availability but is
+	// tracked separately so captains can see a fixture has been moved, and so the
+	// played-down rule (Rule 16) can ignore it (only Completed matches count).
+	Rescheduled FixtureStatus = "Rescheduled"
+	// AwaitingReschedule is a fixture whose play window passed with no match card
+	// imported. The post-import sweep flips leftover fixtures into this status so
+	// captains know a new date is needed. It is not selectable or "upcoming".
+	AwaitingReschedule FixtureStatus = "AwaitingReschedule"
 )
+
+// IsPending reports whether the fixture is still to be played and can have players
+// selected for it: Scheduled, InProgress, or Rescheduled. AwaitingReschedule is not
+// pending — it has no valid future date until a captain reschedules it.
+func (s FixtureStatus) IsPending() bool {
+	return s == Scheduled || s == InProgress || s == Rescheduled
+}
+
+// Label returns a human-friendly label for display (e.g. badges). It only differs
+// from the raw value for the camelCase compound statuses.
+func (s FixtureStatus) Label() string {
+	switch s {
+	case InProgress:
+		return "In Progress"
+	case AwaitingReschedule:
+		return "Awaiting Reschedule"
+	default:
+		return string(s)
+	}
+}
 
 // RescheduledReason represents the reason for rescheduling a fixture
 type RescheduledReason string

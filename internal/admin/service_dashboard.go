@@ -142,7 +142,7 @@ func (s *Service) getHomeClubFixtureCount(ctx context.Context) (int, error) {
 
 		// Filter for remaining fixtures (scheduled or in progress, today or later)
 		for _, fixture := range teamFixtures {
-			if fixture.Status == models.Scheduled || fixture.Status == models.InProgress {
+			if fixture.Status.IsPending() {
 				if fixture.ScheduledDate.After(now) || fixture.ScheduledDate.Equal(now.Truncate(24*time.Hour)) {
 					totalRemainingFixtures++
 				}

@@ -59,7 +59,7 @@
                         <span class="vs-text">vs</span>
                         <span class="team-name">{{if .FixtureDetail.AwayTeam}}{{.FixtureDetail.AwayTeam.Name}}{{else}}TBD{{end}}</span>
                     </p>
-                    <span class="status-badge {{.FixtureDetail.Status}}">{{.FixtureDetail.Status}}</span>
+                    <span class="status-badge {{.FixtureDetail.Status}}">{{.FixtureDetail.Status.Label}}</span>
                 </div>
 
             {{template "admin/partials/derby_management.html" .}}

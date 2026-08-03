@@ -54,11 +54,20 @@ func (h *DashboardHandler) HandleDashboard(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Fixtures awaiting reschedule (window passed, no result) — surfaced on the
+	// dashboard as a prominent nudge for captains to set a new date.
+	_, awaitingReschedule, err := h.service.GetHomeClubAwaitingRescheduleFixtures()
+	if err != nil {
+		log.Printf("Failed to load fixtures awaiting reschedule for dashboard: %v", err)
+		awaitingReschedule = nil // Non-fatal: dashboard still renders without the nudge
+	}
+
 	// Prepare template data
 	templateData := map[string]interface{}{
-		"User":          user,
-		"Stats":         dashboardData.Stats,
-		"LoginAttempts": dashboardData.LoginAttempts,
+		"User":               user,
+		"Stats":              dashboardData.Stats,
+		"LoginAttempts":      dashboardData.LoginAttempts,
+		"AwaitingReschedule": awaitingReschedule,
 	}
 
 	// Execute the template
