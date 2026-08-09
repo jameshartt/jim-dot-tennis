@@ -921,6 +921,17 @@ func (s *Service) UpdateFixtureSchedule(fixtureID uint, newScheduledDate time.Ti
 		return fmt.Errorf("cannot reschedule completed fixture")
 	}
 
+	// A rescheduled fixture must stay within its season's year(s). A different year
+	// never makes sense and is almost always a date-picker fat-finger (e.g. year 0008
+	// instead of 2026), so reject it rather than corrupting the fixture.
+	if season, sErr := s.seasonRepository.FindByID(ctx, currentFixture.SeasonID); sErr == nil && season != nil &&
+		!season.StartDate.IsZero() && !season.EndDate.IsZero() {
+		if y := newScheduledDate.Year(); y < season.StartDate.Year() || y > season.EndDate.Year() {
+			return fmt.Errorf("the new date (%s) is outside the %d season — a fixture cannot be rescheduled to a different year",
+				newScheduledDate.Format("2 Jan 2006"), season.Year)
+		}
+	}
+
 	// Prepare the previous dates array
 	var previousDates []time.Time
 
