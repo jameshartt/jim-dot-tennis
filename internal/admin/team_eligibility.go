@@ -141,7 +141,19 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 		return nil, err
 	}
 
-	if playingWeek.WeekNumber >= secondHalfStartWeek {
+	// Rule 16 applies to matches played in the second half of the season. Normally
+	// the league week number decides this. But a fixture rescheduled out of its
+	// original week keeps its (earlier) week_id while being physically played on its
+	// scheduled_date, so a first-half-week fixture rescheduled to a second-half date
+	// (e.g. a week-8 fixture moved to September) is a second-half match and Rule 16
+	// must apply. Treat the fixture as second-half if EITHER its league week is in
+	// the second half OR its scheduled date falls in the second half of the season.
+	inSecondHalf := playingWeek.WeekNumber >= secondHalfStartWeek
+	if !inSecondHalf && s.scheduledInSecondHalf(ctx, fixture) {
+		inSecondHalf = true
+	}
+
+	if inSecondHalf {
 		// Get team rankings to determine which teams are "higher"
 		rankings, err := s.GetTeamRanking(ctx, targetTeam.ClubID, fixture.SeasonID)
 		if err != nil {
@@ -396,6 +408,21 @@ func (s *TeamEligibilityService) getSecondHalfStartWeek(ctx context.Context, sea
 		return 10, nil
 	}
 	return len(weeks)/2 + 1, nil
+}
+
+// scheduledInSecondHalf reports whether the fixture's scheduled date falls in the
+// second half of its season — on or after the midpoint between the season's start
+// and end dates. Used so Rule 16 applies to fixtures rescheduled out of a first-half
+// league week into the second half (their week_id stays first-half, but they are
+// played in the second half). Uses the real season start/end dates, NOT the weeks
+// table, whose windows drift from the real fixture calendar.
+func (s *TeamEligibilityService) scheduledInSecondHalf(ctx context.Context, fixture *models.Fixture) bool {
+	season, err := s.service.seasonRepository.FindByID(ctx, fixture.SeasonID)
+	if err != nil || season == nil || season.StartDate.IsZero() || season.EndDate.IsZero() {
+		return false
+	}
+	midpoint := season.StartDate.Add(season.EndDate.Sub(season.StartDate) / 2)
+	return !fixture.ScheduledDate.Before(midpoint)
 }
 
 // mondayToSaturdayWindow returns Monday 00:00 (inclusive) to Saturday 00:00 (exclusive) for the week of the given date
