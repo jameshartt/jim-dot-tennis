@@ -3,6 +3,9 @@
 package models
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -262,6 +265,52 @@ const (
 	OtherReason       RescheduledReason = "Other"             // Other reasons
 )
 
+// ScheduledDates is a list of fixture dates persisted to a single TEXT column as a
+// JSON array (the fixtures.previous_dates column). It implements driver.Valuer and
+// sql.Scanner so the repository can read and write it directly.
+type ScheduledDates []time.Time
+
+// Value serialises the date list to a JSON array string ("[]" when empty) for
+// storage in the previous_dates TEXT column.
+func (d ScheduledDates) Value() (driver.Value, error) {
+	if len(d) == 0 {
+		return "[]", nil
+	}
+	b, err := json.Marshal([]time.Time(d))
+	if err != nil {
+		return nil, err
+	}
+	return string(b), nil
+}
+
+// Scan reads the JSON array (string or []byte) from the previous_dates column. NULL
+// or empty input yields a nil slice.
+func (d *ScheduledDates) Scan(src interface{}) error {
+	if src == nil {
+		*d = nil
+		return nil
+	}
+	var b []byte
+	switch v := src.(type) {
+	case []byte:
+		b = v
+	case string:
+		b = []byte(v)
+	default:
+		return fmt.Errorf("ScheduledDates.Scan: unsupported source type %T", src)
+	}
+	if len(b) == 0 {
+		*d = nil
+		return nil
+	}
+	var out []time.Time
+	if err := json.Unmarshal(b, &out); err != nil {
+		return fmt.Errorf("ScheduledDates.Scan: %w", err)
+	}
+	*d = out
+	return nil
+}
+
 // Fixture represents a scheduled match between two teams
 type Fixture struct {
 	ID                  uint               `json:"id" db:"id"`
@@ -277,7 +326,7 @@ type Fixture struct {
 	DayCaptainID        *string            `json:"day_captain_id,omitempty" db:"day_captain_id"`                 // Optional day captain for this fixture (UUID)
 	ExternalMatchCardID *int               `json:"external_match_card_id,omitempty" db:"external_match_card_id"` // BHPLTA match card ID
 	Notes               string             `json:"notes" db:"notes"`
-	PreviousDates       []time.Time        `json:"previous_dates,omitempty" db:"previous_dates"`         // Previous scheduled dates (stored as JSON)
+	PreviousDates       ScheduledDates     `json:"previous_dates,omitempty" db:"previous_dates"`         // Previous scheduled dates (stored as a JSON array)
 	RescheduledReason   *RescheduledReason `json:"rescheduled_reason,omitempty" db:"rescheduled_reason"` // Reason for rescheduling
 	VenueClubID         *uint              `json:"venue_club_id,omitempty" db:"venue_club_id"`           // Per-fixture venue override (FK to clubs)
 	CreatedAt           time.Time          `json:"created_at" db:"created_at"`

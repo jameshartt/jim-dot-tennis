@@ -76,4 +76,29 @@ func TestUpdateFixtureScheduleRejectsWrongYear(t *testing.T) {
 		t.Fatalf("after valid reschedule: got status=%s date=%v, want status=Rescheduled date=%v",
 			fx.Status, fx.ScheduledDate, goodDate)
 	}
+
+	// Audit trail must persist: the reason and the previous (original) date.
+	if fx.RescheduledReason == nil || *fx.RescheduledReason != models.OtherReason {
+		t.Fatalf("reschedule reason not persisted: got %v, want Other", fx.RescheduledReason)
+	}
+	origDate := time.Date(2026, 6, 2, 18, 0, 0, 0, time.UTC)
+	if len(fx.PreviousDates) != 1 || !fx.PreviousDates[0].Equal(origDate) {
+		t.Fatalf("previous_dates not persisted: got %v, want [%v]", fx.PreviousDates, origDate)
+	}
+
+	// A second reschedule must append (not replace) the history.
+	secondDate := time.Date(2026, 9, 29, 14, 0, 0, 0, time.UTC)
+	if err := svc.UpdateFixtureSchedule(900, secondDate, models.WeatherReason, ""); err != nil {
+		t.Fatalf("second reschedule failed: %v", err)
+	}
+	fx, err = svc.fixtureRepository.FindByID(ctx, 900)
+	if err != nil {
+		t.Fatalf("reload fixture: %v", err)
+	}
+	if len(fx.PreviousDates) != 2 || !fx.PreviousDates[1].Equal(goodDate) {
+		t.Fatalf("previous_dates should append the prior date: got %v, want [%v %v]", fx.PreviousDates, origDate, goodDate)
+	}
+	if fx.RescheduledReason == nil || *fx.RescheduledReason != models.WeatherReason {
+		t.Fatalf("reason should update to the latest: got %v, want Weather", fx.RescheduledReason)
+	}
 }

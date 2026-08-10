@@ -932,12 +932,11 @@ func (s *Service) UpdateFixtureSchedule(fixtureID uint, newScheduledDate time.Ti
 		}
 	}
 
-	// Prepare the previous dates array
-	var previousDates []time.Time
+	// Prepare the previous dates array (persisted as a JSON array in previous_dates)
+	var previousDates models.ScheduledDates
 
-	// Parse existing previous dates from JSON
+	// Carry forward any existing history
 	if len(currentFixture.PreviousDates) > 0 {
-		// Note: PreviousDates is already a []time.Time slice from the model
 		previousDates = currentFixture.PreviousDates
 	}
 

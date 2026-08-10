@@ -90,7 +90,7 @@ func NewFixtureRepository(db *database.DB) FixtureRepository {
 // fixtureColumns is the standard set of columns for fixture queries
 const fixtureColumns = `id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date,
 	venue_location, status, completed_date, day_captain_id, external_match_card_id, notes,
-	venue_club_id, created_at, updated_at`
+	previous_dates, rescheduled_reason, venue_club_id, created_at, updated_at`
 
 // fixtureColumnsWithPrefix returns fixture columns prefixed with a table alias
 func fixtureColumnsWithPrefix(prefix string) string {
@@ -98,6 +98,7 @@ func fixtureColumnsWithPrefix(prefix string) string {
 		prefix + ".season_id, " + prefix + ".week_id, " + prefix + ".scheduled_date, " +
 		prefix + ".venue_location, " + prefix + ".status, " + prefix + ".completed_date, " + prefix + ".day_captain_id, " +
 		prefix + ".external_match_card_id, " + prefix + ".notes, " +
+		prefix + ".previous_dates, " + prefix + ".rescheduled_reason, " +
 		prefix + ".venue_club_id, " + prefix + ".created_at, " + prefix + ".updated_at"
 }
 
@@ -135,10 +136,10 @@ func (r *fixtureRepository) Create(ctx context.Context, fixture *models.Fixture)
 	result, err := r.db.NamedExecContext(ctx, `
 		INSERT INTO fixtures (home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date,
 		                     venue_location, status, completed_date, day_captain_id, external_match_card_id, notes,
-		                     venue_club_id, created_at, updated_at)
+		                     previous_dates, rescheduled_reason, venue_club_id, created_at, updated_at)
 		VALUES (:home_team_id, :away_team_id, :division_id, :season_id, :week_id, :scheduled_date,
 		        :venue_location, :status, :completed_date, :day_captain_id, :external_match_card_id, :notes,
-		        :venue_club_id, :created_at, :updated_at)
+		        :previous_dates, :rescheduled_reason, :venue_club_id, :created_at, :updated_at)
 	`, fixture)
 
 	if err != nil {
@@ -163,6 +164,7 @@ func (r *fixtureRepository) Update(ctx context.Context, fixture *models.Fixture)
 		    season_id = :season_id, week_id = :week_id, scheduled_date = :scheduled_date, venue_location = :venue_location,
 		    status = :status, completed_date = :completed_date, day_captain_id = :day_captain_id,
 		    external_match_card_id = :external_match_card_id, notes = :notes,
+		    previous_dates = :previous_dates, rescheduled_reason = :rescheduled_reason,
 		    venue_club_id = :venue_club_id, updated_at = :updated_at
 		WHERE id = :id
 	`, fixture)
