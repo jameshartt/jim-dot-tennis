@@ -4,6 +4,7 @@ package admin
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -13,6 +14,45 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 )
+
+// TestTeamSelectionTemplatesParse guards the team-selection templates against
+// syntax errors (unbalanced {{if}}/{{end}}, unknown functions), which otherwise
+// only surface at render time. Covers the eligibility-wording edits.
+func TestTeamSelectionTemplatesParse(t *testing.T) {
+	dir := findTemplatesPathAdmin(t)
+	for _, name := range []string{
+		"admin/fixture_team_selection.html",
+		"admin/fixture_team_selection_container.html",
+	} {
+		if _, err := parseTemplate(dir, name); err != nil {
+			t.Errorf("parse %s: %v", name, err)
+		}
+	}
+}
+
+// findTemplatesPathAdmin walks up from the package directory to locate the
+// project's templates directory.
+func findTemplatesPathAdmin(t *testing.T) string {
+	t.Helper()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	dir := cwd
+	for i := 0; i < 6; i++ {
+		candidate := filepath.Join(dir, "templates")
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			return candidate
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	t.Fatalf("could not locate templates directory from %s", cwd)
+	return ""
+}
 
 // A rescheduled fixture must stay within its season's year. A date-picker fat-finger
 // that lands the fixture in a different year (e.g. year 0008 instead of 2026, which
