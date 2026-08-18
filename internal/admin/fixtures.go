@@ -138,6 +138,14 @@ func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Fixtures awaiting reschedule (window passed, no result) — surfaced in their
+	// own prominent section to nudge captains to set a new date.
+	_, awaitingReschedule, err := h.service.GetHomeClubAwaitingRescheduleFixtures()
+	if err != nil {
+		logAndError(w, "Failed to load fixtures awaiting reschedule", err, http.StatusInternalServerError)
+		return
+	}
+
 	// Get the active season for filtering divisions, teams, and weeks
 	var divisions []models.Division
 	var weeks []models.Week
@@ -177,16 +185,17 @@ func (h *FixturesHandler) handleFixturesGet(w http.ResponseWriter, r *http.Reque
 
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
-		"User":             user,
-		"Club":             club,
-		"TodaysFixtures":   todaysFixtures,
-		"UpcomingFixtures": upcomingFixtures,
-		"PastFixtures":     pastFixtures,
-		"Divisions":        divisions,
-		"ActiveSeason":     activeSeason,
-		"Weeks":            weeks,
-		"Teams":            teams,
-		"HomeClubName":     homeClubNameFromContext(r),
+		"User":               user,
+		"Club":               club,
+		"TodaysFixtures":     todaysFixtures,
+		"UpcomingFixtures":   upcomingFixtures,
+		"PastFixtures":       pastFixtures,
+		"AwaitingReschedule": awaitingReschedule,
+		"Divisions":          divisions,
+		"ActiveSeason":       activeSeason,
+		"Weeks":              weeks,
+		"Teams":              teams,
+		"HomeClubName":       homeClubNameFromContext(r),
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
@@ -215,6 +224,15 @@ func (h *FixturesHandler) handleCreateFixture(w http.ResponseWriter, r *http.Req
 	}
 	if activeSeason == nil {
 		http.Error(w, "No active season found. Please create an active season first.", http.StatusBadRequest)
+		return
+	}
+
+	// Fixtures cannot be created once the season is under way. The fixture list is
+	// fixed at season setup; a change of date for an existing match is made by
+	// rescheduling that fixture, not by adding a new one. This guard stops the
+	// accidental duplicate fixtures captains create when they mean to reschedule.
+	if activeSeason.HasStarted() {
+		http.Error(w, "This season has already started, so new fixtures can't be created. To change a match date, open the existing fixture and use Edit Schedule to reschedule it.", http.StatusBadRequest)
 		return
 	}
 

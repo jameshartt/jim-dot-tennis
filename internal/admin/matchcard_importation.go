@@ -40,13 +40,14 @@ type MatchCardImportationPageData struct {
 
 // ImportRequest represents the form data for match card import
 type ImportRequest struct {
-	Week          int    `json:"week"`
-	Year          int    `json:"year"`
-	ClubName      string `json:"club_name"`
-	ClubID        int    `json:"club_id"`
-	ClubCode      string `json:"club_code"`
-	ClearExisting bool   `json:"clear_existing"`
-	DryRun        bool   `json:"dry_run"`
+	Week                  int    `json:"week"`
+	Year                  int    `json:"year"`
+	ClubName              string `json:"club_name"`
+	ClubID                int    `json:"club_id"`
+	ClubCode              string `json:"club_code"`
+	ClearExisting         bool   `json:"clear_existing"`
+	ClearUnplayedPairings bool   `json:"clear_unplayed_pairings"`
+	DryRun                bool   `json:"dry_run"`
 }
 
 // ImportResponse represents the results to display to the user
@@ -168,6 +169,7 @@ func (h *MatchCardImportationHandler) processImport(w http.ResponseWriter, r *ht
 		DryRun:                req.DryRun,
 		Verbose:               true, // Always verbose for web interface
 		ClearExistingMatchups: req.ClearExisting,
+		ClearUnplayedPairings: req.ClearUnplayedPairings,
 	}
 
 	// Run the import with auto-nonce extraction
@@ -212,13 +214,14 @@ func (h *MatchCardImportationHandler) parseImportRequest(r *http.Request) (*Impo
 	}
 
 	return &ImportRequest{
-		Week:          week,
-		Year:          year,
-		ClubName:      r.FormValue("club_name"),
-		ClubID:        clubID,
-		ClubCode:      r.FormValue("club_code"),
-		ClearExisting: r.FormValue("clear_existing") == "on",
-		DryRun:        r.FormValue("dry_run") == "on",
+		Week:                  week,
+		Year:                  year,
+		ClubName:              r.FormValue("club_name"),
+		ClubID:                clubID,
+		ClubCode:              r.FormValue("club_code"),
+		ClearExisting:         r.FormValue("clear_existing") == "on",
+		ClearUnplayedPairings: r.FormValue("clear_unplayed_pairings") == "on",
+		DryRun:                r.FormValue("dry_run") == "on",
 	}, nil
 }
 
@@ -365,6 +368,10 @@ func (h *MatchCardImportationHandler) generateStatsHTML(results *services.Import
 			</div>
 			<div class="stat-item">
 				<div class="stat-value">%d</div>
+				<div class="stat-label">Awaiting Reschedule</div>
+			</div>
+			<div class="stat-item">
+				<div class="stat-value">%d</div>
 				<div class="stat-label">Total Errors</div>
 			</div>
 		</div>
@@ -374,6 +381,7 @@ func (h *MatchCardImportationHandler) generateStatsHTML(results *services.Import
 		results.CreatedMatchups,
 		results.UpdatedMatchups,
 		results.MatchedPlayers,
+		results.AwaitingRescheduleFixtures,
 		len(results.Errors),
 	)
 }

@@ -29,6 +29,69 @@
             text-align: center;
         }
 
+        /* Awaiting Reschedule dashboard banner */
+        .awaiting-reschedule-banner {
+            border: 2px solid #fd7e14;
+            border-left-width: 6px;
+            border-radius: 8px;
+            background-color: rgba(253, 126, 20, 0.07);
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .awaiting-banner-head {
+            font-size: 1.15rem;
+            color: #c25e00;
+        }
+
+        .awaiting-banner-icon {
+            margin-right: 0.35rem;
+        }
+
+        .awaiting-banner-note {
+            margin: 0.35rem 0 0.75rem;
+            color: #7a5230;
+            font-size: 0.9rem;
+        }
+
+        .awaiting-banner-list {
+            list-style: none;
+            margin: 0 0 0.75rem;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .awaiting-banner-list a {
+            display: inline-flex;
+            gap: 0.6rem;
+            align-items: baseline;
+            text-decoration: none;
+            color: #333;
+        }
+
+        .awaiting-banner-list a:hover .awaiting-banner-teams {
+            text-decoration: underline;
+        }
+
+        .awaiting-banner-date {
+            color: #c25e00;
+            font-weight: 600;
+            font-size: 0.85rem;
+            min-width: 6.5rem;
+        }
+
+        .awaiting-banner-cta {
+            font-weight: 600;
+            color: #c25e00;
+            text-decoration: none;
+        }
+
+        .awaiting-banner-cta:hover {
+            text-decoration: underline;
+        }
+
         .stat-card-link {
             text-decoration: none;
             color: inherit;
@@ -269,6 +332,27 @@
         <div class="container">
             <div class="admin-container">
                 <h1 data-testid="dashboard-title">Admin Dashboard</h1>
+
+                {{if .AwaitingReschedule}}
+                <div class="awaiting-reschedule-banner">
+                    <div class="awaiting-banner-head">
+                        <span class="awaiting-banner-icon">⏳</span>
+                        <strong>{{len .AwaitingReschedule}}</strong>&nbsp;fixture{{if ne (len .AwaitingReschedule) 1}}s{{end}} awaiting reschedule
+                    </div>
+                    <p class="awaiting-banner-note">These passed their date with no result. Set a new date so players show as available again.</p>
+                    <ul class="awaiting-banner-list">
+                        {{range .AwaitingReschedule}}
+                        <li>
+                            <a href="/admin/league/fixtures/{{.ID}}/edit">
+                                <span class="awaiting-banner-date">{{.ScheduledDate.Format "Mon, Jan 2"}}</span>
+                                <span class="awaiting-banner-teams">{{if .HomeTeam}}{{.HomeTeam.Name}}{{else}}TBD{{end}} vs {{if .AwayTeam}}{{.AwayTeam.Name}}{{else}}TBD{{end}}</span>
+                            </a>
+                        </li>
+                        {{end}}
+                    </ul>
+                    <a href="/admin/league/fixtures" class="awaiting-banner-cta">Go to fixtures →</a>
+                </div>
+                {{end}}
 
                 <div class="admin-stats">
                     <a href="/admin/league/players" class="stat-card-link">

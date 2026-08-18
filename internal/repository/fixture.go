@@ -90,7 +90,7 @@ func NewFixtureRepository(db *database.DB) FixtureRepository {
 // fixtureColumns is the standard set of columns for fixture queries
 const fixtureColumns = `id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date,
 	venue_location, status, completed_date, day_captain_id, external_match_card_id, notes,
-	venue_club_id, created_at, updated_at`
+	previous_dates, rescheduled_reason, venue_club_id, created_at, updated_at`
 
 // fixtureColumnsWithPrefix returns fixture columns prefixed with a table alias
 func fixtureColumnsWithPrefix(prefix string) string {
@@ -98,6 +98,7 @@ func fixtureColumnsWithPrefix(prefix string) string {
 		prefix + ".season_id, " + prefix + ".week_id, " + prefix + ".scheduled_date, " +
 		prefix + ".venue_location, " + prefix + ".status, " + prefix + ".completed_date, " + prefix + ".day_captain_id, " +
 		prefix + ".external_match_card_id, " + prefix + ".notes, " +
+		prefix + ".previous_dates, " + prefix + ".rescheduled_reason, " +
 		prefix + ".venue_club_id, " + prefix + ".created_at, " + prefix + ".updated_at"
 }
 
@@ -135,10 +136,10 @@ func (r *fixtureRepository) Create(ctx context.Context, fixture *models.Fixture)
 	result, err := r.db.NamedExecContext(ctx, `
 		INSERT INTO fixtures (home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date,
 		                     venue_location, status, completed_date, day_captain_id, external_match_card_id, notes,
-		                     venue_club_id, created_at, updated_at)
+		                     previous_dates, rescheduled_reason, venue_club_id, created_at, updated_at)
 		VALUES (:home_team_id, :away_team_id, :division_id, :season_id, :week_id, :scheduled_date,
 		        :venue_location, :status, :completed_date, :day_captain_id, :external_match_card_id, :notes,
-		        :venue_club_id, :created_at, :updated_at)
+		        :previous_dates, :rescheduled_reason, :venue_club_id, :created_at, :updated_at)
 	`, fixture)
 
 	if err != nil {
@@ -163,6 +164,7 @@ func (r *fixtureRepository) Update(ctx context.Context, fixture *models.Fixture)
 		    season_id = :season_id, week_id = :week_id, scheduled_date = :scheduled_date, venue_location = :venue_location,
 		    status = :status, completed_date = :completed_date, day_captain_id = :day_captain_id,
 		    external_match_card_id = :external_match_card_id, notes = :notes,
+		    previous_dates = :previous_dates, rescheduled_reason = :rescheduled_reason,
 		    venue_club_id = :venue_club_id, updated_at = :updated_at
 		WHERE id = :id
 	`, fixture)
@@ -282,9 +284,9 @@ func (r *fixtureRepository) FindByClubAndDateRange(ctx context.Context, clubID u
         INNER JOIN teams ta ON ta.id = f.away_team_id
         WHERE (th.club_id = ? OR ta.club_id = ?)
           AND f.scheduled_date >= ? AND f.scheduled_date <= ?
-          AND f.status IN (?, ?)
+          AND f.status IN (?, ?, ?)
         ORDER BY f.scheduled_date ASC
-    `, clubID, clubID, startDate, endDate, string(models.Scheduled), string(models.InProgress))
+    `, clubID, clubID, startDate, endDate, string(models.Scheduled), string(models.InProgress), string(models.Rescheduled))
 	return fixtures, err
 }
 
@@ -371,10 +373,10 @@ func (r *fixtureRepository) FindUpcoming(ctx context.Context, limit int) ([]mode
 	err := r.db.SelectContext(ctx, &fixtures, `
 		SELECT `+fixtureColumns+`
 		FROM fixtures 
-		WHERE scheduled_date >= CURRENT_TIMESTAMP AND status IN (?, ?)
+		WHERE scheduled_date >= CURRENT_TIMESTAMP AND status IN (?, ?, ?)
 		ORDER BY scheduled_date ASC
 		LIMIT ?
-	`, string(models.Scheduled), string(models.InProgress), limit)
+	`, string(models.Scheduled), string(models.InProgress), string(models.Rescheduled), limit)
 	return fixtures, err
 }
 
@@ -422,9 +424,9 @@ func (r *fixtureRepository) FindOverdue(ctx context.Context) ([]models.Fixture, 
 	err := r.db.SelectContext(ctx, &fixtures, `
 		SELECT `+fixtureColumns+`
 		FROM fixtures 
-		WHERE scheduled_date < CURRENT_TIMESTAMP AND status = ?
+		WHERE scheduled_date < CURRENT_TIMESTAMP AND status IN (?, ?)
 		ORDER BY scheduled_date ASC
-	`, string(models.Scheduled))
+	`, string(models.Scheduled), string(models.Rescheduled))
 	return fixtures, err
 }
 
@@ -604,7 +606,7 @@ func (r *fixtureRepository) FindUpcomingFixturesForPlayer(ctx context.Context, p
 		INNER JOIN fixture_players fp ON f.id = fp.fixture_id
 		WHERE fp.player_id = ?
 		  AND date(f.scheduled_date) >= date('now')
-		  AND f.status IN ('Scheduled', 'InProgress')
+		  AND f.status IN ('Scheduled', 'InProgress', 'Rescheduled')
 				ORDER BY f.scheduled_date ASC
 	`, playerID)
 

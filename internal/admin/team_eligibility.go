@@ -141,7 +141,19 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 		return nil, err
 	}
 
-	if playingWeek.WeekNumber >= secondHalfStartWeek {
+	// Rule 16 applies to matches played in the second half of the season. Normally
+	// the league week number decides this. But a fixture rescheduled out of its
+	// original week keeps its (earlier) week_id while being physically played on its
+	// scheduled_date, so a first-half-week fixture rescheduled to a second-half date
+	// (e.g. a week-8 fixture moved to September) is a second-half match and Rule 16
+	// must apply. Treat the fixture as second-half if EITHER its league week is in
+	// the second half OR its scheduled date falls in the second half of the season.
+	inSecondHalf := playingWeek.WeekNumber >= secondHalfStartWeek
+	if !inSecondHalf && s.scheduledInSecondHalf(ctx, fixture) {
+		inSecondHalf = true
+	}
+
+	if inSecondHalf {
 		// Get team rankings to determine which teams are "higher"
 		rankings, err := s.GetTeamRanking(ctx, targetTeam.ClubID, fixture.SeasonID)
 		if err != nil {
@@ -157,9 +169,12 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 		isTopTeam := targetTeamRank == 1
 		eligibility.IsTopTeam = isTopTeam
 
-		// Count matches played in higher teams during the second half, up to and
-		// including this fixture's league week (excluding this fixture itself)
-		higherTeamMatches, lockedTeam, err := s.countHigherTeamMatchesInWeekRange(ctx, playerID, targetTeamRank, rankings, fixture.SeasonID, secondHalfStartWeek, playingWeek.WeekNumber, fixtureID)
+		// Count matches actually played in higher teams during the second half
+		// (from the second-half start onward), excluding this fixture itself. No
+		// upper week bound — see countHigherTeamMatchesFromWeek: a fixture
+		// rescheduled to the end of the season keeps its earlier league week, and
+		// bounding at that week would miss higher-team matches played in later weeks.
+		higherTeamMatches, lockedTeam, err := s.countHigherTeamMatchesFromWeek(ctx, playerID, targetTeamRank, rankings, fixture.SeasonID, secondHalfStartWeek, fixtureID)
 		if err != nil {
 			return nil, err
 		}
@@ -176,7 +191,7 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 		// For top team, no restrictions on higher team play since there are no higher teams
 		if isTopTeam {
 			// For top team, count matches in this team during the second half
-			currentTeamMatches, err := s.countCurrentTeamMatchesInWeekRange(ctx, playerID, teamID, fixture.SeasonID, secondHalfStartWeek, playingWeek.WeekNumber, fixtureID)
+			currentTeamMatches, err := s.countCurrentTeamMatchesFromWeek(ctx, playerID, teamID, fixture.SeasonID, secondHalfStartWeek, fixtureID)
 			if err != nil {
 				return nil, err
 			}
@@ -186,7 +201,7 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 			eligibility.CanPlayLower = true // Top team can always play lower teams
 		} else {
 			// For non-top teams, count matches in current team AND higher teams
-			currentTeamMatches, err := s.countCurrentTeamMatchesInWeekRange(ctx, playerID, teamID, fixture.SeasonID, secondHalfStartWeek, playingWeek.WeekNumber, fixtureID)
+			currentTeamMatches, err := s.countCurrentTeamMatchesFromWeek(ctx, playerID, teamID, fixture.SeasonID, secondHalfStartWeek, fixtureID)
 			if err != nil {
 				return nil, err
 			}
@@ -240,7 +255,11 @@ func (s *TeamEligibilityService) hasPlayerPlayedInCalendarWeek(ctx context.Conte
 		LEFT JOIN fixture_players fp ON fp.fixture_id = f.id AND fp.player_id = ?
 		WHERE f.scheduled_date >= ? AND f.scheduled_date < ?
 		  AND f.id != ?
-		  AND f.status IN ('Scheduled', 'InProgress', 'Completed')
+		  -- Rule 1 forbids playing OR being scheduled to play for two teams in the
+		  -- same calendar week, so pending fixtures count. Rescheduled is still
+		  -- to-be-played and is included; AwaitingReschedule (no valid date),
+		  -- Cancelled and Postponed are not.
+		  AND f.status IN ('Scheduled', 'InProgress', 'Completed', 'Rescheduled')
 		  AND (mp.player_id IS NOT NULL OR fp.player_id IS NOT NULL)
 		  AND (
 		    (COALESCE(mp.is_home, fp.is_home) = 1 AND th.club_id = ?) OR
@@ -257,9 +276,18 @@ func (s *TeamEligibilityService) hasPlayerPlayedInCalendarWeek(ctx context.Conte
 	return true, teamName, nil
 }
 
-// countHigherTeamMatchesInWeekRange counts how many fixtures a player has played in higher-ranked
-// teams within a league week window (inclusive), excluding the fixture being selected for
-func (s *TeamEligibilityService) countHigherTeamMatchesInWeekRange(ctx context.Context, playerID string, targetTeamRank int, rankings []TeamRank, seasonID uint, startWeek int, endWeek int, excludeFixtureID uint) (int, string, error) {
+// countHigherTeamMatchesFromWeek counts how many fixtures a player has actually
+// played (Completed) in higher-ranked teams from the given league week onward,
+// excluding the fixture being selected for.
+//
+// There is deliberately NO upper week bound. Rule 16 is a running total of
+// higher-team matches played in the second half, and a fixture rescheduled to the
+// end of the season keeps its original (earlier) league week — so bounding the
+// count at the target fixture's week wrongly excluded higher-team matches the player
+// has since played in later weeks, under-counting and showing the wrong eligibility.
+// The Completed filter already excludes not-yet-played future matches, so normal
+// in-order fixtures are unaffected.
+func (s *TeamEligibilityService) countHigherTeamMatchesFromWeek(ctx context.Context, playerID string, targetTeamRank int, rankings []TeamRank, seasonID uint, startWeek int, excludeFixtureID uint) (int, string, error) {
 	// Get all teams ranked higher than the target team
 	var higherTeamIDs []uint
 	for _, ranking := range rankings {
@@ -287,15 +315,18 @@ func (s *TeamEligibilityService) countHigherTeamMatchesInWeekRange(ctx context.C
 		)
 		WHERE mp.player_id = ?
 		  AND f.season_id = ?
-		  AND w.week_number >= ? AND w.week_number <= ?
+		  AND w.week_number >= ?
 		  AND f.id != ?
-		  AND f.status IN ('Scheduled', 'InProgress', 'Completed')
+		  -- Rule 16 (played-down) counts matches actually PLAYED, so only Completed
+		  -- fixtures count. Fixtures that were scheduled but never played (rained
+		  -- off, or not yet imported) must not lock a player out of a lower team.
+		  AND f.status = 'Completed'
 		  AND t.id IN (` + s.createPlaceholders(len(higherTeamIDs)) + `)
 	`
 
 	// Build args slice
 	args := make([]interface{}, 0)
-	args = append(args, playerID, seasonID, startWeek, endWeek, excludeFixtureID)
+	args = append(args, playerID, seasonID, startWeek, excludeFixtureID)
 	// Team IDs for WHERE clause to filter higher teams
 	for _, teamID := range higherTeamIDs {
 		args = append(args, teamID)
@@ -318,9 +349,11 @@ func (s *TeamEligibilityService) countHigherTeamMatchesInWeekRange(ctx context.C
 	return count, lockedTeam, nil
 }
 
-// countCurrentTeamMatchesInWeekRange counts fixtures played for the specific team within a
-// league week window (inclusive), excluding the fixture being selected for
-func (s *TeamEligibilityService) countCurrentTeamMatchesInWeekRange(ctx context.Context, playerID string, teamID uint, seasonID uint, startWeek int, endWeek int, excludeFixtureID uint) (int, error) {
+// countCurrentTeamMatchesFromWeek counts fixtures a player has actually played
+// (Completed) for the specific team from the given league week onward, excluding the
+// fixture being selected for. Like countHigherTeamMatchesFromWeek, there is no upper
+// week bound so rescheduled fixtures played out of week-order are counted correctly.
+func (s *TeamEligibilityService) countCurrentTeamMatchesFromWeek(ctx context.Context, playerID string, teamID uint, seasonID uint, startWeek int, excludeFixtureID uint) (int, error) {
 	query := `
 		SELECT COUNT(DISTINCT f.id)
 		FROM matchup_players mp
@@ -329,9 +362,11 @@ func (s *TeamEligibilityService) countCurrentTeamMatchesInWeekRange(ctx context.
 		INNER JOIN weeks w ON f.week_id = w.id
 		WHERE mp.player_id = ?
 		  AND f.season_id = ?
-		  AND w.week_number >= ? AND w.week_number <= ?
+		  AND w.week_number >= ?
 		  AND f.id != ?
-		  AND f.status IN ('Scheduled', 'InProgress', 'Completed')
+		  -- Rule 16 (played-down) counts matches actually PLAYED, so only Completed
+		  -- fixtures count toward a player's tally for this team.
+		  AND f.status = 'Completed'
 		  AND (
 			(f.home_team_id = ? AND mp.is_home = 1) OR
 			(f.away_team_id = ? AND mp.is_home = 0)
@@ -339,7 +374,7 @@ func (s *TeamEligibilityService) countCurrentTeamMatchesInWeekRange(ctx context.
 	`
 
 	var count int
-	err := s.service.db.GetContext(ctx, &count, query, playerID, seasonID, startWeek, endWeek, excludeFixtureID, teamID, teamID)
+	err := s.service.db.GetContext(ctx, &count, query, playerID, seasonID, startWeek, excludeFixtureID, teamID, teamID)
 	if err != nil {
 		return 0, err
 	}
@@ -373,6 +408,21 @@ func (s *TeamEligibilityService) getSecondHalfStartWeek(ctx context.Context, sea
 		return 10, nil
 	}
 	return len(weeks)/2 + 1, nil
+}
+
+// scheduledInSecondHalf reports whether the fixture's scheduled date falls in the
+// second half of its season — on or after the midpoint between the season's start
+// and end dates. Used so Rule 16 applies to fixtures rescheduled out of a first-half
+// league week into the second half (their week_id stays first-half, but they are
+// played in the second half). Uses the real season start/end dates, NOT the weeks
+// table, whose windows drift from the real fixture calendar.
+func (s *TeamEligibilityService) scheduledInSecondHalf(ctx context.Context, fixture *models.Fixture) bool {
+	season, err := s.service.seasonRepository.FindByID(ctx, fixture.SeasonID)
+	if err != nil || season == nil || season.StartDate.IsZero() || season.EndDate.IsZero() {
+		return false
+	}
+	midpoint := season.StartDate.Add(season.EndDate.Sub(season.StartDate) / 2)
+	return !fixture.ScheduledDate.Before(midpoint)
 }
 
 // mondayToSaturdayWindow returns Monday 00:00 (inclusive) to Saturday 00:00 (exclusive) for the week of the given date

@@ -142,6 +142,16 @@
     color: white;
 }
 
+.status-badge.Rescheduled {
+    background-color: #6610f2;
+    color: white;
+}
+
+.status-badge.AwaitingReschedule {
+    background-color: #fd7e14;
+    color: white;
+}
+
 .detail-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));

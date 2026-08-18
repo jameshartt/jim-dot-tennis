@@ -1011,19 +1011,19 @@
                         <h5>⚖️ Eligibility Status:</h5>
                         <div class="legend-item">
                             <span>✅</span>
-                            Free to play - Can play in lower divisions (remaining count shown)
+                            Eligible to play here. The number counts games left before they'd be locked to this team (then can't drop to a lower team)
                         </div>
                         <div class="legend-item">
                             <span>🔒</span>
-                            Locked - 4+ matches played (locked to this team or higher)
+                            Eligible here, but locked to this team — can't drop to a lower team (played 5+ at this level)
                         </div>
                         <div class="legend-item">
                             <span>⚠️</span>
-                            Warning - Already played this week (rule suggestion, can still select)
+                            Already played this week (rule suggestion, can still select)
                         </div>
                         <div class="legend-item">
                             <span>🚫</span>
-                            Blocked - Locked to higher division team
+                            Not eligible — locked to a higher team (played 5+ for them)
                         </div>
                     </div>
                     
@@ -1061,13 +1061,15 @@
                                     {{if .Eligibility.PlayedThisWeek}}
                                       {{$title = printf "%s | ⚠️ Already played this week for %s (rule suggestion)" $title .Eligibility.PlayedThisWeekTeam}}
                                     {{else if .Eligibility.IsLockedToHigherTeam}}
-                                      {{$title = printf "%s | 🚫 Locked to %s" $title .Eligibility.LockedToTeamName}}
+                                      {{$title = printf "%s | 🚫 Locked to %s — not eligible here (played 5+ for them)" $title .Eligibility.LockedToTeamName}}
                                     {{end}}
                                   {{else if .Eligibility.IsLocked}}
-                                    {{$title = printf "%s | 🔒 Locked to this team or higher" $title}}
+                                    {{$title = printf "%s | 🔒 Eligible here, but locked to this team (can't drop to a lower team)" $title}}
                                   {{else if .Eligibility.CanPlayLower}}
-                                    {{if ge .Eligibility.RemainingHigherTeamPlays 0}}
-                                      {{$title = printf "%s | ✅ %d plays left" $title .Eligibility.RemainingHigherTeamPlays}}
+                                    {{if gt .Eligibility.RemainingHigherTeamPlays 0}}
+                                      {{$title = printf "%s | ✅ Eligible — %d game(s) before locked to this team (then can't drop lower)" $title .Eligibility.RemainingHigherTeamPlays}}
+                                    {{else if eq .Eligibility.RemainingHigherTeamPlays 0}}
+                                      {{$title = printf "%s | ✅ Eligible — can play here; after this they're locked to this team (can't drop lower)" $title}}
                                     {{else}}
                                       {{$title = printf "%s | ✅ Can play lower teams" $title}}
                                     {{end}}
@@ -1091,7 +1093,11 @@
                                 {{$remainingText := ""}}
                                 {{if .Eligibility}}
                                   {{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}}
-                                    {{$remainingText = printf " (%d left)" .Eligibility.RemainingHigherTeamPlays}}
+                                    {{if eq .Eligibility.RemainingHigherTeamPlays 0}}
+                                      {{$remainingText = " · locked after this"}}
+                                    {{else}}
+                                      {{$remainingText = printf " · %d before locked" .Eligibility.RemainingHigherTeamPlays}}
+                                    {{end}}
                                   {{end}}
                                 {{end}}
                                 
@@ -1146,13 +1152,15 @@
                                     {{if .Eligibility.PlayedThisWeek}}
                                       {{$title = printf "%s | ⚠️ Already played this week for %s (rule suggestion)" $title .Eligibility.PlayedThisWeekTeam}}
                                     {{else if .Eligibility.IsLockedToHigherTeam}}
-                                      {{$title = printf "%s | 🚫 Locked to %s" $title .Eligibility.LockedToTeamName}}
+                                      {{$title = printf "%s | 🚫 Locked to %s — not eligible here (played 5+ for them)" $title .Eligibility.LockedToTeamName}}
                                     {{end}}
                                   {{else if .Eligibility.IsLocked}}
-                                    {{$title = printf "%s | 🔒 Locked to this team or higher" $title}}
+                                    {{$title = printf "%s | 🔒 Eligible here, but locked to this team (can't drop to a lower team)" $title}}
                                   {{else if .Eligibility.CanPlayLower}}
-                                    {{if ge .Eligibility.RemainingHigherTeamPlays -1}}
-                                      {{$title = printf "%s | ✅ %d plays left" $title .Eligibility.RemainingHigherTeamPlays}}
+                                    {{if gt .Eligibility.RemainingHigherTeamPlays 0}}
+                                      {{$title = printf "%s | ✅ Eligible — %d game(s) before locked to this team (then can't drop lower)" $title .Eligibility.RemainingHigherTeamPlays}}
+                                    {{else if eq .Eligibility.RemainingHigherTeamPlays 0}}
+                                      {{$title = printf "%s | ✅ Eligible — can play here; after this they're locked to this team (can't drop lower)" $title}}
                                     {{else}}
                                       {{$title = printf "%s | ✅ Can play lower teams" $title}}
                                     {{end}}
@@ -1175,8 +1183,12 @@
                                 
                                 {{$remainingText := ""}}
                                 {{if .Eligibility}}
-                                  {{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays -1)}}
-                                    {{$remainingText = printf " (%d left)" .Eligibility.RemainingHigherTeamPlays}}
+                                  {{if and .Eligibility.CanPlayLower (ge .Eligibility.RemainingHigherTeamPlays 0)}}
+                                    {{if eq .Eligibility.RemainingHigherTeamPlays 0}}
+                                      {{$remainingText = " · locked after this"}}
+                                    {{else}}
+                                      {{$remainingText = printf " · %d before locked" .Eligibility.RemainingHigherTeamPlays}}
+                                    {{end}}
                                   {{end}}
                                 {{end}}
                                 
