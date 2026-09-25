@@ -140,7 +140,7 @@ dev: build run logs
 # ============================================================
 
 # Go image (matches Dockerfile builder stage)
-GO_IMAGE = golang:1.25-alpine
+GO_IMAGE = golang:1.26-alpine
 
 # Docker run for tools that need CGO (vet, deadcode, mod tidy - anything that type-checks sqlite)
 DOCKER_GO_CGO = docker run --rm -v $$(pwd):/app -w /app $(GO_IMAGE) sh -c \

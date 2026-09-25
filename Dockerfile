@@ -1,4 +1,4 @@
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 # Install build dependencies including newer build tools
 RUN apk add --no-cache gcc musl-dev sqlite-dev build-base
@@ -25,9 +25,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=1 GOOS=linux CGO_CFLAGS="-D_LARGEFILE64_SOURCE" go build -ldflags '-extldflags "-static"' -tags 'sqlite_omit_load_extension' -o /app/bin/jim-dot-tennis ./cmd/jim-dot-tennis
 
 # Use a smaller image for the final application.
-# Pinned to match the builder's Alpine release (golang:1.25-alpine == 3.23.x)
+# Pinned to match the builder's Alpine release (golang:1.26-alpine == 3.24.x)
 # so the runtime libc/sqlite-libs stay ABI-compatible with the CGO binary.
-FROM alpine:3.23
+FROM alpine:3.24
 
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates sqlite-libs tzdata

@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Jim.Tennis is a club-agnostic tennis league management system, originally built at St Ann's Tennis Club for the Brighton and Hove Parks Tennis League. The home club is configured via environment variables (`HOME_CLUB_ID` / `HOME_CLUB_NAME`), making the system deployable for any parks league club. It handles player availability, team selection, fixture scheduling, match results tracking, and integrates with the BHPLTA (Brighton & Hove Parks League Tennis Association) website to import match cards.
 
 **Key Technical Stack:**
-- Go 1.25+
+- Go 1.26+
 - SQLite (default) or PostgreSQL
 - Server-side rendered templates with HTMX
 - PWA with push notifications

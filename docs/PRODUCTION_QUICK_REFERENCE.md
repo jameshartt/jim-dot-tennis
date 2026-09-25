@@ -4,7 +4,7 @@
 **Domain:** jim.tennis
 **SSH:** `ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64`
 **Path:** `/opt/jim-dot-tennis/`
-**Go Version:** 1.25 (Sprint 004)
+**Go Version:** 1.26 (bumped from 1.25 on 2026-09-25; runtime image alpine:3.24)
 
 ---
 
@@ -111,9 +111,24 @@ ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && d
 
 > **Stop before build (1GB RAM droplet):** Stopping `courthive-server` first frees memory; without it the Nest build can OOM. Brings the ~15s downtime forward but avoids a stuck build.
 
-> **pnpm pinned in Dockerfile:** The Dockerfile uses `corepack prepare pnpm@10.27.0 --activate` to match the lockfile. If you bump pnpm, regenerate `pnpm-lock.yaml` locally first or the Docker `--frozen-lockfile` install will fail with `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` or refuse on `ignoredBuiltDependencies`.
+> **pnpm via corepack:** The Dockerfile uses `corepack enable`, so pnpm follows the `packageManager` field in `package.json` (currently `pnpm@12.5.1`). If you bump pnpm, regenerate `pnpm-lock.yaml` locally first or the Docker `--frozen-lockfile` install will fail with `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` or refuse on `ignoredBuiltDependencies`.
 
-**Time:** ~3 minutes
+> **⚠️ Calendar backfill required when upgrading past the calendar refactor (migrations 047/048, factory 7.x — learned 2026-09-25).** Migration `047-add-calendar-tournaments` creates an EMPTY `calendar_tournaments` table (the new one-row-per-tournament calendar); migration `048-drop-legacy-calendars` then REFUSES to drop the legacy `calendars` blob table unless the new table is populated — a deliberate data-safety guard (Button lost 5,844 calendar entries on 2026-09-21 when 047+048 ran in the same boot with no backfill). On a host that has both migrations applying in one deploy, the new server **crashes on startup** with `Migration 048-drop-legacy-calendars.sql failed`. Fix: run the backfill BETWEEN the two, then start the new image. The calendar is a projection, so it recomputes from tournament records:
+> ```bash
+> # From a one-off container off the NEW image (scripts/ is NOT in the prod image,
+> # so bind-mount it from the rsync'd source; runtime image has node_modules + factory).
+> ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 '
+>   umask 077
+>   docker inspect courthive-server --format "{{range .Config.Env}}{{println .}}{{end}}" | grep -E "^PG_" > /tmp/pg.env
+>   docker run --rm --network jim-dot-tennis_tennis-network --env-file /tmp/pg.env \
+>     -v /opt/competition-factory-server/scripts:/app/host-scripts:ro -w /app \
+>     jim-dot-tennis-courthive-server:latest \
+>     node host-scripts/backfill-calendar-tournaments.mjs --dry     # then --apply
+>   rm -f /tmp/pg.env'
+> ```
+> Idempotent (upserts on `tournament_id`); `--dry` first. If the new image is already crash-looping, roll back fast by retagging the previous image: `docker tag <old-sha> jim-dot-tennis-courthive-server:latest && docker compose up -d --no-build --force-recreate courthive-server` (the old sha survives a rebuild as a dangling image — `docker images -f dangling=true`). Take a `pg_dumpall -U courthive` first.
+
+**Time:** ~3 minutes (add ~1 min if a calendar backfill is needed)
 **Downtime:** ~15 seconds
 **Warning:** Interrupts active API users
 
@@ -296,7 +311,7 @@ ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker run --rm -v courthiv
 
 ## Go Tooling (Sprint 004)
 
-All commands run inside Docker (no local Go install required). Uses `golang:1.25-alpine`.
+All commands run inside Docker (no local Go install required). Uses `golang:1.26-alpine`.
 
 ```bash
 # Static analysis
