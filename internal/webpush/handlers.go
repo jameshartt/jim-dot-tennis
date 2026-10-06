@@ -6,25 +6,22 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 )
 
-// SetupHandlers registers the webpush handlers
 // SetupHandlers registers webpush HTTP handlers on the given mux.
-// If no mux is provided, registers on http.DefaultServeMux.
-func (s *Service) SetupHandlers(mux ...*http.ServeMux) {
-	register := http.HandleFunc
-	if len(mux) > 0 && mux[0] != nil {
-		register = mux[0].HandleFunc
-	}
-	register("/api/vapid-public-key", s.handleGetVAPIDPublicKey)
-	register("/api/push/subscribe", s.handleSubscribe)
-	register("/api/push/unsubscribe", s.handleUnsubscribe)
-	register("/api/push/test", s.handleTestPush)
-	register("/api/push/test-player", s.handleTestPlayerPush)
-	register("/api/push/status", s.handlePushStatus)
-	register("/api/vapid-reset", s.handleResetVAPIDKeys)
+//
+// requireAdmin wraps the operator-only routes (broadcast to every subscriber,
+// VAPID key rotation); in production it is RequireAuth + RequireRole("admin").
+// Player self-service routes stay public — the fantasy token in the request is
+// the credential.
+func (s *Service) SetupHandlers(mux *http.ServeMux, requireAdmin func(http.Handler) http.Handler) {
+	mux.HandleFunc("/api/vapid-public-key", s.handleGetVAPIDPublicKey)
+	mux.HandleFunc("/api/push/subscribe", s.handleSubscribe)
+	mux.HandleFunc("/api/push/unsubscribe", s.handleUnsubscribe)
+	mux.HandleFunc("/api/push/test-player", s.handleTestPlayerPush)
+	mux.Handle("/api/push/test", requireAdmin(http.HandlerFunc(s.handleTestPush)))
+	mux.Handle("/api/vapid-reset", requireAdmin(http.HandlerFunc(s.handleResetVAPIDKeys)))
 }
 
 // handleGetVAPIDPublicKey returns the VAPID public key
@@ -181,12 +178,6 @@ func (s *Service) handleResetVAPIDKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only allow from localhost or with admin authentication
-	if !isLocalhost(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	publicKey, privateKey, err := s.ResetVAPIDKeys()
 	if err != nil {
 		log.Printf("Error resetting VAPID keys: %v", err)
@@ -236,31 +227,4 @@ func (s *Service) handleTestPlayerPush(w http.ResponseWriter, r *http.Request) {
 		"status": "success",
 		"sent":   sent,
 	})
-}
-
-// handlePushStatus returns whether a player token has active subscriptions
-func (s *Service) handlePushStatus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	playerToken := r.URL.Query().Get("playerToken")
-	if playerToken == "" {
-		http.Error(w, "Missing playerToken", http.StatusBadRequest)
-		return
-	}
-
-	hasSubscription := s.HasSubscription(playerToken)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"subscribed": hasSubscription,
-	})
-}
-
-// isLocalhost checks if the request is from localhost
-func isLocalhost(r *http.Request) bool {
-	host := r.Host
-	return host == "localhost" || host == "127.0.0.1" || strings.HasPrefix(host, "localhost:") || strings.HasPrefix(host, "127.0.0.1:")
 }

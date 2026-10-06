@@ -57,20 +57,16 @@ func (s *Service) GetActiveSeason() (*models.Season, error) {
 	return s.seasonRepository.FindActive(ctx)
 }
 
-// CreateSeasonWithWeeks creates a season and automatically generates weeks for it
+// CreateSeasonWithWeeks creates a season and automatically generates weeks for
+// it. The season and its weeks are written in one transaction.
 func (s *Service) CreateSeasonWithWeeks(season *models.Season, numWeeks int) error {
 	ctx := context.Background()
-
-	// Create the season first
-	if err := s.seasonRepository.Create(ctx, season); err != nil {
-		return fmt.Errorf("failed to create season: %w", err)
-	}
 
 	// Calculate the duration of each week
 	totalDays := season.EndDate.Sub(season.StartDate).Hours() / 24
 	daysPerWeek := totalDays / float64(numWeeks)
 
-	// Create weeks
+	weeks := make([]models.Week, 0, numWeeks)
 	for i := 1; i <= numWeeks; i++ {
 		weekStart := season.StartDate.AddDate(0, 0, int(float64(i-1)*daysPerWeek))
 		weekEnd := season.StartDate.AddDate(0, 0, int(float64(i)*daysPerWeek)-1)
@@ -80,19 +76,17 @@ func (s *Service) CreateSeasonWithWeeks(season *models.Season, numWeeks int) err
 			weekEnd = season.EndDate
 		}
 
-		week := &models.Week{
+		weeks = append(weeks, models.Week{
 			WeekNumber: i,
-			SeasonID:   season.ID,
 			StartDate:  weekStart,
 			EndDate:    weekEnd,
 			Name:       fmt.Sprintf("Week %d", i),
 			IsActive:   false,
-		}
+		})
+	}
 
-		if err := s.weekRepository.Create(ctx, week); err != nil {
-			log.Printf("Failed to create week %d for season %d: %v", i, season.ID, err)
-			return fmt.Errorf("failed to create week %d: %w", i, err)
-		}
+	if err := s.seasonRepository.CreateWithWeeks(ctx, season, weeks); err != nil {
+		return err
 	}
 
 	log.Printf("Successfully created season '%s' with %d weeks", season.Name, numWeeks)
@@ -100,36 +94,9 @@ func (s *Service) CreateSeasonWithWeeks(season *models.Season, numWeeks int) err
 }
 
 // SetActiveSeason sets a season as active and deactivates all others
+// (atomically — a failure leaves the previous active season in place).
 func (s *Service) SetActiveSeason(seasonID uint) error {
-	ctx := context.Background()
-
-	// Deactivate all seasons first
-	seasons, err := s.seasonRepository.FindAll(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get all seasons: %w", err)
-	}
-
-	for _, season := range seasons {
-		if season.IsActive {
-			season.IsActive = false
-			if err := s.seasonRepository.Update(ctx, &season); err != nil {
-				return fmt.Errorf("failed to deactivate season %d: %w", season.ID, err)
-			}
-		}
-	}
-
-	// Activate the specified season
-	season, err := s.seasonRepository.FindByID(ctx, seasonID)
-	if err != nil {
-		return fmt.Errorf("failed to find season %d: %w", seasonID, err)
-	}
-
-	season.IsActive = true
-	if err := s.seasonRepository.Update(ctx, season); err != nil {
-		return fmt.Errorf("failed to activate season %d: %w", seasonID, err)
-	}
-
-	return nil
+	return s.seasonRepository.SetActive(context.Background(), seasonID)
 }
 
 // GetWeeksBySeason retrieves weeks for a specific season
@@ -301,7 +268,9 @@ func (s *Service) MoveTeamToDivision(teamID uint, targetDivisionID uint) error {
 	return s.teamRepository.UpdateDivision(ctx, teamID, targetDivisionID)
 }
 
-// CopyFromPreviousSeason copies divisions and/or teams from the previous season to the target season
+// CopyFromPreviousSeason copies divisions and/or teams from the previous season
+// to the target season. The copy is all-or-nothing: any failure (including a
+// player or captain insert) is returned and nothing is written.
 func (s *Service) CopyFromPreviousSeason(targetSeasonID uint, copyDivisions, copyTeams bool) error {
 	ctx := context.Background()
 
@@ -317,117 +286,8 @@ func (s *Service) CopyFromPreviousSeason(targetSeasonID uint, copyDivisions, cop
 	if err != nil || len(previousSeasons) == 0 {
 		return fmt.Errorf("no season found for year %d", previousYear)
 	}
-	previousSeason := previousSeasons[0]
 
-	// Map to track old division ID -> new division ID
-	divisionIDMap := make(map[uint]uint)
-
-	// Copy divisions if requested
-	if copyDivisions {
-		oldDivisions, err := s.divisionRepository.FindBySeason(ctx, previousSeason.ID)
-		if err != nil {
-			return fmt.Errorf("failed to find divisions from previous season: %w", err)
-		}
-
-		for _, oldDiv := range oldDivisions {
-			newDiv := &models.Division{
-				Name:            oldDiv.Name,
-				Level:           oldDiv.Level,
-				PlayDay:         oldDiv.PlayDay,
-				LeagueID:        oldDiv.LeagueID,
-				SeasonID:        targetSeasonID,
-				MaxTeamsPerClub: oldDiv.MaxTeamsPerClub,
-			}
-
-			if err := s.divisionRepository.Create(ctx, newDiv); err != nil {
-				return fmt.Errorf("failed to create division %s: %w", oldDiv.Name, err)
-			}
-
-			divisionIDMap[oldDiv.ID] = newDiv.ID
-		}
-	}
-
-	// Copy teams if requested
-	if copyTeams {
-		// If divisions weren't copied, we need to build the division map
-		if !copyDivisions {
-			oldDivisions, err := s.divisionRepository.FindBySeason(ctx, previousSeason.ID)
-			if err != nil {
-				return fmt.Errorf("failed to find divisions from previous season: %w", err)
-			}
-
-			newDivisions, err := s.divisionRepository.FindBySeason(ctx, targetSeasonID)
-			if err != nil {
-				return fmt.Errorf("failed to find divisions in target season: %w", err)
-			}
-
-			// Map by name (assuming division names match)
-			newDivsByName := make(map[string]uint)
-			for _, div := range newDivisions {
-				newDivsByName[div.Name] = div.ID
-			}
-
-			for _, oldDiv := range oldDivisions {
-				if newDivID, ok := newDivsByName[oldDiv.Name]; ok {
-					divisionIDMap[oldDiv.ID] = newDivID
-				}
-			}
-		}
-
-		oldTeams, err := s.teamRepository.FindBySeason(ctx, previousSeason.ID)
-		if err != nil {
-			return fmt.Errorf("failed to find teams from previous season: %w", err)
-		}
-
-		for _, oldTeam := range oldTeams {
-			newDivisionID, ok := divisionIDMap[oldTeam.DivisionID]
-			if !ok {
-				// Skip teams whose division doesn't have a match in the new season
-				continue
-			}
-
-			newTeam := &models.Team{
-				Name:       oldTeam.Name,
-				ClubID:     oldTeam.ClubID,
-				DivisionID: newDivisionID,
-				SeasonID:   targetSeasonID,
-			}
-
-			if err := s.teamRepository.Create(ctx, newTeam); err != nil {
-				return fmt.Errorf("failed to create team %s: %w", oldTeam.Name, err)
-			}
-
-			// Copy players to the new team (skip inactive players)
-			oldPlayers, err := s.teamRepository.FindPlayersInTeam(ctx, oldTeam.ID, previousSeason.ID)
-			if err != nil {
-				continue // Skip if can't get players
-			}
-
-			for _, playerTeam := range oldPlayers {
-				player, err := s.playerRepository.FindByID(ctx, playerTeam.PlayerID)
-				if err != nil || !player.IsActive {
-					continue // Skip inactive or missing players
-				}
-				_ = s.teamRepository.AddPlayer(ctx, newTeam.ID, playerTeam.PlayerID, targetSeasonID)
-			}
-
-			// Copy captains to the new team (skip inactive players)
-			oldCaptains, err := s.teamRepository.FindCaptainsInTeam(ctx, oldTeam.ID, previousSeason.ID)
-			if err != nil {
-				continue // Skip if can't get captains
-			}
-
-			for _, captain := range oldCaptains {
-				player, err := s.playerRepository.FindByID(ctx, captain.PlayerID)
-				if err != nil || !player.IsActive {
-					continue // Skip inactive or missing players
-				}
-				_ = s.teamRepository.AddCaptain(ctx, newTeam.ID, captain.PlayerID, captain.Role, targetSeasonID)
-			}
-		}
-	}
-
-	return nil
+	return s.seasonRepository.CopyStructure(ctx, previousSeasons[0].ID, targetSeasonID, copyDivisions, copyTeams)
 }
 
 // ImportSummary holds counts of what was created during a season import

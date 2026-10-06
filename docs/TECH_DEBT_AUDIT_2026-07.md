@@ -16,6 +16,11 @@
 > - **Migration footguns:** ✅ done — wrote the missing 012 down file (verified round-trips in isolation); `migrate-down` now requires an explicit `-version` with a confirmation prompt (no more silent default of 5); dirty-state startup now fails fast instead of auto-forcing, with `MIGRATE_ALLOW_DIRTY_FORCE=true` as a dev-only escape hatch; README updated (§3.4). **Newly discovered:** full rollback below v16 is still blocked by a *separate* pre-existing bug — migration 013's `chk_preferred_name_unique` trigger conflicts with the table-rebuild down files in 015/016 (`no such table: main.players`). Filed as a follow-up (§3.4).
 > - **Docker build waste:** ✅ done — dropped `go build -a`, added BuildKit cache mounts (module + build cache), pinned the final stage to `alpine:3.23` (matches the `golang:1.25-alpine` builder), aligned `Dockerfile.import` to Go 1.25, and rewrote `.dockerignore` to exclude `.env`, `.go-mod-cache/`, the root binary, and db backups from the build context (§7.1).
 
+>
+> **Follow-up fixes 2026-10-06 (third pass):**
+> - **Push endpoints:** ✅ done — `/api/push/test` (broadcast) and `/api/vapid-reset` are now admin-only (`RequireAuth` + `RequireRole("admin")`, injected into `SetupHandlers`). The reset's old `isLocalhost` check read `r.Host`, which any client controls — a test proved an anonymous `Host: localhost` POST rotated the VAPID keys (orphaning every subscription). `/api/push/status` had no client and was deleted (token oracle). `/api/push/test-player` stays public: the availability page's "test my notifications" button uses it, and the token is the credential. Covered by `internal/webpush/handlers_test.go` (§2.3).
+> - **Season transactions:** ✅ done for season create/activate/copy — all three now run in one transaction in the repository layer (`SetActive`, `CreateWithWeeks`, `CopyStructure`), and the copy's discarded `AddPlayer`/`AddCaptain` errors now propagate. Tests in `internal/admin/service_seasons_test.go` lock in the copy semantics and prove rollback with injected trigger failures. **Still open:** `SaveMatchupResults` + `MirrorDerbyResults` (§3.2).
+
 ---
 
 ## Executive summary
@@ -39,11 +44,11 @@ Almost nothing here requires a rewrite. The highest-risk items are mostly S-effo
 | 1 | Rotate CourtHive admin password + scrub from docs | Prod admin compromise | S | open |
 | 2 | Deploy hardening (sync set, pre-deploy backup, image tag rollback) | Bad deploy = data loss window | S–M | open |
 | 3 | Test a droplet snapshot restore; confirm snapshot cadence | Untested recovery path | S | open |
-| 4 | Auth-gate push endpoints | Anonymous broadcast to all subscribers | M | open |
+| 4 | Auth-gate push endpoints | Anonymous broadcast to all subscribers | M | ✅ done 2026-10-06 — broadcast + VAPID reset admin-only, status oracle removed |
 | 5 | Club Wrapped: season filter + stop swallowing errors | Publicly wrong stats next season | M | open |
 | 6 | Startup template cache + honest 500s | Per-request disk I/O on 1-CPU box; silent template breakage | M | open |
 | 7 | Unify matchcard derby code paths | League-scoring divergence between import types | M | open |
-| 8 | Transactions on season copy/create/activate + result saves | Half-written seasons and match cards | M | open |
+| 8 | Transactions on season copy/create/activate + result saves | Half-written seasons and match cards | M | partial — seasons ✅ 2026-10-06; result saves open |
 | 9 | De-fork `fixture_team_selection` templates via partial | Silent UI drift after every HTMX swap | M | open |
 | 10 | Migration footguns (012 down file, migrate-down default, dirty auto-force) | Destructive/dirty schema states | S | ✅ done 2026-07-02 |
 | 11 | Unit tests for parser/matcher/points + `make test` target | Silent data-corrupting regressions | M | ✅ done — `make test` + parser/matcher tests (2026-07-02) + points-calc golden test (2026-07-03) |
@@ -93,9 +98,9 @@ Both `clean` and `test-e2e-clean` run `down -v`, removing the live database volu
 ### 2.2 No rate limiting on token endpoints — LOW *(revised: was HIGH)*
 `internal/auth/middleware.go:153-198` (`RequireFantasyTokenAuth`) has no attempt throttling. Under the accepted-guessability posture this is optional hardening rather than a gap — but note it is the cheap control that keeps "resistant to automated guessing" true if bots ever do hammer the endpoint: a simple per-IP failed-lookup backoff (M) directly serves the stated design goal without touching tokens.
 
-### 2.3 Unauthenticated push-notification endpoints — MED
+### 2.3 Unauthenticated push-notification endpoints — ✅ FIXED 2026-10-06
 `internal/webpush/handlers.go:16-27` — `/api/push/test` lets **any anonymous caller broadcast an arbitrary push to every subscriber**; `/api/push/test-player` targets any player token; `/api/push/status` is an oracle that confirms whether a token is valid (aids 2.1/2.2 enumeration).
-**Fix (M):** admin-gate test/test-player; remove or rate-limit the status oracle.
+**Applied:** `SetupHandlers(mux, requireAdmin)` wraps `/api/push/test` and `/api/vapid-reset` in the admin middleware. The reset's `isLocalhost` guard was **spoofable** (it checked the client-supplied `Host` header; a test reproduced an anonymous key rotation) and is gone. `/api/push/status` had no caller and was removed. **Kept public by decision:** `/api/push/test-player`, which is the availability page's self-test button. It needs the player's own token, which keeps it within the token blast radius in §2.1. Its `sent` count still leaks whether a token has subscriptions, which is acceptable at the same level as §2.2. Regression tests are in `internal/webpush/handlers_test.go`.
 
 ### 2.4 Session and CSRF hardening — MED
 - ~~Session tokens logged in plaintext on every request (`auth/middleware.go:58`, `auth/service.go:220-221`)~~ ✅ **fixed 2026-07-02** — added a `redactToken` helper (non-reversible `sha256:` fingerprint) and applied it to all 8 session-ID log sites across `auth/{middleware,service,handlers}.go`. First unit test in `internal/auth` (`service_test.go`) asserts the raw token never appears. Remaining debug-spam volume is unchanged (fingerprints still print), which is acceptable now that they are non-sensitive.
@@ -120,6 +125,16 @@ Both `clean` and `test-e2e-clean` run `down -v`, removing the live database volu
 ### 3.2 Missing transactions on multi-step writes — HIGH
 No `Begin` in any of: `CreateSeasonWithWeeks` (`service_seasons.go:61-99`), `CopyFromPreviousSeason` (`:305-431` — which also discards errors: `_ = s.teamRepository.AddPlayer(...)` at 411, `AddCaptain` at 425), `SetActiveSeason` (`:103-133` — failure between deactivate-all and activate-one leaves **zero** active seasons), `SaveMatchupResults` + `MirrorDerbyResults` (`service_matchups.go:350-437, 486`). Season copy runs once a year under time pressure — the worst moment for a half-copied season with silently missing players. The right pattern already exists in 5 places (e.g. `repository/season.go:122 DeleteCascade`).
 **Fix (M):** wrap the four flows in `BeginTxx`; propagate the discarded errors.
+**✅ Seasons done 2026-10-06:**
+- `SetActiveSeason` now delegates to a transactional `seasonRepository.SetActive`. It checks the target exists before deactivating anything. Previously, an unknown ID left **zero** active seasons. The `chk_active_season` trigger only fires on INSERT, so the old repo `SetActive` could also leave two seasons active.
+- `CreateSeasonWithWeeks` now uses `CreateWithWeeks`, which inserts the season and its weeks in one transaction.
+- `CopyFromPreviousSeason` now uses `CopyStructure`, a single transaction that propagates every error. Semantics are unchanged:
+  - Inactive players and captains are skipped.
+  - In a teams-only copy, divisions are mapped by name.
+  - Teams whose division is unmatched are skipped.
+- All three are covered in `internal/admin/service_seasons_test.go`, including injected-failure rollback tests.
+
+**Still open:** `SaveMatchupResults` + `MirrorDerbyResults`. These reuse the full `matchupRepository.Update`, so the clean fix is making repositories accept a `sqlx.ExtContext` (DB or Tx) rather than duplicating that SQL.
 
 ### 3.3 Club Wrapped: 53 raw SELECTs, swallowed errors, no season filter — HIGH
 `internal/admin/club_wrapped.go` — the largest concentration of SQL outside the repository layer; 14 queries use `_ = ...Scan(...)` so schema drift renders zeros silently on a **public page**; `grep -c season_id` returns **0** — every stat spans all seasons — and `SeasonYear: 2025` is hardcoded (line 593). The moment a second season has finished matchups, every Wrapped stat is wrong.

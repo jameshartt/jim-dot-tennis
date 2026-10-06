@@ -119,8 +119,10 @@ func main() {
 	// Set up routes
 	mux := http.NewServeMux()
 
-	// Set up push notification handlers on our mux
-	pushService.SetupHandlers(mux)
+	// Set up push notification handlers on our mux (broadcast + VAPID reset are admin-only)
+	pushService.SetupHandlers(mux, func(next http.Handler) http.Handler {
+		return authMiddleware.RequireAuth(authMiddleware.RequireRole("admin")(next))
+	})
 
 	// Auth routes
 	authHandler.RegisterRoutes(mux)

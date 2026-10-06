@@ -27,6 +27,7 @@ type SeasonRepository interface {
 	FindAll(ctx context.Context) ([]models.Season, error)
 	FindByID(ctx context.Context, id uint) (*models.Season, error)
 	Create(ctx context.Context, season *models.Season) error
+	CreateWithWeeks(ctx context.Context, season *models.Season, weeks []models.Week) error
 	Update(ctx context.Context, season *models.Season) error
 	Delete(ctx context.Context, id uint) error
 	DeleteCascade(ctx context.Context, id uint) (*SeasonDeletionStats, error)
@@ -36,6 +37,10 @@ type SeasonRepository interface {
 	FindByYear(ctx context.Context, year int) ([]models.Season, error)
 	SetActive(ctx context.Context, id uint) error
 	FindWithLeagues(ctx context.Context, id uint) (*models.Season, error)
+
+	// CopyStructure copies divisions and/or teams (with active players and
+	// captains) from one season to another in a single transaction.
+	CopyStructure(ctx context.Context, fromSeasonID, toSeasonID uint, copyDivisions, copyTeams bool) error
 }
 
 // seasonRepository implements SeasonRepository
@@ -206,14 +211,39 @@ func (r *seasonRepository) FindByYear(ctx context.Context, year int) ([]models.S
 	return seasons, err
 }
 
-// SetActive sets a season as active (this will automatically deactivate others due to the database trigger)
+// SetActive makes the given season the only active one. The swap runs in a
+// transaction and checks the target exists first, so a failure can never
+// leave zero (or two) active seasons. (The chk_active_season trigger only
+// fires on INSERT, so it does not cover this UPDATE path.)
 func (r *seasonRepository) SetActive(ctx context.Context, id uint) error {
-	_, err := r.db.ExecContext(ctx, `
-		UPDATE seasons 
-		SET is_active = TRUE, updated_at = CURRENT_TIMESTAMP
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	var exists bool
+	if err := tx.GetContext(ctx, &exists, `SELECT EXISTS(SELECT 1 FROM seasons WHERE id = ?)`, id); err != nil {
+		return fmt.Errorf("failed to look up season %d: %w", id, err)
+	}
+	if !exists {
+		return fmt.Errorf("season %d not found", id)
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE seasons SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+		WHERE is_active = TRUE AND id != ?
+	`, id); err != nil {
+		return fmt.Errorf("failed to deactivate seasons: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE seasons SET is_active = TRUE, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
-	`, id)
-	return err
+	`, id); err != nil {
+		return fmt.Errorf("failed to activate season %d: %w", id, err)
+	}
+
+	return tx.Commit()
 }
 
 // FindWithLeagues retrieves a season with its associated leagues
