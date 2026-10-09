@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"strconv"
@@ -657,111 +658,75 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	// Start table and header
-	w.Write([]byte(`<table id="players-table" class="players-table">`))
-	w.Write([]byte(`<thead><tr>`))
-	w.Write([]byte(`<th class="col-name">Name</th>`))
-	w.Write([]byte(`<th class="col-gender">Gender</th>`))
-	w.Write([]byte(`<th class="col-availability">Availability Set For Next Week</th>`))
-	w.Write([]byte(`<th class="col-availability">Notifications</th>`))
-	// Dynamic team columns
+	data := playersTableData{}
 	for _, tID := range teamIDs {
 		label := teamNameByID[tID]
 		if label == "" {
 			label = fmt.Sprintf("Team %d", tID)
 		}
-		w.Write([]byte(fmt.Sprintf(`<th class="col-availability">%s Appearances</th>`, label)))
+		data.Columns = append(data.Columns, label)
 	}
-	// Dynamic division columns
 	for _, dID := range divisionIDs {
 		label := divisionNameByID[dID]
 		if label == "" {
 			label = fmt.Sprintf("Division %d", dID)
 		}
-		w.Write([]byte(fmt.Sprintf(`<th class="col-availability">%s Appearances</th>`, label)))
+		data.Columns = append(data.Columns, label)
 	}
-	w.Write([]byte(`<th class="col-action">Action</th>`))
-	w.Write([]byte(`</tr></thead>`))
+	data.EmptyColspan = 5 + len(data.Columns)
 
-	// Body
-	w.Write([]byte(`<tbody id="players-tbody">`))
-	if len(playersWithAvail) > 0 {
-		for _, p := range playersWithAvail {
-			activeClass := "player-active"
-			if !p.Player.IsActive {
-				activeClass = "player-inactive"
-			}
-
-			availStatusIcon := "❌"
-			if !p.Player.IsActive {
-				availStatusIcon = "—"
-			} else if p.HasSetNextWeekAvail {
-				availStatusIcon = "✅"
-			}
-
-			// Build action buttons based on active status
-			var actionButton string
-			if p.Player.IsActive {
-				if p.HasAvailabilityURL {
-					actionButton = fmt.Sprintf(`<button class="btn-copy-url" onclick="copyAvailabilityURL('%s', this)">📋 Copy</button>`, p.Player.ID)
-				} else {
-					actionButton = fmt.Sprintf(`<button class="btn-generate-url" onclick="generateAvailabilityURL('%s', this)">🔗 Generate</button>`, p.Player.ID)
-				}
-			} else {
-				actionButton = fmt.Sprintf(`<a href="/admin/league/players/%s/edit" style="color:#6c757d; font-size:0.85rem;">Edit</a>`, p.Player.ID)
-			}
-
-			inactiveBadge := ""
-			if !p.Player.IsActive {
-				inactiveBadge = `<span class="badge-inactive">Inactive</span>`
-			}
-
-			notifCell := "—"
-			if p.Player.IsActive && p.HasPushNotifications {
-				notifCell = fmt.Sprintf(`🔔 <button class="btn-test-push" onclick="sendTestPush('%s', this)">Test</button>`, p.FantasyAuthToken)
-			}
-
-			w.Write([]byte(fmt.Sprintf(`
-				<tr data-player-id="%s" data-player-name="%s %s" class="%s">
-					<td class="col-name">
-						<a href="/admin/league/players/%s/edit" class="row-link">%s %s</a>%s
-					</td>
-					<td class="col-gender">%s</td>
-					<td class="col-availability">%s</td>
-					<td class="col-availability">%s</td>
-			`, p.Player.ID, p.Player.FirstName, p.Player.LastName, activeClass,
-				p.Player.ID, p.Player.FirstName, p.Player.LastName, inactiveBadge,
-				p.Player.Gender, availStatusIcon, notifCell)))
-
-			// Team count cells in same order as headers
-			for _, tID := range teamIDs {
-				count := 0
-				if p.TeamAppearanceCounts != nil {
-					if c, ok := p.TeamAppearanceCounts[tID]; ok {
-						count = c
-					}
-				}
-				w.Write([]byte(fmt.Sprintf(`<td class="col-availability">%d</td>`, count)))
-			}
-			// Division count cells
-			for _, dID := range divisionIDs {
-				count := 0
-				if p.DivisionAppearanceCounts != nil {
-					if c, ok := p.DivisionAppearanceCounts[dID]; ok {
-						count = c
-					}
-				}
-				w.Write([]byte(fmt.Sprintf(`<td class="col-availability">%d</td>`, count)))
-			}
-
-			w.Write([]byte(fmt.Sprintf(`<td class="col-action">%s</td></tr>`, actionButton)))
+	for _, p := range playersWithAvail {
+		row := playersTableRow{PlayerWithAvailabilityInfo: p}
+		for _, tID := range teamIDs {
+			row.Counts = append(row.Counts, p.TeamAppearanceCounts[tID])
 		}
-	} else {
-		colspan := 5 + len(teamIDs) + len(divisionIDs)
-		w.Write([]byte(fmt.Sprintf(`<tr><td colspan="%d" style="text-align: center; padding: 2rem;">No players found matching your criteria.</td></tr>`, colspan)))
+		for _, dID := range divisionIDs {
+			row.Counts = append(row.Counts, p.DivisionAppearanceCounts[dID])
+		}
+		data.Rows = append(data.Rows, row)
 	}
-	w.Write([]byte(`</tbody></table>`))
+
+	if err := playersTableTemplate.Execute(w, data); err != nil {
+		log.Printf("Failed to render players table: %v", err)
+	}
 }
+
+type playersTableRow struct {
+	PlayerWithAvailabilityInfo
+	Counts []int // appearance counts, aligned with playersTableData.Columns
+}
+
+type playersTableData struct {
+	Columns      []string // dynamic "<team/division> Appearances" headers
+	Rows         []playersTableRow
+	EmptyColspan int
+}
+
+// playersTableTemplate renders the full players table (thead + tbody) so
+// headers can change with the dynamic team/division columns. html/template
+// escapes names in text, attributes and the onclick JS arguments.
+var playersTableTemplate = template.Must(template.New("players-table").Parse(`<table id="players-table" class="players-table">
+<thead><tr><th class="col-name">Name</th><th class="col-gender">Gender</th><th class="col-availability">Availability Set For Next Week</th><th class="col-availability">Notifications</th>
+{{- range .Columns}}<th class="col-availability">{{.}} Appearances</th>{{end -}}
+<th class="col-action">Action</th></tr></thead>
+<tbody id="players-tbody">
+{{- range .Rows}}{{$p := .Player}}
+<tr data-player-id="{{$p.ID}}" data-player-name="{{$p.FirstName}} {{$p.LastName}}" class="{{if $p.IsActive}}player-active{{else}}player-inactive{{end}}">
+	<td class="col-name"><a href="/admin/league/players/{{$p.ID}}/edit" class="row-link">{{$p.FirstName}} {{$p.LastName}}</a>{{if not $p.IsActive}}<span class="badge-inactive">Inactive</span>{{end}}</td>
+	<td class="col-gender">{{$p.Gender}}</td>
+	<td class="col-availability">{{if not $p.IsActive}}—{{else if .HasSetNextWeekAvail}}✅{{else}}❌{{end}}</td>
+	<td class="col-availability">{{if and $p.IsActive .HasPushNotifications}}🔔 <button class="btn-test-push" onclick="sendTestPush({{.FantasyAuthToken}}, this)">Test</button>{{else}}—{{end}}</td>
+	{{- range .Counts}}<td class="col-availability">{{.}}</td>{{end}}
+	<td class="col-action">
+	{{- if not $p.IsActive}}<a href="/admin/league/players/{{$p.ID}}/edit" style="color:#6c757d; font-size:0.85rem;">Edit</a>
+	{{- else if .HasAvailabilityURL}}<button class="btn-copy-url" onclick="copyAvailabilityURL({{$p.ID}}, this)">📋 Copy</button>
+	{{- else}}<button class="btn-generate-url" onclick="generateAvailabilityURL({{$p.ID}}, this)">🔗 Generate</button>{{end -}}
+	</td>
+</tr>
+{{- else}}
+<tr><td colspan="{{.EmptyColspan}}" style="text-align: center; padding: 2rem;">No players found matching your criteria.</td></tr>
+{{- end}}
+</tbody></table>`))
 
 // handleGenerateAvailabilityURL handles POST requests to generate availability URLs
 func (h *PlayersHandler) handleGenerateAvailabilityURL(w http.ResponseWriter, r *http.Request) {
@@ -1022,7 +987,7 @@ func (h *PlayersHandler) handleDeactivate(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, `<div class="deactivate-error" style="color: #dc3545; padding: 1rem; background: #f8d7da; border-radius: 6px; margin: 1rem 0;">%s</div>`, err.Error())
+		fmt.Fprintf(w, `<div class="deactivate-error" style="color: #dc3545; padding: 1rem; background: #f8d7da; border-radius: 6px; margin: 1rem 0;">%s</div>`, template.HTMLEscapeString(err.Error()))
 		return
 	}
 
@@ -1057,7 +1022,7 @@ func (h *PlayersHandler) handleReactivate(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, `<div class="deactivate-error" style="color: #dc3545; padding: 1rem;">Failed to reactivate player: %s</div>`, err.Error())
+		fmt.Fprintf(w, `<div class="deactivate-error" style="color: #dc3545; padding: 1rem;">Failed to reactivate player: %s</div>`, template.HTMLEscapeString(err.Error()))
 		return
 	}
 
@@ -1192,5 +1157,5 @@ func (h *PlayersHandler) handleRemindAllPlayers(w http.ResponseWriter, r *http.R
 		scope = teamLabel
 	}
 	fmt.Fprintf(w, `<span style="color:#28a745;">Reminded %d of %s (%d already set, %d without notifications)</span>`,
-		remindedCount, scope, alreadyUpdated, noSubscription)
+		remindedCount, template.HTMLEscapeString(scope), alreadyUpdated, noSubscription)
 }

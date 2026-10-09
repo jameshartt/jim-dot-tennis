@@ -80,11 +80,6 @@ func (h *FixturesHandler) HandleFixtures(w http.ResponseWriter, r *http.Request)
 			h.handleMatchupSelectionPost(w, r)
 			return
 		}
-		// Check if this is a player selection request (legacy)
-		if strings.HasSuffix(r.URL.Path, "/player-selection") {
-			h.handlePlayerSelection(w, r)
-			return
-		}
 		// Push notification actions
 		if strings.HasSuffix(r.URL.Path, "/notify-selected") {
 			h.handleNotifySelectedPlayers(w, r)
@@ -640,105 +635,6 @@ func (h *FixturesHandler) handleUpdateMatchup(w http.ResponseWriter, r *http.Req
 
 	// Redirect back to fixture detail
 	http.Redirect(w, r, fmt.Sprintf("/admin/league/fixtures/%d", fixtureID), http.StatusSeeOther)
-}
-
-// handlePlayerSelection handles requests for the player selection interface
-func (h *FixturesHandler) handlePlayerSelection(w http.ResponseWriter, r *http.Request) {
-	// Get user from context
-	_, err := getUserFromContext(r)
-	if err != nil {
-		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
-		return
-	}
-
-	// Extract fixture ID from URL path, removing the "/player-selection" suffix
-	path := strings.TrimSuffix(r.URL.Path, "/player-selection")
-	fixtureID, err := parseIDFromPath(path, "/admin/league/fixtures/")
-	if err != nil {
-		logAndError(w, "Invalid fixture ID", err, http.StatusBadRequest)
-		return
-	}
-
-	// Get available players for this fixture
-	teamPlayers, allHomeClubPlayers, err := h.service.GetAvailablePlayersForFixture(fixtureID)
-	if err != nil {
-		logAndError(w, "Failed to load available players", err, http.StatusInternalServerError)
-		return
-	}
-
-	// Get current selected players to filter them out
-	fixtureDetail, err := h.service.GetFixtureDetail(fixtureID)
-	if err != nil {
-		logAndError(w, "Failed to load fixture detail", err, http.StatusInternalServerError)
-		return
-	}
-
-	// Create a map of already selected player IDs for quick filtering
-	selectedMap := make(map[string]bool)
-	for _, sp := range fixtureDetail.SelectedPlayers {
-		selectedMap[sp.PlayerID] = true
-	}
-
-	// Filter out already selected players
-	var availableTeamPlayers []models.Player
-	for _, player := range teamPlayers {
-		if !selectedMap[player.ID] {
-			availableTeamPlayers = append(availableTeamPlayers, player)
-		}
-	}
-
-	var availableHomeClubPlayers []models.Player
-	for _, player := range allHomeClubPlayers {
-		if !selectedMap[player.ID] {
-			availableHomeClubPlayers = append(availableHomeClubPlayers, player)
-		}
-	}
-
-	// Determine if the home club is home or away
-	isHomeClub := h.service.IsHomeClubInFixture(fixtureID)
-
-	// Render inline player selection template
-	w.Header().Set("Content-Type", "text/html")
-	if _, err := w.Write([]byte(`
-		<div class="player-selection-form">
-			<h4>Add Players to Selection</h4>
-
-			` + renderPlayerGroup("Team Players", availableTeamPlayers, fixtureID, isHomeClub) + `
-
-			` + renderPlayerGroup("All "+homeClubNameFromContext(r)+" Players", availableHomeClubPlayers, fixtureID, isHomeClub) + `
-		</div>
-	`)); err != nil {
-		log.Printf("Failed to write player selection response: %v", err)
-	}
-}
-
-// Helper function to render a group of players
-func renderPlayerGroup(title string, players []models.Player, fixtureID uint, isHome bool) string {
-	if len(players) == 0 {
-		return `<div class="player-group"><h5>` + title + `</h5><p class="no-players">No available players</p></div>`
-	}
-
-	html := `<div class="player-group">
-		<h5>` + title + ` (` + fmt.Sprintf("%d", len(players)) + ` available)</h5>
-		<div class="player-buttons">`
-
-	for _, player := range players {
-		html += `
-			<form method="post" style="display: inline;">
-				<input type="hidden" name="action" value="add_player">
-				<input type="hidden" name="player_id" value="` + player.ID + `">
-				<input type="hidden" name="is_home" value="` + fmt.Sprintf("%t", isHome) + `">
-				<button type="submit" class="btn-add-player" 
-				        hx-post="/admin/league/fixtures/` + fmt.Sprintf("%d", fixtureID) + `" 
-				        hx-target="body" 
-				        hx-swap="outerHTML">
-					` + player.FirstName + ` ` + player.LastName + `
-				</button>
-			</form>`
-	}
-
-	html += `</div></div>`
-	return html
 }
 
 // handleTeamSelection handles requests for the dedicated team selection page

@@ -34,6 +34,21 @@
 >   - In prod this had already gone wrong: the public page summed 2025 and 2026 (709 matchups) under a "2025" label.
 >   - Tests are in `internal/admin/club_wrapped_test.go` (§3.3).
 > - **Honest 500s:** ✅ `renderFallbackHTML` (used by 30 template-load error paths) now responds 500 instead of a 200 "coming soon" page. The template cache half of §4.2 is still open.
+>
+> **Follow-up fixes 2026-10-09 (fifth pass):**
+> - **Match-card derby paths unified:** ✅ done (§4.1).
+>   - `processMatchupForTeam` and `processMatchupPlayersForTeam` are gone. Every rubber now goes through `scoreMatchup`, the single home of the concession/halved/retirement rules, then `processMatchup`, which creates or updates one slate.
+>   - Player recording is parameterised by side: both sides for a regular fixture, one side for each derby slate.
+>   - **Bug fixed:** re-importing a derby card without "clear existing" failed every rubber with `UNIQUE constraint failed`, because the derby path always inserted. It now updates in place like a regular card.
+>   - Tests are in `internal/services/matchcard_service_test.go`. They cover a regular card, a derby card and a derby re-import. The scoring and roster tests passed on the old code (behaviour lock); the re-import test failed on it.
+> - **Stored XSS in Go-built admin HTML:** ✅ fixed (§4.3).
+>   - The players filter table and the team add-players rows interpolated player, team and division names raw. An imported or edited name like `<img onerror=…>` executed in an admin session, and a test reproduced it.
+>   - Both now render through `html/template`, which also escapes the `onclick` JS arguments.
+>   - Deactivate/reactivate error messages and the reminder team label are escaped.
+>   - The legacy `/player-selection` endpoint and its unescaped `renderPlayerGroup` had no callers and were deleted (§4.4).
+>   - Tests are in `internal/admin/players_filter_test.go`.
+> - **Destructive GETs (§2.4):** verified that no mutating handler accepts GET; the examples cited in the audit already required POST. The only exception is `/logout`, which accepts any method. That is harmless under `SameSite=Strict`, because a cross-site navigation doesn't send the cookie. CSRF tokens remain open as defence in depth.
+> - **App port 8080 (§2.5):** the production compose does not publish 8080 (verified with `docker ps` and an external probe); only the dev `docker-compose.yml` does. **New observation:** the droplet's UFW allows `2375/tcp` and `2376/tcp` (Docker API ports, a common marketplace-image default). Nothing listens on them (`dockerd -H fd://`), so this is latent only. Recommend `ufw delete allow 2375/tcp && ufw delete allow 2376/tcp`.
 
 ---
 
@@ -61,7 +76,7 @@ Almost nothing here requires a rewrite. The highest-risk items are mostly S-effo
 | 4 | Auth-gate push endpoints | Anonymous broadcast to all subscribers | M | ✅ done 2026-10-06 — broadcast + VAPID reset admin-only, status oracle removed |
 | 5 | Club Wrapped: season filter + stop swallowing errors | Publicly wrong stats next season | M | ✅ done 2026-10-09 |
 | 6 | Startup template cache + honest 500s | Per-request disk I/O on 1-CPU box; silent template breakage | M | partial — honest 500s ✅ 2026-10-09; cache open |
-| 7 | Unify matchcard derby code paths | League-scoring divergence between import types | M | open |
+| 7 | Unify matchcard derby code paths | League-scoring divergence between import types | M | ✅ done 2026-10-09 — also fixed derby re-import failing without "clear existing" |
 | 8 | Transactions on season copy/create/activate + result saves | Half-written seasons and match cards | M | ✅ done — seasons 2026-10-06, result saves 2026-10-09 |
 | 9 | De-fork `fixture_team_selection` templates via partial | Silent UI drift after every HTMX swap | M | open |
 | 10 | Migration footguns (012 down file, migrate-down default, dirty auto-force) | Destructive/dirty schema states | S | ✅ done 2026-07-02 |
@@ -118,14 +133,14 @@ Both `clean` and `test-e2e-clean` run `down -v`, removing the live database volu
 
 ### 2.4 Session and CSRF hardening — MED
 - ~~Session tokens logged in plaintext on every request (`auth/middleware.go:58`, `auth/service.go:220-221`)~~ ✅ **fixed 2026-07-02** — added a `redactToken` helper (non-reversible `sha256:` fingerprint) and applied it to all 8 session-ID log sites across `auth/{middleware,service,handlers}.go`. First unit test in `internal/auth` (`service_test.go`) asserts the raw token never appears. Remaining debug-spam volume is unchanged (fingerprints still print), which is acceptable now that they are non-sensitive.
-- No CSRF protection anywhere; several destructive admin actions are plain GET links (`/seasons/delete`, `/tournaments/toggle-visibility/`). `SameSite=Strict` is the only mitigation. **Fix (M):** CSRF token for admin POSTs; convert destructive GETs to POST.
+- No CSRF protection anywhere; ~~several destructive admin actions are plain GET links (`/seasons/delete`, `/tournaments/toggle-visibility/`)~~ *(verified 2026-10-09: every mutating handler requires POST; only `/logout` accepts GET)*. `SameSite=Strict` is the only mitigation. **Fix (M):** CSRF token for admin POSTs; convert destructive GETs to POST.
 - ~~Sliding session expiry with no absolute cap (`auth/service.go:194-199`) — a stolen token in use never expires.~~ ✅ **fixed 2026-07-02** — added `Config.AbsoluteSessionDuration` (default 30d, 0 disables) enforced in `ValidateSession` against `session.CreatedAt`, so a continuously-refreshed session dies at the ceiling. Covered by `TestValidateSessionAbsoluteLifetimeCap` (old-but-active session rejected, fresh one passes, cap-disabled survives).
 - Login throttle keyed on username+IP (`auth/service.go:262-280`) — evaded by IP rotation or password spraying; and it fetches `LIMIT 5` rows before filtering by window. **Fix (M).**
 
 ### 2.5 Smaller items — LOW/MED
 - ~~The "Club Wrapped" gate checks `cookie.Value == "granted"`~~ — **accepted by design (2026-07-02):** the wrapped password/gate is deliberately decorative ("secret zone" feel, not access control). The static cookie value and non-constant-time compare are fine as-is. No action.
 - HSTS only in the commented-out block of `Caddyfile.courthive`; no CSP/Referrer-Policy. Confirm live config. **Fix (S).**
-- App port `8080:8080` published on the host (`docker-compose.yml:10-11`) — plaintext bypass of Caddy if the firewall doesn't block it. **Fix (S):** bind `127.0.0.1` or drop the publish.
+- ~~App port `8080:8080` published on the host (`docker-compose.yml:10-11`)~~ *(2026-10-09: prod compose doesn't publish it; dev-only)* — plaintext bypass of Caddy if the firewall doesn't block it. **Fix (S):** bind `127.0.0.1` or drop the publish.
 - **Verified clean:** no SQLi (parameterized throughout), no `template.HTML`/XSS, no path traversal, no hardcoded secrets in code/compose, non-root Docker user, current deps. Add `govulncheck` to CI (S).
 
 ---
@@ -179,6 +194,7 @@ Also: ~123 lines of SQL in 12 non-repo files (sessions/users queried from two pa
 ### 4.1 Duplicated derby scoring paths in matchcard import — HIGH
 `internal/services/matchcard_service.go`: `processMatchup` (line 435) vs `processMatchupForTeam` (1199), and `processMatchupPlayers` (708) vs `processMatchupPlayersForTeam` (1296) — ~100 lines each of near-verbatim concession/halved/retirement point logic, already drifting in comments. Any league-scoring fix must be applied twice or derby imports silently diverge.
 **Fix (M):** unify by passing team context into one implementation (the ForTeam variants are supersets); split fetch/parse/score/match into files.
+**✅ Unified 2026-10-09:** one `scoreMatchup` and one create-or-update `processMatchup` per slate (see the fifth-pass notes). Splitting the file by stage is still polish.
 
 ### 4.2 Per-request template parsing — HIGH
 `internal/admin/common.go:46-218` re-reads the page template **and globs + reads + parses all 12 partials on every request**, rebuilding a ~25-function FuncMap — 47 admin call sites plus a parallel copy in `internal/players/templates.go` with a **divergent FuncMap**. On the 1-CPU droplet this is real per-page CPU/disk churn, and template errors surface at request time as **HTTP 200 "coming soon" fallback pages** (`renderFallbackHTML`, `common.go:242-258`) instead of failing at startup. `cmd/jim-dot-tennis/main.go:244-248` already demonstrates the correct parse-once pattern.
@@ -188,14 +204,14 @@ Also: ~123 lines of SQL in 12 non-repo files (sessions/users queried from two pa
 ### 4.3 Handlers bypassing layers; routing boilerplate — MED
 - Raw SQL in handlers: `club_wrapped.go` (53), `points.go` (12), `players.go:878-960` (a `*Service` method defined in a handler file). Handlers also reach into `h.service.playerRepository` etc. directly (e.g. `players.go:1102-1122`), eroding the boundary.
 - Hand-rolled routing: 60 `StatusMethodNotAllowed` switch blocks, 56 repeated auth-check blocks, suffix-matching sub-routers (`fixtures.go:37-119`), every route registered twice for trailing slash. Go 1.22+ `ServeMux` (`"GET /admin/fixtures/{id}/edit"`, `r.PathValue`) makes all of it deletable.
-- HTML built in Go strings with **unescaped player names**: `renderPlayerGroup` (`fixtures.go:698-727`), `HandlePlayersFilter` (`players.go:582-763`, ~25 `w.Write` calls with inline onclick).
+- ~~HTML built in Go strings with **unescaped player names**: `renderPlayerGroup` (`fixtures.go:698-727`), `HandlePlayersFilter` (`players.go:582-763`, ~25 `w.Write` calls with inline onclick).~~ ✅ **fixed 2026-10-09** — this was a real stored XSS (reproduced by a test). The renderers now use `html/template`, and `renderPlayerGroup` was deleted along with the dead `/player-selection` route.
 **Fix (M each):** extract Points/Wrapped SQL to services; migrate to ServeMux patterns; convert string-built HTML to template partials.
 
 ### 4.4 Duplication and dead code — MED/LOW
 - Availability-reminder push flow duplicated (`fixtures.go:1707-1815` vs `players.go:1080-1197`); ~~`getPlayerFantasyToken` byte-identical in both files~~ ✅ **fixed 2026-07-02** — hoisted to a single `(*Service).getPlayerFantasyToken` in `service_fantasy.go`; both handlers call through it. The larger reminder-flow duplication remains. **Fix (S).**
 - Team-name parsing has two divergent algorithms (`cmd/populate-db/main.go:438-467` Fields-based vs `repository/club.go:348-364` regex). **Fix (S).**
 - `cmd/` sprawl: only 4 of 13 commands are built by the Makefile. Dead/stale: `cmd/scraper` (hardcoded 2025 PDF URLs, superseded), `cmd/collect_tennis_data` + `cmd/import-tennis-players` (one-off fantasy-name scrape), `cmd/test-tennis-pairings` (should be a test), `cmd/populate-db` (914 lines, predates import-season). All compile against `internal/` so every refactor must keep them building. **Fix (S):** delete/archive.
-- Legacy `/player-selection` endpoint + its HTML-in-Go renderer (~100 lines) superseded by `/team-selection`. **Fix (S).**
+- ~~Legacy `/player-selection` endpoint + its HTML-in-Go renderer (~100 lines) superseded by `/team-selection`.~~ ✅ **deleted 2026-10-09.**
 - BHPLTA league URLs hardcoded across 5+ files in two layers (`nonce_extractor.go:36`, `matchcard_service.go:203`, `matchcard_importation.go:166`, cmd files). Centralize in config (S).
 - **Verified clean:** no `panic()` anywhere; home-club identity is injected config (no hardcoded club IDs); scoring magic numbers deserve named constants but logic is sound.
 

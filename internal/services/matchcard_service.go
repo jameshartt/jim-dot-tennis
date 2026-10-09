@@ -487,56 +487,33 @@ func (s *MatchCardService) processMatchCard(ctx context.Context, config ImportCo
 		fmt.Printf("Marked fixture %d as Completed (match card data is authoritative)\n", fixture.ID)
 	}
 
-	// Process matchups from the match card
-	for _, matchupData := range matchCard.Matchups {
-		if isDerby {
-			// For derby matches, process matchups for both teams
-			// Process matchup for home team
-			homeResult, err := s.processMatchupForTeam(ctx, config, fixture, matchupData, homeTeamID, "home")
-			if err != nil {
-				errMsg := fmt.Sprintf("Error processing %s matchup for home team: %v", matchupData.Type, err)
-				result.Errors = append(result.Errors, errMsg)
-				if config.Verbose {
-					fmt.Printf("  %s\n", errMsg)
-				}
-			} else {
-				// Aggregate home team results
-				result.CreatedMatchups += homeResult.CreatedMatchups
-				result.UpdatedMatchups += homeResult.UpdatedMatchups
-				result.MatchedPlayers += homeResult.MatchedPlayers
-				result.UnmatchedPlayers = append(result.UnmatchedPlayers, homeResult.UnmatchedPlayers...)
-				result.Errors = append(result.Errors, homeResult.Errors...)
-			}
+	// Each slate is one home-club team's copy of the card. A derby has two, each
+	// carrying only that team's players; a regular fixture has one with both sides.
+	var slates []matchupSlate
+	var slateErr error
+	if isDerby {
+		slates = []matchupSlate{{homeTeamID, sideHome}, {awayTeamID, sideAway}}
+	} else if managingTeamID, err := s.determineManagingTeamID(ctx, fixture.ID); err != nil {
+		slateErr = fmt.Errorf("failed to determine managing team: %w", err)
+	} else {
+		slates = []matchupSlate{{managingTeamID, sideBoth}}
+	}
 
-			// Process matchup for away team
-			awayResult, err := s.processMatchupForTeam(ctx, config, fixture, matchupData, awayTeamID, "away")
+	for _, matchupData := range matchCard.Matchups {
+		if slateErr != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("Error processing matchup %s: %v", matchupData.Type, slateErr))
+			continue
+		}
+		for _, slate := range slates {
+			matchupResult, err := s.processMatchup(ctx, config, fixture, matchupData, slate)
 			if err != nil {
-				errMsg := fmt.Sprintf("Error processing %s matchup for away team: %v", matchupData.Type, err)
-				result.Errors = append(result.Errors, errMsg)
-				if config.Verbose {
-					fmt.Printf("  %s\n", errMsg)
-				}
-			} else {
-				// Aggregate away team results
-				result.CreatedMatchups += awayResult.CreatedMatchups
-				result.UpdatedMatchups += awayResult.UpdatedMatchups
-				result.MatchedPlayers += awayResult.MatchedPlayers
-				result.UnmatchedPlayers = append(result.UnmatchedPlayers, awayResult.UnmatchedPlayers...)
-				result.Errors = append(result.Errors, awayResult.Errors...)
-			}
-		} else {
-			// For regular matches, process matchup normally
-			matchupResult, err := s.processMatchup(ctx, config, fixture, matchupData)
-			if err != nil {
-				errMsg := fmt.Sprintf("Error processing matchup %s: %v", matchupData.Type, err)
+				errMsg := fmt.Sprintf("Error processing %s matchup%s: %v", matchupData.Type, slate.side.forTeam(), err)
 				result.Errors = append(result.Errors, errMsg)
 				if config.Verbose {
 					fmt.Printf("  %s\n", errMsg)
 				}
 				continue
 			}
-
-			// Aggregate matchup results
 			result.CreatedMatchups += matchupResult.CreatedMatchups
 			result.UpdatedMatchups += matchupResult.UpdatedMatchups
 			result.MatchedPlayers += matchupResult.MatchedPlayers
@@ -558,38 +535,55 @@ func (s *MatchCardService) processMatchCard(ctx context.Context, config ImportCo
 	return result, nil
 }
 
-// processMatchup processes a single matchup from the match card
-func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConfig, fixture *models.Fixture, matchupData MatchupData) (*ImportResult, error) {
-	result := &ImportResult{
-		UnmatchedPlayers: []string{},
-		Errors:           []string{},
-	}
-	fixtureID := fixture.ID
+// playerSide selects which side's players a slate records.
+type playerSide int
 
-	// Map the parsed matchup type to our enum
-	matchupType, err := s.mapMatchupType(matchupData.Type)
-	if err != nil {
-		return nil, fmt.Errorf("unknown matchup type: %s", matchupData.Type)
-	}
+const (
+	sideBoth playerSide = iota // regular fixture: one slate with both sides
+	sideHome                   // derby: the home team's slate
+	sideAway                   // derby: the away team's slate
+)
 
-	// Determine managing team ID (which home club team this belongs to)
-	managingTeamID, err := s.determineManagingTeamID(ctx, fixtureID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to determine managing team: %w", err)
+// forTeam labels a derby slate in error messages ("" for a regular slate).
+func (p playerSide) forTeam() string {
+	switch p {
+	case sideHome:
+		return " for home team"
+	case sideAway:
+		return " for away team"
 	}
+	return ""
+}
 
-	// Calculate matchup points based on overall result (win/draw/lose)
+// matchupSlate is one home-club team's set of matchups for a fixture.
+type matchupSlate struct {
+	managingTeamID uint
+	side           playerSide
+}
+
+// matchupOutcome is the league scoring of one rubber on a match card.
+type matchupOutcome struct {
+	status     models.MatchupStatus
+	homePoints int
+	awayPoints int
+	concededBy *models.ConcededBy
+	retiredBy  *models.RetiredBy
+}
+
+// scoreMatchup applies the league's scoring rules to a rubber from the card.
+func (s *MatchCardService) scoreMatchup(matchupData MatchupData) matchupOutcome {
+	// Points from the overall result (win/draw/lose)
 	homePoints, awayPoints := s.calculateMatchupPoints(matchupData.HomeScores, matchupData.AwayScores)
+	out := matchupOutcome{status: models.Finished}
 
-	// Override for concessions: defaulted match with points to non-conceding side
-	var concededBy *models.ConcededBy
+	// Concession: defaulted match with points to the non-conceding side
 	if strings.EqualFold(matchupData.ConcededBy, "Home") {
 		cb := models.ConcededHome
-		concededBy = &cb
+		out.concededBy = &cb
 		homePoints, awayPoints = 0, 2
 	} else if strings.EqualFold(matchupData.ConcededBy, "Away") {
 		cb := models.ConcededAway
-		concededBy = &cb
+		out.concededBy = &cb
 		homePoints, awayPoints = 2, 0
 	}
 
@@ -602,89 +596,89 @@ func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConf
 
 	// Retirement: play started but stopped mid-match. Non-retiring side gets a full match win,
 	// and the points table awards them both sets regardless of the partial set scores recorded.
-	var retiredBy *models.RetiredBy
 	if strings.EqualFold(matchupData.RetiredBy, "Home") {
 		rb := models.RetiredHome
-		retiredBy = &rb
+		out.retiredBy = &rb
 		homePoints, awayPoints = 0, 2
 	} else if strings.EqualFold(matchupData.RetiredBy, "Away") {
 		rb := models.RetiredAway
-		retiredBy = &rb
+		out.retiredBy = &rb
 		homePoints, awayPoints = 2, 0
 	}
 
-	// Check if matchup already exists
-	existingMatchup, err := s.matchupRepo.FindByFixtureTypeAndTeam(ctx, fixtureID, matchupType, managingTeamID)
-	if err != nil || existingMatchup == nil {
-		// Create new matchup if it doesn't exist
-		matchup := &models.Matchup{
+	if out.concededBy != nil {
+		out.status = models.Defaulted
+	}
+	out.homePoints, out.awayPoints = homePoints, awayPoints
+	return out
+}
+
+// processMatchup writes one rubber from the match card onto a slate, creating
+// the matchup or updating it in place, then records the slate's players.
+func (s *MatchCardService) processMatchup(ctx context.Context, config ImportConfig, fixture *models.Fixture, matchupData MatchupData, slate matchupSlate) (*ImportResult, error) {
+	result := &ImportResult{
+		UnmatchedPlayers: []string{},
+		Errors:           []string{},
+	}
+	fixtureID := fixture.ID
+	managingTeamID := slate.managingTeamID
+
+	// Map the parsed matchup type to our enum
+	matchupType, err := s.mapMatchupType(matchupData.Type)
+	if err != nil {
+		return nil, fmt.Errorf("unknown matchup type: %s", matchupData.Type)
+	}
+
+	outcome := s.scoreMatchup(matchupData)
+
+	matchup, err := s.matchupRepo.FindByFixtureTypeAndTeam(ctx, fixtureID, matchupType, managingTeamID)
+	existing := err == nil && matchup != nil
+	if !existing {
+		matchup = &models.Matchup{
 			FixtureID:      fixtureID,
 			Type:           matchupType,
-			Status:         models.Finished, // Finished since this data comes from a completed match card
-			HomeScore:      homePoints,
-			AwayScore:      awayPoints,
 			ManagingTeamID: &managingTeamID,
-			ConcededBy:     concededBy,
-			RetiredBy:      retiredBy,
 		}
+	}
+	matchup.Status = outcome.status
+	matchup.HomeScore = outcome.homePoints
+	matchup.AwayScore = outcome.awayPoints
+	matchup.ConcededBy = outcome.concededBy
+	matchup.RetiredBy = outcome.retiredBy
+	s.setIndividualSetScores(matchup, matchupData)
 
-		// If conceded, mark as Defaulted
-		if concededBy != nil {
-			matchup.Status = models.Defaulted
+	if existing {
+		if !config.DryRun {
+			if err := s.matchupRepo.Update(ctx, matchup); err != nil {
+				return nil, fmt.Errorf("failed to update matchup: %w", err)
+			}
 		}
-
-		s.setIndividualSetScores(matchup, matchupData)
-
+		result.UpdatedMatchups++
+	} else {
 		if !config.DryRun {
 			if err := s.matchupRepo.Create(ctx, matchup); err != nil {
 				return nil, fmt.Errorf("failed to create matchup: %w", err)
 			}
 		}
 		result.CreatedMatchups++
-		existingMatchup = matchup
-
-		if config.Verbose {
-			fmt.Printf("  Created %s matchup for fixture %d - marked as %s\n", matchupType, fixtureID, matchup.Status)
-		}
-	} else {
-		// Update existing matchup with scores
-		existingMatchup.HomeScore = homePoints
-		existingMatchup.AwayScore = awayPoints
-		existingMatchup.ConcededBy = concededBy
-		existingMatchup.RetiredBy = retiredBy
-
-		s.setIndividualSetScores(existingMatchup, matchupData)
-
-		// Update status to Finished or Defaulted
-		if concededBy != nil {
-			existingMatchup.Status = models.Defaulted
-		} else {
-			existingMatchup.Status = models.Finished
-		}
-
-		if !config.DryRun {
-			if err := s.matchupRepo.Update(ctx, existingMatchup); err != nil {
-				return nil, fmt.Errorf("failed to update matchup: %w", err)
-			}
-		}
-		result.UpdatedMatchups++
-
-		if config.Verbose {
-			homeSetsWon, awaySetsWon := s.calculateSetsWon(matchupData.HomeScores, matchupData.AwayScores)
-			setDetails := s.formatSetScores(matchupData)
-			resultStr := s.formatMatchupResult(homePoints, awayPoints)
-			fmt.Printf("  Updated %s matchup for fixture %d (sets: %d-%d%s) - %s\n",
-				matchupType, fixtureID, homeSetsWon, awaySetsWon, setDetails, resultStr)
-		}
 	}
 
-	// Process players for this matchup
-	playerResult, err := s.processMatchupPlayers(ctx, config, existingMatchup.ID, fixture, matchupData)
+	if config.Verbose {
+		action := "Created"
+		if existing {
+			action = "Updated"
+		}
+		homeSetsWon, awaySetsWon := s.calculateSetsWon(matchupData.HomeScores, matchupData.AwayScores)
+		fmt.Printf("  %s %s matchup for team %d (fixture %d, sets: %d-%d%s) - %s\n",
+			action, matchupType, managingTeamID, fixtureID, homeSetsWon, awaySetsWon,
+			s.formatSetScores(matchupData), s.formatMatchupResult(outcome.homePoints, outcome.awayPoints))
+	}
+
+	playerResult, err := s.processMatchupPlayers(ctx, config, matchup.ID, fixture, matchupData, slate.side)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process players: %w", err)
 	}
 
-	// Aggregate player results
 	result.MatchedPlayers += playerResult.MatchedPlayers
 	result.UnmatchedPlayers = append(result.UnmatchedPlayers, playerResult.UnmatchedPlayers...)
 	result.Errors = append(result.Errors, playerResult.Errors...)
@@ -831,15 +825,16 @@ func (s *MatchCardService) formatSetScores(matchupData MatchupData) string {
 	return ""
 }
 
-// processMatchupPlayers processes players for a matchup
-func (s *MatchCardService) processMatchupPlayers(ctx context.Context, config ImportConfig, matchupID uint, fixture *models.Fixture, matchupData MatchupData) (*ImportResult, error) {
+// processMatchupPlayers replaces a matchup's players with the card's players
+// for the given side(s). Match card data is authoritative: it records who
+// actually played. Each matched player also joins the roster of the team they
+// played for when that team belongs to the home club.
+func (s *MatchCardService) processMatchupPlayers(ctx context.Context, config ImportConfig, matchupID uint, fixture *models.Fixture, matchupData MatchupData, side playerSide) (*ImportResult, error) {
 	result := &ImportResult{
 		UnmatchedPlayers: []string{},
 		Errors:           []string{},
 	}
 
-	// Clear existing players if not in dry run mode
-	// Match card data is authoritative - it represents who actually played
 	if !config.DryRun {
 		if err := s.matchupRepo.ClearPlayers(ctx, matchupID); err != nil {
 			return nil, fmt.Errorf("failed to clear existing players: %w", err)
@@ -849,63 +844,47 @@ func (s *MatchCardService) processMatchupPlayers(ctx context.Context, config Imp
 		}
 	}
 
-	// Process home players
-	for _, playerName := range matchupData.HomePlayers {
-		if strings.TrimSpace(playerName) == "" {
-			continue
-		}
-
-		playerID, err := s.matcher.MatchPlayer(ctx, playerName)
-		if err != nil {
-			result.UnmatchedPlayers = append(result.UnmatchedPlayers, fmt.Sprintf("%s (home)", playerName))
-			if config.Verbose {
-				fmt.Printf("    Could not match home player: %s\n", playerName)
-			}
-			continue
-		}
-
-		if !config.DryRun {
-			if err := s.matchupRepo.AddPlayer(ctx, matchupID, playerID, true); err != nil {
-				errMsg := fmt.Sprintf("Failed to add home player %s: %v", playerName, err)
-				result.Errors = append(result.Errors, errMsg)
-				continue
-			}
-			s.ensurePlayerOnHomeClubTeam(ctx, config, playerID, playerName, fixture.HomeTeamID, fixture.SeasonID)
-		}
-
-		result.MatchedPlayers++
-		if config.Verbose {
-			fmt.Printf("    Matched home player: %s -> %s\n", playerName, playerID)
-		}
+	type cardSide struct {
+		label  string
+		names  []string
+		isHome bool
+		teamID uint
+	}
+	var sides []cardSide
+	if side != sideAway {
+		sides = append(sides, cardSide{"home", matchupData.HomePlayers, true, fixture.HomeTeamID})
+	}
+	if side != sideHome {
+		sides = append(sides, cardSide{"away", matchupData.AwayPlayers, false, fixture.AwayTeamID})
 	}
 
-	// Process away players
-	for _, playerName := range matchupData.AwayPlayers {
-		if strings.TrimSpace(playerName) == "" {
-			continue
-		}
-
-		playerID, err := s.matcher.MatchPlayer(ctx, playerName)
-		if err != nil {
-			result.UnmatchedPlayers = append(result.UnmatchedPlayers, fmt.Sprintf("%s (away)", playerName))
-			if config.Verbose {
-				fmt.Printf("    Could not match away player: %s\n", playerName)
-			}
-			continue
-		}
-
-		if !config.DryRun {
-			if err := s.matchupRepo.AddPlayer(ctx, matchupID, playerID, false); err != nil {
-				errMsg := fmt.Sprintf("Failed to add away player %s: %v", playerName, err)
-				result.Errors = append(result.Errors, errMsg)
+	for _, cs := range sides {
+		for _, playerName := range cs.names {
+			if strings.TrimSpace(playerName) == "" {
 				continue
 			}
-			s.ensurePlayerOnHomeClubTeam(ctx, config, playerID, playerName, fixture.AwayTeamID, fixture.SeasonID)
-		}
 
-		result.MatchedPlayers++
-		if config.Verbose {
-			fmt.Printf("    Matched away player: %s -> %s\n", playerName, playerID)
+			playerID, err := s.matcher.MatchPlayer(ctx, playerName)
+			if err != nil {
+				result.UnmatchedPlayers = append(result.UnmatchedPlayers, fmt.Sprintf("%s (%s)", playerName, cs.label))
+				if config.Verbose {
+					fmt.Printf("    Could not match %s player: %s\n", cs.label, playerName)
+				}
+				continue
+			}
+
+			if !config.DryRun {
+				if err := s.matchupRepo.AddPlayer(ctx, matchupID, playerID, cs.isHome); err != nil {
+					result.Errors = append(result.Errors, fmt.Sprintf("Failed to add %s player %s: %v", cs.label, playerName, err))
+					continue
+				}
+				s.ensurePlayerOnHomeClubTeam(ctx, config, playerID, playerName, cs.teamID, fixture.SeasonID)
+			}
+
+			result.MatchedPlayers++
+			if config.Verbose {
+				fmt.Printf("    Matched %s player: %s -> %s\n", cs.label, playerName, playerID)
+			}
 		}
 	}
 
@@ -1320,172 +1299,4 @@ func (s *MatchCardService) clearExistingMatchups(ctx context.Context, config Imp
 	}
 
 	return nil
-}
-
-// processMatchupForTeam processes a matchup for a specific team (used for derby matches)
-func (s *MatchCardService) processMatchupForTeam(ctx context.Context, config ImportConfig, fixture *models.Fixture, matchupData MatchupData, managingTeamID uint, teamContext string) (*ImportResult, error) {
-	fixtureID := fixture.ID
-	result := &ImportResult{
-		UnmatchedPlayers: []string{},
-		Errors:           []string{},
-	}
-
-	// Map the parsed matchup type to our enum
-	matchupType, err := s.mapMatchupType(matchupData.Type)
-	if err != nil {
-		return nil, fmt.Errorf("unknown matchup type: %s", matchupData.Type)
-	}
-
-	// Calculate matchup points based on overall result (win/draw/lose)
-	homePoints, awayPoints := s.calculateMatchupPoints(matchupData.HomeScores, matchupData.AwayScores)
-
-	// Override for concessions: defaulted match with points to non-conceding side
-	var concededBy *models.ConcededBy
-	if strings.EqualFold(matchupData.ConcededBy, "Home") {
-		cb := models.ConcededHome
-		concededBy = &cb
-		homePoints, awayPoints = 0, 2
-	} else if strings.EqualFold(matchupData.ConcededBy, "Away") {
-		cb := models.ConcededAway
-		concededBy = &cb
-		homePoints, awayPoints = 2, 0
-	}
-
-	// Halved match: points 1-1. Set scores are preserved below by setIndividualSetScores
-	// so completed sets still count toward players' set points.
-	if matchupData.Halved {
-		homePoints, awayPoints = 1, 1
-	}
-
-	// Retirement: non-retiring side wins the match outright; both sets go to them in the
-	// points table regardless of the partial set scores recorded on the card.
-	var retiredBy *models.RetiredBy
-	if strings.EqualFold(matchupData.RetiredBy, "Home") {
-		rb := models.RetiredHome
-		retiredBy = &rb
-		homePoints, awayPoints = 0, 2
-	} else if strings.EqualFold(matchupData.RetiredBy, "Away") {
-		rb := models.RetiredAway
-		retiredBy = &rb
-		homePoints, awayPoints = 2, 0
-	}
-
-	// Create new matchup (since we cleared existing ones)
-	matchup := &models.Matchup{
-		FixtureID:      fixtureID,
-		Type:           matchupType,
-		Status:         models.Finished, // Finished since this data comes from a completed match card
-		HomeScore:      homePoints,
-		AwayScore:      awayPoints,
-		ManagingTeamID: &managingTeamID,
-		ConcededBy:     concededBy,
-		RetiredBy:      retiredBy,
-	}
-
-	// If conceded, mark as Defaulted
-	if concededBy != nil {
-		matchup.Status = models.Defaulted
-	}
-
-	// Set individual set scores
-	s.setIndividualSetScores(matchup, matchupData)
-
-	if !config.DryRun {
-		if err := s.matchupRepo.Create(ctx, matchup); err != nil {
-			return nil, fmt.Errorf("failed to create matchup: %w", err)
-		}
-	}
-	result.CreatedMatchups++
-
-	if config.Verbose {
-		homeSetsWon, awaySetsWon := s.calculateSetsWon(matchupData.HomeScores, matchupData.AwayScores)
-		setDetails := s.formatSetScores(matchupData)
-		resultStr := s.formatMatchupResult(homePoints, awayPoints)
-		fmt.Printf("  Created %s matchup for %s team (fixture %d, sets: %d-%d%s) - %s\n",
-			matchupType, teamContext, fixtureID, homeSetsWon, awaySetsWon, setDetails, resultStr)
-	}
-
-	// Process players for this matchup with team context
-	playerResult, err := s.processMatchupPlayersForTeam(ctx, config, matchup.ID, fixture, matchupData, managingTeamID, teamContext)
-	if err != nil {
-		return nil, fmt.Errorf("failed to process players: %w", err)
-	}
-
-	// Aggregate player results
-	result.MatchedPlayers += playerResult.MatchedPlayers
-	result.UnmatchedPlayers = append(result.UnmatchedPlayers, playerResult.UnmatchedPlayers...)
-	result.Errors = append(result.Errors, playerResult.Errors...)
-
-	return result, nil
-}
-
-// processMatchupPlayersForTeam processes players for a matchup with team context (for derby matches)
-func (s *MatchCardService) processMatchupPlayersForTeam(ctx context.Context, config ImportConfig, matchupID uint, fixture *models.Fixture, matchupData MatchupData, managingTeamID uint, teamContext string) (*ImportResult, error) {
-	result := &ImportResult{
-		UnmatchedPlayers: []string{},
-		Errors:           []string{},
-	}
-
-	// Clear existing players if not in dry run mode
-	if !config.DryRun {
-		if err := s.matchupRepo.ClearPlayers(ctx, matchupID); err != nil {
-			return nil, fmt.Errorf("failed to clear existing players: %w", err)
-		}
-		if config.Verbose {
-			fmt.Printf("    Cleared existing players (match card data is authoritative)\n")
-		}
-	}
-
-	// Determine which players to process based on team context
-	var playersToProcess []string
-	var arePlayersHome bool
-
-	if teamContext == "home" {
-		// For home team matchup, process the home players from match card
-		playersToProcess = matchupData.HomePlayers
-		arePlayersHome = true
-		if config.Verbose {
-			fmt.Printf("    Processing home players for home team matchup\n")
-		}
-	} else {
-		// For away team matchup, process the away players from match card
-		playersToProcess = matchupData.AwayPlayers
-		arePlayersHome = false
-		if config.Verbose {
-			fmt.Printf("    Processing away players for away team matchup\n")
-		}
-	}
-
-	// Process the relevant players
-	for _, playerName := range playersToProcess {
-		if strings.TrimSpace(playerName) == "" {
-			continue
-		}
-
-		playerID, err := s.matcher.MatchPlayer(ctx, playerName)
-		if err != nil {
-			result.UnmatchedPlayers = append(result.UnmatchedPlayers, fmt.Sprintf("%s (%s)", playerName, teamContext))
-			if config.Verbose {
-				fmt.Printf("    Could not match %s player: %s\n", teamContext, playerName)
-			}
-			continue
-		}
-
-		if !config.DryRun {
-			if err := s.matchupRepo.AddPlayer(ctx, matchupID, playerID, arePlayersHome); err != nil {
-				errMsg := fmt.Sprintf("Failed to add %s player %s: %v", teamContext, playerName, err)
-				result.Errors = append(result.Errors, errMsg)
-				continue
-			}
-			// Derby: managingTeamID is the team these players actually played for.
-			s.ensurePlayerOnHomeClubTeam(ctx, config, playerID, playerName, managingTeamID, fixture.SeasonID)
-		}
-
-		result.MatchedPlayers++
-		if config.Verbose {
-			fmt.Printf("    Matched %s player: %s -> %s\n", teamContext, playerName, playerID)
-		}
-	}
-
-	return result, nil
 }

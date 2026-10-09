@@ -4,6 +4,7 @@ package admin
 
 import (
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"strconv"
@@ -567,33 +568,20 @@ func (h *TeamsHandler) handleAddPlayersGet(w http.ResponseWriter, r *http.Reques
 // renderAddPlayersTableBody renders just the table body for HTMX requests
 func (h *TeamsHandler) renderAddPlayersTableBody(w http.ResponseWriter, players []models.Player) {
 	w.Header().Set("Content-Type", "text/html")
-
-	if len(players) > 0 {
-		for _, player := range players {
-			// No more active/inactive distinction - all players get the same styling
-			activeClass := "player-active"
-
-			w.Write([]byte(fmt.Sprintf(`
-				<tr data-player-id="%s" data-player-name="%s %s" class="%s">
-					<td class="col-checkbox">
-						<input type="checkbox" name="player_ids" value="%s" class="player-checkbox">
-					</td>
-					<td class="col-name">%s %s</td>
-				</tr>
-			`, player.ID, player.FirstName, player.LastName, activeClass,
-				player.ID,
-				player.FirstName, player.LastName)))
-		}
-	} else {
-		w.Write([]byte(`
-			<tr>
-				<td colspan="4" style="text-align: center; padding: 2rem;">
-					No eligible players found matching your criteria.
-				</td>
-			</tr>
-		`))
+	if err := addPlayersRowsTemplate.Execute(w, players); err != nil {
+		log.Printf("Failed to render add-players rows: %v", err)
 	}
 }
+
+var addPlayersRowsTemplate = template.Must(template.New("add-players-rows").Parse(`
+{{- range .}}
+<tr data-player-id="{{.ID}}" data-player-name="{{.FirstName}} {{.LastName}}" class="player-active">
+	<td class="col-checkbox"><input type="checkbox" name="player_ids" value="{{.ID}}" class="player-checkbox"></td>
+	<td class="col-name">{{.FirstName}} {{.LastName}}</td>
+</tr>
+{{- else}}
+<tr><td colspan="4" style="text-align: center; padding: 2rem;">No eligible players found matching your criteria.</td></tr>
+{{- end}}`))
 
 // handleAddPlayersPost processes the form submission to add players to the team
 func (h *TeamsHandler) handleAddPlayersPost(w http.ResponseWriter, r *http.Request, user *models.User, teamID uint) {
