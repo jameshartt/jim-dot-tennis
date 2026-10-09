@@ -1516,10 +1516,11 @@ func (h *FixturesHandler) handleWeather(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	if err := tmpl.Execute(w, map[string]interface{}{
+	if err := renderTemplate(w, tmpl, map[string]interface{}{
 		"Weather": weather,
 	}); err != nil {
 		log.Printf("Error executing weather widget template: %v", err)
+		http.Error(w, "Failed to render", http.StatusInternalServerError)
 	}
 }
 

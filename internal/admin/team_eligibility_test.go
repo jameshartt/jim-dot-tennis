@@ -15,6 +15,20 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// GetPlayerEligibilityForTeam checks one player the way the team-selection
+// screen does, via the shared team/fixture context.
+func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context, playerID string, teamID uint, fixtureID uint) (*PlayerEligibilityInfo, error) {
+	tf, err := s.forTeamFixture(ctx, teamID, fixtureID)
+	if err != nil {
+		return nil, err
+	}
+	player, err := s.service.playerRepository.FindByID(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	return tf.forPlayer(ctx, *player)
+}
+
 // Regression test for BHPLTA Rule 16 ("play down" eligibility):
 //
 //	"No player will be eligible to play for a team if he or she has played

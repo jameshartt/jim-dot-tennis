@@ -196,6 +196,7 @@ func (h *CaptainNotesHandler) renderPopover(w http.ResponseWriter, r *http.Reque
 	}
 	if err := renderTemplate(w, tmpl, CaptainNotePopoverView{Player: player, Notes: rows}); err != nil {
 		log.Printf("captain notes popover render failed: %v", err)
+		http.Error(w, "Failed to render page", http.StatusInternalServerError)
 	}
 }
 

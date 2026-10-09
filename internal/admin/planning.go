@@ -156,12 +156,13 @@ func (h *PlanningHandler) HandleCellToggle(w http.ResponseWriter, r *http.Reques
 		logAndError(w, "template parse failed", err, http.StatusInternalServerError)
 		return
 	}
-	if err := tmpl.ExecuteTemplate(w, "admin/partials/planning_cell.html", map[string]interface{}{
+	if err := renderNamedTemplate(w, tmpl, "admin/partials/planning_cell.html", map[string]interface{}{
 		"Cell":   cell,
 		"Col":    col,
 		"Player": player,
 	}); err != nil {
 		log.Printf("cell render failed: %v", err)
+		http.Error(w, "Failed to render", http.StatusInternalServerError)
 	}
 }
 
@@ -207,6 +208,7 @@ func (h *PlanningHandler) handleMatrixPartial(w http.ResponseWriter, r *http.Req
 	}
 	if err := renderTemplate(w, tmpl, view); err != nil {
 		log.Printf("planning matrix render failed: %v", err)
+		http.Error(w, "Failed to render page", http.StatusInternalServerError)
 	}
 }
 
@@ -224,6 +226,7 @@ func (h *PlanningHandler) renderFullPage(w http.ResponseWriter, r *http.Request,
 	}
 	if err := renderTemplate(w, tmpl, view); err != nil {
 		log.Printf("planning dashboard render failed: %v", err)
+		http.Error(w, "Failed to render page", http.StatusInternalServerError)
 	}
 }
 

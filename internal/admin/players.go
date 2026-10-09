@@ -686,8 +686,9 @@ func (h *PlayersHandler) HandlePlayersFilter(w http.ResponseWriter, r *http.Requ
 		data.Rows = append(data.Rows, row)
 	}
 
-	if err := playersTableTemplate.Execute(w, data); err != nil {
+	if err := renderTemplate(w, playersTableTemplate, data); err != nil {
 		log.Printf("Failed to render players table: %v", err)
+		http.Error(w, "Failed to render", http.StatusInternalServerError)
 	}
 }
 
@@ -957,8 +958,9 @@ func (h *PlayersHandler) handleDeactivateConfirm(w http.ResponseWriter, r *http.
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	if err := tmpl.Execute(w, impact); err != nil {
+	if err := renderTemplate(w, tmpl, impact); err != nil {
 		log.Printf("Error executing player_deactivate_confirm template: %v", err)
+		http.Error(w, "Failed to render", http.StatusInternalServerError)
 	}
 }
 

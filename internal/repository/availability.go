@@ -26,6 +26,11 @@ type AvailabilityRepository interface {
 	GetPlayerFixtureAvailability(ctx context.Context, playerID string, fixtureID uint) (*models.PlayerFixtureAvailability, error)
 	UpsertPlayerFixtureAvailability(ctx context.Context, playerID string, fixtureID uint, status models.AvailabilityStatus, notes string) error
 
+	// Fixture-wide reads: every player's rows relevant to one fixture
+	FindFixtureAvailabilityByFixture(ctx context.Context, fixtureID uint) ([]models.PlayerFixtureAvailability, error)
+	FindExceptionsCoveringDate(ctx context.Context, date time.Time) ([]models.PlayerAvailabilityException, error)
+	FindGeneralAvailabilityForDay(ctx context.Context, seasonID uint, dayOfWeek string) ([]models.PlayerGeneralAvailability, error)
+
 	// Batch operations
 	BatchUpsertPlayerAvailability(ctx context.Context, playerID string, availabilities []AvailabilityUpdate) error
 }
@@ -178,6 +183,44 @@ func (r *availabilityRepository) GetPlayerFixtureAvailability(ctx context.Contex
 		return nil, err
 	}
 	return &availability, nil
+}
+
+// FindFixtureAvailabilityByFixture returns every player's fixture-specific
+// availability for one fixture.
+func (r *availabilityRepository) FindFixtureAvailabilityByFixture(ctx context.Context, fixtureID uint) ([]models.PlayerFixtureAvailability, error) {
+	var rows []models.PlayerFixtureAvailability
+	err := r.db.SelectContext(ctx, &rows, `
+		SELECT id, player_id, fixture_id, status, COALESCE(notes, '') AS notes, created_at, updated_at
+		FROM player_fixture_availability
+		WHERE fixture_id = ?
+	`, fixtureID)
+	return rows, err
+}
+
+// FindExceptionsCoveringDate returns every player's availability exceptions
+// covering date, most recently created first (the same match and order as
+// GetPlayerAvailabilityByDate).
+func (r *availabilityRepository) FindExceptionsCoveringDate(ctx context.Context, date time.Time) ([]models.PlayerAvailabilityException, error) {
+	var rows []models.PlayerAvailabilityException
+	err := r.db.SelectContext(ctx, &rows, `
+		SELECT id, player_id, status, start_date, end_date, COALESCE(reason, '') AS reason, created_at, updated_at
+		FROM player_availability_exceptions
+		WHERE start_date <= ? AND end_date >= ?
+		ORDER BY created_at DESC, id DESC
+	`, date, date)
+	return rows, err
+}
+
+// FindGeneralAvailabilityForDay returns every player's weekday pattern for
+// one day of the week in a season.
+func (r *availabilityRepository) FindGeneralAvailabilityForDay(ctx context.Context, seasonID uint, dayOfWeek string) ([]models.PlayerGeneralAvailability, error) {
+	var rows []models.PlayerGeneralAvailability
+	err := r.db.SelectContext(ctx, &rows, `
+		SELECT id, player_id, day_of_week, status, season_id, COALESCE(notes, '') AS notes, created_at, updated_at
+		FROM player_general_availability
+		WHERE season_id = ? AND day_of_week = ?
+	`, seasonID, dayOfWeek)
+	return rows, err
 }
 
 // UpsertPlayerFixtureAvailability creates or updates a player's fixture availability

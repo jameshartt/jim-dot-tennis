@@ -49,6 +49,28 @@
 >   - Tests are in `internal/admin/players_filter_test.go`.
 > - **Destructive GETs (§2.4):** verified that no mutating handler accepts GET; the examples cited in the audit already required POST. The only exception is `/logout`, which accepts any method. That is harmless under `SameSite=Strict`, because a cross-site navigation doesn't send the cookie. CSRF tokens remain open as defence in depth.
 > - **App port 8080 (§2.5):** the production compose does not publish 8080 (verified with `docker ps` and an external probe); only the dev `docker-compose.yml` does. **New observation:** the droplet's UFW allows `2375/tcp` and `2376/tcp` (Docker API ports, a common marketplace-image default). Nothing listens on them (`dockerd -H fd://`), so this is latent only. Recommend `ufw delete allow 2375/tcp && ufw delete allow 2376/tcp`.
+>
+> **Follow-up fixes 2026-10-09 (sixth pass):**
+> - **Template cache + render-to-buffer (§4.2):** ✅ done.
+>   - New `internal/render` package: a parse-once `Cache` (parse errors are not cached) and `Execute`, which renders into a buffer and writes only on success.
+>   - Admin, player and login templates are now parsed once per process instead of on every request (admin pages also re-globbed and re-parsed all 12 partials each time).
+>   - `TEMPLATE_RELOAD=true` re-parses per request; the dev `docker-compose.yml` defaults it on for the bind-mounted templates. Prod leaves it unset.
+>   - Every render site goes through the buffer. A failed render now gives a clean 500 instead of half a page with a 200, and the handlers that only logged a render error now also send a 500.
+>   - Tests: `internal/admin/common_test.go` (cached parse with partials; a failing render leaves no partial page — both red before) and `internal/render/render_test.go`.
+> - **Team-selection N+1 (§3.5):** ✅ done.
+>   - Availability for a fixture is now three fixture-wide queries (`FindFixtureAvailabilityByFixture`, `FindExceptionsCoveringDate`, `FindGeneralAvailabilityForDay`) resolved in memory with the same priority. Before, it was up to four queries per player.
+>   - Eligibility is split into a fixture/team context (`forTeamFixture`: fixture, league week, team, season half, rankings), loaded once, and the per-player rules (`forPlayer`), which keep only the three per-player Rule 1/Rule 16 queries. Before, every player re-ran about ten queries. The rule logic is unchanged.
+>   - Rough count for a ~60-player club: from ~900 queries per team-selection render (repeated on each HTMX swap) to ~190.
+>   - Notes columns are read with `COALESCE`. Previously a NULL note made the per-player lookup error and silently fall through to the next priority level.
+>   - Tests: `internal/admin/service_fixture_players_test.go` is a behaviour lock (availability priority, latest exception wins, weekday/season scoping, played-this-week, Rule 16 lock) that passed before and after. The existing Rule 16 regression suite in `team_eligibility_test.go` also passes.
+> - **Login throttle never fired across connections (§2.4):** ✅ fixed.
+>   - The throttle keyed on `r.RemoteAddr`, which is Caddy's container address *plus a per-connection port*. A guesser opening a new connection per attempt was never throttled, and a test reproduced it.
+>   - New `clientIP` strips the port. When the peer is a private or loopback proxy, it uses the rightmost `X-Forwarded-For` entry (the one Caddy appends); a public peer's header is ignored, so a direct caller can't rotate it.
+>   - Login attempts and session rows now record that address.
+>   - Tests are in `internal/auth/throttle_test.go`.
+>   - Password spraying across usernames is still not throttled.
+> - **E2E:** full suite with caching on (`TEMPLATE_RELOAD=false`): 197 passed, 1 failed. The failure, `match-results.spec.ts` "invalid scores show error messages on fixture 1", is pre-existing: it fails the same way on `2181c45` and passes when run alone. Another spec mutates fixture 1 (it shows as Rescheduled) before it runs under 4 workers, so its hardcoded `matchup_1_*` inputs aren't on the page. It needs its own fixture (§6.2).
+> - Dead `Service.IsHomeClubInFixture` deleted (its only caller was the `/player-selection` handler removed in the fifth pass).
 
 ---
 
@@ -75,7 +97,7 @@ Almost nothing here requires a rewrite. The highest-risk items are mostly S-effo
 | 3 | Test a droplet snapshot restore; confirm snapshot cadence | Untested recovery path | S | open |
 | 4 | Auth-gate push endpoints | Anonymous broadcast to all subscribers | M | ✅ done 2026-10-06 — broadcast + VAPID reset admin-only, status oracle removed |
 | 5 | Club Wrapped: season filter + stop swallowing errors | Publicly wrong stats next season | M | ✅ done 2026-10-09 |
-| 6 | Startup template cache + honest 500s | Per-request disk I/O on 1-CPU box; silent template breakage | M | partial — honest 500s ✅ 2026-10-09; cache open |
+| 6 | Startup template cache + honest 500s | Per-request disk I/O on 1-CPU box; silent template breakage | M | ✅ done 2026-10-09 — honest 500s, parse-once cache, render-to-buffer |
 | 7 | Unify matchcard derby code paths | League-scoring divergence between import types | M | ✅ done 2026-10-09 — also fixed derby re-import failing without "clear existing" |
 | 8 | Transactions on season copy/create/activate + result saves | Half-written seasons and match cards | M | ✅ done — seasons 2026-10-06, result saves 2026-10-09 |
 | 9 | De-fork `fixture_team_selection` templates via partial | Silent UI drift after every HTMX swap | M | open |
@@ -135,7 +157,7 @@ Both `clean` and `test-e2e-clean` run `down -v`, removing the live database volu
 - ~~Session tokens logged in plaintext on every request (`auth/middleware.go:58`, `auth/service.go:220-221`)~~ ✅ **fixed 2026-07-02** — added a `redactToken` helper (non-reversible `sha256:` fingerprint) and applied it to all 8 session-ID log sites across `auth/{middleware,service,handlers}.go`. First unit test in `internal/auth` (`service_test.go`) asserts the raw token never appears. Remaining debug-spam volume is unchanged (fingerprints still print), which is acceptable now that they are non-sensitive.
 - No CSRF protection anywhere; ~~several destructive admin actions are plain GET links (`/seasons/delete`, `/tournaments/toggle-visibility/`)~~ *(verified 2026-10-09: every mutating handler requires POST; only `/logout` accepts GET)*. `SameSite=Strict` is the only mitigation. **Fix (M):** CSRF token for admin POSTs; convert destructive GETs to POST.
 - ~~Sliding session expiry with no absolute cap (`auth/service.go:194-199`) — a stolen token in use never expires.~~ ✅ **fixed 2026-07-02** — added `Config.AbsoluteSessionDuration` (default 30d, 0 disables) enforced in `ValidateSession` against `session.CreatedAt`, so a continuously-refreshed session dies at the ceiling. Covered by `TestValidateSessionAbsoluteLifetimeCap` (old-but-active session rejected, fresh one passes, cap-disabled survives).
-- Login throttle keyed on username+IP (`auth/service.go:262-280`) — evaded by IP rotation or password spraying; and it fetches `LIMIT 5` rows before filtering by window. **Fix (M).**
+- Login throttle keyed on username+IP (`auth/service.go:262-280`) — evaded by IP rotation or password spraying; and it fetches `LIMIT 5` rows before filtering by window. **Fix (M).** *(2026-10-09: the "IP" was `RemoteAddr` including the port, so the throttle never fired across connections — fixed with `clientIP`, see sixth-pass notes. `LIMIT 5` is fine as-is: it means "the last five attempts all failed within the window". Spraying remains open.)*
 
 ### 2.5 Smaller items — LOW/MED
 - ~~The "Club Wrapped" gate checks `cookie.Value == "granted"`~~ — **accepted by design (2026-07-02):** the wrapped password/gate is deliberately decorative ("secret zone" feel, not access control). The static cookie value and non-constant-time compare are fine as-is. No action.
@@ -185,6 +207,7 @@ No `Begin` in any of: `CreateSeasonWithWeeks` (`service_seasons.go:61-99`), `Cop
 
 ### 3.5 N+1 queries and misc — MED/LOW
 50+ verified N+1 sites in admin services — worst: the team-selection screen runs two availability queries **per player** (`admin/fixtures.go:1771-1780`, 100+ queries per request), per-fixture team/week lookups in list loops (`service_fixtures.go:310-331, 558-579`), per-fixture lookups in the points table (`points.go:596-598`). **Fix (M):** batch `FindByIDs` methods for teams/weeks/players + one joined availability query covers ~80% mechanically.
+**✅ Team selection done 2026-10-09:** fixture-wide availability reads plus a once-per-fixture eligibility context (see the sixth-pass notes). The list-page loops (`service_fixtures.go`, `points.go`) are still open.
 Also: ~123 lines of SQL in 12 non-repo files (sessions/users queried from two packages with no shared repo; ~~`SELECT *` in `webpush.go:186,210` breaks on column adds~~ ✅ **fixed 2026-07-02** — both now use an explicit `subscriptionColumns` const, guarded by a reflection test that keeps it in lockstep with the struct's `db` tags); `context.Background()` ~117× in admin services so request cancellation never propagates; date functions wrapped around indexed columns defeat `idx_fixtures_scheduled_date` (`repository/fixture.go:387,606`). Index coverage otherwise verified good; models verified clean (consistent pointer-based nullables, no phantom fields).
 
 ---
@@ -199,7 +222,7 @@ Also: ~123 lines of SQL in 12 non-repo files (sessions/users queried from two pa
 ### 4.2 Per-request template parsing — HIGH
 `internal/admin/common.go:46-218` re-reads the page template **and globs + reads + parses all 12 partials on every request**, rebuilding a ~25-function FuncMap — 47 admin call sites plus a parallel copy in `internal/players/templates.go` with a **divergent FuncMap**. On the 1-CPU droplet this is real per-page CPU/disk churn, and template errors surface at request time as **HTTP 200 "coming soon" fallback pages** (`renderFallbackHTML`, `common.go:242-258`) instead of failing at startup. `cmd/jim-dot-tennis/main.go:244-248` already demonstrates the correct parse-once pattern.
 **Fix (M):** single `internal/render` package, parse-once cache with dev-mode reparse flag, render to a buffer then write, return honest 500s. Biggest server-side win for the least risk.
-**✅ Honest 500s done 2026-10-09:** `renderFallbackHTML` now responds 500 (`TestRenderFallbackHTMLIsServerError`). **Still open:** the parse-once cache / render package, and render-to-buffer, because a mid-render error can still leave a half-written 200 page.
+**✅ Honest 500s done 2026-10-09:** `renderFallbackHTML` now responds 500 (`TestRenderFallbackHTMLIsServerError`). **✅ Cache + render-to-buffer done 2026-10-09:** `internal/render` (see the sixth-pass notes). The admin and player FuncMaps are still separate; unifying them is polish.
 
 ### 4.3 Handlers bypassing layers; routing boilerplate — MED
 - Raw SQL in handlers: `club_wrapped.go` (53), `points.go` (12), `players.go:878-960` (a `*Service` method defined in a handler file). Handlers also reach into `h.service.playerRepository` etc. directly (e.g. `players.go:1102-1122`), eroding the boundary.

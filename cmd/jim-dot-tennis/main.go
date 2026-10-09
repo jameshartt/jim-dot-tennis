@@ -19,6 +19,7 @@ import (
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/players"
+	"jim-dot-tennis/internal/render"
 	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/webpush"
 )
@@ -166,7 +167,7 @@ func main() {
 
 	// About page (public, no auth required)
 	mux.HandleFunc("/about", func(w http.ResponseWriter, r *http.Request) {
-		if err := templates.ExecuteTemplate(w, "about.html", nil); err != nil {
+		if err := render.Execute(w, templates, "about.html", nil); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	})
@@ -188,7 +189,7 @@ func main() {
 		data := map[string]interface{}{
 			"Tournaments": visibleTournaments,
 		}
-		if err := templates.ExecuteTemplate(w, "index.html", data); err != nil {
+		if err := render.Execute(w, templates, "index.html", data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	})

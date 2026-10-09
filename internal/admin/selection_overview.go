@@ -109,7 +109,7 @@ func (h *SelectionOverviewHandler) handleOverviewPage(w http.ResponseWriter, r *
 		return
 	}
 
-	if err := tmpl.Execute(w, data); err != nil {
+	if err := renderTemplate(w, tmpl, data); err != nil {
 		log.Printf("Error executing template: %v", err)
 		http.Error(w, "Template error", http.StatusInternalServerError)
 		return
@@ -170,7 +170,7 @@ func (h *SelectionOverviewHandler) handleRefresh(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if err := tmpl.Execute(w, data); err != nil {
+	if err := renderTemplate(w, tmpl, data); err != nil {
 		log.Printf("Error executing template: %v", err)
 		http.Error(w, "Template error", http.StatusInternalServerError)
 		return

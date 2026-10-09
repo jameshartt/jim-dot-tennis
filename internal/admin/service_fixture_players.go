@@ -5,7 +5,7 @@ package admin
 import (
 	"context"
 	"fmt"
-	"time"
+	"log"
 
 	"jim-dot-tennis/internal/models"
 )
@@ -317,100 +317,105 @@ func (s *Service) GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID u
 		}
 	}
 
-	// Convert team players to players with availability and eligibility
-	var teamPlayersWithEligibility []PlayerWithEligibility
-	for _, player := range teamPlayers {
-		availability := s.determinePlayerAvailabilityForFixture(ctx, player.ID, fixtureID, fixture.ScheduledDate)
-
-		// Get eligibility information
-		var eligibility *PlayerEligibilityInfo
-		if teamID > 0 {
-			eligibility, err = s.teamEligibilityService.GetPlayerEligibilityForTeam(ctx, player.ID, teamID, fixtureID)
-			if err != nil {
-				// Log error but continue - default to allowing play
-				eligibility = &PlayerEligibilityInfo{
-					Player:  player,
-					CanPlay: true,
-				}
-			}
-		}
-
-		teamPlayersWithEligibility = append(teamPlayersWithEligibility, PlayerWithEligibility{
-			Player:             player,
-			AvailabilityStatus: availability.Status,
-			AvailabilityNotes:  availability.Notes,
-			Eligibility:        eligibility,
-		})
+	// Fixture-wide availability and eligibility context are loaded once; only
+	// the per-player rule checks run for each player.
+	availability, err := s.loadFixtureAvailability(ctx, fixture)
+	if err != nil {
+		return nil, nil, err
+	}
+	var teamFixture *teamFixtureEligibility
+	var teamFixtureErr error
+	if teamID > 0 {
+		teamFixture, teamFixtureErr = s.teamEligibilityService.forTeamFixture(ctx, teamID, fixtureID)
 	}
 
-	// Convert all home club players to players with availability and eligibility
-	var allHomeClubPlayersWithEligibility []PlayerWithEligibility
-	for _, player := range allHomeClubPlayers {
-		availability := s.determinePlayerAvailabilityForFixture(ctx, player.ID, fixtureID, fixture.ScheduledDate)
-
-		// Get eligibility information
-		var eligibility *PlayerEligibilityInfo
-		if teamID > 0 {
-			eligibility, err = s.teamEligibilityService.GetPlayerEligibilityForTeam(ctx, player.ID, teamID, fixtureID)
-			if err != nil {
-				// Log error but continue - default to allowing play
-				eligibility = &PlayerEligibilityInfo{
-					Player:  player,
-					CanPlay: true,
+	withEligibility := func(players []models.Player) []PlayerWithEligibility {
+		var out []PlayerWithEligibility
+		for _, player := range players {
+			var eligibility *PlayerEligibilityInfo
+			if teamID > 0 {
+				err := teamFixtureErr
+				if err == nil {
+					eligibility, err = teamFixture.forPlayer(ctx, player)
+				}
+				if err != nil {
+					// Log error but continue - default to allowing play
+					log.Printf("Eligibility check failed for player %s in fixture %d: %v", player.ID, fixtureID, err)
+					eligibility = &PlayerEligibilityInfo{
+						Player:  player,
+						CanPlay: true,
+					}
 				}
 			}
-		}
 
-		allHomeClubPlayersWithEligibility = append(allHomeClubPlayersWithEligibility, PlayerWithEligibility{
-			Player:             player,
-			AvailabilityStatus: availability.Status,
-			AvailabilityNotes:  availability.Notes,
-			Eligibility:        eligibility,
-		})
+			info := availability.forPlayer(player.ID)
+			out = append(out, PlayerWithEligibility{
+				Player:             player,
+				AvailabilityStatus: info.Status,
+				AvailabilityNotes:  info.Notes,
+				Eligibility:        eligibility,
+			})
+		}
+		return out
 	}
 
-	return teamPlayersWithEligibility, allHomeClubPlayersWithEligibility, nil
+	return withEligibility(teamPlayers), withEligibility(allHomeClubPlayers), nil
 }
 
-// determinePlayerAvailabilityForFixture determines a player's availability for a specific fixture
-// following the priority order: fixture-specific > date exception > general day-of-week > unknown
-func (s *Service) determinePlayerAvailabilityForFixture(ctx context.Context, playerID string, fixtureID uint, fixtureDate time.Time) PlayerAvailabilityInfo {
-	// 1. Check fixture-specific availability first (highest priority)
-	if fixtureAvail, err := s.availabilityRepository.GetPlayerFixtureAvailability(ctx, playerID, fixtureID); err == nil && fixtureAvail != nil {
-		return PlayerAvailabilityInfo{
-			Status: fixtureAvail.Status,
-			Notes:  fixtureAvail.Notes,
-		}
+// fixtureAvailability holds every player's availability answers relevant to
+// one fixture, loaded with three queries instead of up to four per player.
+type fixtureAvailability struct {
+	byFixture map[string]PlayerAvailabilityInfo
+	byDate    map[string]PlayerAvailabilityInfo
+	byWeekday map[string]PlayerAvailabilityInfo
+}
+
+// loadFixtureAvailability reads the fixture-specific answers, the date
+// exceptions covering the fixture date and the weekday patterns for the
+// fixture's season.
+func (s *Service) loadFixtureAvailability(ctx context.Context, fixture *models.Fixture) (*fixtureAvailability, error) {
+	fa := &fixtureAvailability{
+		byFixture: map[string]PlayerAvailabilityInfo{},
+		byDate:    map[string]PlayerAvailabilityInfo{},
+		byWeekday: map[string]PlayerAvailabilityInfo{},
 	}
 
-	// 2. Check for date-specific exceptions
-	if dateAvail, err := s.availabilityRepository.GetPlayerAvailabilityByDate(ctx, playerID, fixtureDate); err == nil && dateAvail != nil {
-		return PlayerAvailabilityInfo{
-			Status: dateAvail.Status,
-			Notes:  dateAvail.Reason,
-		}
-	}
-
-	// 3. Check general day-of-week availability
-	// First get the current season - we'll need to implement this
-	// For now, we'll assume season ID 1 or get it from the fixture
-	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
+	fixtureRows, err := s.availabilityRepository.FindFixtureAvailabilityByFixture(ctx, fixture.ID)
 	if err != nil {
-		return PlayerAvailabilityInfo{Status: models.Unknown}
+		return nil, fmt.Errorf("fixture availability: %w", err)
+	}
+	for _, a := range fixtureRows {
+		fa.byFixture[a.PlayerID] = PlayerAvailabilityInfo{Status: a.Status, Notes: a.Notes}
 	}
 
-	dayOfWeek := fixtureDate.Weekday().String()
-	if generalAvails, err := s.availabilityRepository.GetPlayerGeneralAvailability(ctx, playerID, fixture.SeasonID); err == nil {
-		for _, avail := range generalAvails {
-			if avail.DayOfWeek == dayOfWeek {
-				return PlayerAvailabilityInfo{
-					Status: avail.Status,
-					Notes:  avail.Notes,
-				}
-			}
+	exceptions, err := s.availabilityRepository.FindExceptionsCoveringDate(ctx, fixture.ScheduledDate)
+	if err != nil {
+		return nil, fmt.Errorf("availability exceptions: %w", err)
+	}
+	for _, a := range exceptions {
+		// Rows come newest first: the first one per player wins.
+		if _, seen := fa.byDate[a.PlayerID]; !seen {
+			fa.byDate[a.PlayerID] = PlayerAvailabilityInfo{Status: a.Status, Notes: a.Reason}
 		}
 	}
 
-	// 4. Default to Unknown if nothing is specified
+	weekday, err := s.availabilityRepository.FindGeneralAvailabilityForDay(ctx, fixture.SeasonID, fixture.ScheduledDate.Weekday().String())
+	if err != nil {
+		return nil, fmt.Errorf("general availability: %w", err)
+	}
+	for _, a := range weekday {
+		fa.byWeekday[a.PlayerID] = PlayerAvailabilityInfo{Status: a.Status, Notes: a.Notes}
+	}
+	return fa, nil
+}
+
+// forPlayer applies the priority order: fixture-specific > date exception >
+// general day-of-week > unknown.
+func (fa *fixtureAvailability) forPlayer(playerID string) PlayerAvailabilityInfo {
+	for _, answers := range []map[string]PlayerAvailabilityInfo{fa.byFixture, fa.byDate, fa.byWeekday} {
+		if info, ok := answers[playerID]; ok {
+			return info
+		}
+	}
 	return PlayerAvailabilityInfo{Status: models.Unknown}
 }

@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"path/filepath"
 	"time"
+
+	"jim-dot-tennis/internal/render"
 )
 
 // Handler provides HTTP handlers for auth-related routes
@@ -26,13 +28,41 @@ func NewHandler(service *Service, templateDir string, redirectPath string) *Hand
 	}
 }
 
+// loginData is what the login form renders.
+type loginData struct {
+	Error    string
+	Username string
+}
+
+// loginTemplates caches the parsed login page.
+var loginTemplates = render.NewCache()
+
+// renderLogin renders the login form, parsing its templates on first use.
+func (h *Handler) renderLogin(w http.ResponseWriter, data loginData) {
+	tmpl, err := loginTemplates.Get(h.templateDir, func() (*template.Template, error) {
+		funcMap := template.FuncMap{
+			"currentYear": func() int {
+				return time.Now().Year()
+			},
+		}
+		return template.New("").Funcs(funcMap).ParseFiles(
+			filepath.Join(h.templateDir, "layout.html"),
+			filepath.Join(h.templateDir, "login.html"),
+		)
+	})
+	if err != nil {
+		log.Printf("Error parsing template: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	if err := render.Execute(w, tmpl, "login.html", data); err != nil {
+		log.Printf("Error executing template: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
 // LoginHandler handles the login page and form submission
 func (h *Handler) LoginHandler() http.HandlerFunc {
-	type loginData struct {
-		Error    string
-		Username string
-	}
-
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("LoginHandler called with method: %s, URL: %s", r.Method, r.URL.Path)
 
@@ -58,28 +88,7 @@ func (h *Handler) LoginHandler() http.HandlerFunc {
 		// GET request - show login form
 		if r.Method == http.MethodGet {
 			log.Printf("Processing GET request for login page")
-			// Create template with functions
-			funcMap := template.FuncMap{
-				"currentYear": func() int {
-					return time.Now().Year()
-				},
-			}
-
-			tmpl, err := template.New("").Funcs(funcMap).ParseFiles(
-				filepath.Join(h.templateDir, "layout.html"),
-				filepath.Join(h.templateDir, "login.html"),
-			)
-			if err != nil {
-				log.Printf("Error parsing template: %v", err)
-				http.Error(w, "Internal server error", http.StatusInternalServerError)
-				return
-			}
-
-			data := loginData{}
-			if err := tmpl.ExecuteTemplate(w, "login.html", data); err != nil {
-				log.Printf("Error executing template: %v", err)
-				http.Error(w, "Internal server error", http.StatusInternalServerError)
-			}
+			h.renderLogin(w, loginData{})
 			return
 		}
 
@@ -105,27 +114,7 @@ func (h *Handler) LoginHandler() http.HandlerFunc {
 					Username: username,
 				}
 
-				// Create template with functions
-				funcMap := template.FuncMap{
-					"currentYear": func() int {
-						return time.Now().Year()
-					},
-				}
-
-				tmpl, err := template.New("").Funcs(funcMap).ParseFiles(
-					filepath.Join(h.templateDir, "layout.html"),
-					filepath.Join(h.templateDir, "login.html"),
-				)
-				if err != nil {
-					log.Printf("Error parsing template: %v", err)
-					http.Error(w, "Internal server error", http.StatusInternalServerError)
-					return
-				}
-
-				if err := tmpl.ExecuteTemplate(w, "login.html", data); err != nil {
-					log.Printf("Error executing template: %v", err)
-					http.Error(w, "Internal server error", http.StatusInternalServerError)
-				}
+				h.renderLogin(w, data)
 				return
 			}
 

@@ -172,6 +172,7 @@ func (h *StandingsHandler) HandleStandings(w http.ResponseWriter, r *http.Reques
 		}
 		if err := renderTemplate(w, tmpl, data); err != nil {
 			log.Printf("Error rendering standings table: %v", err)
+			http.Error(w, "Failed to render standings", http.StatusInternalServerError)
 		}
 		return
 	}
@@ -186,6 +187,7 @@ func (h *StandingsHandler) HandleStandings(w http.ResponseWriter, r *http.Reques
 
 	if err := renderTemplate(w, tmpl, data); err != nil {
 		log.Printf("Error rendering standings: %v", err)
+		http.Error(w, "Failed to render standings", http.StatusInternalServerError)
 	}
 }
 

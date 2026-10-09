@@ -8,10 +8,23 @@ import (
 	"net/http"
 	"path/filepath"
 	"time"
+
+	"jim-dot-tennis/internal/render"
 )
 
-// parseTemplate loads and parses a template file
+// templateCache holds every parsed player page, so templates are read from
+// disk once per process rather than on every request.
+var templateCache = render.NewCache()
+
+// parseTemplate returns the page template, parsing it on first use.
 func parseTemplate(templateDir, templateName string) (*template.Template, error) {
+	return templateCache.Get(filepath.Join(templateDir, templateName), func() (*template.Template, error) {
+		return parseTemplateFile(templateDir, templateName)
+	})
+}
+
+// parseTemplateFile loads and parses a template file
+func parseTemplateFile(templateDir, templateName string) (*template.Template, error) {
 	templatePath := filepath.Join(templateDir, templateName)
 
 	// Create template with common functions
@@ -64,10 +77,11 @@ func parseTemplate(templateDir, templateName string) (*template.Template, error)
 	return tmpl.ParseFiles(templatePath)
 }
 
-// renderTemplate executes a template with the given data
+// renderTemplate executes a template with the given data. Nothing is written
+// unless rendering succeeds, so callers can still respond with an error.
 func renderTemplate(w http.ResponseWriter, tmpl *template.Template, data interface{}) error {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	return tmpl.Execute(w, data)
+	return render.Execute(w, tmpl, "", data)
 }
 
 // renderFallbackHTML renders a simple HTML page when templates are not available

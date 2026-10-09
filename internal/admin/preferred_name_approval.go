@@ -92,7 +92,7 @@ func (s *Service) HandlePreferredNameApprovals(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err := tmpl.Execute(w, data); err != nil {
+	if err := renderTemplate(w, tmpl, data); err != nil {
 		log.Printf("Error rendering preferred name approvals template: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
@@ -277,7 +277,7 @@ func (s *Service) HandlePreferredNameHistory(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := tmpl.Execute(w, data); err != nil {
+	if err := renderTemplate(w, tmpl, data); err != nil {
 		log.Printf("Error rendering preferred name history template: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}

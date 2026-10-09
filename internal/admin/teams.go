@@ -568,8 +568,9 @@ func (h *TeamsHandler) handleAddPlayersGet(w http.ResponseWriter, r *http.Reques
 // renderAddPlayersTableBody renders just the table body for HTMX requests
 func (h *TeamsHandler) renderAddPlayersTableBody(w http.ResponseWriter, players []models.Player) {
 	w.Header().Set("Content-Type", "text/html")
-	if err := addPlayersRowsTemplate.Execute(w, players); err != nil {
+	if err := renderTemplate(w, addPlayersRowsTemplate, players); err != nil {
 		log.Printf("Failed to render add-players rows: %v", err)
+		http.Error(w, "Failed to render", http.StatusInternalServerError)
 	}
 }
 

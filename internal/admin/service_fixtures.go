@@ -538,10 +538,14 @@ func (s *Service) GetFixtureDetail(fixtureID uint) (*FixtureDetail, error) {
 	// Get selected players for the fixture
 	if selectedPlayers, err := s.fixtureRepository.FindSelectedPlayers(ctx, fixtureID); err == nil {
 		var selectedPlayerInfos []SelectedPlayerInfo
+		fixtureAvail, availErr := s.loadFixtureAvailability(ctx, fixture)
 		for _, sp := range selectedPlayers {
 			if player, err := s.playerRepository.FindByID(ctx, sp.PlayerID); err == nil {
 				// Get availability information for this player and fixture
-				availability := s.determinePlayerAvailabilityForFixture(ctx, sp.PlayerID, fixtureID, fixture.ScheduledDate)
+				availability := PlayerAvailabilityInfo{Status: models.Unknown}
+				if availErr == nil {
+					availability = fixtureAvail.forPlayer(sp.PlayerID)
+				}
 
 				selectedPlayerInfos = append(selectedPlayerInfos, SelectedPlayerInfo{
 					FixturePlayer:      sp,
@@ -555,31 +559,6 @@ func (s *Service) GetFixtureDetail(fixtureID uint) (*FixtureDetail, error) {
 	}
 
 	return detail, nil
-}
-
-// IsHomeClubInFixture determines whether the home club is the home team in a fixture
-// Uses the exact same logic as buildFixturesWithRelations to ensure consistency
-func (s *Service) IsHomeClubInFixture(fixtureID uint) bool {
-	ctx := context.Background()
-
-	// Get the fixture
-	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
-	if err != nil {
-		return false // Default to away if we can't determine
-	}
-
-	// Get home team
-	homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
-	if err != nil {
-		return false // Default to away if we can't get home team
-	}
-
-	// Check if the home team belongs to the home club
-	if homeTeam != nil && homeTeam.ClubID == s.homeClubID {
-		return true
-	}
-
-	return false
 }
 
 // GetUpcomingFixturesForTeam retrieves upcoming fixtures for a specific team
@@ -778,10 +757,14 @@ func (s *Service) GetFixtureDetailWithTeamContext(fixtureID uint, managingTeamID
 	// Get selected players for the fixture, filtered by managing team
 	if selectedPlayers, err := s.fixtureRepository.FindSelectedPlayersByTeam(ctx, fixtureID, managingTeamID); err == nil {
 		var selectedPlayerInfos []SelectedPlayerInfo
+		fixtureAvail, availErr := s.loadFixtureAvailability(ctx, fixture)
 		for _, sp := range selectedPlayers {
 			if player, err := s.playerRepository.FindByID(ctx, sp.PlayerID); err == nil {
 				// Get availability information for this player and fixture
-				availability := s.determinePlayerAvailabilityForFixture(ctx, sp.PlayerID, fixtureID, fixture.ScheduledDate)
+				availability := PlayerAvailabilityInfo{Status: models.Unknown}
+				if availErr == nil {
+					availability = fixtureAvail.forPlayer(sp.PlayerID)
+				}
 
 				selectedPlayerInfos = append(selectedPlayerInfos, SelectedPlayerInfo{
 					FixturePlayer:      sp,

@@ -93,5 +93,6 @@ func (h *PlanningLinkHandler) renderPicker(w http.ResponseWriter, r *http.Reques
 	}
 	if err := renderTemplate(w, tmpl, data); err != nil {
 		log.Printf("planning link render failed: %v", err)
+		http.Error(w, "Failed to render page", http.StatusInternalServerError)
 	}
 }

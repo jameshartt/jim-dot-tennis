@@ -15,6 +15,7 @@ services:
       - ./static:/app/static # For development: hot reload static files
     environment:
       - PORT=8080
+      - TEMPLATE_RELOAD=${TEMPLATE_RELOAD:-true} # re-parse templates per request (hot reload)
       - DB_TYPE=sqlite3
       - DB_PATH=/app/data/tennis.db
       - WRAPPED_ACCESS_PASSWORD=${WRAPPED_ACCESS_PASSWORD}

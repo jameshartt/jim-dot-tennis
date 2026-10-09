@@ -91,10 +91,10 @@ func NewService(db *database.DB, config Config) *Service {
 
 // Login authenticates a user and creates a new session
 func (s *Service) Login(username, password string, r *http.Request) (*models.Session, error) {
-	log.Printf("Login attempt for username: %s from IP: %s", username, r.RemoteAddr)
+	log.Printf("Login attempt for username: %s from IP: %s", username, clientIP(r))
 
 	// Check for too many failed login attempts
-	if tooMany, err := s.tooManyFailedAttempts(username, r.RemoteAddr); err != nil {
+	if tooMany, err := s.tooManyFailedAttempts(username, clientIP(r)); err != nil {
 		log.Printf("Error checking login attempts: %v", err)
 	} else if tooMany {
 		log.Printf("Too many failed login attempts for %s", username)
@@ -153,7 +153,7 @@ func (s *Service) Login(username, password string, r *http.Request) (*models.Ses
 		CreatedAt:      time.Now(),
 		ExpiresAt:      time.Now().Add(s.config.SessionDuration),
 		LastActivityAt: time.Now(),
-		IP:             r.RemoteAddr,
+		IP:             clientIP(r),
 		UserAgent:      r.UserAgent(),
 		DeviceInfo:     deviceInfo,
 		IsValid:        true,
@@ -214,7 +214,7 @@ func (s *Service) ValidateSession(sessionID string, r *http.Request) (*models.Se
 	// This is a trade-off between security and user experience
 	// Uncomment this if you want stricter security
 	/*
-		if session.IP != r.RemoteAddr || session.UserAgent != r.UserAgent() {
+		if session.IP != clientIP(r) || session.UserAgent != r.UserAgent() {
 			log.Printf("Session security warning: IP/UserAgent mismatch for session %s", redactToken(sessionID))
 			// You might choose to invalidate or just log the discrepancy
 			// s.InvalidateSession(sessionID)
@@ -280,7 +280,7 @@ func (s *Service) ClearSessionCookie(w http.ResponseWriter) {
 func (s *Service) recordLoginAttempt(username string, r *http.Request, success bool) {
 	attempt := &models.LoginAttempt{
 		Username:  username,
-		IP:        r.RemoteAddr,
+		IP:        clientIP(r),
 		UserAgent: r.UserAgent(),
 		Success:   success,
 		CreatedAt: time.Now(),

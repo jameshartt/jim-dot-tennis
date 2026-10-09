@@ -16,6 +16,7 @@ import (
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/render"
 )
 
 // getUserFromContext is a helper to get the user from request context
@@ -42,8 +43,20 @@ func homeClubLogoFromContext(r *http.Request) string {
 	return config.GetHomeClubLogoPath(r.Context())
 }
 
-// parseTemplate loads and parses a template file with helper functions and partials
+// templateCache holds every parsed admin page, so templates are read from disk
+// once per process rather than on every request.
+var templateCache = render.NewCache()
+
+// parseTemplate returns the page template with helper functions and partials,
+// parsing it on first use.
 func parseTemplate(templateDir, templatePath string) (*template.Template, error) {
+	return templateCache.Get(filepath.Join(templateDir, templatePath), func() (*template.Template, error) {
+		return parseTemplateFiles(templateDir, templatePath)
+	})
+}
+
+// parseTemplateFiles loads and parses a template file with helper functions and partials
+func parseTemplateFiles(templateDir, templatePath string) (*template.Template, error) {
 	fullPath := filepath.Join(templateDir, templatePath)
 
 	// Define template functions
@@ -217,9 +230,15 @@ func parseTemplate(templateDir, templatePath string) (*template.Template, error)
 	return tmpl, nil
 }
 
-// renderTemplate executes a template with given data
+// renderTemplate executes a template with given data. Nothing is written
+// unless rendering succeeds, so callers can still respond with an error.
 func renderTemplate(w http.ResponseWriter, tmpl *template.Template, data interface{}) error {
-	return tmpl.Execute(w, data)
+	return render.Execute(w, tmpl, "", data)
+}
+
+// renderNamedTemplate is renderTemplate for one named template in the set.
+func renderNamedTemplate(w http.ResponseWriter, tmpl *template.Template, name string, data interface{}) error {
+	return render.Execute(w, tmpl, name, data)
 }
 
 // parseIDFromPath extracts an ID from a URL path

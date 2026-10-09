@@ -70,8 +70,27 @@ func (s *TeamEligibilityService) GetTeamRanking(ctx context.Context, clubID uint
 	return rankings, nil
 }
 
-// GetPlayerEligibilityForTeam checks if a player is eligible to play for a specific team
-func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context, playerID string, teamID uint, fixtureID uint) (*PlayerEligibilityInfo, error) {
+// teamFixtureEligibility holds the facts shared by every player's eligibility
+// check for one team in one fixture, so a selection screen loads them once
+// rather than once per player.
+type teamFixtureEligibility struct {
+	s                           *TeamEligibilityService
+	fixture                     *models.Fixture
+	teamID                      uint
+	weekStart, weekEndExclusive time.Time
+
+	// Errors are kept and reported at the point the rules first need the
+	// value, as they were when every lookup ran per player.
+	secondHalfStartWeek int
+	secondHalfErr       error
+	inSecondHalf        bool
+	rankings            []TeamRank
+	rankingsErr         error
+}
+
+// forTeamFixture loads the fixture, its league week, the target team, the
+// season half and (in the second half) the club's team rankings.
+func (s *TeamEligibilityService) forTeamFixture(ctx context.Context, teamID uint, fixtureID uint) (*teamFixtureEligibility, error) {
 	// Get the fixture to determine the scheduled date and season
 	fixture, err := s.service.fixtureRepository.FindByID(ctx, fixtureID)
 	if err != nil {
@@ -93,20 +112,50 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 		}
 	}
 
-	// Get the player
-	player, err := s.service.playerRepository.FindByID(ctx, playerID)
-	if err != nil {
-		return nil, err
-	}
-
 	// Get the target team
 	targetTeam, err := s.service.teamRepository.FindByID(ctx, teamID)
 	if err != nil {
 		return nil, err
 	}
 
+	tf := &teamFixtureEligibility{s: s, fixture: fixture, teamID: teamID}
+
+	// Compute Monday 00:00 to Saturday 00:00 window for the fixture's week
+	tf.weekStart, tf.weekEndExclusive = s.mondayToSaturdayWindow(fixture.ScheduledDate)
+
+	// Rule 16 applies starting in the second half of the season (league week 10
+	// of 18). The season half is determined by league week number, NOT by date:
+	// the weeks table date windows can drift from the real fixture calendar.
+	tf.secondHalfStartWeek, tf.secondHalfErr = s.getSecondHalfStartWeek(ctx, fixture.SeasonID)
+	if tf.secondHalfErr != nil {
+		return tf, nil
+	}
+
+	// Rule 16 applies to matches played in the second half of the season. Normally
+	// the league week number decides this. But a fixture rescheduled out of its
+	// original week keeps its (earlier) week_id while being physically played on its
+	// scheduled_date, so a first-half-week fixture rescheduled to a second-half date
+	// (e.g. a week-8 fixture moved to September) is a second-half match and Rule 16
+	// must apply. Treat the fixture as second-half if EITHER its league week is in
+	// the second half OR its scheduled date falls in the second half of the season.
+	tf.inSecondHalf = playingWeek.WeekNumber >= tf.secondHalfStartWeek
+	if !tf.inSecondHalf && s.scheduledInSecondHalf(ctx, fixture) {
+		tf.inSecondHalf = true
+	}
+
+	if tf.inSecondHalf {
+		// Get team rankings to determine which teams are "higher"
+		tf.rankings, tf.rankingsErr = s.GetTeamRanking(ctx, targetTeam.ClubID, fixture.SeasonID)
+	}
+	return tf, nil
+}
+
+// forPlayer applies the eligibility rules to one player.
+func (tf *teamFixtureEligibility) forPlayer(ctx context.Context, player models.Player) (*PlayerEligibilityInfo, error) {
+	s, fixture, teamID, fixtureID, playerID := tf.s, tf.fixture, tf.teamID, tf.fixture.ID, player.ID
+
 	eligibility := &PlayerEligibilityInfo{
-		Player:                   *player,
+		Player:                   player,
 		CanPlay:                  true,
 		RemainingHigherTeamPlays: -1, // -1 means not applicable (not in second half or no higher teams)
 		IsLockedToHigherTeam:     false,
@@ -116,11 +165,8 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 		CanPlayLower:             false,
 	}
 
-	// Compute Monday 00:00 to Saturday 00:00 window for the fixture's week
-	weekStart, weekEndExclusive := s.mondayToSaturdayWindow(fixture.ScheduledDate)
-
 	// Rule 1: No player shall be allowed to play or be scheduled to play in more than one team in the Monday–Friday window
-	hasPlayedThisWeek, playedTeam, err := s.hasPlayerPlayedInCalendarWeek(ctx, playerID, player.ClubID, weekStart, weekEndExclusive, fixture.ID)
+	hasPlayedThisWeek, playedTeam, err := s.hasPlayerPlayedInCalendarWeek(ctx, playerID, player.ClubID, tf.weekStart, tf.weekEndExclusive, fixture.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -133,33 +179,16 @@ func (s *TeamEligibilityService) GetPlayerEligibilityForTeam(ctx context.Context
 		return eligibility, nil
 	}
 
-	// Rule 16 applies starting in the second half of the season (league week 10
-	// of 18). The season half is determined by league week number, NOT by date:
-	// the weeks table date windows can drift from the real fixture calendar.
-	secondHalfStartWeek, err := s.getSecondHalfStartWeek(ctx, fixture.SeasonID)
-	if err != nil {
-		return nil, err
+	if tf.secondHalfErr != nil {
+		return nil, tf.secondHalfErr
 	}
+	secondHalfStartWeek := tf.secondHalfStartWeek
 
-	// Rule 16 applies to matches played in the second half of the season. Normally
-	// the league week number decides this. But a fixture rescheduled out of its
-	// original week keeps its (earlier) week_id while being physically played on its
-	// scheduled_date, so a first-half-week fixture rescheduled to a second-half date
-	// (e.g. a week-8 fixture moved to September) is a second-half match and Rule 16
-	// must apply. Treat the fixture as second-half if EITHER its league week is in
-	// the second half OR its scheduled date falls in the second half of the season.
-	inSecondHalf := playingWeek.WeekNumber >= secondHalfStartWeek
-	if !inSecondHalf && s.scheduledInSecondHalf(ctx, fixture) {
-		inSecondHalf = true
-	}
-
-	if inSecondHalf {
-		// Get team rankings to determine which teams are "higher"
-		rankings, err := s.GetTeamRanking(ctx, targetTeam.ClubID, fixture.SeasonID)
+	if tf.inSecondHalf {
+		rankings, err := tf.rankings, tf.rankingsErr
 		if err != nil {
 			return nil, err
 		}
-
 		targetTeamRank := s.findTeamRank(rankings, teamID)
 		if targetTeamRank == -1 {
 			return nil, fmt.Errorf("target team not found in rankings")
