@@ -4,6 +4,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"jim-dot-tennis/internal/database"
@@ -17,6 +18,7 @@ type MatchupRepository interface {
 	FindByID(ctx context.Context, id uint) (*models.Matchup, error)
 	Create(ctx context.Context, matchup *models.Matchup) error
 	Update(ctx context.Context, matchup *models.Matchup) error
+	UpdateAll(ctx context.Context, matchups []*models.Matchup) error
 	Delete(ctx context.Context, id uint) error
 
 	// Matchup-specific queries
@@ -43,6 +45,18 @@ type MatchupRepository interface {
 	CountByFixture(ctx context.Context, fixtureID uint) (int, error)
 	CountByStatus(ctx context.Context, status models.MatchupStatus) (int, error)
 }
+
+// matchupUpdateSQL writes every mutable matchup column; shared by Update and UpdateAll.
+const matchupUpdateSQL = `
+	UPDATE matchups
+	SET fixture_id = :fixture_id, type = :type, status = :status,
+	    home_score = :home_score, away_score = :away_score,
+	    home_set1 = :home_set1, away_set1 = :away_set1,
+	    home_set2 = :home_set2, away_set2 = :away_set2,
+	    home_set3 = :home_set3, away_set3 = :away_set3,
+	    notes = :notes, managing_team_id = :managing_team_id, conceded_by = :conceded_by, retired_by = :retired_by, updated_at = :updated_at
+	WHERE id = :id
+`
 
 // matchupRepository implements MatchupRepository
 type matchupRepository struct {
@@ -116,18 +130,29 @@ func (r *matchupRepository) Create(ctx context.Context, matchup *models.Matchup)
 func (r *matchupRepository) Update(ctx context.Context, matchup *models.Matchup) error {
 	matchup.UpdatedAt = time.Now()
 
-	_, err := r.db.NamedExecContext(ctx, `
-		UPDATE matchups 
-		SET fixture_id = :fixture_id, type = :type, status = :status, 
-		    home_score = :home_score, away_score = :away_score,
-		    home_set1 = :home_set1, away_set1 = :away_set1,
-		    home_set2 = :home_set2, away_set2 = :away_set2,
-		    home_set3 = :home_set3, away_set3 = :away_set3,
-		    notes = :notes, managing_team_id = :managing_team_id, conceded_by = :conceded_by, retired_by = :retired_by, updated_at = :updated_at
-		WHERE id = :id
-	`, matchup)
+	_, err := r.db.NamedExecContext(ctx, matchupUpdateSQL, matchup)
 
 	return err
+}
+
+// UpdateAll writes several matchups in one transaction: either every row is
+// updated or none is (e.g. both slates of a derby result save).
+func (r *matchupRepository) UpdateAll(ctx context.Context, matchups []*models.Matchup) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	now := time.Now()
+	for _, matchup := range matchups {
+		matchup.UpdatedAt = now
+		if _, err := tx.NamedExecContext(ctx, matchupUpdateSQL, matchup); err != nil {
+			return fmt.Errorf("failed to update matchup %d: %w", matchup.ID, err)
+		}
+	}
+
+	return tx.Commit()
 }
 
 // Delete removes a matchup record by ID

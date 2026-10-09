@@ -346,91 +346,129 @@ func (s *Service) AddPlayerToMatchup(matchupID uint, playerID string, fixtureID 
 	return nil
 }
 
-// SaveMatchupResults saves scores for all matchups in a fixture
-func (s *Service) SaveMatchupResults(fixtureID uint, entries []MatchupScoreEntry) error {
+// SaveFixtureResults scores each entry's matchup and, for derbies, mirrors the
+// result onto the other managing team's slate. All rows are written in a single
+// transaction, so a failure leaves every matchup as it was. Each entry must
+// reference a matchup belonging to fixtureID.
+func (s *Service) SaveFixtureResults(fixtureID uint, activeManagingTeamID uint, isDerby bool, entries []MatchupScoreEntry) error {
 	ctx := context.Background()
 
+	var mirrors []models.Matchup
+	if isDerby {
+		all, err := s.matchupRepository.FindByFixture(ctx, fixtureID)
+		if err != nil {
+			return fmt.Errorf("failed to load matchups for fixture %d: %w", fixtureID, err)
+		}
+		for _, m := range all {
+			if m.ManagingTeamID != nil && *m.ManagingTeamID != activeManagingTeamID {
+				mirrors = append(mirrors, m)
+			}
+		}
+	}
+
+	var updates []*models.Matchup
 	for _, entry := range entries {
 		matchup, err := s.matchupRepository.FindByID(ctx, entry.MatchupID)
 		if err != nil {
 			return fmt.Errorf("matchup %d not found: %w", entry.MatchupID, err)
 		}
-
-		switch {
-		case entry.Conceded:
-			// Handle conceded matchup
-			concededBy := entry.ConcededBy
-			matchup.ConcededBy = &concededBy
-			matchup.RetiredBy = nil
-			matchup.Status = models.Defaulted
-			// Conceding side gets 0 points, other side gets 2
-			if concededBy == models.ConcededHome {
-				matchup.HomeScore = 0
-				matchup.AwayScore = 2
-			} else {
-				matchup.HomeScore = 2
-				matchup.AwayScore = 0
-			}
-			// Clear set scores
-			matchup.HomeSet1 = nil
-			matchup.AwaySet1 = nil
-			matchup.HomeSet2 = nil
-			matchup.AwaySet2 = nil
-			matchup.HomeSet3 = nil
-			matchup.AwaySet3 = nil
-		case entry.Retired:
-			// Handle retired matchup: play started, partial set scores preserved.
-			// Non-retiring side gets the full match win; the points table will
-			// award them both set points regardless of the recorded scores.
-			retiredBy := entry.RetiredBy
-			matchup.RetiredBy = &retiredBy
-			matchup.ConcededBy = nil
-			matchup.Status = models.Finished
-			matchup.HomeSet1 = entry.HomeSet1
-			matchup.AwaySet1 = entry.AwaySet1
-			matchup.HomeSet2 = entry.HomeSet2
-			matchup.AwaySet2 = entry.AwaySet2
-			matchup.HomeSet3 = entry.HomeSet3
-			matchup.AwaySet3 = entry.AwaySet3
-			if retiredBy == models.RetiredHome {
-				matchup.HomeScore = 0
-				matchup.AwayScore = 2
-			} else {
-				matchup.HomeScore = 2
-				matchup.AwayScore = 0
-			}
-		default:
-			// Set scores
-			matchup.HomeSet1 = entry.HomeSet1
-			matchup.AwaySet1 = entry.AwaySet1
-			matchup.HomeSet2 = entry.HomeSet2
-			matchup.AwaySet2 = entry.AwaySet2
-			matchup.HomeSet3 = entry.HomeSet3
-			matchup.AwaySet3 = entry.AwaySet3
-			matchup.Status = models.Finished
-			matchup.ConcededBy = nil
-			matchup.RetiredBy = nil
-
-			// Calculate HomeScore/AwayScore from sets won
-			homeSetsWon, awaySetsWon := countSetsWon(entry)
-			if homeSetsWon > awaySetsWon {
-				matchup.HomeScore = 2
-				matchup.AwayScore = 0
-			} else if awaySetsWon > homeSetsWon {
-				matchup.HomeScore = 0
-				matchup.AwayScore = 2
-			} else {
-				matchup.HomeScore = 1
-				matchup.AwayScore = 1
-			}
+		if matchup.FixtureID != fixtureID {
+			return fmt.Errorf("matchup %d does not belong to fixture %d", entry.MatchupID, fixtureID)
 		}
+		applyScoreEntry(matchup, entry)
+		updates = append(updates, matchup)
 
-		if err := s.matchupRepository.Update(ctx, matchup); err != nil {
-			return fmt.Errorf("failed to update matchup %d: %w", entry.MatchupID, err)
+		// Players are not mirrored — each slate keeps its own roster.
+		for i := range mirrors {
+			mirror := &mirrors[i]
+			if mirror.ID == matchup.ID || mirror.Type != matchup.Type {
+				continue
+			}
+			mirror.Status = matchup.Status
+			mirror.HomeScore, mirror.AwayScore = matchup.HomeScore, matchup.AwayScore
+			mirror.HomeSet1, mirror.AwaySet1 = matchup.HomeSet1, matchup.AwaySet1
+			mirror.HomeSet2, mirror.AwaySet2 = matchup.HomeSet2, matchup.AwaySet2
+			mirror.HomeSet3, mirror.AwaySet3 = matchup.HomeSet3, matchup.AwaySet3
+			mirror.ConcededBy = matchup.ConcededBy
+			mirror.RetiredBy = matchup.RetiredBy
+			updates = append(updates, mirror)
 		}
 	}
 
-	return nil
+	return s.matchupRepository.UpdateAll(ctx, updates)
+}
+
+// applyScoreEntry sets a matchup's status, set scores and match points from a
+// submitted score entry (concession, retirement, or played sets).
+func applyScoreEntry(m *models.Matchup, entry MatchupScoreEntry) {
+	switch {
+	case entry.Conceded:
+		// Handle conceded matchup
+		concededBy := entry.ConcededBy
+		m.ConcededBy = &concededBy
+		m.RetiredBy = nil
+		m.Status = models.Defaulted
+		// Conceding side gets 0 points, other side gets 2
+		if concededBy == models.ConcededHome {
+			m.HomeScore = 0
+			m.AwayScore = 2
+		} else {
+			m.HomeScore = 2
+			m.AwayScore = 0
+		}
+		// Clear set scores
+		m.HomeSet1 = nil
+		m.AwaySet1 = nil
+		m.HomeSet2 = nil
+		m.AwaySet2 = nil
+		m.HomeSet3 = nil
+		m.AwaySet3 = nil
+	case entry.Retired:
+		// Handle retired matchup: play started, partial set scores preserved.
+		// Non-retiring side gets the full match win; the points table will
+		// award them both set points regardless of the recorded scores.
+		retiredBy := entry.RetiredBy
+		m.RetiredBy = &retiredBy
+		m.ConcededBy = nil
+		m.Status = models.Finished
+		m.HomeSet1 = entry.HomeSet1
+		m.AwaySet1 = entry.AwaySet1
+		m.HomeSet2 = entry.HomeSet2
+		m.AwaySet2 = entry.AwaySet2
+		m.HomeSet3 = entry.HomeSet3
+		m.AwaySet3 = entry.AwaySet3
+		if retiredBy == models.RetiredHome {
+			m.HomeScore = 0
+			m.AwayScore = 2
+		} else {
+			m.HomeScore = 2
+			m.AwayScore = 0
+		}
+	default:
+		// Set scores
+		m.HomeSet1 = entry.HomeSet1
+		m.AwaySet1 = entry.AwaySet1
+		m.HomeSet2 = entry.HomeSet2
+		m.AwaySet2 = entry.AwaySet2
+		m.HomeSet3 = entry.HomeSet3
+		m.AwaySet3 = entry.AwaySet3
+		m.Status = models.Finished
+		m.ConcededBy = nil
+		m.RetiredBy = nil
+
+		// Calculate HomeScore/AwayScore from sets won
+		homeSetsWon, awaySetsWon := countSetsWon(entry)
+		if homeSetsWon > awaySetsWon {
+			m.HomeScore = 2
+			m.AwayScore = 0
+		} else if awaySetsWon > homeSetsWon {
+			m.HomeScore = 0
+			m.AwayScore = 2
+		} else {
+			m.HomeScore = 1
+			m.AwayScore = 1
+		}
+	}
 }
 
 // MergeDerbyOpponentPlayers augments a derby slate's matchups with the players
@@ -477,51 +515,6 @@ func (s *Service) MergeDerbyOpponentPlayers(fixtureID uint, activeManagingTeamID
 	}
 
 	return matchups, nil
-}
-
-// MirrorDerbyResults copies score/concession/retirement fields from each entry's
-// matchup onto the same-type matchup belonging to the OTHER managing team in the
-// same fixture. Players are not mirrored — each slate keeps its own roster.
-// activeManagingTeamID is the slate the user just edited; we mirror onto the rest.
-func (s *Service) MirrorDerbyResults(fixtureID uint, activeManagingTeamID uint, entries []MatchupScoreEntry) error {
-	ctx := context.Background()
-
-	allMatchups, err := s.matchupRepository.FindByFixture(ctx, fixtureID)
-	if err != nil {
-		return fmt.Errorf("failed to load matchups for fixture %d: %w", fixtureID, err)
-	}
-
-	for _, entry := range entries {
-		// Look up the source matchup so we can copy its now-saved fields.
-		source, err := s.matchupRepository.FindByID(ctx, entry.MatchupID)
-		if err != nil {
-			return fmt.Errorf("source matchup %d not found: %w", entry.MatchupID, err)
-		}
-
-		for i := range allMatchups {
-			mirror := &allMatchups[i]
-			if mirror.ID == source.ID || mirror.Type != source.Type {
-				continue
-			}
-			if mirror.ManagingTeamID == nil || *mirror.ManagingTeamID == activeManagingTeamID {
-				continue
-			}
-			mirror.Status = source.Status
-			mirror.HomeScore = source.HomeScore
-			mirror.AwayScore = source.AwayScore
-			mirror.HomeSet1, mirror.AwaySet1 = source.HomeSet1, source.AwaySet1
-			mirror.HomeSet2, mirror.AwaySet2 = source.HomeSet2, source.AwaySet2
-			mirror.HomeSet3, mirror.AwaySet3 = source.HomeSet3, source.AwaySet3
-			mirror.ConcededBy = source.ConcededBy
-			mirror.RetiredBy = source.RetiredBy
-
-			if err := s.matchupRepository.Update(ctx, mirror); err != nil {
-				return fmt.Errorf("failed to mirror matchup %d → %d: %w", source.ID, mirror.ID, err)
-			}
-		}
-	}
-
-	return nil
 }
 
 // CompleteFixtureWithResults marks a fixture as completed

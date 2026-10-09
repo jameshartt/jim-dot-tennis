@@ -4,12 +4,15 @@ package admin
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 
 	"jim-dot-tennis/internal/config"
+	"jim-dot-tennis/internal/models"
 )
 
 // ClubWrappedHandler handles club-wide season wrapped requests
@@ -154,6 +157,7 @@ type ClubTimelineEvent struct {
 // Main club wrapped data structure - for all players collectively
 type ClubWrappedData struct {
 	ClubName               string
+	SeasonID               uint
 	SeasonYear             int
 	OverallStats           ClubOverallStats
 	FixtureBreakdown       ClubFixtureBreakdown
@@ -268,7 +272,7 @@ func (h *ClubWrappedHandler) HandlePublicWrapped(w http.ResponseWriter, r *http.
 
 	// If a player context cookie is present, enrich with personal stats
 	if playerCookie, perr := r.Cookie("wrapped_player_id"); perr == nil && playerCookie.Value != "" {
-		if personal := h.getPersonalWrappedData(r.Context(), playerCookie.Value); personal != nil {
+		if personal := h.getPersonalWrappedData(r.Context(), wrappedData.SeasonID, playerCookie.Value); personal != nil {
 			wrappedData.Personal = personal
 		}
 	}
@@ -278,22 +282,22 @@ func (h *ClubWrappedHandler) HandlePublicWrapped(w http.ResponseWriter, r *http.
 }
 
 // getPersonalWrappedData builds a per-player season summary
-func (h *ClubWrappedHandler) getPersonalWrappedData(ctx context.Context, playerID string) *PersonalWrappedData {
+func (h *ClubWrappedHandler) getPersonalWrappedData(ctx context.Context, seasonID uint, playerID string) *PersonalWrappedData {
 	pd := &PersonalWrappedData{PlayerID: playerID}
 
 	// Player display name
-	_ = h.service.db.QueryRowContext(ctx, `
+	logStatErr(h.service.db.QueryRowContext(ctx, `
         SELECT COALESCE(p.preferred_name, p.first_name || ' ' || p.last_name) as name
         FROM players p WHERE p.id = ?
-    `, playerID).Scan(&pd.PlayerName)
+    `, playerID).Scan(&pd.PlayerName))
 
 	// Fixtures played, matches played, wins/draws for win %
-	_ = h.service.db.QueryRowContext(ctx, `
+	logStatErr(h.service.db.QueryRowContext(ctx, `
         WITH player_matchups AS (
             SELECT m.*, mp.is_home
             FROM matchup_players mp
             INNER JOIN matchups m ON mp.matchup_id = m.id
-            WHERE mp.player_id = ? AND m.status = 'Finished'
+            WHERE mp.player_id = ? AND m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
         )
         SELECT 
             COUNT(DISTINCT fixture_id) as fixtures_played,
@@ -303,15 +307,15 @@ func (h *ClubWrappedHandler) getPersonalWrappedData(ctx context.Context, playerI
                 + SUM(CASE WHEN home_score = away_score THEN 0.5 ELSE 0 END)
             ) * 100.0 / COUNT(*), 1) as win_pct
         FROM player_matchups
-    `, playerID).Scan(&pd.FixturesPlayed, &pd.MatchesPlayed, &pd.WinPercentage)
+    `, playerID, seasonID).Scan(&pd.FixturesPlayed, &pd.MatchesPlayed, &pd.WinPercentage))
 
 	// Home win percentage (weighted: win=1, draw=0.5)
-	_ = h.service.db.QueryRowContext(ctx, `
+	logStatErr(h.service.db.QueryRowContext(ctx, `
 		WITH player_matchups AS (
 			SELECT m.*
 			FROM matchup_players mp
 			INNER JOIN matchups m ON mp.matchup_id = m.id
-			WHERE mp.player_id = ? AND m.status = 'Finished' AND mp.is_home = 1
+			WHERE mp.player_id = ? AND m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?) AND mp.is_home = 1
 		)
 		SELECT CASE 
 			WHEN COUNT(*) > 0 THEN ROUND(((
@@ -319,15 +323,15 @@ func (h *ClubWrappedHandler) getPersonalWrappedData(ctx context.Context, playerI
 				+ SUM(CASE WHEN home_score = away_score THEN 0.5 ELSE 0 END)
 			) * 100.0) / COUNT(*), 1) ELSE 0 END
 		FROM player_matchups
-	`, playerID).Scan(&pd.HomeWinPercentage)
+	`, playerID, seasonID).Scan(&pd.HomeWinPercentage))
 
 	// Away win percentage (weighted: win=1, draw=0.5)
-	_ = h.service.db.QueryRowContext(ctx, `
+	logStatErr(h.service.db.QueryRowContext(ctx, `
 		WITH player_matchups AS (
 			SELECT m.*
 			FROM matchup_players mp
 			INNER JOIN matchups m ON mp.matchup_id = m.id
-			WHERE mp.player_id = ? AND m.status = 'Finished' AND mp.is_home = 0
+			WHERE mp.player_id = ? AND m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?) AND mp.is_home = 0
 		)
 		SELECT CASE 
 			WHEN COUNT(*) > 0 THEN ROUND(((
@@ -335,26 +339,26 @@ func (h *ClubWrappedHandler) getPersonalWrappedData(ctx context.Context, playerI
 				+ SUM(CASE WHEN home_score = away_score THEN 0.5 ELSE 0 END)
 			) * 100.0) / COUNT(*), 1) ELSE 0 END
 		FROM player_matchups
-	`, playerID).Scan(&pd.AwayWinPercentage)
+	`, playerID, seasonID).Scan(&pd.AwayWinPercentage))
 
 	// Unique partners
-	_ = h.service.db.QueryRowContext(ctx, `
+	logStatErr(h.service.db.QueryRowContext(ctx, `
         SELECT COUNT(DISTINCT mp2.player_id)
         FROM matchup_players mp1
         JOIN matchup_players mp2 ON mp1.matchup_id = mp2.matchup_id AND mp1.is_home = mp2.is_home AND mp1.player_id <> mp2.player_id
         JOIN matchups m ON mp1.matchup_id = m.id
-        WHERE mp1.player_id = ? AND m.status = 'Finished'
-    `, playerID).Scan(&pd.UniquePartners)
+        WHERE mp1.player_id = ? AND m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
+    `, playerID, seasonID).Scan(&pd.UniquePartners))
 
 	// Three-set and tiebreak matches
-	_ = h.service.db.QueryRowContext(ctx, `
+	logStatErr(h.service.db.QueryRowContext(ctx, `
         SELECT 
             SUM(CASE WHEN (m.home_set3 IS NOT NULL OR m.away_set3 IS NOT NULL) THEN 1 ELSE 0 END) AS three_sets,
             SUM(CASE WHEN (m.home_set3 >= 10 OR m.away_set3 >= 10) THEN 1 ELSE 0 END) AS tiebreaks
         FROM matchup_players mp
         JOIN matchups m ON mp.matchup_id = m.id
-        WHERE mp.player_id = ? AND m.status = 'Finished'
-    `, playerID).Scan(&pd.ThreeSetMatches, &pd.TiebreakMatches)
+        WHERE mp.player_id = ? AND m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
+    `, playerID, seasonID).Scan(&pd.ThreeSetMatches, &pd.TiebreakMatches))
 
 	// Division breakdown and most played division
 	rows, err := h.service.db.QueryContext(ctx, `
@@ -362,7 +366,7 @@ func (h *ClubWrappedHandler) getPersonalWrappedData(ctx context.Context, playerI
             SELECT m.fixture_id, mp.is_home, m.home_score, m.away_score
             FROM matchup_players mp
             JOIN matchups m ON mp.matchup_id = m.id
-            WHERE mp.player_id = ? AND m.status = 'Finished'
+            WHERE mp.player_id = ? AND m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
         )
         SELECT d.name as division,
                COUNT(DISTINCT f.id) as fixtures,
@@ -375,7 +379,7 @@ func (h *ClubWrappedHandler) getPersonalWrappedData(ctx context.Context, playerI
         JOIN divisions d ON d.id = f.division_id
         GROUP BY d.name
         ORDER BY fixtures DESC, d.name ASC
-    `, playerID)
+    `, playerID, seasonID)
 	if err == nil {
 		defer rows.Close()
 		var most string
@@ -394,7 +398,7 @@ func (h *ClubWrappedHandler) getPersonalWrappedData(ctx context.Context, playerI
 	}
 
 	// Best partner by win percentage (min 2 matches together)
-	_ = h.service.db.QueryRowContext(ctx, `
+	logStatErr(h.service.db.QueryRowContext(ctx, `
         WITH my_pairs AS (
             SELECT mp2.player_id as partner_id,
                    COALESCE(p2.preferred_name, p2.first_name || ' ' || p2.last_name) as partner_name,
@@ -405,7 +409,7 @@ func (h *ClubWrappedHandler) getPersonalWrappedData(ctx context.Context, playerI
             JOIN matchup_players mp2 ON mp1.matchup_id = mp2.matchup_id AND mp1.is_home = mp2.is_home AND mp1.player_id <> mp2.player_id
             JOIN matchups m ON mp1.matchup_id = m.id
             JOIN players p2 ON p2.id = mp2.player_id
-            WHERE mp1.player_id = ? AND m.status = 'Finished'
+            WHERE mp1.player_id = ? AND m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
             GROUP BY mp2.player_id, partner_name
             HAVING COUNT(*) >= 2
         )
@@ -415,10 +419,10 @@ func (h *ClubWrappedHandler) getPersonalWrappedData(ctx context.Context, playerI
         FROM my_pairs
         ORDER BY pct DESC, matches_together DESC, partner_name ASC
         LIMIT 1
-    `, playerID).Scan(&pd.BestPartnerName, &pd.BestPartnerMatchesTogether, &pd.BestPartnerWinPercentage)
+    `, playerID, seasonID).Scan(&pd.BestPartnerName, &pd.BestPartnerMatchesTogether, &pd.BestPartnerWinPercentage))
 
 	// Most frequent partner (by matches together)
-	_ = h.service.db.QueryRowContext(ctx, `
+	logStatErr(h.service.db.QueryRowContext(ctx, `
         WITH my_pairs AS (
             SELECT mp2.player_id as partner_id,
                    COALESCE(p2.preferred_name, p2.first_name || ' ' || p2.last_name) as partner_name,
@@ -427,45 +431,45 @@ func (h *ClubWrappedHandler) getPersonalWrappedData(ctx context.Context, playerI
             JOIN matchup_players mp2 ON mp1.matchup_id = mp2.matchup_id AND mp1.is_home = mp2.is_home AND mp1.player_id <> mp2.player_id
             JOIN matchups m ON mp1.matchup_id = m.id
             JOIN players p2 ON p2.id = mp2.player_id
-            WHERE mp1.player_id = ? AND m.status = 'Finished'
+            WHERE mp1.player_id = ? AND m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
             GROUP BY mp2.player_id, partner_name
         )
         SELECT partner_name, matches_together
         FROM my_pairs
         ORDER BY matches_together DESC, partner_name ASC
         LIMIT 1
-    `, playerID).Scan(&pd.MostFrequentPartnerName, &pd.MostFrequentPartnerMatches)
+    `, playerID, seasonID).Scan(&pd.MostFrequentPartnerName, &pd.MostFrequentPartnerMatches))
 
 	// Most common matchup type
-	_ = h.service.db.QueryRowContext(ctx, `
+	logStatErr(h.service.db.QueryRowContext(ctx, `
         SELECT m.type as matchup_type, COUNT(*) as cnt
         FROM matchup_players mp
         JOIN matchups m ON mp.matchup_id = m.id
-        WHERE mp.player_id = ? AND m.status = 'Finished'
+        WHERE mp.player_id = ? AND m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
         GROUP BY m.type
         ORDER BY cnt DESC, matchup_type ASC
         LIMIT 1
-    `, playerID).Scan(&pd.MostCommonMatchupType, &pd.MostCommonMatchupCount)
+    `, playerID, seasonID).Scan(&pd.MostCommonMatchupType, &pd.MostCommonMatchupCount))
 
 	// Deciding set performance
-	_ = h.service.db.QueryRowContext(ctx, `
+	logStatErr(h.service.db.QueryRowContext(ctx, `
         WITH pm AS (
             SELECT m.home_set3, m.away_set3, mp.is_home, m.home_score, m.away_score
             FROM matchup_players mp
             JOIN matchups m ON mp.matchup_id = m.id
-            WHERE mp.player_id = ? AND m.status = 'Finished'
+            WHERE mp.player_id = ? AND m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
         )
         SELECT 
             SUM(CASE WHEN (home_set3 IS NOT NULL OR away_set3 IS NOT NULL) THEN 1 ELSE 0 END) as deciding_matches,
             SUM(CASE WHEN (home_set3 IS NOT NULL OR away_set3 IS NOT NULL) AND ((is_home = 1 AND home_score > away_score) OR (is_home = 0 AND away_score > home_score)) THEN 1 ELSE 0 END) as deciding_wins
         FROM pm
-    `, playerID).Scan(&pd.DecidingSetMatches, &pd.DecidingSetWins)
+    `, playerID, seasonID).Scan(&pd.DecidingSetMatches, &pd.DecidingSetWins))
 	if pd.DecidingSetMatches > 0 {
 		pd.DecidingSetWinRate = float64(pd.DecidingSetWins) * 100.0 / float64(pd.DecidingSetMatches)
 	}
 
 	// Bagels delivered (6-0 sets won)
-	_ = h.service.db.QueryRowContext(ctx, `
+	logStatErr(h.service.db.QueryRowContext(ctx, `
         SELECT (
             SUM(CASE WHEN is_home = 1 AND home_set1 = 6 AND away_set1 = 0 THEN 1 ELSE 0 END) +
             SUM(CASE WHEN is_home = 1 AND home_set2 = 6 AND away_set2 = 0 THEN 1 ELSE 0 END) +
@@ -476,11 +480,11 @@ func (h *ClubWrappedHandler) getPersonalWrappedData(ctx context.Context, playerI
         ) as bagels
         FROM matchup_players mp
         JOIN matchups m ON mp.matchup_id = m.id
-        WHERE mp.player_id = ? AND m.status = 'Finished'
-    `, playerID).Scan(&pd.BagelsDelivered)
+        WHERE mp.player_id = ? AND m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
+    `, playerID, seasonID).Scan(&pd.BagelsDelivered))
 
 	// Average games per set
-	_ = h.service.db.QueryRowContext(ctx, `
+	logStatErr(h.service.db.QueryRowContext(ctx, `
         WITH s AS (
             SELECT 
                 (CASE WHEN m.home_set1 IS NOT NULL AND m.away_set1 IS NOT NULL THEN (m.home_set1 + m.away_set1) ELSE 0 END) +
@@ -491,31 +495,42 @@ func (h *ClubWrappedHandler) getPersonalWrappedData(ctx context.Context, playerI
                 (CASE WHEN m.home_set3 IS NOT NULL AND m.away_set3 IS NOT NULL AND (m.home_set3 + m.away_set3) < 10 THEN 1 ELSE 0 END) AS sets
             FROM matchup_players mp
             JOIN matchups m ON mp.matchup_id = m.id
-            WHERE mp.player_id = ? AND m.status = 'Finished'
+            WHERE mp.player_id = ? AND m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
         )
         SELECT ROUND(CASE WHEN SUM(sets) > 0 THEN CAST(SUM(games) AS FLOAT) / SUM(sets) ELSE 0 END, 2)
         FROM s
-    `, playerID).Scan(&pd.AverageGamesPerSet)
+    `, playerID, seasonID).Scan(&pd.AverageGamesPerSet))
 
 	// Comeback wins
-	_ = h.service.db.QueryRowContext(ctx, `
+	logStatErr(h.service.db.QueryRowContext(ctx, `
         SELECT SUM(CASE
             WHEN ((mp.is_home = 1 AND m.home_set1 < m.away_set1) OR (mp.is_home = 0 AND m.away_set1 < m.home_set1))
                  AND ((mp.is_home = 1 AND m.home_score > m.away_score) OR (mp.is_home = 0 AND m.away_score > m.home_score))
             THEN 1 ELSE 0 END)
         FROM matchup_players mp
         JOIN matchups m ON mp.matchup_id = m.id
-        WHERE mp.player_id = ? AND m.status = 'Finished' AND m.home_set1 IS NOT NULL AND m.away_set1 IS NOT NULL
-    `, playerID).Scan(&pd.ComebackWins)
+        WHERE mp.player_id = ? AND m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?) AND m.home_set1 IS NOT NULL AND m.away_set1 IS NOT NULL
+    `, playerID, seasonID).Scan(&pd.ComebackWins))
 
 	// Streaks
-	pd.LongestWinStreak, pd.LongestLosingStreak = h.computePlayerStreaks(ctx, playerID)
+	pd.LongestWinStreak, pd.LongestLosingStreak = h.computePlayerStreaks(ctx, seasonID, playerID)
 
 	return pd
 }
 
+// logStatErr logs a failed Wrapped stat query instead of silently rendering
+// zeros. No rows, and NULL aggregates over an empty set (SUM/ROUND of nothing,
+// e.g. a player who hasn't played this season), legitimately mean "no data"
+// and leave the zero value in place.
+func logStatErr(err error) {
+	if err == nil || errors.Is(err, sql.ErrNoRows) || strings.Contains(err.Error(), "converting NULL") {
+		return
+	}
+	log.Printf("club wrapped: stat query failed: %v", err)
+}
+
 // computePlayerStreaks computes longest win and losing streak for a player
-func (h *ClubWrappedHandler) computePlayerStreaks(ctx context.Context, playerID string) (int, int) {
+func (h *ClubWrappedHandler) computePlayerStreaks(ctx context.Context, seasonID uint, playerID string) (int, int) {
 	rows, err := h.service.db.QueryContext(ctx, `
         SELECT CASE 
             WHEN (mp.is_home = 1 AND m.home_score > m.away_score) OR (mp.is_home = 0 AND m.away_score > m.home_score) THEN 1
@@ -525,9 +540,9 @@ func (h *ClubWrappedHandler) computePlayerStreaks(ctx context.Context, playerID 
         FROM matchup_players mp
         JOIN matchups m ON mp.matchup_id = m.id
         JOIN fixtures f ON f.id = m.fixture_id
-        WHERE mp.player_id = ? AND m.status = 'Finished'
+        WHERE mp.player_id = ? AND m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
         ORDER BY f.scheduled_date ASC, m.id ASC
-    `, playerID)
+    `, playerID, seasonID)
 	if err != nil {
 		return 0, 0
 	}
@@ -581,41 +596,48 @@ func (h *ClubWrappedHandler) renderClubWrapped(w http.ResponseWriter, user inter
 	}
 }
 
-// generateClubWrappedData generates all wrapped statistics for the entire club
+// generateClubWrappedData generates all wrapped statistics for the entire club,
+// scoped to the active season.
 func (h *ClubWrappedHandler) generateClubWrappedData(ctx context.Context) (*ClubWrappedData, error) {
 	clubName := "Tennis Club"
 	if club := config.GetHomeClub(ctx); club != nil {
 		clubName = club.Name
 	}
 
+	season, err := h.service.seasonRepository.FindActive(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find active season: %w", err)
+	}
+
 	wrappedData := &ClubWrappedData{
 		ClubName:   clubName,
-		SeasonYear: 2025, // Could be dynamic
+		SeasonID:   season.ID,
+		SeasonYear: season.Year,
 	}
 
 	// Calculate all club statistics
-	if err := h.calculateClubOverallStats(ctx, &wrappedData.OverallStats); err != nil {
+	if err := h.calculateClubOverallStats(ctx, season, &wrappedData.OverallStats); err != nil {
 		log.Printf("Error calculating club overall stats: %v", err)
 	}
 
-	if err := h.calculateClubFixtureBreakdown(ctx, &wrappedData.FixtureBreakdown); err != nil {
+	if err := h.calculateClubFixtureBreakdown(ctx, season, &wrappedData.FixtureBreakdown); err != nil {
 		log.Printf("Error calculating club fixture breakdown: %v", err)
 	}
 
-	if err := h.calculateClubPlayingStylePlayers(ctx, &wrappedData.PlayingStylePlayers); err != nil {
+	if err := h.calculateClubPlayingStylePlayers(ctx, season, &wrappedData.PlayingStylePlayers); err != nil {
 		log.Printf("Error calculating playing style players: %v", err)
 	}
 
-	wrappedData.ThreeSetWarriors = h.getClubThreeSetWarriors(ctx)
-	wrappedData.GameGrinders = h.getClubGameGrinders(ctx)
-	wrappedData.TopWinPercentage = h.getTopWinPercentagePlayers(ctx)          // New method call
-	wrappedData.TopPairings = h.getTopPairings(ctx)                           // New method call for top pairings
-	wrappedData.BestAwayVenues = h.getClubBestAwayVenues(ctx)                 // New method call
-	wrappedData.AvailabilityEngagement = h.getClubAvailabilityEngagement(ctx) // New method call for availability engagement
-	wrappedData.ComebackKings = h.getComebackKings(ctx)                       // New method call for comeback achievements
-	wrappedData.SocialButterflies = h.getSocialButterflies(ctx)               // New method call for social butterflies
-	wrappedData.TiebreakMasters = h.getTiebreakMasters(ctx)                   // New method call for tiebreak masters
-	wrappedData.DominatingWinners = h.getDominatingWinners(ctx)               // New method call for dominating wins
+	wrappedData.ThreeSetWarriors = h.getClubThreeSetWarriors(ctx, season)
+	wrappedData.GameGrinders = h.getClubGameGrinders(ctx, season)
+	wrappedData.TopWinPercentage = h.getTopWinPercentagePlayers(ctx, season)
+	wrappedData.TopPairings = h.getTopPairings(ctx, season)
+	wrappedData.BestAwayVenues = h.getClubBestAwayVenues(ctx, season)
+	wrappedData.AvailabilityEngagement = h.getClubAvailabilityEngagement(ctx, season)
+	wrappedData.ComebackKings = h.getComebackKings(ctx, season)
+	wrappedData.SocialButterflies = h.getSocialButterflies(ctx, season)
+	wrappedData.TiebreakMasters = h.getTiebreakMasters(ctx, season)
+	wrappedData.DominatingWinners = h.getDominatingWinners(ctx, season)
 	wrappedData.LuckyVenue = h.getClubLuckyVenue(ctx)
 
 	if err := h.calculateClubSeasonHighlights(ctx, &wrappedData.SeasonHighlights); err != nil {
@@ -626,16 +648,16 @@ func (h *ClubWrappedHandler) generateClubWrappedData(ctx context.Context) (*Club
 }
 
 // Page 1: Calculate club overall statistics (all players combined)
-func (h *ClubWrappedHandler) calculateClubOverallStats(ctx context.Context, stats *ClubOverallStats) error {
+func (h *ClubWrappedHandler) calculateClubOverallStats(ctx context.Context, season *models.Season, stats *ClubOverallStats) error {
 	// Get total matchups across all teams
 	matchupQuery := `
 		SELECT COUNT(*)
 		FROM matchups m
 		INNER JOIN fixtures f ON m.fixture_id = f.id
-		WHERE m.status = 'Finished'
+		WHERE m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
 	`
 
-	err := h.service.db.QueryRowContext(ctx, matchupQuery).Scan(&stats.TotalMatchups)
+	err := h.service.db.QueryRowContext(ctx, matchupQuery, season.ID).Scan(&stats.TotalMatchups)
 	if err != nil {
 		return err
 	}
@@ -644,10 +666,10 @@ func (h *ClubWrappedHandler) calculateClubOverallStats(ctx context.Context, stat
 	fixtureQuery := `
 		SELECT COUNT(*)
 		FROM fixtures f
-		WHERE f.status = 'Completed'
+		WHERE f.status = 'Completed' AND f.season_id = ?
 	`
 
-	err = h.service.db.QueryRowContext(ctx, fixtureQuery).Scan(&stats.TotalFixtures)
+	err = h.service.db.QueryRowContext(ctx, fixtureQuery, season.ID).Scan(&stats.TotalFixtures)
 	if err != nil {
 		return err
 	}
@@ -660,10 +682,10 @@ func (h *ClubWrappedHandler) calculateClubOverallStats(ctx context.Context, stat
 		SELECT COUNT(DISTINCT mp.player_id)
 		FROM matchup_players mp
 		INNER JOIN matchups m ON mp.matchup_id = m.id
-		WHERE m.status = 'Finished'
+		WHERE m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
 	`
 
-	err = h.service.db.QueryRowContext(ctx, playersQuery).Scan(&stats.PlayersUsed)
+	err = h.service.db.QueryRowContext(ctx, playersQuery, season.ID).Scan(&stats.PlayersUsed)
 	if err != nil {
 		stats.PlayersUsed = 0
 	}
@@ -676,13 +698,13 @@ func (h *ClubWrappedHandler) calculateClubOverallStats(ctx context.Context, stat
 		FROM matchup_players mp
 		INNER JOIN matchups m ON mp.matchup_id = m.id
 		INNER JOIN players p ON mp.player_id = p.id
-		WHERE m.status = 'Finished'
+		WHERE m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
 		GROUP BY p.id, name
 		ORDER BY matches_count DESC
 		LIMIT 1
 	`
 
-	err = h.service.db.QueryRowContext(ctx, activePlayerQuery).Scan(
+	err = h.service.db.QueryRowContext(ctx, activePlayerQuery, season.ID).Scan(
 		&stats.MostActivePlayer.ID, &stats.MostActivePlayer.Name, &stats.MostActivePlayer.MatchesCount)
 	if err != nil {
 		// No active player found
@@ -698,27 +720,7 @@ func (h *ClubWrappedHandler) calculateClubOverallStats(ctx context.Context, stat
 }
 
 // Page 2: Calculate club fixture breakdown (all fixtures)
-func (h *ClubWrappedHandler) calculateClubFixtureBreakdown(ctx context.Context, breakdown *ClubFixtureBreakdown) error {
-	// Debug: First let's see what clubs exist
-	clubQuery := `SELECT id, name FROM clubs LIMIT 5`
-	clubRows, err := h.service.db.QueryContext(ctx, clubQuery)
-	if err == nil {
-		defer clubRows.Close()
-		log.Printf("=== DEBUG: Available clubs ===")
-		for clubRows.Next() {
-			var id int
-			var name string
-			_ = clubRows.Scan(&id, &name)
-			log.Printf("Club ID: %d, Name: '%s'", id, name)
-		}
-	}
-
-	// Debug: Check total fixtures
-	totalFixturesQuery := `SELECT COUNT(*) FROM fixtures WHERE status = 'Completed'`
-	var totalFixtures int
-	_ = h.service.db.QueryRowContext(ctx, totalFixturesQuery).Scan(&totalFixtures)
-	log.Printf("=== DEBUG: Total completed fixtures: %d ===", totalFixtures)
-
+func (h *ClubWrappedHandler) calculateClubFixtureBreakdown(ctx context.Context, season *models.Season, breakdown *ClubFixtureBreakdown) error {
 	// Get home club ID from context
 	homeClubID := config.GetHomeClubID(ctx)
 
@@ -736,20 +738,18 @@ func (h *ClubWrappedHandler) calculateClubFixtureBreakdown(ctx context.Context, 
 		INNER JOIN matchups m ON f.id = m.fixture_id
 		INNER JOIN teams ht ON f.home_team_id = ht.id
 		INNER JOIN teams at ON f.away_team_id = at.id
-		WHERE f.status = 'Completed' AND m.status = 'Finished'
+		WHERE f.status = 'Completed' AND f.season_id = ? AND m.status = 'Finished'
 		  AND (ht.club_id = ? OR at.club_id = ?)
 		GROUP BY f.id, f.home_team_id, f.away_team_id, ht.club_id, at.club_id
 	`
 
-	rows, err := h.service.db.QueryContext(ctx, query, homeClubID, homeClubID)
+	rows, err := h.service.db.QueryContext(ctx, query, season.ID, homeClubID, homeClubID)
 	if err != nil {
-		log.Printf("=== DEBUG: Query error: %v ===", err)
 		return err
 	}
 	defer rows.Close()
 
 	breakdown.TotalFixtures = 0
-	log.Printf("=== DEBUG: Processing fixtures ===")
 
 	for rows.Next() {
 		var fixtureID, homeTeamID, awayTeamID int
@@ -758,11 +758,9 @@ func (h *ClubWrappedHandler) calculateClubFixtureBreakdown(ctx context.Context, 
 
 		err := rows.Scan(&fixtureID, &homeTeamID, &awayTeamID, &homeTotal, &awayTotal, &homeClubDBID, &awayClubDBID)
 		if err != nil {
-			log.Printf("=== DEBUG: Scan error: %v ===", err)
+			log.Printf("club wrapped: scanning fixture breakdown row: %v", err)
 			continue
 		}
-
-		log.Printf("Fixture %d: club %d (%.1f) vs club %d (%.1f)", fixtureID, homeClubDBID, homeTotal, awayClubDBID, awayTotal)
 
 		// Check if home club is home or away in this fixture
 		isHomeClub := homeClubDBID == homeClubID
@@ -782,9 +780,6 @@ func (h *ClubWrappedHandler) calculateClubFixtureBreakdown(ctx context.Context, 
 		// Round scores to nearest integer (handles 0.5 values from halved matchups)
 		ourRounded := int(ourScore + 0.5)
 		theirRounded := int(theirScore + 0.5)
-
-		log.Printf("Home club fixture: Our score %.1f (rounded %d) vs Their score %.1f (rounded %d)",
-			ourScore, ourRounded, theirScore, theirRounded)
 
 		// Categorize the fixture result based on 0-8 point scale
 		if ourRounded == 8 && theirRounded == 0 {
@@ -808,16 +803,11 @@ func (h *ClubWrappedHandler) calculateClubFixtureBreakdown(ctx context.Context, 
 		}
 	}
 
-	log.Printf("=== DEBUG: Final breakdown - Total: %d, 8-0: %d, 7-1: %d, 6-2: %d, 5-3: %d, 4-4: %d, 3-5: %d, 2-6: %d, 1-7: %d, 0-8: %d ===",
-		breakdown.TotalFixtures, breakdown.Perfect_8_0, breakdown.NearPerfect_7_1, breakdown.Strong_6_2,
-		breakdown.Close_5_3, breakdown.Draw_4_4, breakdown.CloseDefeat_3_5, breakdown.Heavy_2_6,
-		breakdown.NearWhitewash_1_7, breakdown.Whitewash_0_8)
-
 	return nil
 }
 
 // Page 3: Calculate playing style players for all club players
-func (h *ClubWrappedHandler) calculateClubPlayingStylePlayers(ctx context.Context, styles *ClubPlayingStyleStats) error {
+func (h *ClubWrappedHandler) calculateClubPlayingStylePlayers(ctx context.Context, season *models.Season, styles *ClubPlayingStyleStats) error {
 	// Get all players who played and their matchup types
 	query := `
 		SELECT 
@@ -828,12 +818,12 @@ func (h *ClubWrappedHandler) calculateClubPlayingStylePlayers(ctx context.Contex
 		FROM matchup_players mp
 		INNER JOIN matchups m ON mp.matchup_id = m.id
 		INNER JOIN players p ON mp.player_id = p.id
-		WHERE m.status = 'Finished'
+		WHERE m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
 		GROUP BY p.id, name
 		HAVING matches_count >= 3
 	`
 
-	rows, err := h.service.db.QueryContext(ctx, query)
+	rows, err := h.service.db.QueryContext(ctx, query, season.ID)
 	if err != nil {
 		return err
 	}
@@ -885,7 +875,7 @@ func (h *ClubWrappedHandler) calculateClubPlayingStylePlayers(ctx context.Contex
 }
 
 // Stub implementations for remaining methods (Pages 4, 5, 6, 7, 9, 10)
-func (h *ClubWrappedHandler) getClubThreeSetWarriors(ctx context.Context) []PlayerAchievement {
+func (h *ClubWrappedHandler) getClubThreeSetWarriors(ctx context.Context, season *models.Season) []PlayerAchievement {
 	// Page 4: Three-Set Warriors - players with highest proportion of 3-set matches
 	query := `
 		WITH player_set_stats AS (
@@ -908,7 +898,7 @@ func (h *ClubWrappedHandler) getClubThreeSetWarriors(ctx context.Context) []Play
 			FROM matchup_players mp
 			INNER JOIN matchups m ON mp.matchup_id = m.id
 			INNER JOIN players p ON mp.player_id = p.id
-			WHERE m.status = 'Finished'
+			WHERE m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
 			GROUP BY p.id, name
 			HAVING total_matches >= 5
 		)
@@ -924,7 +914,7 @@ func (h *ClubWrappedHandler) getClubThreeSetWarriors(ctx context.Context) []Play
 		LIMIT 10
 	`
 
-	rows, err := h.service.db.QueryContext(ctx, query)
+	rows, err := h.service.db.QueryContext(ctx, query, season.ID)
 	if err != nil {
 		log.Printf("Error getting three set warriors: %v", err)
 		return []PlayerAchievement{}
@@ -969,7 +959,7 @@ func (h *ClubWrappedHandler) getClubThreeSetWarriors(ctx context.Context) []Play
 	return achievements
 }
 
-func (h *ClubWrappedHandler) getClubGameGrinders(ctx context.Context) []PlayerAchievement {
+func (h *ClubWrappedHandler) getClubGameGrinders(ctx context.Context, season *models.Season) []PlayerAchievement {
 	// Page 5: Game Grinders - players with highest games per set
 	query := `
 		WITH player_game_stats AS (
@@ -996,7 +986,7 @@ func (h *ClubWrappedHandler) getClubGameGrinders(ctx context.Context) []PlayerAc
 			FROM matchup_players mp
 			INNER JOIN matchups m ON mp.matchup_id = m.id
 			INNER JOIN players p ON mp.player_id = p.id
-			WHERE m.status = 'Finished'
+			WHERE m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
 				AND (m.home_set1 IS NOT NULL OR m.home_set2 IS NOT NULL OR m.home_set3 IS NOT NULL)
 			GROUP BY p.id, name
 			HAVING total_matchups >= 5 AND total_sets >= 10
@@ -1013,7 +1003,7 @@ func (h *ClubWrappedHandler) getClubGameGrinders(ctx context.Context) []PlayerAc
 		LIMIT 10
 	`
 
-	rows, err := h.service.db.QueryContext(ctx, query)
+	rows, err := h.service.db.QueryContext(ctx, query, season.ID)
 	if err != nil {
 		log.Printf("Error getting game grinders: %v", err)
 		return []PlayerAchievement{}
@@ -1058,7 +1048,7 @@ func (h *ClubWrappedHandler) getClubGameGrinders(ctx context.Context) []PlayerAc
 	return achievements
 }
 
-func (h *ClubWrappedHandler) getClubBestAwayVenues(ctx context.Context) []ClubVenueStats {
+func (h *ClubWrappedHandler) getClubBestAwayVenues(ctx context.Context, season *models.Season) []ClubVenueStats {
 	homeClubID := config.GetHomeClubID(ctx)
 
 	// Find best away venues (excluding home fixtures and derbies)
@@ -1078,7 +1068,7 @@ func (h *ClubWrappedHandler) getClubBestAwayVenues(ctx context.Context) []ClubVe
 			INNER JOIN matchups m ON f.id = m.fixture_id
 			INNER JOIN teams at ON f.away_team_id = at.id
 			INNER JOIN teams ht ON f.home_team_id = ht.id
-			WHERE f.status = 'Completed'
+			WHERE f.status = 'Completed' AND f.season_id = ?
 				AND m.status = 'Finished'
 				AND at.club_id = ?
 				AND ht.club_id != ?
@@ -1098,7 +1088,7 @@ func (h *ClubWrappedHandler) getClubBestAwayVenues(ctx context.Context) []ClubVe
 		LIMIT 5
 	`
 
-	rows, err := h.service.db.QueryContext(ctx, query, homeClubID, homeClubID)
+	rows, err := h.service.db.QueryContext(ctx, query, season.ID, homeClubID, homeClubID)
 	if err != nil {
 		log.Printf("Error getting best away venues: %v", err)
 		return []ClubVenueStats{}
@@ -1147,7 +1137,7 @@ func (h *ClubWrappedHandler) getClubLuckyVenue(ctx context.Context) *ClubVenueSt
 	return nil
 }
 
-func (h *ClubWrappedHandler) getClubAvailabilityEngagement(ctx context.Context) ClubAvailabilityEngagement {
+func (h *ClubWrappedHandler) getClubAvailabilityEngagement(ctx context.Context, season *models.Season) ClubAvailabilityEngagement {
 	// Page 9: Availability Engagement Stats
 	engagement := ClubAvailabilityEngagement{}
 
@@ -1155,8 +1145,9 @@ func (h *ClubWrappedHandler) getClubAvailabilityEngagement(ctx context.Context) 
 	availabilityQuery := `
 		SELECT COUNT(DISTINCT player_id)
 		FROM player_availability_exceptions
+		WHERE start_date <= ? AND end_date >= ?
 	`
-	err := h.service.db.QueryRowContext(ctx, availabilityQuery).Scan(&engagement.PlayersSetAvailability)
+	err := h.service.db.QueryRowContext(ctx, availabilityQuery, season.EndDate, season.StartDate).Scan(&engagement.PlayersSetAvailability)
 	if err != nil {
 		log.Printf("Error getting players who set availability: %v", err)
 	}
@@ -1166,9 +1157,9 @@ func (h *ClubWrappedHandler) getClubAvailabilityEngagement(ctx context.Context) 
 		SELECT COUNT(DISTINCT mp.player_id)
 		FROM matchup_players mp
 		INNER JOIN matchups m ON mp.matchup_id = m.id
-		WHERE m.status = 'Finished'
+		WHERE m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
 	`
-	err = h.service.db.QueryRowContext(ctx, playedQuery).Scan(&engagement.PlayersWhoPlayed)
+	err = h.service.db.QueryRowContext(ctx, playedQuery, season.ID).Scan(&engagement.PlayersWhoPlayed)
 	if err != nil {
 		log.Printf("Error getting players who played: %v", err)
 	}
@@ -1182,8 +1173,9 @@ func (h *ClubWrappedHandler) getClubAvailabilityEngagement(ctx context.Context) 
 	totalUpdatesQuery := `
 		SELECT COUNT(*)
 		FROM player_availability_exceptions
+		WHERE start_date <= ? AND end_date >= ?
 	`
-	err = h.service.db.QueryRowContext(ctx, totalUpdatesQuery).Scan(&engagement.TotalAvailabilityUpdates)
+	err = h.service.db.QueryRowContext(ctx, totalUpdatesQuery, season.EndDate, season.StartDate).Scan(&engagement.TotalAvailabilityUpdates)
 	if err != nil {
 		log.Printf("Error getting total availability updates: %v", err)
 	}
@@ -1193,13 +1185,10 @@ func (h *ClubWrappedHandler) getClubAvailabilityEngagement(ctx context.Context) 
 		engagement.EngagementPercentage = float64(engagement.PlayersWhoPlayed) / float64(engagement.PlayersSetAvailability) * 100.0
 	}
 
-	log.Printf("=== DEBUG: Availability Engagement - PlayersSetAvailability: %d, PlayersWhoPlayed: %d, ActivePlayerPercentage: %.1f%%, TotalUpdates: %d ===",
-		engagement.PlayersSetAvailability, engagement.PlayersWhoPlayed, engagement.AvailabilityActivePlayerPercentage, engagement.TotalAvailabilityUpdates)
-
 	return engagement
 }
 
-func (h *ClubWrappedHandler) getTopWinPercentagePlayers(ctx context.Context) []PlayerAchievement {
+func (h *ClubWrappedHandler) getTopWinPercentagePlayers(ctx context.Context, season *models.Season) []PlayerAchievement {
 	// Find players with highest win percentage (minimum 9 fixtures played)
 	query := `
 		WITH player_stats AS (
@@ -1223,7 +1212,7 @@ func (h *ClubWrappedHandler) getTopWinPercentagePlayers(ctx context.Context) []P
 			INNER JOIN matchups m ON mp.matchup_id = m.id
 			INNER JOIN players p ON mp.player_id = p.id
 			INNER JOIN fixtures f ON m.fixture_id = f.id
-			WHERE m.status = 'Finished'
+			WHERE m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
 			GROUP BY p.id, name
 			HAVING fixtures_played >= 9
 		)
@@ -1238,7 +1227,7 @@ func (h *ClubWrappedHandler) getTopWinPercentagePlayers(ctx context.Context) []P
 		LIMIT 10
 	`
 
-	rows, err := h.service.db.QueryContext(ctx, query)
+	rows, err := h.service.db.QueryContext(ctx, query, season.ID)
 	if err != nil {
 		log.Printf("Error getting top win percentage players: %v", err)
 		return []PlayerAchievement{}
@@ -1288,7 +1277,7 @@ func (h *ClubWrappedHandler) getTopWinPercentagePlayers(ctx context.Context) []P
 	return achievements
 }
 
-func (h *ClubWrappedHandler) getTopPairings(ctx context.Context) []ClubPartnership {
+func (h *ClubWrappedHandler) getTopPairings(ctx context.Context, season *models.Season) []ClubPartnership {
 	// Find perfect partnerships with 100% win rate (minimum 2 matches together)
 	query := `
 		WITH pairing_stats AS (
@@ -1316,7 +1305,7 @@ func (h *ClubWrappedHandler) getTopPairings(ctx context.Context) []ClubPartnersh
 			INNER JOIN matchups m ON mp1.matchup_id = m.id
 			INNER JOIN players p1 ON mp1.player_id = p1.id
 			INNER JOIN players p2 ON mp2.player_id = p2.id
-			WHERE m.status = 'Finished'
+			WHERE m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
 			GROUP BY p1.id, player1_name, p2.id, player2_name
 			HAVING matches_together >= 2
 		)
@@ -1333,7 +1322,7 @@ func (h *ClubWrappedHandler) getTopPairings(ctx context.Context) []ClubPartnersh
 		ORDER BY matches_together DESC, player1_name ASC
 	`
 
-	rows, err := h.service.db.QueryContext(ctx, query)
+	rows, err := h.service.db.QueryContext(ctx, query, season.ID)
 	if err != nil {
 		log.Printf("Error getting perfect partnerships: %v", err)
 		return []ClubPartnership{}
@@ -1378,7 +1367,7 @@ func (h *ClubWrappedHandler) getTopPairings(ctx context.Context) []ClubPartnersh
 	return partnerships
 }
 
-func (h *ClubWrappedHandler) getComebackKings(ctx context.Context) []ComebackAchievement {
+func (h *ClubWrappedHandler) getComebackKings(ctx context.Context, season *models.Season) []ComebackAchievement {
 	// Page 10: Comeback Kings/Queens - Players who won matches after losing the first set
 	query := `
         WITH pm AS (
@@ -1393,7 +1382,7 @@ func (h *ClubWrappedHandler) getComebackKings(ctx context.Context) []ComebackAch
             FROM matchup_players mp
             INNER JOIN matchups m ON mp.matchup_id = m.id
             INNER JOIN players p ON mp.player_id = p.id
-            WHERE m.status = 'Finished'
+            WHERE m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
                 AND m.home_set1 IS NOT NULL 
                 AND m.away_set1 IS NOT NULL
                 AND m.home_score IS NOT NULL
@@ -1432,7 +1421,7 @@ func (h *ClubWrappedHandler) getComebackKings(ctx context.Context) []ComebackAch
         LIMIT 10
     `
 
-	rows, err := h.service.db.QueryContext(ctx, query)
+	rows, err := h.service.db.QueryContext(ctx, query, season.ID)
 	if err != nil {
 		log.Printf("Error getting comeback kings: %v", err)
 		return []ComebackAchievement{}
@@ -1479,7 +1468,7 @@ func (h *ClubWrappedHandler) getComebackKings(ctx context.Context) []ComebackAch
 	return achievements
 }
 
-func (h *ClubWrappedHandler) getSocialButterflies(ctx context.Context) []SocialButterflyAchievement {
+func (h *ClubWrappedHandler) getSocialButterflies(ctx context.Context, season *models.Season) []SocialButterflyAchievement {
 	// Page 11: Social Butterflies - Players with most different partners
 	query := `
 		WITH player_partnerships AS (
@@ -1494,7 +1483,7 @@ func (h *ClubWrappedHandler) getSocialButterflies(ctx context.Context) []SocialB
 				AND mp1.player_id != mp2.player_id  -- Don't count self
 			INNER JOIN matchups m ON mp1.matchup_id = m.id
 			INNER JOIN players p1 ON mp1.player_id = p1.id
-			WHERE m.status = 'Finished'
+			WHERE m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
 			GROUP BY mp1.player_id, player_name
 			HAVING total_partnerships >= 5  -- Minimum partnerships to qualify
 		)
@@ -1508,7 +1497,7 @@ func (h *ClubWrappedHandler) getSocialButterflies(ctx context.Context) []SocialB
 		LIMIT 10
 	`
 
-	rows, err := h.service.db.QueryContext(ctx, query)
+	rows, err := h.service.db.QueryContext(ctx, query, season.ID)
 	if err != nil {
 		log.Printf("Error getting social butterflies: %v", err)
 		return []SocialButterflyAchievement{}
@@ -1553,7 +1542,7 @@ func (h *ClubWrappedHandler) getSocialButterflies(ctx context.Context) []SocialB
 	return achievements
 }
 
-func (h *ClubWrappedHandler) getTiebreakMasters(ctx context.Context) []TiebreakMasterAchievement {
+func (h *ClubWrappedHandler) getTiebreakMasters(ctx context.Context, season *models.Season) []TiebreakMasterAchievement {
 	// Page 12: Championship Tiebreak Masters - Players in matches where final set had values >= 10
 	query := `
 		WITH tiebreak_stats AS (
@@ -1570,7 +1559,7 @@ func (h *ClubWrappedHandler) getTiebreakMasters(ctx context.Context) []TiebreakM
 			FROM matchup_players mp
 			INNER JOIN matchups m ON mp.matchup_id = m.id
 			INNER JOIN players p ON mp.player_id = p.id
-			WHERE m.status = 'Finished'
+			WHERE m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
 				AND (
 					(m.home_set3 >= 10 OR m.away_set3 >= 10)  -- Championship tiebreak in set 3
 				)
@@ -1588,7 +1577,7 @@ func (h *ClubWrappedHandler) getTiebreakMasters(ctx context.Context) []TiebreakM
 		LIMIT 10
 	`
 
-	rows, err := h.service.db.QueryContext(ctx, query)
+	rows, err := h.service.db.QueryContext(ctx, query, season.ID)
 	if err != nil {
 		log.Printf("Error getting tiebreak masters: %v", err)
 		return []TiebreakMasterAchievement{}
@@ -1637,7 +1626,7 @@ func (h *ClubWrappedHandler) getTiebreakMasters(ctx context.Context) []TiebreakM
 
 // getDominatingWinners finds players who dominate their wins: among players with at least 5 wins,
 // compute the lowest average games per set considering only their won matches (championship tiebreaks excluded).
-func (h *ClubWrappedHandler) getDominatingWinners(ctx context.Context) []PlayerAchievement {
+func (h *ClubWrappedHandler) getDominatingWinners(ctx context.Context, season *models.Season) []PlayerAchievement {
 	query := `
 		WITH player_straight_wins AS (
 			SELECT 
@@ -1657,7 +1646,7 @@ func (h *ClubWrappedHandler) getDominatingWinners(ctx context.Context) []PlayerA
 			FROM matchup_players mp
 			INNER JOIN matchups m ON mp.matchup_id = m.id
 			INNER JOIN players p ON mp.player_id = p.id
-			WHERE m.status = 'Finished'
+			WHERE m.status = 'Finished' AND m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)
 				AND ((mp.is_home = 1 AND m.home_score > m.away_score) OR (mp.is_home = 0 AND m.away_score > m.home_score))
 				AND m.home_set3 IS NULL AND m.away_set3 IS NULL -- straight-set matches only
 			GROUP BY p.id, name
@@ -1675,7 +1664,7 @@ func (h *ClubWrappedHandler) getDominatingWinners(ctx context.Context) []PlayerA
 		LIMIT 10
 	`
 
-	rows, err := h.service.db.QueryContext(ctx, query)
+	rows, err := h.service.db.QueryContext(ctx, query, season.ID)
 	if err != nil {
 		log.Printf("Error getting dominating winners: %v", err)
 		return []PlayerAchievement{}

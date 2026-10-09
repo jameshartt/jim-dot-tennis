@@ -238,10 +238,12 @@ func parseIDFromPath(path, prefix string) (uint, error) {
 	return uint(id), nil
 }
 
-// renderFallbackHTML renders a simple HTML fallback when templates fail
+// renderFallbackHTML renders a simple HTML page when a template fails to
+// load. It responds 500 so the failure is visible rather than looking like a
+// working page.
 func renderFallbackHTML(w http.ResponseWriter, title, heading, message, backLink string) {
 	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusInternalServerError)
 	if _, err := w.Write([]byte(`
 	<!DOCTYPE html>
 	<html>

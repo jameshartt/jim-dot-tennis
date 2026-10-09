@@ -21,6 +21,20 @@
 > - **Push endpoints:** ✅ done — `/api/push/test` (broadcast) and `/api/vapid-reset` are now admin-only (`RequireAuth` + `RequireRole("admin")`, injected into `SetupHandlers`). The reset's old `isLocalhost` check read `r.Host`, which any client controls — a test proved an anonymous `Host: localhost` POST rotated the VAPID keys (orphaning every subscription). `/api/push/status` had no client and was deleted (token oracle). `/api/push/test-player` stays public: the availability page's "test my notifications" button uses it, and the token is the credential. Covered by `internal/webpush/handlers_test.go` (§2.3).
 > - **Season transactions:** ✅ done for season create/activate/copy — all three now run in one transaction in the repository layer (`SetActive`, `CreateWithWeeks`, `CopyStructure`), and the copy's discarded `AddPlayer`/`AddCaptain` errors now propagate. Tests in `internal/admin/service_seasons_test.go` lock in the copy semantics and prove rollback with injected trigger failures. **Still open:** `SaveMatchupResults` + `MirrorDerbyResults` (§3.2).
 
+>
+> **Follow-up fixes 2026-10-09 (fourth pass):**
+> - **Result-save transaction:** ✅ done.
+>   - `SaveFixtureResults` replaces `SaveMatchupResults` + `MirrorDerbyResults`. It writes the scored matchups and their derby mirrors through `matchupRepository.UpdateAll` in one transaction. Before, a failed mirror was only logged and left the two slates disagreeing.
+>   - It also rejects a posted matchup ID that belongs to a different fixture.
+>   - Tests are in `internal/admin/service_results_test.go` (§3.2).
+> - **Club Wrapped season filter:** ✅ done.
+>   - Every stat query is now scoped to the active season, and `SeasonYear` is taken from that season.
+>   - Availability counts are limited to the season's date range.
+>   - Swallowed `_ = …Scan()` errors are logged, and the DEBUG log spam is gone.
+>   - In prod this had already gone wrong: the public page summed 2025 and 2026 (709 matchups) under a "2025" label.
+>   - Tests are in `internal/admin/club_wrapped_test.go` (§3.3).
+> - **Honest 500s:** ✅ `renderFallbackHTML` (used by 30 template-load error paths) now responds 500 instead of a 200 "coming soon" page. The template cache half of §4.2 is still open.
+
 ---
 
 ## Executive summary
@@ -45,10 +59,10 @@ Almost nothing here requires a rewrite. The highest-risk items are mostly S-effo
 | 2 | Deploy hardening (sync set, pre-deploy backup, image tag rollback) | Bad deploy = data loss window | S–M | open |
 | 3 | Test a droplet snapshot restore; confirm snapshot cadence | Untested recovery path | S | open |
 | 4 | Auth-gate push endpoints | Anonymous broadcast to all subscribers | M | ✅ done 2026-10-06 — broadcast + VAPID reset admin-only, status oracle removed |
-| 5 | Club Wrapped: season filter + stop swallowing errors | Publicly wrong stats next season | M | open |
-| 6 | Startup template cache + honest 500s | Per-request disk I/O on 1-CPU box; silent template breakage | M | open |
+| 5 | Club Wrapped: season filter + stop swallowing errors | Publicly wrong stats next season | M | ✅ done 2026-10-09 |
+| 6 | Startup template cache + honest 500s | Per-request disk I/O on 1-CPU box; silent template breakage | M | partial — honest 500s ✅ 2026-10-09; cache open |
 | 7 | Unify matchcard derby code paths | League-scoring divergence between import types | M | open |
-| 8 | Transactions on season copy/create/activate + result saves | Half-written seasons and match cards | M | partial — seasons ✅ 2026-10-06; result saves open |
+| 8 | Transactions on season copy/create/activate + result saves | Half-written seasons and match cards | M | ✅ done — seasons 2026-10-06, result saves 2026-10-09 |
 | 9 | De-fork `fixture_team_selection` templates via partial | Silent UI drift after every HTMX swap | M | open |
 | 10 | Migration footguns (012 down file, migrate-down default, dirty auto-force) | Destructive/dirty schema states | S | ✅ done 2026-07-02 |
 | 11 | Unit tests for parser/matcher/points + `make test` target | Silent data-corrupting regressions | M | ✅ done — `make test` + parser/matcher tests (2026-07-02) + points-calc golden test (2026-07-03) |
@@ -134,11 +148,18 @@ No `Begin` in any of: `CreateSeasonWithWeeks` (`service_seasons.go:61-99`), `Cop
   - Teams whose division is unmatched are skipped.
 - All three are covered in `internal/admin/service_seasons_test.go`, including injected-failure rollback tests.
 
-**Still open:** `SaveMatchupResults` + `MirrorDerbyResults`. These reuse the full `matchupRepository.Update`, so the clean fix is making repositories accept a `sqlx.ExtContext` (DB or Tx) rather than duplicating that SQL.
+**✅ Result saves done 2026-10-09:** `SaveFixtureResults` builds every updated row (scores + derby mirrors) in memory and writes them through `matchupRepository.UpdateAll`, which shares `Update`'s SQL inside a transaction. It also checks each matchup belongs to the fixture being saved. Fixture completion stays a separate step: a failure there leaves results saved and the fixture still open, so re-saving fixes it. Making repositories accept a `sqlx.ExtContext` is still the general fix if more cross-repository transactions come up.
 
 ### 3.3 Club Wrapped: 53 raw SELECTs, swallowed errors, no season filter — HIGH
 `internal/admin/club_wrapped.go` — the largest concentration of SQL outside the repository layer; 14 queries use `_ = ...Scan(...)` so schema drift renders zeros silently on a **public page**; `grep -c season_id` returns **0** — every stat spans all seasons — and `SeasonYear: 2025` is hardcoded (line 593). The moment a second season has finished matchups, every Wrapped stat is wrong.
 **Fix (M):** thread `season_id` through all queries, resolve year from the active season, log errors. Extracting to a `WrappedStatsService` is polish; the season filter is urgent.
+**✅ Fixed 2026-10-09:**
+- Every Wrapped query (club-wide and personal) now takes the active season, through `m.fixture_id IN (SELECT id FROM fixtures WHERE season_id = ?)` or `f.season_id = ?`.
+- Availability-exception counts are limited to rows overlapping the season's dates.
+- `SeasonYear` and `SeasonID` come from `FindActive`.
+- The personal stats' `_ = …Scan()` calls go through `logStatErr`. It ignores no-rows and NULL aggregates, which are legitimate for players with no matches this season.
+- Tests seed two seasons. They assert the counts and leaderboards contain only active-season data. Each qualifying leaderboard must be non-empty, which catches a misplaced season argument.
+- **Still polish:** move the SQL into a service; several "placeholder" stats (club win %, percentile) are hardcoded.
 
 ### 3.4 Migration footguns — ✅ MOSTLY FIXED 2026-07-02
 - ~~Migration **012 has no down file**~~ ✅ **fixed** — `012_add_match_card_fields.down.sql` written and verified to round-trip (up 12 → down 11 → up 12) in isolation.
@@ -162,6 +183,7 @@ Also: ~123 lines of SQL in 12 non-repo files (sessions/users queried from two pa
 ### 4.2 Per-request template parsing — HIGH
 `internal/admin/common.go:46-218` re-reads the page template **and globs + reads + parses all 12 partials on every request**, rebuilding a ~25-function FuncMap — 47 admin call sites plus a parallel copy in `internal/players/templates.go` with a **divergent FuncMap**. On the 1-CPU droplet this is real per-page CPU/disk churn, and template errors surface at request time as **HTTP 200 "coming soon" fallback pages** (`renderFallbackHTML`, `common.go:242-258`) instead of failing at startup. `cmd/jim-dot-tennis/main.go:244-248` already demonstrates the correct parse-once pattern.
 **Fix (M):** single `internal/render` package, parse-once cache with dev-mode reparse flag, render to a buffer then write, return honest 500s. Biggest server-side win for the least risk.
+**✅ Honest 500s done 2026-10-09:** `renderFallbackHTML` now responds 500 (`TestRenderFallbackHTMLIsServerError`). **Still open:** the parse-once cache / render package, and render-to-buffer, because a mid-render error can still leave a half-written 200 page.
 
 ### 4.3 Handlers bypassing layers; routing boilerplate — MED
 - Raw SQL in handlers: `club_wrapped.go` (53), `points.go` (12), `players.go:878-960` (a `*Service` method defined in a handler file). Handlers also reach into `h.service.playerRepository` etc. directly (e.g. `players.go:1102-1122`), eroding the boundary.

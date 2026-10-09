@@ -348,19 +348,13 @@ func (h *ResultsHandler) handleResultsPost(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Save results
-	if err := h.service.SaveMatchupResults(fixtureID, entries); err != nil {
+	// Save results. For derbies the score/concession/retirement fields are
+	// mirrored onto the other team's slate in the same transaction so both
+	// captain views stay in sync. Players are NOT mirrored — each slate keeps
+	// its own roster (the whole reason dual slates exist).
+	if err := h.service.SaveFixtureResults(fixtureID, managingTeamID, isDerby, entries); err != nil {
 		logAndError(w, "Failed to save results", err, http.StatusInternalServerError)
 		return
-	}
-
-	// For derbies, mirror the score/concession/retirement fields onto the other
-	// team's slate so both captain views stay in sync. Players are NOT mirrored
-	// — each slate keeps its own roster (the whole reason dual slates exist).
-	if isDerby {
-		if err := h.service.MirrorDerbyResults(fixtureID, managingTeamID, entries); err != nil {
-			log.Printf("Warning: failed to mirror derby results for fixture %d: %v", fixtureID, err)
-		}
 	}
 
 	// Mark fixture as completed
