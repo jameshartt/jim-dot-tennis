@@ -251,8 +251,7 @@ func (h *PointsHandler) getCompletedMatchupsWithPlayers(ctx context.Context, sea
 	}
 	defer rows.Close()
 
-	var matchupsWithPlayers []CompletedMatchupWithPlayers
-
+	var matchups []CompletedMatchupWithPlayers
 	for rows.Next() {
 		var matchup models.Matchup
 		var fixtureStatusStr string
@@ -268,65 +267,71 @@ func (h *PointsHandler) getCompletedMatchupsWithPlayers(ctx context.Context, sea
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan matchup: %w", err)
 		}
-
-		// Get players for this matchup
-		homePlayers, awayPlayers, err := h.getMatchupPlayers(ctx, matchup.ID)
-		if err != nil {
-			log.Printf("Warning: Failed to get players for matchup %d: %v", matchup.ID, err)
-			continue
-		}
-
-		matchupsWithPlayers = append(matchupsWithPlayers, CompletedMatchupWithPlayers{
+		matchups = append(matchups, CompletedMatchupWithPlayers{
 			Matchup:       matchup,
-			HomePlayers:   homePlayers,
-			AwayPlayers:   awayPlayers,
 			FixtureStatus: models.FixtureStatus(fixtureStatusStr),
 		})
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read matchups: %w", err)
+	}
+	rows.Close()
 
-	return matchupsWithPlayers, nil
+	if err := h.attachMatchupPlayers(ctx, seasonID, matchups); err != nil {
+		return nil, err
+	}
+	return matchups, nil
 }
 
-// getMatchupPlayers retrieves home and away players for a specific matchup
-func (h *PointsHandler) getMatchupPlayers(ctx context.Context, matchupID uint) ([]models.Player, []models.Player, error) {
-	query := `
-		SELECT p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy,
+// attachMatchupPlayers fills in the home and away players of every matchup
+// with one query over the season's completed fixtures, rather than one query
+// per matchup.
+func (h *PointsHandler) attachMatchupPlayers(ctx context.Context, seasonID uint, matchups []CompletedMatchupWithPlayers) error {
+	if len(matchups) == 0 {
+		return nil
+	}
+	rows, err := h.service.db.QueryContext(ctx, `
+		SELECT mp.matchup_id, p.id, p.first_name, p.last_name, p.preferred_name, p.gender, p.reporting_privacy,
 		       p.club_id, p.fantasy_match_id, p.is_active, p.created_at, p.updated_at, mp.is_home
 		FROM players p
 		INNER JOIN matchup_players mp ON p.id = mp.player_id
-		WHERE mp.matchup_id = ?
-		ORDER BY mp.is_home DESC, p.last_name ASC
-	`
-
-	rows, err := h.service.db.QueryContext(ctx, query, matchupID)
+		INNER JOIN matchups m ON m.id = mp.matchup_id
+		INNER JOIN fixtures f ON f.id = m.fixture_id
+		WHERE m.status = 'Finished' AND f.status = 'Completed' AND f.season_id = ?
+		ORDER BY mp.matchup_id, mp.is_home DESC, p.last_name ASC
+	`, seasonID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to query matchup players: %w", err)
+		return fmt.Errorf("failed to query matchup players: %w", err)
 	}
 	defer rows.Close()
 
-	var homePlayers, awayPlayers []models.Player
-
+	byMatchup := make(map[uint]int, len(matchups))
+	for i := range matchups {
+		byMatchup[matchups[i].Matchup.ID] = i
+	}
 	for rows.Next() {
+		var matchupID uint
 		var player models.Player
 		var isHome bool
-
 		err := rows.Scan(
-			&player.ID, &player.FirstName, &player.LastName, &player.PreferredName,
+			&matchupID, &player.ID, &player.FirstName, &player.LastName, &player.PreferredName,
 			&player.Gender, &player.ReportingPrivacy, &player.ClubID, &player.FantasyMatchID,
 			&player.IsActive, &player.CreatedAt, &player.UpdatedAt, &isHome,
 		)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to scan player: %w", err)
+			return fmt.Errorf("failed to scan player: %w", err)
 		}
-
+		i, ok := byMatchup[matchupID]
+		if !ok {
+			continue // a matchup of a fully-halved fixture, excluded above
+		}
 		if isHome {
-			homePlayers = append(homePlayers, player)
+			matchups[i].HomePlayers = append(matchups[i].HomePlayers, player)
 		} else {
-			awayPlayers = append(awayPlayers, player)
+			matchups[i].AwayPlayers = append(matchups[i].AwayPlayers, player)
 		}
 	}
-
-	return homePlayers, awayPlayers, nil
+	return rows.Err()
 }
 
 // processMatchupPoints calculates and assigns points for a single matchup

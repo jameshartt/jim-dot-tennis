@@ -70,6 +70,26 @@
 >   - Tests are in `internal/auth/throttle_test.go`.
 >   - Password spraying across usernames is still not throttled.
 > - **E2E:** full suite with caching on (`TEMPLATE_RELOAD=false`): 197 passed, 1 failed. The failure, `match-results.spec.ts` "invalid scores show error messages on fixture 1", is pre-existing: it fails the same way on `2181c45` and passes when run alone. Another spec mutates fixture 1 (it shows as Rescheduled) before it runs under 4 workers, so its hardcoded `matchup_1_*` inputs aren't on the page. It needs its own fixture (§6.2).
+>
+> **Follow-up fixes 2026-10-09 (seventh pass):**
+> - **CSRF (§2.4):** ✅ done, without per-form tokens.
+>   - `auth.CrossOriginGuard` wraps the whole server in Go's `http.CrossOriginProtection`. It rejects POST/PUT/DELETE that a browser sends from another site, using `Sec-Fetch-Site`, or the `Origin` host against `Host` for browsers that don't send it. GETs and non-browser clients (no `Origin` or `Sec-Fetch-Site`) pass.
+>   - It covers every form, HTMX request and `fetch()` (admin, login and the fantasy-token pages) with no template changes. Hand-threading tokens through ~60 templates was the alternative. Caddy preserves `Host`, and nothing legitimately posts to the app cross-site: TMX and the public viewer post to `courthive-server`.
+>   - Blocked requests return 403 and are logged as `Blocked cross-origin ...`.
+>   - Test: `internal/auth/csrf_test.go`. It was red before: a cross-site POST reached an admin handler, and a cross-site login set a session cookie (login CSRF).
+> - **List-page N+1 (§3.5):** ✅ done.
+>   - Fixture lists (`buildFixturesWithRelations`, `GetUpcomingFixturesForTeam`) now memoise team, division and season lookups per request and load each season's weeks in one query. Before, it was five lookups per row.
+>   - Past fixtures went from 64 statements to a constant ~10 in the test (12 fixtures). A real season (~90 rows) was ~450.
+>   - Points table: matchup players are loaded in one season-wide query instead of one query per matchup. That was 27 statements for 24 matchups in the test, and ~360 in a real season. It's now constant.
+>   - The `points.go:596` site only covers one week's few fixtures and is left as is.
+>   - Tests: `internal/admin/list_queries_test.go` counts statements through a wrapping sqlite connector and also checks the rendered relations and points ranking. It was red before.
+> - **Team-selection template fork (§5.2):** ✅ done.
+>   - The container markup lives once in `admin/partials/team_selection_container.html`. The full page includes it, and HTMX swaps render that same partial.
+>   - `fixture_team_selection_container.html` (with its own drifted 200-line stylesheet, re-appended to the page on every swap) is deleted.
+>   - Both handlers share `teamSelectionData`.
+>   - Real drift this fixed: after any swap the derby "Managing: <team>" banner vanished, because the swap handler never set `ManagingTeam`.
+>   - Test: `internal/admin/team_selection_render_test.go` asserts the swap response is byte-for-byte the full page's container. It was red before.
+> - **E2E:** 197 passed, 1 failed (the same pre-existing `match-results.spec.ts` ordering failure as the sixth pass).
 > - Dead `Service.IsHomeClubInFixture` deleted (its only caller was the `/player-selection` handler removed in the fifth pass).
 
 ---
@@ -100,7 +120,7 @@ Almost nothing here requires a rewrite. The highest-risk items are mostly S-effo
 | 6 | Startup template cache + honest 500s | Per-request disk I/O on 1-CPU box; silent template breakage | M | ✅ done 2026-10-09 — honest 500s, parse-once cache, render-to-buffer |
 | 7 | Unify matchcard derby code paths | League-scoring divergence between import types | M | ✅ done 2026-10-09 — also fixed derby re-import failing without "clear existing" |
 | 8 | Transactions on season copy/create/activate + result saves | Half-written seasons and match cards | M | ✅ done — seasons 2026-10-06, result saves 2026-10-09 |
-| 9 | De-fork `fixture_team_selection` templates via partial | Silent UI drift after every HTMX swap | M | open |
+| 9 | De-fork `fixture_team_selection` templates via partial | Silent UI drift after every HTMX swap | M | ✅ done 2026-10-09 — single partial; fixed the derby banner vanishing after swaps |
 | 10 | Migration footguns (012 down file, migrate-down default, dirty auto-force) | Destructive/dirty schema states | S | ✅ done 2026-07-02 |
 | 11 | Unit tests for parser/matcher/points + `make test` target | Silent data-corrupting regressions | M | ✅ done — `make test` + parser/matcher tests (2026-07-02) + points-calc golden test (2026-07-03) |
 | 12 | Docker build speed (`-a`, cache mounts, `.dockerignore`) | 1-CPU server pegged per deploy; secrets in build context | S | ✅ done 2026-07-02 |
@@ -155,7 +175,7 @@ Both `clean` and `test-e2e-clean` run `down -v`, removing the live database volu
 
 ### 2.4 Session and CSRF hardening — MED
 - ~~Session tokens logged in plaintext on every request (`auth/middleware.go:58`, `auth/service.go:220-221`)~~ ✅ **fixed 2026-07-02** — added a `redactToken` helper (non-reversible `sha256:` fingerprint) and applied it to all 8 session-ID log sites across `auth/{middleware,service,handlers}.go`. First unit test in `internal/auth` (`service_test.go`) asserts the raw token never appears. Remaining debug-spam volume is unchanged (fingerprints still print), which is acceptable now that they are non-sensitive.
-- No CSRF protection anywhere; ~~several destructive admin actions are plain GET links (`/seasons/delete`, `/tournaments/toggle-visibility/`)~~ *(verified 2026-10-09: every mutating handler requires POST; only `/logout` accepts GET)*. `SameSite=Strict` is the only mitigation. **Fix (M):** CSRF token for admin POSTs; convert destructive GETs to POST.
+- No CSRF protection anywhere; ~~several destructive admin actions are plain GET links (`/seasons/delete`, `/tournaments/toggle-visibility/`)~~ *(verified 2026-10-09: every mutating handler requires POST; only `/logout` accepts GET)*. `SameSite=Strict` is the only mitigation. **Fix (M):** CSRF token for admin POSTs; convert destructive GETs to POST. ✅ **done 2026-10-09** with `auth.CrossOriginGuard` (Go's `CrossOriginProtection`, token-less) — see seventh-pass notes.
 - ~~Sliding session expiry with no absolute cap (`auth/service.go:194-199`) — a stolen token in use never expires.~~ ✅ **fixed 2026-07-02** — added `Config.AbsoluteSessionDuration` (default 30d, 0 disables) enforced in `ValidateSession` against `session.CreatedAt`, so a continuously-refreshed session dies at the ceiling. Covered by `TestValidateSessionAbsoluteLifetimeCap` (old-but-active session rejected, fresh one passes, cap-disabled survives).
 - Login throttle keyed on username+IP (`auth/service.go:262-280`) — evaded by IP rotation or password spraying; and it fetches `LIMIT 5` rows before filtering by window. **Fix (M).** *(2026-10-09: the "IP" was `RemoteAddr` including the port, so the throttle never fired across connections — fixed with `clientIP`, see sixth-pass notes. `LIMIT 5` is fine as-is: it means "the last five attempts all failed within the window". Spraying remains open.)*
 
@@ -207,7 +227,7 @@ No `Begin` in any of: `CreateSeasonWithWeeks` (`service_seasons.go:61-99`), `Cop
 
 ### 3.5 N+1 queries and misc — MED/LOW
 50+ verified N+1 sites in admin services — worst: the team-selection screen runs two availability queries **per player** (`admin/fixtures.go:1771-1780`, 100+ queries per request), per-fixture team/week lookups in list loops (`service_fixtures.go:310-331, 558-579`), per-fixture lookups in the points table (`points.go:596-598`). **Fix (M):** batch `FindByIDs` methods for teams/weeks/players + one joined availability query covers ~80% mechanically.
-**✅ Team selection done 2026-10-09:** fixture-wide availability reads plus a once-per-fixture eligibility context (see the sixth-pass notes). The list-page loops (`service_fixtures.go`, `points.go`) are still open.
+**✅ Team selection done 2026-10-09:** fixture-wide availability reads plus a once-per-fixture eligibility context (see the sixth-pass notes). **✅ List pages done 2026-10-09** (fixture lists memoised + season weeks preloaded; points matchup players in one query) — see seventh-pass notes.
 Also: ~123 lines of SQL in 12 non-repo files (sessions/users queried from two packages with no shared repo; ~~`SELECT *` in `webpush.go:186,210` breaks on column adds~~ ✅ **fixed 2026-07-02** — both now use an explicit `subscriptionColumns` const, guarded by a reflection test that keeps it in lockstep with the struct's `db` tags); `context.Background()` ~117× in admin services so request cancellation never propagates; date functions wrapped around indexed columns defeat `idx_fixtures_scheduled_date` (`repository/fixture.go:387,606`). Index coverage otherwise verified good; models verified clean (consistent pointer-based nullables, no phantom fields).
 
 ---
@@ -248,7 +268,7 @@ Also: ~123 lines of SQL in 12 non-repo files (sessions/users queried from two pa
 
 ### 5.2 Verbatim template fork: team selection — HIGH
 `fixture_team_selection.html` (1,914 lines) vs `fixture_team_selection_container.html` (595) — the container (the HTMX swap response) is a verbatim copy of the full page's container subtree, with 25 of its 30 CSS selectors re-declared in the full page. Every markup change must be made twice or the page silently differs after the first HTMX swap. The partial infrastructure to fix this already exists (`planning_dashboard.html:372-375` is the working precedent).
-**Fix (M):** make the container a Go partial included by the full page and rendered alone for HTMX requests.
+**Fix (M):** make the container a Go partial included by the full page and rendered alone for HTMX requests. ✅ **done 2026-10-09** — `admin/partials/team_selection_container.html`; see seventh-pass notes.
 
 ### 5.3 `availability.html`: 2,618-line inline SPA — HIGH
 The player-facing flagship page: 1,474 lines of inline CSS + 902 of inline JS. Concrete bugs beyond size: `subscribeToPushNotificationsVerbose` (2507-2555) duplicates `static/push.js:35-103` step-for-step and both load on the page — the two paths already diverge on failure; `init()` fetches `/my-availability/{token}/data` **twice** per page load (1755, 1788 — the dedupe guard at 1785 never fires); calendar dates keyed via `toISOString()` (2013) which shifts a day during BST at local midnight.

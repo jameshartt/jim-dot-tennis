@@ -365,44 +365,82 @@ func (s *Service) GetHomeClubTodaysFixtures() (*models.Club, []FixtureWithRelati
 	return homeClub, fixturesWithRelations, nil
 }
 
+// fixtureRelations memoises the team, week, division and season lookups
+// behind a fixture list. Lists repeat the same handful of teams and weeks, so
+// each distinct row is read once instead of once per fixture. Failed lookups
+// are remembered as nil, matching the per-row behaviour of leaving them unset.
+type fixtureRelations struct {
+	s         *Service
+	teams     map[uint]*models.Team
+	weeks     map[uint]*models.Week
+	divisions map[uint]*models.Division
+	seasons   map[uint]*models.Season
+	// seasonWeeks records seasons whose weeks were loaded in one query
+	seasonWeeks map[uint]bool
+}
+
+func newFixtureRelations(s *Service) *fixtureRelations {
+	return &fixtureRelations{
+		s:           s,
+		teams:       map[uint]*models.Team{},
+		weeks:       map[uint]*models.Week{},
+		divisions:   map[uint]*models.Division{},
+		seasons:     map[uint]*models.Season{},
+		seasonWeeks: map[uint]bool{},
+	}
+}
+
+func memoLookup[T any](cache map[uint]*T, id uint, load func() (*T, error)) *T {
+	if v, ok := cache[id]; ok {
+		return v
+	}
+	v, err := load()
+	if err != nil {
+		v = nil
+	}
+	cache[id] = v
+	return v
+}
+
+// load returns the fixture with its teams, week, division and season attached.
+func (fr *fixtureRelations) load(ctx context.Context, fixture models.Fixture) FixtureWithRelations {
+	s := fr.s
+	if !fr.seasonWeeks[fixture.SeasonID] {
+		fr.seasonWeeks[fixture.SeasonID] = true
+		if weeks, err := s.weekRepository.FindBySeason(ctx, fixture.SeasonID); err == nil {
+			for i := range weeks {
+				fr.weeks[weeks[i].ID] = &weeks[i]
+			}
+		}
+	}
+	return FixtureWithRelations{
+		Fixture: fixture,
+		HomeTeam: memoLookup(fr.teams, fixture.HomeTeamID, func() (*models.Team, error) {
+			return s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
+		}),
+		AwayTeam: memoLookup(fr.teams, fixture.AwayTeamID, func() (*models.Team, error) {
+			return s.teamRepository.FindByID(ctx, fixture.AwayTeamID)
+		}),
+		Week: memoLookup(fr.weeks, fixture.WeekID, func() (*models.Week, error) {
+			return s.weekRepository.FindByID(ctx, fixture.WeekID)
+		}),
+		Division: memoLookup(fr.divisions, fixture.DivisionID, func() (*models.Division, error) {
+			return s.getDivisionByID(ctx, fixture.DivisionID)
+		}),
+		Season: memoLookup(fr.seasons, fixture.SeasonID, func() (*models.Season, error) {
+			return s.getSeasonByID(ctx, fixture.SeasonID)
+		}),
+	}
+}
+
 // buildFixturesWithRelations is a helper method to build FixtureWithRelations from fixtures
 func (s *Service) buildFixturesWithRelations(ctx context.Context, fixtures []models.Fixture, homeClub *models.Club) []FixtureWithRelations {
 	var fixturesWithRelations []FixtureWithRelations
+	relations := newFixtureRelations(s)
 
 	for _, fixture := range fixtures {
-		fixtureWithRelations := FixtureWithRelations{
-			Fixture: fixture,
-		}
-
-		// Declare team variables for later use
-		var homeTeam, awayTeam *models.Team
-
-		// Get home team
-		if team, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID); err == nil {
-			homeTeam = team
-			fixtureWithRelations.HomeTeam = homeTeam
-		}
-
-		// Get away team
-		if team, err := s.teamRepository.FindByID(ctx, fixture.AwayTeamID); err == nil {
-			awayTeam = team
-			fixtureWithRelations.AwayTeam = awayTeam
-		}
-
-		// Get week
-		if week, err := s.weekRepository.FindByID(ctx, fixture.WeekID); err == nil {
-			fixtureWithRelations.Week = week
-		}
-
-		// Get division
-		if division, err := s.getDivisionByID(ctx, fixture.DivisionID); err == nil {
-			fixtureWithRelations.Division = division
-		}
-
-		// Get season
-		if season, err := s.getSeasonByID(ctx, fixture.SeasonID); err == nil {
-			fixtureWithRelations.Season = season
-		}
+		fixtureWithRelations := relations.load(ctx, fixture)
+		homeTeam, awayTeam := fixtureWithRelations.HomeTeam, fixtureWithRelations.AwayTeam
 
 		// Determine if the home club is home or away (only if teams were loaded successfully)
 		if homeTeam != nil && homeTeam.ClubID == homeClub.ID {
@@ -596,40 +634,10 @@ func (s *Service) GetUpcomingFixturesForTeam(teamID uint, limit int) ([]FixtureW
 
 	// Build FixtureWithRelations by fetching related data
 	var fixturesWithRelations []FixtureWithRelations
+	relations := newFixtureRelations(s)
 	for _, fixture := range upcomingFixtures {
-		fixtureWithRelations := FixtureWithRelations{
-			Fixture: fixture,
-		}
-
-		// Declare team variables for later use
-		var homeTeam, awayTeam *models.Team
-
-		// Get home team
-		if homeTeamResult, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID); err == nil {
-			homeTeam = homeTeamResult
-			fixtureWithRelations.HomeTeam = homeTeam
-		}
-
-		// Get away team
-		if awayTeamResult, err := s.teamRepository.FindByID(ctx, fixture.AwayTeamID); err == nil {
-			awayTeam = awayTeamResult
-			fixtureWithRelations.AwayTeam = awayTeam
-		}
-
-		// Get week
-		if week, err := s.weekRepository.FindByID(ctx, fixture.WeekID); err == nil {
-			fixtureWithRelations.Week = week
-		}
-
-		// Get division
-		if division, err := s.getDivisionByID(ctx, fixture.DivisionID); err == nil {
-			fixtureWithRelations.Division = division
-		}
-
-		// Get season
-		if season, err := s.getSeasonByID(ctx, fixture.SeasonID); err == nil {
-			fixtureWithRelations.Season = season
-		}
+		fixtureWithRelations := relations.load(ctx, fixture)
+		homeTeam, awayTeam := fixtureWithRelations.HomeTeam, fixtureWithRelations.AwayTeam
 
 		// Determine if the requesting team is home or away (only if teams were loaded successfully)
 		if homeTeam != nil && homeTeam.ID == teamID {

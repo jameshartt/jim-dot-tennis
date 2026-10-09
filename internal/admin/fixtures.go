@@ -666,110 +666,82 @@ func (h *FixturesHandler) handleTeamSelection(w http.ResponseWriter, r *http.Req
 
 // handleTeamSelectionGet handles GET requests to show the team selection page
 func (h *FixturesHandler) handleTeamSelectionGet(w http.ResponseWriter, r *http.Request, fixtureID uint) {
-	// Check for managing team parameter (for derby matches)
-	managingTeamParam := r.URL.Query().Get("managingTeam")
-	var managingTeamID uint
-	var managingTeam *models.Team
-
-	var fixtureDetail *FixtureDetail
-	var err error
-
-	if managingTeamParam != "" {
-		// Parse managing team ID and get team details
-		if managingTeamIDUint64, parseErr := strconv.ParseUint(managingTeamParam, 10, 32); parseErr == nil {
-			managingTeamID = uint(managingTeamIDUint64)
-
-			// Get the managing team details from the service
-			if teamDetail, teamErr := h.service.GetTeamDetail(managingTeamID); teamErr == nil {
-				managingTeam = &teamDetail.Team
-			}
-
-			// Use team-aware fixture detail for derby matches
-			fixtureDetail, err = h.service.GetFixtureDetailWithTeamContext(fixtureID, managingTeamID)
-		} else {
-			// Fall back to regular method if parsing fails
-			fixtureDetail, err = h.service.GetFixtureDetail(fixtureID)
-		}
-	} else {
-		// Use regular fixture detail method
-		fixtureDetail, err = h.service.GetFixtureDetail(fixtureID)
-	}
-
+	data, status, err := h.teamSelectionData(r, fixtureID, r.URL.Query().Get("managingTeam"))
 	if err != nil {
-		logAndError(w, "Fixture not found", err, http.StatusNotFound)
+		logAndError(w, err.Error(), err, status)
 		return
 	}
 
-	// Get available players for this fixture with availability and eligibility status
-	var managingTeamIDForEligibility uint
-	if managingTeamParam != "" {
-		if managingTeamIDUint64, parseErr := strconv.ParseUint(managingTeamParam, 10, 32); parseErr == nil {
-			managingTeamIDForEligibility = uint(managingTeamIDUint64)
-		}
-	}
-
-	teamPlayers, allHomeClubPlayers, err := h.service.GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID, managingTeamIDForEligibility)
-	if err != nil {
-		logAndError(w, "Failed to load available players", err, http.StatusInternalServerError)
-		return
-	}
-
-	// Create a map of already selected player IDs for quick filtering
-	selectedMap := make(map[string]bool)
-	for _, sp := range fixtureDetail.SelectedPlayers {
-		selectedMap[sp.PlayerID] = true
-	}
-
-	// Filter out already selected players
-	var availableTeamPlayers []PlayerWithEligibility
-	for _, player := range teamPlayers {
-		if !selectedMap[player.Player.ID] {
-			availableTeamPlayers = append(availableTeamPlayers, player)
-		}
-	}
-
-	var availableHomeClubPlayers []PlayerWithEligibility
-	for _, player := range allHomeClubPlayers {
-		if !selectedMap[player.Player.ID] {
-			availableHomeClubPlayers = append(availableHomeClubPlayers, player)
-		}
-	}
-
-	// Load the team selection template
 	tmpl, err := parseTemplate(h.templateDir, "admin/fixture_team_selection.html")
 	if err != nil {
 		log.Printf("Error parsing team selection template: %v", err)
-		// Fallback to simple HTML response
 		renderFallbackHTML(w, "Team Selection", "Team Selection",
 			"Team selection page - coming soon", "/admin/league/fixtures/"+fmt.Sprintf("%d", fixtureID))
 		return
 	}
+	if err := renderTemplate(w, tmpl, data); err != nil {
+		logAndError(w, err.Error(), err, http.StatusInternalServerError)
+	}
+}
 
-	// Calculate selection percentage
-	selectedCount := len(fixtureDetail.SelectedPlayers)
-	selectionPercentage := 0
-	if selectedCount > 0 {
-		selectionPercentage = (selectedCount * 100) / 8
+// teamSelectionData loads everything the team selection container needs. The
+// full page and the HTMX container swap both use it, so a swapped-in
+// container always matches what the page first rendered.
+func (h *FixturesHandler) teamSelectionData(r *http.Request, fixtureID uint, managingTeamParam string) (map[string]interface{}, int, error) {
+	// A managing team (for derby matches) selects the team-aware fixture view
+	var managingTeamID uint
+	if managingTeamParam != "" {
+		if id, err := strconv.ParseUint(managingTeamParam, 10, 32); err == nil {
+			managingTeamID = uint(id)
+		}
 	}
 
-	// Execute the template with data
-	templateData := map[string]interface{}{
+	var fixtureDetail *FixtureDetail
+	var err error
+	if managingTeamID != 0 {
+		fixtureDetail, err = h.service.GetFixtureDetailWithTeamContext(fixtureID, managingTeamID)
+	} else {
+		fixtureDetail, err = h.service.GetFixtureDetail(fixtureID)
+	}
+	if err != nil {
+		return nil, http.StatusNotFound, fmt.Errorf("fixture not found: %w", err)
+	}
+
+	teamPlayers, allHomeClubPlayers, err := h.service.GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID, managingTeamID)
+	if err != nil {
+		return nil, http.StatusInternalServerError, fmt.Errorf("failed to load available players: %w", err)
+	}
+
+	// Already selected players are not offered again
+	selectedMap := make(map[string]bool)
+	for _, sp := range fixtureDetail.SelectedPlayers {
+		selectedMap[sp.PlayerID] = true
+	}
+	unselected := func(players []PlayerWithEligibility) []PlayerWithEligibility {
+		var out []PlayerWithEligibility
+		for _, p := range players {
+			if !selectedMap[p.Player.ID] {
+				out = append(out, p)
+			}
+		}
+		return out
+	}
+
+	selectionPercentage := len(fixtureDetail.SelectedPlayers) * 100 / 8
+
+	data := map[string]interface{}{
 		"FixtureDetail":       fixtureDetail,
-		"TeamPlayers":         availableTeamPlayers,
-		"AllHomeClubPlayers":  availableHomeClubPlayers,
+		"TeamPlayers":         unselected(teamPlayers),
+		"AllHomeClubPlayers":  unselected(allHomeClubPlayers),
 		"SelectionPercentage": selectionPercentage,
 		"HomeClubName":        homeClubNameFromContext(r),
 	}
-
-	// Include managing team information if present
-	if managingTeam != nil {
-		templateData["ManagingTeam"] = managingTeam
-		templateData["ManagingTeamID"] = managingTeamID
+	if managingTeamID != 0 {
+		if teamDetail, err := h.service.GetTeamDetail(managingTeamID); err == nil {
+			data["ManagingTeam"] = &teamDetail.Team
+		}
 	}
-
-	if err := renderTemplate(w, tmpl, templateData); err != nil {
-		logAndError(w, err.Error(), err, http.StatusInternalServerError)
-	}
+	return data, http.StatusOK, nil
 }
 
 // handleTeamSelectionPost handles POST requests to update team selection
@@ -959,108 +931,22 @@ func (h *FixturesHandler) getTeamSelectionRedirectURL(r *http.Request, fixtureID
 
 // renderTeamSelectionContainer renders just the team selection container for HTMX requests
 func (h *FixturesHandler) renderTeamSelectionContainer(w http.ResponseWriter, r *http.Request, fixtureID uint) {
-	// Check for managing team parameter (for derby matches)
 	managingTeamParam := r.URL.Query().Get("managingTeam")
 	if managingTeamParam == "" {
 		managingTeamParam = r.FormValue("managing_team_id")
 	}
-
-	var fixtureDetail interface{}
-	var err error
-	var managingTeamID uint
-
-	// Use team-aware or regular fixture detail based on managing team parameter
-	if managingTeamParam != "" {
-		managingTeamIDUint64, parseErr := strconv.ParseUint(managingTeamParam, 10, 32)
-		if parseErr == nil {
-			managingTeamID = uint(managingTeamIDUint64)
-			fixtureDetail, err = h.service.GetFixtureDetailWithTeamContext(fixtureID, managingTeamID)
-		} else {
-			// Fall back to regular method if parsing fails
-			fixtureDetail, err = h.service.GetFixtureDetail(fixtureID)
-		}
-	} else {
-		fixtureDetail, err = h.service.GetFixtureDetail(fixtureID)
-	}
-
+	data, status, err := h.teamSelectionData(r, fixtureID, managingTeamParam)
 	if err != nil {
-		logAndError(w, "Fixture not found", err, http.StatusNotFound)
+		logAndError(w, err.Error(), err, status)
 		return
 	}
 
-	// Get available players for this fixture with availability and eligibility status
-	var managingTeamIDForEligibility uint
-	if managingTeamParam != "" {
-		if managingTeamIDUint64, parseErr := strconv.ParseUint(managingTeamParam, 10, 32); parseErr == nil {
-			managingTeamIDForEligibility = uint(managingTeamIDUint64)
-		}
-	}
-
-	teamPlayers, allHomeClubPlayers, err := h.service.GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID, managingTeamIDForEligibility)
+	tmpl, err := parseTemplate(h.templateDir, "admin/fixture_team_selection.html")
 	if err != nil {
-		logAndError(w, "Failed to load available players", err, http.StatusInternalServerError)
+		logAndError(w, "Failed to parse team selection template", err, http.StatusInternalServerError)
 		return
 	}
-
-	// Create a map of already selected player IDs for quick filtering
-	selectedMap := make(map[string]bool)
-
-	// Use reflection or type assertion to get selected players
-	// This is a workaround since we're dealing with interface{} types
-	if detail, ok := fixtureDetail.(*FixtureDetail); ok {
-		for _, sp := range detail.SelectedPlayers {
-			selectedMap[sp.PlayerID] = true
-		}
-	}
-
-	// Filter out already selected players
-	var availableTeamPlayers []PlayerWithEligibility
-	for _, player := range teamPlayers {
-		if !selectedMap[player.Player.ID] {
-			availableTeamPlayers = append(availableTeamPlayers, player)
-		}
-	}
-
-	var availableHomeClubPlayers []PlayerWithEligibility
-	for _, player := range allHomeClubPlayers {
-		if !selectedMap[player.Player.ID] {
-			availableHomeClubPlayers = append(availableHomeClubPlayers, player)
-		}
-	}
-
-	// Load the partial team selection container template for HTMX
-	tmpl, err := parseTemplate(h.templateDir, "admin/fixture_team_selection_container.html")
-	if err != nil {
-		logAndError(w, "Failed to parse team selection container template", err, http.StatusInternalServerError)
-		return
-	}
-
-	// Calculate selection percentage
-	selectedCount := 0
-	if detail, ok := fixtureDetail.(*FixtureDetail); ok {
-		selectedCount = len(detail.SelectedPlayers)
-	}
-	selectionPercentage := 0
-	if selectedCount > 0 {
-		selectionPercentage = (selectedCount * 100) / 8
-	}
-
-	// Prepare template data
-	templateData := map[string]interface{}{
-		"FixtureDetail":       fixtureDetail,
-		"TeamPlayers":         availableTeamPlayers,
-		"AllHomeClubPlayers":  availableHomeClubPlayers,
-		"SelectionPercentage": selectionPercentage,
-		"HomeClubName":        homeClubNameFromContext(r),
-	}
-
-	// Include managing team ID if present
-	if managingTeamParam != "" {
-		templateData["ManagingTeamID"] = managingTeamID
-	}
-
-	// Execute the template with data
-	if err := renderTemplate(w, tmpl, templateData); err != nil {
+	if err := renderNamedTemplate(w, tmpl, "admin/partials/team_selection_container.html", data); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
 }

@@ -1,212 +1,3 @@
-<style>
-.player-remove-btn {
-    background: #dc3545;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    font-size: 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-left: auto;
-    flex-shrink: 0;
-    align-self: flex-start;
-}
-
-.player-remove-btn:hover {
-    background: #c82333;
-}
-
-.player-card {
-    background: white;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    padding: 0.5rem 0.75rem;
-    cursor: move;
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-touch-callout: none;
-    transition: all 0.2s;
-    position: relative;
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-}
-
-.player-card > span {
-    flex: 1;
-    word-wrap: break-word;
-    line-height: 1.2;
-}
-
-.player-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-.player-card.availability-available {
-    border-left: 4px solid #28a745;
-}
-
-.player-card.availability-ifneeded {
-    border-left: 4px solid #ffc107;
-}
-
-.player-card.availability-unavailable {
-    border-left: 4px solid #dc3545;
-}
-
-.player-card.availability-unknown {
-    border-left: 4px solid #6c757d;
-}
-
-/* Remove drag styling from matchup zone player cards */
-.matchup-zone .player-card {
-    cursor: pointer !important;
-}
-
-.matchup-zone .player-card:hover {
-    transform: none !important;
-    background: #f8d7da;
-    border-color: #dc3545;
-}
-
-.matchup-zone .player-card::after {
-    content: "✕";
-    color: #dc3545;
-    font-size: 12px;
-    margin-left: auto;
-    opacity: 0.7;
-}
-
-.matchup-zone .player-card:hover::after {
-    opacity: 1;
-}
-
-.btn-blocked {
-    cursor: not-allowed;
-    opacity: 0.7;
-}
-
-/* Removed empty rulesets to satisfy linter */
-
-.captain-indicator {
-    font-weight: 700;
-    color: #ffc107;
-    margin-left: 0.25rem;
-}
-
-/* Hide matchup zone crosses during captain selection */
-.captain-selection-mode .matchup-zone .player-card::after {
-    display: none !important;
-}
-
-.captain-selection-mode .matchup-zone .player-card:hover::after {
-    display: none !important;
-}
-
-/* Day Captain Selection */
-.matchup-header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-
-/* Available players header row */
-.available-players-header-row {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-}
-
-.btn-captain-selector {
-    background: #17a2b8;
-    color: white;
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: background 0.2s;
-}
-
-.btn-captain-selector:hover {
-    background: #138496;
-}
-
-.btn-captain-selector.active {
-    background: #dc3545;
-}
-
-.btn-captain-selector.active:hover {
-    background: #c82333;
-}
-
- 
-.player-card.captain-selectable {
-    cursor: pointer;
-    border: 2px solid #17a2b8;
-    background: #e3f2fd;
-    transform: scale(1.02);
-}
-
-.player-card.captain-selectable:hover {
-    border-color: #138496;
-    background: #bbdefb;
-}
-
-.player-card.is-captain {
-    border-left: 4px solid #ffc107;
-}
-
-.player-card.is-captain .player-name {
-    font-weight: 700;
-}
-
-/* Mobile optimizations for instruction text and legends */
-@media (max-width: 1024px) {
-    .drag-instruction-text {
-        font-size: 0.75rem !important;
-        margin-top: 0.3rem !important;
-    }
-    
-    .availability-legend,
-    .eligibility-legend {
-        padding: 0.5rem !important;
-        margin-bottom: 0.5rem !important;
-        font-size: 0.9rem !important;
-    }
-    
-    .legend-item {
-        display: block !important;
-        margin-bottom: 0.4rem !important;
-    }
-    
-    .matchup-header-row {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.5rem;
-    }
-
-    .available-players-header-row {
-        flex-direction: row;
-        align-items: stretch;
-        gap: 0.5rem;
-    }
-    
-    .btn-captain-selector {
-        padding: 0.75rem;
-        font-size: 0.9rem;
-    }
-}
-</style>
-
 <div class="team-selection-container">
     <div class="fixture-summary">
         <h1 class="fixture-title">
@@ -387,7 +178,9 @@
     <div class="available-players-section">
         <div class="available-players-header-row">
             <h3>🎯 Available Players</h3>
+            
         </div>
+        
         <div class="availability-legend">
             <h5>🎨 Availability Status:</h5>
             <div class="legend-item">
@@ -440,7 +233,8 @@
                     <input type="hidden" name="action" value="add_player">
                     <input type="hidden" name="player_id" value="{{.Player.ID}}">
                     <input type="hidden" name="is_home" value="true">
-                    {{if $.ManagingTeamID}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeamID}}">{{end}}
+                    {{if $.ManagingTeam}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeam.ID}}">{{end}}
+                    
                     {{/* Build CSS classes */}}
                     {{$btnClass := printf "btn-add-player availability-%s" (.AvailabilityStatus | lower)}}
                     {{if .Eligibility}}
@@ -530,7 +324,8 @@
                     <input type="hidden" name="action" value="add_player">
                     <input type="hidden" name="player_id" value="{{.Player.ID}}">
                     <input type="hidden" name="is_home" value="true">
-                    {{if $.ManagingTeamID}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeamID}}">{{end}}
+                    {{if $.ManagingTeam}}<input type="hidden" name="managing_team_id" value="{{$.ManagingTeam.ID}}">{{end}}
+                    
                     {{/* Build CSS classes */}}
                     {{$btnClass := printf "btn-add-player availability-%s" (.AvailabilityStatus | lower)}}
                     {{if .Eligibility}}
@@ -605,4 +400,4 @@
         <p class="no-players">No other available players found.</p>
         {{end}}
     </div>
-</div> 
+</div>

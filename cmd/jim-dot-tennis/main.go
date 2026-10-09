@@ -213,7 +213,7 @@ func main() {
 	port := getPort()
 	server := &http.Server{
 		Addr:         ":" + port,
-		Handler:      config.HomeClubMiddleware(appConfig, mux),
+		Handler:      auth.CrossOriginGuard(config.HomeClubMiddleware(appConfig, mux)),
 		ReadTimeout:  30 * time.Second,  // Generous for mobile
 		WriteTimeout: 30 * time.Second,  // Generous for mobile
 		IdleTimeout:  120 * time.Second, // Keep connections alive

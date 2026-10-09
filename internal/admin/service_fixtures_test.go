@@ -22,7 +22,6 @@ func TestTeamSelectionTemplatesParse(t *testing.T) {
 	dir := findTemplatesPathAdmin(t)
 	for _, name := range []string{
 		"admin/fixture_team_selection.html",
-		"admin/fixture_team_selection_container.html",
 	} {
 		if _, err := parseTemplate(dir, name); err != nil {
 			t.Errorf("parse %s: %v", name, err)
