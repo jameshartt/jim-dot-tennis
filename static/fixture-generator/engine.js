@@ -143,6 +143,9 @@ export function resolveMovement(tables, options = {}) {
     }),
   }));
   const count = src.length;
+  // `position` is where a team finished and is what people are told; `place`
+  // closes the gaps left by withdrawn teams and is what the rules work from.
+  src.forEach((d) => d.ranked.forEach((t, i) => (t.place = i + 1)));
 
   src.forEach((d, i) => {
     const tied = d.ranked.filter((t) => t.tied).map((t) => t.name);
@@ -195,7 +198,7 @@ export function resolveMovement(tables, options = {}) {
     const lowerSettled = src[lower].ranked.filter((t) => !lowerZone.has(t.name));
 
     const depth = rules.offerDepth === 'any' ? Infinity : Math.max(0, rules.offerDepth);
-    const inReach = lowerSettled.filter((t) => t.position <= rules.promote + depth);
+    const inReach = lowerSettled.filter((t) => t.place <= rules.promote + depth);
     const willing = inReach.filter((t) => !declined.has(t.name));
     const downOrder = zone[upper].slice().reverse(); // bottom team first
 
@@ -230,12 +233,12 @@ export function resolveMovement(tables, options = {}) {
     const downNames = new Set(chosenDown.map((t) => t.name));
     const upperClubs = tally([...upperSettled, ...zone[upper].filter((t) => !downNames.has(t.name))]);
     const lowerClubs = tally(lowerSettled.filter((t) => !upNames.has(t.name)));
-    const lastUp = chosenUp.length ? chosenUp[chosenUp.length - 1].position : 0;
+    const lastUp = chosenUp.length ? chosenUp[chosenUp.length - 1].place : 0;
 
     // Explain every team in the promotion picture, in table order.
     let passedOver = null;
     inReach.forEach((t) => {
-      const automatic = t.position <= rules.promote;
+      const automatic = t.place <= rules.promote;
       const base = { team: t.name, from: lower, to: upper, position: t.position, automatic };
       if (upNames.has(t.name)) {
         promotedOut[lower].add(t.name);
@@ -243,7 +246,7 @@ export function resolveMovement(tables, options = {}) {
         decisions.push({ ...base, kind: automatic ? 'promoted' : 'offered', insteadOf: automatic ? null : passedOver });
         return;
       }
-      if (!automatic && t.position > lastUp) return; // never came into the picture
+      if (!automatic && t.place > lastUp) return; // never came into the picture
       if (declined.has(t.name)) {
         flags.set(t.name, { declined: true });
         decisions.push({ ...base, kind: 'declined' });

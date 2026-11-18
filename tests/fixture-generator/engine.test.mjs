@@ -256,3 +256,32 @@ test('toCSV lists every fixture', () => {
   assert.equal(lines.length, 1 + 402);
   assert.match(lines[1], /^Division 1,1,2027-04-15,Thursday,/);
 });
+
+test('a club dropping a team is worked out before anything else', () => {
+  // With Saltdean D gone, Saltdean B's relegation is no longer blocked.
+  const mv = E.resolveMovement(tables2026(), { withdrawn: ['Saltdean D'] });
+  assert.deepEqual(mv.violations, []);
+  assert.deepEqual(kinds(mv, 'spared'), []);
+  assert.ok(names(mv.divisions[3]).includes('Saltdean B'));
+  assert.ok(!mv.divisions.flatMap(names).includes('Saltdean D'));
+  assert.deepEqual(
+    mv.divisions.map((d) => d.teams.length),
+    [10, 10, 10, 11]
+  );
+  // An 11-team division still schedules: each team sits out one round per half.
+  const { stats, divisions } = E.generateFixtures(mv.divisions, { year: 2027, seed: 3 });
+  assert.deepEqual(stats.errors, []);
+  assert.equal(divisions[3].fixtures.length, 11 * 10);
+});
+
+test('when a champion withdraws the next two teams take the promotion places', () => {
+  const tables = {
+    divisions: [
+      division('Division 1', 1, ['A1', 'A2', 'A3', 'A4', 'A5', 'A6']),
+      division('Division 2', 2, ['B1', 'B2', 'B3', 'B4', 'B5', 'B6']),
+    ],
+  };
+  const mv = E.resolveMovement(tables, { withdrawn: ['B1'] });
+  assert.deepEqual(kinds(mv, 'promoted'), ['B2', 'B3']);
+  assert.deepEqual(kinds(mv, 'offered'), []);
+});

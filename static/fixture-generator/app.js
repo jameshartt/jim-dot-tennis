@@ -93,6 +93,7 @@ const state = {
   manual: {},
   season: { year: null, week1Monday: null, playDays: {}, derbiesEarly: true, dateOverrides: {} },
   seed: 0,
+  draw: 0, // how many draws have been made, shown so a new draw is plainly a new draw
   result: null, // { divisions, stats } from the engine or a loaded file
   resultKey: '',
   accepted: null, // ISO timestamp once accepted
@@ -103,11 +104,11 @@ const state = {
 };
 
 function persist() {
-  const { tables, rules, declined, withdrawn, added, manual, season, seed, accepted, step } = state;
+  const { tables, rules, declined, withdrawn, added, manual, season, seed, draw, accepted, step } = state;
   try {
     localStorage.setItem(
       STORE_KEY,
-      JSON.stringify({ tables, rules, declined, withdrawn, added, manual, season, seed, accepted, step: Math.min(step, 2) })
+      JSON.stringify({ tables, rules, declined, withdrawn, added, manual, season, seed, draw, accepted, step: Math.min(step, 2) })
     );
   } catch {
     /* private mode: carry on without saving */
@@ -558,6 +559,8 @@ function renderMovement(stage) {
     )
   );
 
+  stage.append(renderEntries(mv, names));
+
   if (mv.violations.length) {
     stage.append(
       h(
@@ -597,7 +600,8 @@ function renderMovement(stage) {
               )
             );
           })
-        )
+        ),
+        h('button', { type: 'button', class: 'add-row', onclick: () => openAddSheet(di, names) }, h('span', { 'aria-hidden': 'true' }, '＋'), `Add a team to ${d.name}`)
       )
     );
   });
@@ -645,8 +649,16 @@ function renderMovement(stage) {
     h('button', { type: 'button', class: 'btn ghost', onclick: () => go(0, { fly: true }) }, 'Back'),
     h(
       'button',
-      { type: 'button', class: 'btn primary', disabled: mv.violations.length > 0, onclick: () => go(2) },
-      state.result ? 'View fixtures' : 'Generate fixtures',
+      {
+        type: 'button',
+        class: 'btn primary',
+        disabled: mv.violations.length > 0,
+        onclick: () => {
+          if (!state.accepted) newDraw();
+          go(2);
+        },
+      },
+      state.accepted ? 'View accepted fixtures' : 'Generate fixtures',
       h('span', { class: 'arrow' }, '→')
     )
   );
@@ -666,7 +678,7 @@ function renderRulesPanel(names) {
   return h(
     'details',
     { class: 'panel' },
-    h('summary', {}, 'League rules and team changes'),
+    h('summary', {}, 'League rules'),
     h(
       'div',
       { class: 'fields' },
@@ -685,24 +697,6 @@ function renderRulesPanel(names) {
         ])
       )
     ),
-    h(
-      'form',
-      {
-        class: 'add-team',
-        onsubmit: (e) => {
-          e.preventDefault();
-          const data = new FormData(e.target);
-          const name = E.cleanName(data.get('name'));
-          if (!name) return;
-          const exists = movement().divisions.some((d) => d.teams.some((t) => t.name.toLowerCase() === name.toLowerCase()));
-          if (exists) return toast(`${name} are already in the league.`, 'bad');
-          changeMovement(() => state.added.push({ name, division: Number(data.get('division')) }));
-        },
-      },
-      h('label', {}, h('span', {}, 'Add a new team'), h('input', { name: 'name', placeholder: 'e.g. Rookery', maxlength: 40, autocomplete: 'off' })),
-      h('label', {}, h('span', {}, 'Into'), h('select', { name: 'division' }, names.map((n, i) => h('option', { value: i, selected: i === names.length - 1 }, n)))),
-      h('button', { type: 'submit', class: 'btn small' }, 'Add team')
-    ),
     dirty
       ? h(
           'button',
@@ -718,10 +712,124 @@ function renderRulesPanel(names) {
                 state.manual = {};
               }),
           },
-          'Reset everything to the standard rules'
+          'Undo every committee change'
         )
       : null
   );
+}
+
+/** Teams entering and leaving: the committee's call, made before the draw. */
+function renderEntries(mv, names) {
+  const leaving = state.withdrawn;
+  const joining = state.added;
+  return h(
+    'section',
+    { class: 'entries' },
+    h(
+      'div',
+      { class: 'entries-text' },
+      h('h3', {}, 'Who is entering next season?'),
+      h('p', {}, 'If a club is dropping a team, or entering a new one, say so here first. Promotion and relegation are worked out again straight away, because one team leaving can unblock another.')
+    ),
+    h(
+      'div',
+      { class: 'entries-actions' },
+      h('button', { type: 'button', class: 'btn', onclick: () => openRemoveSheet(mv, names) }, h('span', { 'aria-hidden': 'true' }, '−'), 'Remove a team'),
+      h('button', { type: 'button', class: 'btn', onclick: () => openAddSheet(names.length - 1, names) }, h('span', { 'aria-hidden': 'true' }, '＋'), 'Add a team')
+    ),
+    leaving.length || joining.length
+      ? h(
+          'ul',
+          { class: 'entries-list' },
+          leaving.map((name) =>
+            h(
+              'li',
+              { class: 'out' },
+              h('span', {}, h('strong', {}, name), ' leave the league'),
+              h('button', { type: 'button', class: 'link', onclick: () => changeMovement(() => (state.withdrawn = state.withdrawn.filter((n) => n !== name))) }, 'Put back')
+            )
+          ),
+          joining.map((a) =>
+            h(
+              'li',
+              { class: 'in' },
+              h('span', {}, h('strong', {}, E.cleanName(a.name)), ` join ${names[Math.min(names.length - 1, a.division ?? names.length - 1)]}`),
+              h('button', { type: 'button', class: 'link', onclick: () => changeMovement(() => (state.added = state.added.filter((x) => x !== a))) }, 'Take out')
+            )
+          )
+        )
+      : null
+  );
+}
+
+function openAddSheet(divisionIndex, names) {
+  const sheet = $('#sheet');
+  sheet.replaceChildren(
+    h(
+      'form',
+      {
+        method: 'dialog',
+        onsubmit: (e) => {
+          const data = new FormData(e.target);
+          const name = E.cleanName(data.get('name'));
+          if (!name) return e.preventDefault();
+          const exists = movement().divisions.some((d) => d.teams.some((t) => t.name.toLowerCase() === name.toLowerCase()));
+          if (exists) {
+            e.preventDefault();
+            return toast(`${name} are already in the league.`, 'bad');
+          }
+          changeMovement(() => {
+            state.withdrawn = state.withdrawn.filter((n) => n.toLowerCase() !== name.toLowerCase());
+            state.added.push({ name, division: Number(data.get('division')) });
+          });
+        },
+      },
+      h('header', {}, h('h3', {}, 'Add a team'), h('button', { type: 'button', class: 'x', 'aria-label': 'Close', onclick: () => sheet.close() }, '×')),
+      h('p', { class: 'muted' }, 'Use the club name and a letter, the way the league lists teams: “Saltdean E”, “Rookery”. The club cap is checked as soon as the team is in.'),
+      h('label', { class: 'field' }, h('span', {}, 'Team name'), h('input', { name: 'name', placeholder: 'e.g. Rookery', maxlength: 40, autocomplete: 'off', required: true })),
+      h('label', { class: 'field' }, h('span', {}, 'Division'), h('select', { name: 'division' }, names.map((n, i) => h('option', { value: i, selected: i === divisionIndex }, n)))),
+      h('div', { class: 'sheet-actions' }, h('button', { type: 'submit', class: 'btn primary small' }, 'Add team'))
+    )
+  );
+  sheet.showModal();
+  sheet.querySelector('input[name="name"]').focus();
+}
+
+function openRemoveSheet(mv, names) {
+  const sheet = $('#sheet');
+  const remove = (team) => () => {
+    sheet.close();
+    changeMovement(() => {
+      if (team.movement === 'new') state.added = state.added.filter((a) => E.cleanName(a.name) !== team.name);
+      else {
+        state.withdrawn.push(team.name);
+        delete state.manual[team.name];
+      }
+    });
+  };
+  // Bottom division first: that is where teams usually come and go.
+  const order = mv.divisions.map((d, i) => [d, i]).reverse();
+  sheet.replaceChildren(
+    h(
+      'form',
+      { method: 'dialog' },
+      h('header', {}, h('h3', {}, 'Remove a team'), h('button', { type: 'submit', class: 'x', 'aria-label': 'Close' }, '×')),
+      h('p', { class: 'muted' }, 'Pick the team that will not enter next season. You can put it back afterwards.'),
+      h(
+        'div',
+        { class: 'remove-list' },
+        order.map(([d, i]) =>
+          h(
+            'div',
+            {},
+            h('p', { class: 'label' }, names[i]),
+            h('div', { class: 'remove-teams' }, d.teams.map((t) => h('button', { type: 'button', class: 'chip', onclick: remove(t) }, clubDot(t.club), t.name)))
+          )
+        )
+      )
+    )
+  );
+  sheet.showModal();
 }
 
 function openTeamSheet(team, divisionIndex, mv) {
@@ -783,7 +891,7 @@ function openTeamSheet(team, divisionIndex, mv) {
                   delete state.manual[team.name];
                 }),
               },
-              'Withdraw from the league'
+              'Remove from the league'
             )
       )
     )
@@ -1017,7 +1125,7 @@ function renderFixtures(stage) {
     h(
       'section',
       { class: 'intro' },
-      h('p', { class: 'eyebrow' }, loaded ? `Loaded from ${loaded.name}` : `${year} season · fixtures`),
+      h('p', { class: 'eyebrow' }, loaded ? `Loaded from ${loaded.name}` : `${year} season · fixtures · draw ${state.draw || 1}`),
       h('h2', {}, loaded ? `${year} fixtures${loaded.file.status === 'accepted' ? ', accepted' : ' (draft)'}` : `${result.stats.fixtures} fixtures, drawn.`),
       loaded
         ? h(
@@ -1027,7 +1135,7 @@ function renderFixtures(stage) {
             ' ',
             loaded.intact ? 'This file is exactly as the generator wrote it, and every check below passes.' : 'This file has been changed since it was generated. It still passes every check below.'
           )
-        : h('p', { class: 'lede' }, 'Each pair meets in the first nine weeks and again, venues swapped, in the second nine. Not keen on a draw? Shuffle for another that passes the same checks.')
+        : h('p', { class: 'lede' }, 'Each pair meets in the first nine weeks and again, venues swapped, in the second nine. Every draw is different: press Draw again for another that passes the same checks.')
     )
   );
 
@@ -1159,7 +1267,7 @@ function renderFixtures(stage) {
     );
   } else {
     setActions(
-      h('button', { type: 'button', class: 'btn ghost', onclick: shuffle }, h('span', { class: 'dice', 'aria-hidden': 'true' }, '↻'), 'Shuffle'),
+      h('button', { type: 'button', class: 'btn ghost', onclick: shuffle }, h('span', { class: 'dice', 'aria-hidden': 'true' }, '↻'), 'Draw again'),
       h('button', { type: 'button', class: 'btn primary', onclick: accept }, 'Accept these fixtures', h('span', { class: 'arrow' }, '✓'))
     );
   }
@@ -1231,11 +1339,20 @@ function renderSeasonPanel() {
   );
 }
 
-function shuffle() {
-  state.seed = Math.floor(Math.random() * 2 ** 31) + 1;
+/** A fresh seed: every draw is a different, equally valid, set of fixtures. */
+function newDraw() {
+  let seed = state.seed;
+  while (seed === state.seed) seed = Math.floor(Math.random() * 2 ** 31) + 1;
+  state.seed = seed;
+  state.draw = (state.draw || 0) + 1;
   state.result = null;
+}
+
+function shuffle() {
+  newDraw();
   persist();
   render();
+  window.scrollTo({ top: 0, behavior: reduceMotion() ? 'auto' : 'smooth' });
 }
 
 function accept() {
@@ -1261,7 +1378,7 @@ function currentFile() {
     status: state.accepted ? 'accepted' : 'draft',
     acceptedAt: state.accepted,
     decisions: mv.decisions.map((d) => describe(d, names)).filter(Boolean).map((x) => `${x.title}. ${x.body}`),
-    memorial: 'In memory of Mick Cox, who made the fixtures.',
+    memorial: 'In memory of Mick Cox, who made the Parks League fixtures.',
   });
 }
 
@@ -1335,7 +1452,7 @@ function printCards() {
         { class: 'print-page' },
         h('header', {}, h('p', {}, file.league?.name || ''), h('h2', {}, `Fixtures ${file.season.year}`), h('h3', {}, `${d.name} · ${d.playDay || ''}s`)),
         renderCards(d, weeks),
-        h('footer', {}, h('span', {}, `Wks 1–${weeks / 2}: home team on left. Wks ${weeks / 2 + 1}–${weeks}: home team on right.`), h('span', {}, file.status === 'accepted' ? '' : 'DRAFT'), h('span', { class: 'memorial' }, 'In memory of Mick Cox'))
+        h('footer', {}, h('span', {}, `Wks 1–${weeks / 2}: home team on left. Wks ${weeks / 2 + 1}–${weeks}: home team on right.`), h('span', {}, file.status === 'accepted' ? '' : 'DRAFT'), h('span', { class: 'memorial' }, 'In memory of Mick Cox, who made the Parks League fixtures'))
       )
     )
   );

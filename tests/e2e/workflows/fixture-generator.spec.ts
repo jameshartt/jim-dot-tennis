@@ -16,7 +16,8 @@ test.describe("Fixture generator", () => {
   test("is reachable without logging in", async ({ page }) => {
     await expect(page).toHaveURL(/\/fixture-generator$/);
     await expect(page.locator("h1")).toHaveText("Fixture Generator");
-    await expect(page.locator(".memorial")).toContainText("Mick Cox");
+    await expect(page.locator(".tribute")).toContainText("In memory of Mick Cox");
+    await expect(page.locator(".tribute")).toBeVisible();
   });
 
   test("applies promotion, relegation and the two-teams-per-club rule", async ({
@@ -50,6 +51,50 @@ test.describe("Fixture generator", () => {
     await page.locator(".ruling", { hasText: "Hove E moved" }).getByRole("button", { name: "Undo" }).click();
     await expect(page.locator(".banner.bad")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Generate fixtures/ })).toBeEnabled();
+  });
+
+  test("removing and adding teams reworks promotion and relegation", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: /Apply promotion/ }).click();
+    const divisions = page.locator(".division");
+    // Saltdean B finished bottom of Division 3 but stay up: Saltdean C and D are below.
+    await expect(divisions.nth(2).locator('[data-team="Saltdean B"]')).toBeVisible();
+
+    // The committee hears that Saltdean are dropping their D team.
+    await page.getByRole("button", { name: "Remove a team" }).click();
+    await page.locator(".sheet .chip", { hasText: "Saltdean D" }).click();
+    await expect(page.locator('[data-team="Saltdean D"]')).toHaveCount(0);
+    await expect(divisions.nth(3).locator('[data-team="Saltdean B"]')).toBeVisible();
+    await expect(page.locator(".entries-list")).toContainText("Saltdean D leave the league");
+
+    // A new team enters the bottom division.
+    await divisions.nth(3).getByRole("button", { name: /Add a team/ }).click();
+    await page.locator('.sheet input[name="name"]').fill("Rookery");
+    await page.locator(".sheet").getByRole("button", { name: "Add team" }).click();
+    await expect(divisions.nth(3).locator('[data-team="Rookery"]')).toBeVisible();
+    await expect(divisions.nth(3).locator("[data-team]")).toHaveCount(12);
+
+    // And the decision can be reversed.
+    await page.locator(".entries-list .out").getByRole("button", { name: "Put back" }).click();
+    await expect(divisions.nth(3).locator('[data-team="Saltdean D"]')).toBeVisible();
+  });
+
+  test("every draw is different", async ({ page }) => {
+    await page.getByRole("button", { name: /Apply promotion/ }).click();
+    await page.getByRole("button", { name: /Generate fixtures/ }).click();
+    await expect(page.locator(".intro h2")).toHaveText("402 fixtures, drawn.", { timeout: 30_000 });
+    const first = await page.locator(".cards").innerText();
+    await expect(page.locator(".eyebrow")).toContainText("draw 1");
+
+    await page.getByRole("button", { name: /Draw again/ }).click();
+    await expect(page.locator(".eyebrow")).toContainText("draw 2", { timeout: 30_000 });
+    expect(await page.locator(".cards").innerText()).not.toBe(first);
+
+    // Going back and generating again is a new draw too.
+    await page.getByRole("button", { name: "Promotion & relegation" }).click();
+    await page.getByRole("button", { name: /Generate fixtures/ }).click();
+    await expect(page.locator(".eyebrow")).toContainText("draw 3", { timeout: 30_000 });
   });
 
   test("generates, accepts, downloads and reloads a fixture file", async ({

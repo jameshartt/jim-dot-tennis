@@ -10,13 +10,17 @@ and download a fixture file that every club loads into its own site.
 1. **Final tables.** Read live from the BHPLTA league tables page
    (`LEAGUE_TABLES_URL` overrides the address). If the league website cannot be
    reached, the bundled copy of the 2026 tables is used and the page says so.
-2. **Promotion and relegation.** The rules are applied automatically and every
-   non-routine decision is listed as a ruling with its reason. The committee
-   can overrule: tap a team to move it, mark a promotion as declined, withdraw
-   a team or add a new one. Fixtures cannot be generated while a division
-   breaks the club cap.
-3. **Fixtures.** An 18-week double round robin per division. *Shuffle* draws
-   again; *Accept* locks the draw. Tap a date to move a round.
+2. **Promotion and relegation.** Start with *Who is entering next season?*:
+   remove a team a club is dropping, or add a new entry to any division.
+   Promotion and relegation are worked out again at once, since one team
+   leaving can unblock another (with Saltdean D gone, Saltdean B can be
+   relegated). The rules are then applied automatically and every non-routine
+   decision is listed as a ruling with its reason. The committee can overrule:
+   tap a team to move it or mark a promotion as declined. Fixtures cannot be
+   generated while a division breaks the club cap.
+3. **Fixtures.** An 18-week double round robin per division. Every press of
+   *Generate fixtures* or *Draw again* is a new, numbered draw; *Accept* locks
+   it. Tap a date to move a round (that keeps the current draw's seed).
 4. **Share.** Download the fixture file, a CSV, or print fixture cards.
 
 ## Rules applied

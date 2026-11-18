@@ -167,6 +167,48 @@ a {
   }
 }
 
+/* --------------------------------------------------------------- tribute */
+
+.tribute {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  max-width: calc(1320px - 2 * clamp(1rem, 3vw, 2rem));
+  margin: 0.5rem auto 0.9rem;
+  padding: 0.85rem 1.1rem;
+  border: 1px solid var(--line-strong);
+  border-left: 0;
+  border-right: 0;
+  background: linear-gradient(90deg, transparent, rgba(244, 241, 230, 0.06) 20%, rgba(244, 241, 230, 0.06) 80%, transparent);
+}
+.tribute p {
+  display: grid;
+  gap: 0.1rem;
+}
+.tribute strong {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.1rem, 2.6vw, 1.4rem);
+  font-weight: 400;
+  font-style: italic;
+  letter-spacing: 0.01em;
+}
+.tribute span:not(.tribute-mark) {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.tribute-mark {
+  flex: none;
+  width: 2px;
+  align-self: stretch;
+  background: var(--ink);
+  opacity: 0.7;
+}
+@media (max-width: 1340px) {
+  .tribute {
+    margin-inline: clamp(1rem, 3vw, 2rem);
+  }
+}
+
 /* ----------------------------------------------------------------- steps */
 
 .steps {
@@ -668,6 +710,99 @@ abbr {
 .badge.new {
   background: rgba(244, 241, 230, 0.14);
   color: var(--ink);
+}
+
+/* --------------------------------------------------- entering and leaving */
+
+.entries {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem 1.5rem;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(216, 242, 60, 0.4);
+  background: linear-gradient(135deg, rgba(216, 242, 60, 0.08), rgba(18, 63, 44, 0.6));
+}
+.entries h3 {
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
+}
+.entries-text p {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+  max-width: 44rem;
+}
+.entries-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.entries-list {
+  grid-column: 1 / -1;
+  list-style: none;
+  margin: 0;
+  padding: 0.75rem 0 0;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.entries-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--line-strong);
+  font-size: 0.9rem;
+}
+.entries-list .out {
+  border-color: rgba(240, 138, 98, 0.6);
+}
+.entries-list .in {
+  border-color: rgba(216, 242, 60, 0.6);
+}
+.add-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: calc(100% - 1rem);
+  margin: 0 0.5rem 0.6rem;
+  min-height: 2.6rem;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+.add-row:hover {
+  color: var(--ball);
+  border-color: var(--ball);
+}
+.remove-list {
+  max-height: 55vh;
+  overflow-y: auto;
+  margin-top: 0.25rem;
+}
+.remove-teams {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+@media (max-width: 640px) {
+  .entries {
+    grid-template-columns: 1fr;
+  }
+  .entries-actions .btn {
+    flex: 1;
+  }
 }
 
 /* -------------------------------------------------------------- rulings */
@@ -1433,6 +1568,8 @@ button.wk:hover {
 }
 .memorial {
   color: var(--ink);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.05rem;
   font-style: italic;
   margin-bottom: 0.4rem;
 }
