@@ -3,12 +3,16 @@
 package admin
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
+	"jim-dot-tennis/internal/fixturefile"
 	"jim-dot-tennis/internal/models"
 )
 
@@ -171,6 +175,15 @@ func (h *SeasonSetupHandler) handleReviewAwayTeamsGet(w http.ResponseWriter, r *
 	}
 	if r.URL.Query().Get("copied") == "true" {
 		successMsg = "Season copied successfully. Review the away teams below and make any adjustments."
+	}
+	if q := r.URL.Query(); q.Get("file") == "1" {
+		// Counts come from the query string, so render them as numbers only.
+		atoi := func(key string) int { n, _ := strconv.Atoi(q.Get(key)); return n }
+		successMsg = fmt.Sprintf("Fixture file loaded: %d divisions, %d teams and %d fixtures.",
+			atoi("divisions"), atoi("teams"), atoi("fixtures"))
+		if skipped := atoi("skipped"); skipped > 0 {
+			successMsg += fmt.Sprintf(" %d fixtures could not be loaded; the server log says why.", skipped)
+		}
 	}
 
 	tmpl, err := parseTemplate(h.templateDir, "admin/season_away_team_review.html")
@@ -365,6 +378,7 @@ func (h *SeasonSetupHandler) handleSeasonCopyGet(w http.ResponseWriter, r *http.
 		"User":         user,
 		"Season":       season,
 		"PreviousYear": season.Year - 1,
+		"FileError":    r.URL.Query().Get("file_error"),
 	}
 
 	tmpl, err := parseTemplate(h.templateDir, "admin/season_copy.html")
@@ -379,12 +393,25 @@ func (h *SeasonSetupHandler) handleSeasonCopyGet(w http.ResponseWriter, r *http.
 }
 
 func (h *SeasonSetupHandler) handleSeasonCopyPost(w http.ResponseWriter, r *http.Request) {
+	// The form is multipart so that a fixture file can be attached.
+	r.Body = http.MaxBytesReader(w, r.Body, fixturefile.MaxSize+(1<<20))
+	if err := r.ParseMultipartForm(fixturefile.MaxSize); err != nil && !errors.Is(err, http.ErrNotMultipart) {
+		logAndError(w, "The upload could not be read (is the file too large?)", err, http.StatusBadRequest)
+		return
+	}
+
 	seasonID, _ := strconv.ParseUint(r.FormValue("season_id"), 10, 32)
 	fixturesURL := strings.TrimSpace(r.FormValue("fixtures_url"))
 	copyPlayers := r.FormValue("copy_teams") == "on"
 
 	if seasonID == 0 {
 		http.Error(w, "Season ID required", http.StatusBadRequest)
+		return
+	}
+
+	if upload, _, err := r.FormFile("fixture_file"); err == nil {
+		defer upload.Close()
+		h.importFixtureFile(w, r, uint(seasonID), upload, copyPlayers)
 		return
 	}
 
@@ -415,6 +442,39 @@ func (h *SeasonSetupHandler) handleSeasonCopyPost(w http.ResponseWriter, r *http
 			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 		}
 	}
+}
+
+// importFixtureFile loads an uploaded fixture-generator file into the season.
+// A file that cannot be used sends the admin back to the form with the reason.
+func (h *SeasonSetupHandler) importFixtureFile(w http.ResponseWriter, r *http.Request, seasonID uint, upload io.Reader, copyPlayers bool) {
+	back := func(reason string) {
+		target := fmt.Sprintf("/admin/league/seasons/copy?id=%d&file_error=%s", seasonID, url.QueryEscape(reason))
+		http.Redirect(w, r, target, http.StatusSeeOther)
+	}
+
+	file, err := fixturefile.Parse(upload)
+	if err != nil {
+		back(err.Error())
+		return
+	}
+	if !file.Intact() {
+		log.Printf("Fixture file for season %d was edited after it was generated (checksum %s)", seasonID, file.Checksum)
+	}
+	summary, err := h.service.ImportFixtureFile(seasonID, file, copyPlayers)
+	if err != nil {
+		log.Printf("Fixture file import failed for season %d: %v", seasonID, err)
+		back(err.Error())
+		return
+	}
+	if len(summary.Errors) > 0 {
+		log.Printf("Fixture file import for season %d finished with %d problems: %v", seasonID, len(summary.Errors), summary.Errors)
+	}
+
+	redirectURL := fmt.Sprintf(
+		"/admin/league/seasons/review-away-teams?id=%d&file=1&divisions=%d&teams=%d&fixtures=%d&skipped=%d",
+		seasonID, summary.DivisionsCreated, summary.TeamsCreated, summary.FixturesCreated,
+		file.FixtureCount()-summary.FixturesCreated)
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
 
 // HandleMoveTeam handles promoting/demoting a team

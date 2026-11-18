@@ -17,6 +17,7 @@ import (
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
+	"jim-dot-tennis/internal/fixturegen"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/players"
 	"jim-dot-tennis/internal/render"
@@ -164,6 +165,9 @@ func main() {
   ]
 }`, startURL, startURL)
 	})
+
+	// Fixture generator (public: reads the league tables, writes nothing)
+	fixturegen.New(templates).RegisterRoutes(mux)
 
 	// About page (public, no auth required)
 	mux.HandleFunc("/about", func(w http.ResponseWriter, r *http.Request) {

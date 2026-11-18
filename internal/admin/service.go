@@ -26,6 +26,7 @@ type Service struct {
 	weekRepository               repository.WeekRepository
 	divisionRepository           repository.DivisionRepository
 	seasonRepository             repository.SeasonRepository
+	leagueRepository             repository.LeagueRepository
 	matchupRepository            repository.MatchupRepository
 	fantasyRepository            repository.FantasyMixedDoublesRepository
 	tennisPlayerRepository       repository.ProTennisPlayerRepository
@@ -55,6 +56,7 @@ func NewService(db *database.DB, courthiveAPIURL string, homeClubID uint, bhplta
 		weekRepository:               repository.NewWeekRepository(db),
 		divisionRepository:           repository.NewDivisionRepository(db),
 		seasonRepository:             repository.NewSeasonRepository(db),
+		leagueRepository:             repository.NewLeagueRepository(db),
 		matchupRepository:            repository.NewMatchupRepository(db),
 		fantasyRepository:            repository.NewFantasyMixedDoublesRepository(db),
 		tennisPlayerRepository:       repository.NewProTennisPlayerRepository(db),

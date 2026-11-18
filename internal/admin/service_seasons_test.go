@@ -3,11 +3,14 @@
 package admin
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"jim-dot-tennis/internal/database"
+	"jim-dot-tennis/internal/fixturefile"
 	"jim-dot-tennis/internal/models"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -203,5 +206,144 @@ func TestCopyFromPreviousSeasonIsAtomic(t *testing.T) {
 		if n := count(t, db, `SELECT COUNT(*) FROM `+table+` WHERE season_id = 2`); n != 0 {
 			t.Errorf("%s rows left in target season after failed copy: %d", table, n)
 		}
+	}
+}
+
+func loadSampleFixtureFile(t *testing.T) *fixturefile.File {
+	t.Helper()
+	f, err := os.Open(filepath.Join("..", "fixturefile", "testdata", "sample-2027.jimtennis.json"))
+	if err != nil {
+		t.Fatalf("open sample fixture file: %v", err)
+	}
+	defer f.Close()
+	file, err := fixturefile.Parse(f)
+	if err != nil {
+		t.Fatalf("parse sample fixture file: %v", err)
+	}
+	return file
+}
+
+// A fixture file loads a whole season into an instance that has never seen
+// most of the league's clubs, and carries the home club's squad forward.
+func TestImportFixtureFileLoadsWholeSeason(t *testing.T) {
+	svc, db := newSeasonTestService(t)
+	file := loadSampleFixtureFile(t)
+
+	season := &models.Season{
+		Name: "2027 Season", Year: 2027,
+		StartDate: time.Date(2027, 4, 1, 0, 0, 0, 0, time.UTC),
+		EndDate:   time.Date(2027, 9, 30, 0, 0, 0, 0, time.UTC),
+	}
+	if err := svc.CreateSeasonWithWeeks(season, 18); err != nil {
+		t.Fatalf("create season: %v", err)
+	}
+	// Clubs made through the app always carry (empty) contact details.
+	if _, err := db.Exec(`UPDATE clubs SET address = '', website = '', phone_number = ''`); err != nil {
+		t.Fatal(err)
+	}
+	// Give 2026 the team whose squad should be carried into 2027.
+	if _, err := db.Exec(`INSERT INTO divisions (id, name, level, play_day, league_id, season_id, max_teams_per_club) VALUES (20, 'Division 1', 1, 'Thursday', 1, 2, 2)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO teams (id, name, club_id, division_id, season_id) VALUES (20, 'St Ann''s A', 1, 20, 2)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO player_teams (player_id, team_id, season_id, is_active) VALUES ('p-active', 20, 2, 1), ('p-retired', 20, 2, 1)`); err != nil {
+		t.Fatal(err)
+	}
+
+	summary, err := svc.ImportFixtureFile(season.ID, file, true)
+	if err != nil {
+		t.Fatalf("ImportFixtureFile: %v", err)
+	}
+	if len(summary.Errors) != 0 {
+		t.Fatalf("import reported %d problems, first: %s", len(summary.Errors), summary.Errors[0])
+	}
+	if summary.DivisionsCreated != 4 || summary.TeamsCreated != 42 || summary.FixturesCreated != 402 {
+		t.Errorf("summary: %+v", summary)
+	}
+
+	if got := count(t, db, `SELECT COUNT(*) FROM fixtures WHERE season_id = ?`, season.ID); got != 402 {
+		t.Errorf("fixtures stored: got %d, want 402", got)
+	}
+	if got := count(t, db, `SELECT COUNT(*) FROM teams WHERE season_id = ?`, season.ID); got != 42 {
+		t.Errorf("teams stored: got %d, want 42", got)
+	}
+	// St Ann's existed; the other clubs in the league are created, once each.
+	if got := count(t, db, `SELECT COUNT(*) FROM clubs WHERE name LIKE 'St Ann%'`); got != 1 {
+		t.Errorf("St Ann's clubs: got %d, want 1", got)
+	}
+	if got := count(t, db, `SELECT COUNT(*) FROM clubs WHERE name = 'King Alfred'`); got != 1 {
+		t.Errorf("King Alfred clubs: got %d, want 1", got)
+	}
+	if got := count(t, db, `SELECT COUNT(DISTINCT club_id) FROM teams WHERE season_id = ?`, season.ID); got != 10 {
+		t.Errorf("distinct clubs fielding teams: got %d, want 10", got)
+	}
+	// Division settings come from last season where the division existed, else from the file.
+	var days []string
+	if err := db.Select(&days, `SELECT play_day FROM divisions WHERE season_id = ? ORDER BY level`, season.ID); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"Thursday", "Wednesday", "Tuesday", "Tuesday"}; len(days) != 4 || days[0] != want[0] || days[1] != want[1] || days[2] != want[2] || days[3] != want[3] {
+		t.Errorf("play days: got %v, want %v", days, want)
+	}
+	// Fixtures land in the week the file says, on the date the file says.
+	if got := count(t, db, `
+		SELECT COUNT(*) FROM fixtures f
+		JOIN weeks w ON w.id = f.week_id
+		JOIN divisions d ON d.id = f.division_id
+		WHERE f.season_id = ? AND d.level = 1 AND w.week_number = 1 AND date(f.scheduled_date) = '2027-04-15'`, season.ID); got != 5 {
+		t.Errorf("Division 1 week 1 fixtures on Thu 15 Apr 2027: got %d, want 5", got)
+	}
+	// The active player follows St Ann's A into 2027; the inactive one does not.
+	if got := count(t, db, `
+		SELECT COUNT(*) FROM player_teams pt JOIN teams t ON t.id = pt.team_id
+		WHERE t.season_id = ? AND t.name = 'St Ann''s A'`, season.ID); got != 1 {
+		t.Errorf("players carried into St Ann's A: got %d, want 1", got)
+	}
+
+	// Loading the same file twice must not double the season.
+	if _, err := svc.ImportFixtureFile(season.ID, file, true); err == nil {
+		t.Error("a second import into the same season should be refused")
+	}
+	if got := count(t, db, `SELECT COUNT(*) FROM fixtures WHERE season_id = ?`, season.ID); got != 402 {
+		t.Errorf("fixtures after refused re-import: got %d, want 402", got)
+	}
+}
+
+func TestImportFixtureFileRefusesWrongSeason(t *testing.T) {
+	svc, db := newSeasonTestService(t)
+	file := loadSampleFixtureFile(t)
+
+	// Season 2 is 2026; the file is for 2027.
+	if _, err := svc.ImportFixtureFile(2, file, false); err == nil || !strings.Contains(err.Error(), "2027") {
+		t.Fatalf("expected a season mismatch error, got %v", err)
+	}
+	if got := count(t, db, `SELECT COUNT(*) FROM divisions WHERE season_id = 2`); got != 0 {
+		t.Errorf("a refused import must not create divisions, found %d", got)
+	}
+}
+
+// A database whose clubs cannot be read must not be half-filled with a season.
+func TestImportFixtureFileStopsBeforeWritingWhenClubsUnreadable(t *testing.T) {
+	svc, db := newSeasonTestService(t) // seeded clubs have NULL contact fields, which the club reader rejects
+	file := loadSampleFixtureFile(t)
+
+	season := &models.Season{
+		Name: "2027 Season", Year: 2027,
+		StartDate: time.Date(2027, 4, 1, 0, 0, 0, 0, time.UTC),
+		EndDate:   time.Date(2027, 9, 30, 0, 0, 0, 0, time.UTC),
+	}
+	if err := svc.CreateSeasonWithWeeks(season, 18); err != nil {
+		t.Fatalf("create season: %v", err)
+	}
+	if _, err := svc.ImportFixtureFile(season.ID, file, false); err == nil {
+		t.Fatal("expected the import to stop when clubs cannot be read")
+	}
+	if got := count(t, db, `SELECT COUNT(*) FROM divisions WHERE season_id = ?`, season.ID); got != 0 {
+		t.Errorf("divisions written before the failure: %d", got)
+	}
+	if got := count(t, db, `SELECT COUNT(*) FROM clubs`); got != 2 {
+		t.Errorf("clubs after a refused import: got %d, want the original 2", got)
 	}
 }

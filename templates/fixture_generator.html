@@ -1,0 +1,67 @@
+{{define "fixture_generator.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Fixture Generator - Jim.Tennis</title>
+    <meta name="description" content="Turn last season's final tables into next season's fixtures: promotion, relegation and an 18-week fixture list in one go.">
+    <meta name="theme-color" content="#0b2a1e">
+    <link rel="icon" type="image/svg+xml" href="/static/icon-192.svg">
+    <link rel="stylesheet" href="/static/fixture-generator/app.css">
+</head>
+<body>
+    <a class="skip" href="#stage">Skip to content</a>
+
+    <header class="top">
+        <a class="brand" href="/" aria-label="Jim.Tennis home">
+            <span class="ball" aria-hidden="true"></span>
+            <span class="brand-name">jim<span>.</span>tennis</span>
+        </a>
+        <div class="top-title">
+            <h1>Fixture Generator</h1>
+            <p id="season-line" class="season-line"></p>
+        </div>
+        <div class="top-actions">
+            <button type="button" class="btn ghost" id="load-file-btn">Load fixture file</button>
+            <input type="file" id="load-file-input" accept=".json,application/json" hidden>
+        </div>
+    </header>
+
+    <aside class="tribute" aria-label="In memory of Mick Cox">
+        <span class="tribute-mark" aria-hidden="true"></span>
+        <p>
+            <strong>In memory of Mick Cox</strong>
+            <span>Mick made the Parks League fixtures. This follows the way he did it, so the league he looked after carries on.</span>
+        </p>
+    </aside>
+
+    <nav class="steps" aria-label="Steps">
+        <ol id="steps"></ol>
+    </nav>
+
+    <main id="stage" tabindex="-1" aria-live="polite"></main>
+
+    <div id="action-bar" class="action-bar"></div>
+
+    <section id="print-root" class="print-root" aria-hidden="true"></section>
+
+    <footer class="foot">
+        <p class="memorial">In memory of Mick Cox, who made the Parks League fixtures.</p>
+        <p class="foot-note">
+            Nothing here is saved to a server. Your draw lives in this browser until you download it.
+            <a href="/about">About Jim.Tennis</a>
+        </p>
+    </footer>
+
+    <dialog id="sheet" class="sheet"></dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="drop-veil" class="drop-veil" aria-hidden="true"><div>Drop the fixture file to load it</div></div>
+
+    <noscript><p class="noscript">The fixture generator needs JavaScript switched on.</p></noscript>
+
+    <script id="fg-config" type="application/json">{{.Config}}</script>
+    <script type="module" src="/static/fixture-generator/app.js"></script>
+</body>
+</html>
+{{end}}

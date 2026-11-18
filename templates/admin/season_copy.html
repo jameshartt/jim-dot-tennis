@@ -173,6 +173,14 @@
             opacity: 0.9;
         }
 
+        .error-box {
+            background: #fdecea;
+            border-left: 4px solid #d93025;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border-radius: 0 4px 4px 0;
+            color: #7a1c14;
+        }
         .info-box {
             background: #e7f3fe;
             border-left: 4px solid #2196F3;
@@ -236,7 +244,13 @@
                 </div>
             </div>
 
-            <form method="POST" action="/admin/league/seasons/copy">
+            {{if .FileError}}
+            <div class="error-box" role="alert">
+                <strong>The fixture file was not loaded.</strong> {{.FileError}}
+            </div>
+            {{end}}
+
+            <form method="POST" action="/admin/league/seasons/copy" enctype="multipart/form-data">
                 <input type="hidden" name="season_id" value="{{.Season.ID}}">
 
                 <div class="form-section">
@@ -265,6 +279,20 @@
                     </div>
                     <div class="info-box">
                         <strong>How it works:</strong> Fixture data from the BHPLTA determines which teams are in which divisions for the new season. Teams will be placed in their correct {{.Season.Year}} divisions based on the fixture schedule, not copied from the {{.PreviousYear}} layout. Leave blank to use the traditional copy (same divisions as last year).
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Or Load a Fixture File</h3>
+                    <div class="url-group">
+                        <label for="fixture_file">Fixture file (.jimtennis.json)</label>
+                        <input type="file" id="fixture_file" name="fixture_file" accept=".json,application/json">
+                        <div class="help-text">
+                            A fixture file from the <a href="/fixture-generator" target="_blank" rel="noopener">fixture generator</a> carries the whole {{.Season.Year}} season: divisions, teams and every fixture. If you choose a file it is used instead of the BHPLTA page above.
+                        </div>
+                    </div>
+                    <div class="info-box">
+                        <strong>How it works:</strong> The file must be for {{.Season.Year}} and this season must not have divisions yet. Clubs named in the file that are new to this site are created for you. Players and captains are copied from matching {{.PreviousYear}} teams when the box above is ticked.
                     </div>
                 </div>
 
