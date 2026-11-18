@@ -80,6 +80,30 @@ test.describe("Fixture generator", () => {
     await expect(divisions.nth(3).locator('[data-team="Saltdean D"]')).toBeVisible();
   });
 
+  test("an 11-team division shows who has no match each round", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: /Apply promotion/ }).click();
+    await page.getByRole("button", { name: "Remove a team" }).click();
+    await page.locator(".sheet .chip", { hasText: "Saltdean D" }).click();
+    await page.getByRole("button", { name: /Generate fixtures/ }).click();
+    await expect(page.locator(".intro h2")).toHaveText("380 fixtures, drawn.", { timeout: 30_000 });
+
+    await page.getByRole("tab", { name: /Division 4/ }).click();
+    // 11 teams: 11 rounds per half, five matches and one team resting in each.
+    const cards = page.locator(".cards .card");
+    await expect(cards).toHaveCount(11);
+    await expect(page.locator(".cards .fx.rest")).toHaveCount(11);
+    await expect(cards.first().locator(".fx:not(.rest)")).toHaveCount(5);
+    const resting = await page.locator(".cards .fx.rest .rest-t").allInnerTexts();
+    expect(new Set(resting).size).toBe(11); // every team rests exactly once per half
+    await expect(page.locator(".doubles")).toContainText("one round off in each half");
+
+    // Ten-team divisions have no rest line.
+    await page.getByRole("tab", { name: /Division 1/ }).click();
+    await expect(page.locator(".cards .fx.rest")).toHaveCount(0);
+  });
+
   test("every draw is different", async ({ page }) => {
     await page.getByRole("button", { name: /Apply promotion/ }).click();
     await page.getByRole("button", { name: /Generate fixtures/ }).click();

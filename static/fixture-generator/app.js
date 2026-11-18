@@ -969,6 +969,12 @@ function fixtureCards(division, weeks) {
       card.secondDate = f.date;
     }
   });
+  // With an odd number of teams, one team has no match in each round.
+  const everyone = division.teams.map((t) => t.name);
+  cards.forEach((card) => {
+    const playing = new Set(card.rows.flatMap((r) => [r.home, r.away]));
+    card.resting = everyone.filter((name) => !playing.has(name));
+  });
   return [...cards.values()].sort((a, b) => (a.firstDate < b.firstDate ? -1 : a.firstDate > b.firstDate ? 1 : 0));
 }
 
@@ -1047,7 +1053,10 @@ function renderCards(division, weeks, opts = {}) {
               h('span', { class: 'v' }, 'v'),
               h('span', { class: `t away ${lit(row.away) ? 'me' : ''}` }, row.away)
             )
-          )
+          ),
+          card.resting.length
+            ? h('li', { class: `fx rest ${card.resting.some(lit) ? 'lit' : ''}`, style: `--n:${n++}` }, h('span', { class: 'rest-l' }, 'No match'), h('span', { class: `rest-t ${card.resting.some(lit) ? 'me' : ''}` }, card.resting.join(', ')))
+            : null
         )
       )
     )
@@ -1091,7 +1100,11 @@ function qualityTiles(result, weeks) {
   const doubles = result.divisions
     .map((d) => {
       const extra = [...new Set(d.fixtures.filter((f) => f.extra).map((f) => f.week))].sort((a, b) => a - b);
-      return extra.length ? `${d.name}: ${d.teams.length} teams, so weeks ${listNames(extra.map(String))} carry an extra round` : null;
+      const odd = d.teams.length % 2 === 1;
+      const parts = [];
+      if (extra.length) parts.push(`weeks ${listNames(extra.map(String))} carry an extra round`);
+      if (odd) parts.push('each team has one round off in each half');
+      return parts.length ? `${d.name}: ${d.teams.length} teams, so ${parts.join(' and ')}` : null;
     })
     .filter(Boolean);
   const tile = (value, label, detail, tone) => {
