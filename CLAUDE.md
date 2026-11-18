@@ -56,6 +56,11 @@ make test ARGS="-run TestName -v"         # Pass flags through to `go test`
 # `make check` runs vet + fmt + lint + deadcode + test.
 ```
 
+### Fixture Generator Engine Tests (Node in Docker)
+```bash
+make test-js    # node --test tests/fixture-generator/engine.test.mjs (also part of `make check`)
+```
+
 ### E2E Testing (Playwright in Docker)
 ```bash
 make test-e2e                      # Run full E2E test suite (default: 2 workers)
@@ -137,6 +142,10 @@ The codebase follows a clean layered architecture:
 - `players/`: Player-facing handlers (availability management)
 - `services/`: Business logic (match card parsing, player matching, nonce extraction)
 - `webpush/`: Push notification service
+- `fixturegen/`: Public fixture generator page (`/fixture-generator`) and its league-tables feed
+- `fixturefile/`: Reader/validator for the shareable season fixture file (`jim.tennis/fixtures`)
+
+**static/fixture-generator/**: The fixture generator itself, which runs in the browser. `engine.js` holds the promotion/relegation rules, the scheduler and the file format (no DOM, tested by `tests/fixture-generator`); `app.js`/`app.css` are the interface. See `docs/fixture_generator.md`.
 
 **migrations/**: SQL migration files (up/down pairs)
 

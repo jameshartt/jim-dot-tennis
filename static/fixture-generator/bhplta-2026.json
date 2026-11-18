@@ -1,0 +1,82 @@
+{
+ "league": {
+  "name": "Brighton & Hove Parks League",
+  "shortName": "BHPLTA"
+ },
+ "season": 2026,
+ "source": "https://www.bhplta.co.uk/bhplta_tables/league-table/",
+ "fetchedAt": "2026-11-18T00:00:00Z",
+ "snapshot": true,
+ "divisions": [
+  {
+   "name": "Division 1",
+   "level": 1,
+   "playDay": "Thursday",
+   "teams": [
+    {"name": "Queens", "played": 18, "eventsWon": 68, "eventsLost": 4, "setsWon": 138, "setsLost": 11, "points": 136},
+    {"name": "Hove", "played": 18, "eventsWon": 63.5, "eventsLost": 8.5, "setsWon": 128, "setsLost": 24, "points": 127},
+    {"name": "Dyke", "played": 18, "eventsWon": 43.5, "eventsLost": 28.5, "setsWon": 90, "setsLost": 66, "points": 87},
+    {"name": "Queens A", "played": 18, "eventsWon": 37.5, "eventsLost": 34.5, "setsWon": 82, "setsLost": 76, "points": 75},
+    {"name": "St Ann's", "played": 18, "eventsWon": 36, "eventsLost": 36, "setsWon": 80, "setsLost": 80, "points": 72},
+    {"name": "King Alfred", "played": 18, "eventsWon": 35, "eventsLost": 37, "setsWon": 76, "setsLost": 82, "points": 70},
+    {"name": "Preston Park", "played": 18, "eventsWon": 30, "eventsLost": 42, "setsWon": 71, "setsLost": 93, "points": 60},
+    {"name": "St Ann's A", "played": 18, "eventsWon": 22, "eventsLost": 50, "setsWon": 53, "setsLost": 106, "points": 44},
+    {"name": "Dyke A", "played": 18, "eventsWon": 15, "eventsLost": 57, "setsWon": 39, "setsLost": 121, "points": 30},
+    {"name": "Hove A", "played": 18, "eventsWon": 9.5, "eventsLost": 62.5, "setsWon": 31, "setsLost": 129, "points": 19}
+   ]
+  },
+  {
+   "name": "Division 2",
+   "level": 2,
+   "playDay": "Wednesday",
+   "teams": [
+    {"name": "Saltdean", "played": 18, "eventsWon": 53, "eventsLost": 19, "setsWon": 113, "setsLost": 50, "points": 106},
+    {"name": "King Alfred A", "played": 18, "eventsWon": 44.5, "eventsLost": 27.5, "setsWon": 96, "setsLost": 65, "points": 89},
+    {"name": "Hove B", "played": 18, "eventsWon": 40.5, "eventsLost": 31.5, "setsWon": 96, "setsLost": 74, "points": 81},
+    {"name": "Preston Park A", "played": 18, "eventsWon": 39.5, "eventsLost": 32.5, "setsWon": 87, "setsLost": 71, "points": 79},
+    {"name": "Saltdean A", "played": 18, "eventsWon": 37.5, "eventsLost": 34.5, "setsWon": 84, "setsLost": 80, "points": 75},
+    {"name": "St Ann's B", "played": 18, "eventsWon": 34, "eventsLost": 38, "setsWon": 80, "setsLost": 82, "points": 68},
+    {"name": "Dyke B", "played": 18, "eventsWon": 34, "eventsLost": 38, "setsWon": 79, "setsLost": 85, "points": 68},
+    {"name": "Queens B", "played": 18, "eventsWon": 32.5, "eventsLost": 39.5, "setsWon": 77, "setsLost": 91, "points": 65},
+    {"name": "Queens C", "played": 18, "eventsWon": 30.5, "eventsLost": 41.5, "setsWon": 73, "setsLost": 92, "points": 61},
+    {"name": "Hove C", "played": 18, "eventsWon": 14, "eventsLost": 58, "setsWon": 30, "setsLost": 125, "points": 28}
+   ]
+  },
+  {
+   "name": "Division 3",
+   "level": 3,
+   "playDay": "Tuesday",
+   "teams": [
+    {"name": "Blakers", "played": 18, "eventsWon": 55.5, "eventsLost": 16.5, "setsWon": 116, "setsLost": 46, "points": 111},
+    {"name": "Dyke C", "played": 18, "eventsWon": 49, "eventsLost": 23, "setsWon": 100, "setsLost": 57, "points": 98},
+    {"name": "Preston Park B", "played": 18, "eventsWon": 45.5, "eventsLost": 26.5, "setsWon": 99, "setsLost": 61, "points": 91},
+    {"name": "St Ann's C", "played": 18, "eventsWon": 38.5, "eventsLost": 33.5, "setsWon": 86, "setsLost": 78, "points": 77},
+    {"name": "Hove D", "played": 18, "eventsWon": 35, "eventsLost": 37, "setsWon": 83, "setsLost": 85, "points": 70},
+    {"name": "Queens D", "played": 18, "eventsWon": 30.5, "eventsLost": 41.5, "setsWon": 71, "setsLost": 89, "points": 61},
+    {"name": "St Ann's D", "played": 18, "eventsWon": 30.5, "eventsLost": 41.5, "setsWon": 68, "setsLost": 91, "points": 61},
+    {"name": "Dyke D", "played": 18, "eventsWon": 29, "eventsLost": 43, "setsWon": 67, "setsLost": 96, "points": 58},
+    {"name": "Hollingbury", "played": 18, "eventsWon": 24.5, "eventsLost": 47.5, "setsWon": 62, "setsLost": 101, "points": 49},
+    {"name": "Saltdean B", "played": 18, "eventsWon": 22, "eventsLost": 50, "setsWon": 56, "setsLost": 104, "points": 44}
+   ]
+  },
+  {
+   "name": "Division 4",
+   "level": 4,
+   "playDay": "Tuesday",
+   "teams": [
+    {"name": "King Alfred B", "played": 22, "eventsWon": 69, "eventsLost": 19, "setsWon": 142, "setsLost": 47, "points": 138},
+    {"name": "Hove E", "played": 22, "eventsWon": 61.5, "eventsLost": 26.5, "setsWon": 132, "setsLost": 61, "points": 123},
+    {"name": "Dyke E", "played": 22, "eventsWon": 57.5, "eventsLost": 30.5, "setsWon": 122, "setsLost": 73, "points": 115},
+    {"name": "Preston Park C", "played": 22, "eventsWon": 52, "eventsLost": 36, "setsWon": 113, "setsLost": 81, "points": 104},
+    {"name": "Queens E", "played": 22, "eventsWon": 49, "eventsLost": 39, "setsWon": 105, "setsLost": 86, "points": 98},
+    {"name": "Blakers A", "played": 22, "eventsWon": 41.5, "eventsLost": 46.5, "setsWon": 90, "setsLost": 102, "points": 83},
+    {"name": "Saltdean C", "played": 22, "eventsWon": 38.5, "eventsLost": 49.5, "setsWon": 85, "setsLost": 106, "points": 77},
+    {"name": "King Alfred C", "played": 22, "eventsWon": 38, "eventsLost": 50, "setsWon": 88, "setsLost": 114, "points": 76},
+    {"name": "Hollingbury A", "played": 22, "eventsWon": 31.5, "eventsLost": 56.5, "setsWon": 76, "setsLost": 119, "points": 63},
+    {"name": "Park Avenue", "played": 22, "eventsWon": 31.5, "eventsLost": 56.5, "setsWon": 72, "setsLost": 123, "points": 63},
+    {"name": "Saltdean D", "played": 22, "eventsWon": 30, "eventsLost": 58, "setsWon": 69, "setsLost": 125, "points": 60},
+    {"name": "Hove F", "played": 22, "eventsWon": 28, "eventsLost": 60, "setsWon": 67, "setsLost": 124, "points": 54, "penalty": true}
+   ]
+  }
+ ]
+}

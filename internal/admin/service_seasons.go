@@ -8,6 +8,7 @@ import (
 	"log"
 	"strings"
 
+	"jim-dot-tennis/internal/fixturefile"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/services"
@@ -294,6 +295,7 @@ func (s *Service) CopyFromPreviousSeason(targetSeasonID uint, copyDivisions, cop
 type ImportSummary struct {
 	DivisionsCreated int
 	TeamsCreated     int
+	ClubsCreated     int
 	FixturesCreated  int
 	PlayersCopied    int
 	CaptainsCopied   int
@@ -307,14 +309,115 @@ func (s *Service) CopyFromPreviousSeasonWithFixtures(
 	fixturesURL string,
 	copyPlayers bool,
 ) (ImportSummary, error) {
-	ctx := context.Background()
-	summary := ImportSummary{}
-
-	// 1. Scrape fixtures from URL
 	scrapedDivisions, err := services.ScrapeFixtures(fixturesURL)
 	if err != nil {
-		return summary, fmt.Errorf("failed to scrape fixtures: %w", err)
+		return ImportSummary{}, fmt.Errorf("failed to scrape fixtures: %w", err)
 	}
+	return s.importSeasonDivisions(targetSeasonID, scrapedDivisions, seasonImportOptions{
+		copyPlayers:           copyPlayers,
+		requirePreviousSeason: true,
+	})
+}
+
+// ImportFixtureFile loads a fixture file written by the fixture generator
+// into a season: its divisions, teams and every fixture. Clubs the file names
+// that this instance has never seen are created, so a club new to jim.tennis
+// can start from the file alone.
+func (s *Service) ImportFixtureFile(targetSeasonID uint, file *fixturefile.File, copyPlayers bool) (ImportSummary, error) {
+	ctx := context.Background()
+	season, err := s.seasonRepository.FindByID(ctx, targetSeasonID)
+	if err != nil {
+		return ImportSummary{}, fmt.Errorf("failed to find target season: %w", err)
+	}
+	if season.Year != file.Season.Year {
+		return ImportSummary{}, fmt.Errorf("the fixture file is for the %d season, but %s is %d",
+			file.Season.Year, season.Name, season.Year)
+	}
+	weekCount, err := s.weekRepository.CountBySeason(ctx, targetSeasonID)
+	if err != nil {
+		return ImportSummary{}, fmt.Errorf("failed to count weeks: %w", err)
+	}
+	if weekCount < file.Season.Weeks {
+		return ImportSummary{}, fmt.Errorf("the fixture file has %d weeks, but %s has %d",
+			file.Season.Weeks, season.Name, weekCount)
+	}
+	existing, err := s.divisionRepository.FindBySeason(ctx, targetSeasonID)
+	if err != nil {
+		return ImportSummary{}, fmt.Errorf("failed to check existing divisions: %w", err)
+	}
+	if len(existing) > 0 {
+		return ImportSummary{}, fmt.Errorf("%s already has divisions; fixture files load into an empty season", season.Name)
+	}
+
+	divisions := make([]services.ScrapedDivision, 0, len(file.Divisions))
+	config := make(map[string]divisionConfig, len(file.Divisions))
+	for _, d := range file.Divisions {
+		sd := services.ScrapedDivision{Name: d.Name}
+		for _, t := range d.Teams {
+			sd.Teams = append(sd.Teams, t.Name)
+		}
+		for _, f := range d.Fixtures {
+			sd.Fixtures = append(sd.Fixtures, services.ScrapedFixture{
+				Division: d.Name,
+				Week:     f.Week,
+				Date:     f.Time(),
+				HomeTeam: f.Home,
+				AwayTeam: f.Away,
+			})
+		}
+		divisions = append(divisions, sd)
+		config[d.Name] = divisionConfig{level: d.Level, playDay: d.PlayDay}
+	}
+	clubs := make(map[string]string)
+	for _, d := range file.Divisions {
+		for _, t := range d.Teams {
+			clubs[t.Name] = t.Club
+		}
+	}
+	// Nothing below runs in one transaction, so make sure the clubs can be
+	// read before the first row is written.
+	if _, err := s.clubRepository.FindAll(ctx); err != nil {
+		return ImportSummary{}, fmt.Errorf("failed to read clubs: %w", err)
+	}
+
+	return s.importSeasonDivisions(targetSeasonID, divisions, seasonImportOptions{
+		copyPlayers:    copyPlayers,
+		divisionConfig: config,
+		teamClubs:      clubs,
+		createClubs:    true,
+		leagueName:     file.League.Name,
+	})
+}
+
+// divisionConfig carries a division's settings when there is no previous
+// season to copy them from.
+type divisionConfig struct {
+	level   int
+	playDay string
+}
+
+// seasonImportOptions tunes importSeasonDivisions for its two sources: the
+// BHPLTA fixtures page and a fixture file.
+type seasonImportOptions struct {
+	copyPlayers           bool
+	requirePreviousSeason bool
+	divisionConfig        map[string]divisionConfig // by division name, used when the previous season has no match
+	teamClubs             map[string]string         // team name → club name, when the source states it
+	createClubs           bool                      // create clubs this instance does not know
+	leagueName            string                    // league to create if none exists
+}
+
+// importSeasonDivisions creates divisions, teams and fixtures for a season,
+// copying division settings, players and captains from the previous season's
+// matching divisions and teams where they exist.
+func (s *Service) importSeasonDivisions(
+	targetSeasonID uint,
+	scrapedDivisions []services.ScrapedDivision,
+	opts seasonImportOptions,
+) (ImportSummary, error) {
+	ctx := context.Background()
+	summary := ImportSummary{}
+	copyPlayers := opts.copyPlayers
 
 	// 2. Get target season
 	targetSeason, err := s.seasonRepository.FindByID(ctx, targetSeasonID)
@@ -324,20 +427,36 @@ func (s *Service) CopyFromPreviousSeasonWithFixtures(
 
 	// 3. Get previous season (by year - 1) for copying config and players
 	previousYear := targetSeason.Year - 1
+	var previousSeason models.Season
+	var prevDivisions []models.Division
 	previousSeasons, err := s.seasonRepository.FindByYear(ctx, previousYear)
-	if err != nil || len(previousSeasons) == 0 {
+	hasPrevious := err == nil && len(previousSeasons) > 0
+	if !hasPrevious && opts.requirePreviousSeason {
 		return summary, fmt.Errorf("no season found for year %d", previousYear)
 	}
-	previousSeason := previousSeasons[0]
+	if hasPrevious {
+		previousSeason = previousSeasons[0]
 
-	// 4. Get previous season's divisions to copy config (league_id, play_day, level, max_teams_per_club)
-	prevDivisions, err := s.divisionRepository.FindBySeason(ctx, previousSeason.ID)
-	if err != nil {
-		return summary, fmt.Errorf("failed to find previous season divisions: %w", err)
+		// 4. Get previous season's divisions to copy config (league_id, play_day, level, max_teams_per_club)
+		prevDivisions, err = s.divisionRepository.FindBySeason(ctx, previousSeason.ID)
+		if err != nil {
+			return summary, fmt.Errorf("failed to find previous season divisions: %w", err)
+		}
 	}
 	prevDivByName := make(map[string]models.Division)
 	for _, d := range prevDivisions {
 		prevDivByName[d.Name] = d
+	}
+
+	// A division needs a league. Reuse last season's, else any, else create one.
+	var fallbackLeagueID uint
+	if len(prevDivisions) > 0 {
+		fallbackLeagueID = prevDivisions[0].LeagueID
+	} else if len(opts.divisionConfig) > 0 {
+		fallbackLeagueID, err = s.findOrCreateLeague(ctx, opts.leagueName, targetSeason.Year)
+		if err != nil {
+			return summary, err
+		}
 	}
 
 	// 5. Create divisions for target season based on scraped data
@@ -354,13 +473,16 @@ func (s *Service) CopyFromPreviousSeasonWithFixtures(
 			newDiv.PlayDay = prevDiv.PlayDay
 			newDiv.LeagueID = prevDiv.LeagueID
 			newDiv.MaxTeamsPerClub = prevDiv.MaxTeamsPerClub
+		} else if cfg, ok := opts.divisionConfig[sd.Name]; ok {
+			newDiv.Level = cfg.level
+			newDiv.PlayDay = cfg.playDay
+			newDiv.LeagueID = fallbackLeagueID
+			newDiv.MaxTeamsPerClub = 2
 		} else {
 			// Fallback: try to infer level from name
 			summary.Errors = append(summary.Errors,
 				fmt.Sprintf("no previous division config found for %q, using defaults", sd.Name))
-			if len(prevDivisions) > 0 {
-				newDiv.LeagueID = prevDivisions[0].LeagueID
-			}
+			newDiv.LeagueID = fallbackLeagueID
 		}
 
 		if err := s.divisionRepository.Create(ctx, newDiv); err != nil {
@@ -375,10 +497,12 @@ func (s *Service) CopyFromPreviousSeasonWithFixtures(
 	teamIDMap := make(map[string]uint) // team name -> new team ID
 
 	// Get previous season teams for player/captain copying
-	prevTeams, _ := s.teamRepository.FindBySeason(ctx, previousSeason.ID)
 	prevTeamByName := make(map[string]models.Team)
-	for _, t := range prevTeams {
-		prevTeamByName[t.Name] = t
+	if hasPrevious {
+		prevTeams, _ := s.teamRepository.FindBySeason(ctx, previousSeason.ID)
+		for _, t := range prevTeams {
+			prevTeamByName[t.Name] = t
+		}
 	}
 
 	for _, sd := range scrapedDivisions {
@@ -388,8 +512,11 @@ func (s *Service) CopyFromPreviousSeasonWithFixtures(
 		}
 
 		for _, teamName := range sd.Teams {
-			// Extract club name from team name
-			clubName := repository.ExtractClubNameFromTeamName(teamName)
+			// The source may state the club; otherwise derive it from the team name
+			clubName := opts.teamClubs[teamName]
+			if clubName == "" {
+				clubName = repository.ExtractClubNameFromTeamName(teamName)
+			}
 
 			// Find the club — truncate at apostrophe for LIKE search to handle encoding variants
 			// e.g. "St Ann's" -> search for "St Ann" which matches both "St Ann's" and "St Ann's"
@@ -398,7 +525,20 @@ func (s *Service) CopyFromPreviousSeasonWithFixtures(
 				searchName = searchName[:idx]
 			}
 			clubs, err := s.clubRepository.FindByNameLike(ctx, searchName)
-			if err != nil || len(clubs) == 0 {
+			if err != nil {
+				// A failed lookup is not an absent club: never create on error.
+				summary.Errors = append(summary.Errors,
+					fmt.Sprintf("club lookup failed for team %q (looked for %q): %v", teamName, clubName, err))
+				continue
+			}
+			if len(clubs) == 0 && opts.createClubs {
+				created := &models.Club{Name: clubName}
+				if cErr := s.clubRepository.Create(ctx, created); cErr == nil {
+					clubs = []models.Club{*created}
+					summary.ClubsCreated++
+				}
+			}
+			if len(clubs) == 0 {
 				summary.Errors = append(summary.Errors,
 					fmt.Sprintf("club not found for team %q (looked for %q)", teamName, clubName))
 				continue
@@ -508,4 +648,23 @@ func (s *Service) CopyFromPreviousSeasonWithFixtures(
 		summary.PlayersCopied, summary.CaptainsCopied, len(summary.Errors))
 
 	return summary, nil
+}
+
+// findOrCreateLeague returns a league for new divisions to belong to.
+func (s *Service) findOrCreateLeague(ctx context.Context, name string, year int) (uint, error) {
+	leagues, err := s.leagueRepository.FindAll(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to list leagues: %w", err)
+	}
+	if len(leagues) > 0 {
+		return leagues[0].ID, nil
+	}
+	if name == "" {
+		name = "Parks League"
+	}
+	league := &models.League{Name: name, Type: models.ParksLeague, Year: year}
+	if err := s.leagueRepository.Create(ctx, league); err != nil {
+		return 0, fmt.Errorf("failed to create league: %w", err)
+	}
+	return league.ID, nil
 }

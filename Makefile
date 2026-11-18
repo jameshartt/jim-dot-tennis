@@ -1,6 +1,6 @@
 .PHONY: build run stop clean backup logs restart build-local run-local local \
 	build-tmx courthive courthive-up courthive-down courthive-restart courthive-logs \
-	vet fmt fmt-fix imports imports-fix lint deadcode tidy check \
+	vet fmt fmt-fix imports imports-fix lint deadcode tidy check test test-js \
 	test-e2e test-e2e-safe test-e2e-safe-keep test-e2e-restore \
 	test-e2e-headed test-e2e-grep test-e2e-failed \
 	test-e2e-report test-e2e-results test-e2e-clean test-e2e-multiclub
@@ -199,8 +199,13 @@ test:
 	@echo "Running Go unit tests..."
 	@$(DOCKER_GO_CGO) go test $(if $(PKG),$(PKG),./...) $(ARGS)"
 
+# Run the fixture generator engine tests (plain Node, no dependencies)
+test-js:
+	@echo "Running fixture generator engine tests..."
+	@docker run --rm -v $(CURDIR):/app -w /app node:22-alpine node --test tests/fixture-generator/engine.test.mjs
+
 # Run all read-only checks
-check: vet fmt lint deadcode test
+check: vet fmt lint deadcode test test-js
 	@echo "All checks complete."
 
 # ============================================================
