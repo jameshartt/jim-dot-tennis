@@ -1480,8 +1480,8 @@ const PRINT_FOOTER_MM = 9;
 /**
  * Row height that lets a division's cards fill one A4 page, two cards across.
  * A card is a one-line heading plus one line per match (and one for the team
- * with no match). Below about 6pt the page stops being readable, so very
- * large divisions run onto a second page instead, breaking between cards.
+ * with no match). This is the starting estimate; printCards() then measures
+ * the page and steps the row height down until it really fits.
  */
 function printDensity(division, weeks) {
   const cards = fixtureCards(division, weeks);
@@ -1509,7 +1509,20 @@ function printFooter(file, weeks) {
   );
 }
 
-/** One A4 page per division. */
+const MM_PER_PX = 25.4 / 96;
+const MIN_PRINT_LINE_MM = 2.9; // about 6pt type; smaller is not worth printing
+
+/**
+ * One A4 page per division.
+ *
+ * Each page is a box of fixed height, a touch under A4, with the footer
+ * pinned to its bottom edge and nothing allowed to spill out of it. So the
+ * dedication cannot drift onto a second sheet whatever the browser does with
+ * fonts or rounding. The cards are then measured as laid out and their row
+ * height stepped down until they fit inside that box with room to spare. Only
+ * a division too big to fit at the smallest readable type flows onto further
+ * pages, breaking between cards.
+ */
 function printCards() {
   const file = currentFile();
   const weeks = file.season.weeks || 18;
@@ -1517,19 +1530,44 @@ function printCards() {
   // differ on @page margins, and this way the whole sheet is painted white.
   setPageRule('@page { size: A4 portrait; margin: 0; }');
   const root = $('#print-root');
-  root.className = 'print-root';
-  root.replaceChildren(
-    ...file.divisions.map((d) =>
-      h('section', { class: 'print-page', style: `${printDensity(d, weeks)};padding:${A4.margin}mm` }, printHeader(file, `${d.name} · ${d.playDay || ''}s`), renderCards(d, weeks), printFooter(file, weeks))
+  const pages = file.divisions.map((d) =>
+    h(
+      'section',
+      { class: 'print-page', style: `${printDensity(d, weeks)};width:${A4.width}mm;height:${A4.height - 1}mm;padding:${A4.margin}mm` },
+      printHeader(file, `${d.name} · ${d.playDay || ''}s`),
+      renderCards(d, weeks),
+      printFooter(file, weeks)
     )
   );
+  root.replaceChildren(...pages);
+
+  root.className = 'print-root measuring';
+  const spare = 3 / MM_PER_PX; // keep 3mm clear above the footer
+  pages.forEach((page) => {
+    const cards = page.querySelector('.cards');
+    const footer = page.querySelector('footer');
+    const overflow = () => cards.getBoundingClientRect().bottom + spare - footer.getBoundingClientRect().top;
+    let line = parseFloat(page.style.getPropertyValue('--pl'));
+    while (overflow() > 0 && line > MIN_PRINT_LINE_MM) {
+      line = Math.max(MIN_PRINT_LINE_MM, line - 0.1);
+      page.style.setProperty('--pl', `${line.toFixed(2)}mm`);
+      page.style.setProperty('--pf', `${(line * 0.72).toFixed(2)}mm`);
+    }
+    if (overflow() > 0) {
+      page.classList.add('flow');
+      page.style.height = '';
+    }
+  });
+  root.className = 'print-root';
   window.print();
 }
 
 /**
  * Every division side by side on one sheet, as large as it needs to be. The
- * sheet is laid out in millimetres, measured, and the page is made that size,
- * so it saves as a single-page PDF to print big or scaled to fit.
+ * sheet is laid out in millimetres and measured; the sheet is then fixed at
+ * that height plus some slack, with the footer pinned to the bottom, and the
+ * page is made exactly that size. It saves as a single-page PDF to print big
+ * or scaled to fit.
  */
 function printPoster() {
   const file = currentFile();
@@ -1541,25 +1579,26 @@ function printPoster() {
   const width = file.divisions.length * column + (file.divisions.length - 1) * gap;
 
   const root = $('#print-root');
-  root.replaceChildren(
+  const poster = h(
+    'section',
+    { class: 'poster', style: `width:${width + 2 * margin}mm;padding:${margin}mm;--col:${column}mm;--gap:${gap}mm` },
+    printHeader(file, 'All divisions'),
     h(
-      'section',
-      { class: 'poster', style: `width:${width + 2 * margin}mm;padding:${margin}mm;--col:${column}mm;--gap:${gap}mm` },
-      printHeader(file, 'All divisions'),
-      h(
-        'div',
-        { class: 'poster-grid' },
-        file.divisions.map((d) => h('section', { class: 'poster-division' }, h('h3', {}, d.name, h('span', {}, `${d.playDay || ''}s · ${d.teams.length} teams`)), renderCards(d, weeks)))
-      ),
-      printFooter(file, weeks)
-    )
+      'div',
+      { class: 'poster-grid' },
+      file.divisions.map((d) => h('section', { class: 'poster-division' }, h('h3', {}, d.name, h('span', {}, `${d.playDay || ''}s · ${d.teams.length} teams`)), renderCards(d, weeks)))
+    ),
+    printFooter(file, weeks)
   );
-  // Measure it laid out exactly as it will print.
+  root.replaceChildren(poster);
   root.className = 'print-root measuring';
-  const px = root.firstElementChild.getBoundingClientRect().height;
+  const natural = poster.getBoundingClientRect().height * MM_PER_PX;
   root.className = 'print-root';
-  const height = Math.ceil((px * 25.4) / 96) + 1;
-  setPageRule(`@page { size: ${width + 2 * margin}mm ${height}mm; margin: 0; }`);
+  // 8mm of slack absorbs any difference between screen and print layout; the
+  // sheet is a fixed box one millimetre shorter than the page it prints on.
+  const height = Math.ceil(natural) + 8;
+  poster.style.height = `${height}mm`;
+  setPageRule(`@page { size: ${width + 2 * margin}mm ${height + 1}mm; margin: 0; }`);
   window.print();
 }
 
