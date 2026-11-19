@@ -21,7 +21,10 @@ and download a fixture file that every club loads into its own site.
 3. **Fixtures.** An 18-week double round robin per division. Every press of
    *Generate fixtures* or *Draw again* is a new, numbered draw; *Accept* locks
    it. Tap a date to move a round (that keeps the current draw's seed).
-4. **Share.** Download the fixture file, a CSV, or print fixture cards.
+4. **Share.** Download the fixture file or a CSV, print fixture cards (one A4
+   page per division; the type shrinks so that even a 14-team division fits,
+   and anything larger breaks between cards), or print every division side by
+   side on one large made-to-measure sheet.
 
 ## Rules applied
 
@@ -57,6 +60,15 @@ do not change. The committee can overrule it like any other ruling.
   3. runs of three or more home (or away) matches are rare;
   4. same-club derbies fall in the first five weeks of each half.
 - The draw is reproducible: the file records the seed.
+
+Strict home, away, home, away for every team is not possible. Two teams with
+the same alternating pattern are at home on the same weeks and away on the
+same weeks, so they could never meet; there are only two alternating patterns,
+so at most two teams in a division can alternate all season. Everyone else
+must play two in a row somewhere. The search keeps those runs short. Pushing
+harder on runs costs court sharing: on the 2026 tables, weighting runs twelve
+times more heavily cut the teams with a run of three from about nine to three,
+but put a club over its share of home matches on three or four nights.
 
 ## The fixture file
 
