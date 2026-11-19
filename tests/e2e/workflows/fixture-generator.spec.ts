@@ -188,6 +188,15 @@ test.describe("Fixture generator", () => {
     await page.emulateMedia({ media: "screen", reducedMotion: "reduce" });
 
     await page.getByRole("button", { name: "Print the big sheet" }).click();
+    // Cards on the big sheet are the same width as on the A4 pages.
+    await page.locator("#print-root").evaluate((el) => el.classList.add("measuring"));
+    const posterCardWidth = await page
+      .locator("#print-root .poster .card")
+      .first()
+      .evaluate((el) => el.getBoundingClientRect().width);
+    await page.locator("#print-root").evaluate((el) => el.classList.remove("measuring"));
+    // An A4 card is half of (210mm - two 13mm margins - a 2mm gap) = 91mm.
+    expect(Math.abs((posterCardWidth * 25.4) / 96 - 91)).toBeLessThan(0.5);
     await expect(page.locator("#print-root .poster-division")).toHaveCount(4);
     await expect(page.locator("#print-root .poster .card")).toHaveCount(9 * 3 + 11);
     // The page is made to measure, wider than A4.
