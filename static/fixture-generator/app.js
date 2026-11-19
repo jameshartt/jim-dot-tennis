@@ -228,7 +228,7 @@ function flyRows(before) {
 }
 
 function countUp(el, to) {
-  if (reduceMotion() || !Number.isFinite(to) || to === 0) {
+  if (state.quiet || reduceMotion() || !Number.isFinite(to) || to === 0) {
     el.textContent = to;
     return;
   }
@@ -277,6 +277,7 @@ function canVisit(step) {
 
 function go(step, opts = {}) {
   if (!canVisit(step)) return;
+  if (opts.keepScroll && step === state.step) return refresh();
   const before = opts.fly ? snapshotRows() : null;
   state.step = step;
   persist();
@@ -284,6 +285,36 @@ function go(step, opts = {}) {
   if (before) flyRows(before);
   if (!opts.keepScroll) window.scrollTo({ top: 0, behavior: reduceMotion() ? 'auto' : 'smooth' });
   $('#stage').focus({ preventScroll: true });
+}
+
+// The rows of pills and tabs that scroll sideways on a phone.
+const SIDEWAYS = '.tabs, .chips';
+
+/**
+ * Redraw the current step in place after a filter or tab change. The page is
+ * rebuilt, so put back what the rebuild would otherwise lose: how far each
+ * row of pills was scrolled sideways, and which pill had focus. Entrance
+ * animations are skipped; nothing new has arrived.
+ */
+function refresh() {
+  const stage = $('#stage');
+  const scrolled = new Map([...stage.querySelectorAll(SIDEWAYS)].map((el) => [el.className.replace(/\s+/g, ' ').trim(), el.scrollLeft]));
+  const active = document.activeElement;
+  const row = active && stage.contains(active) ? active.closest(SIDEWAYS) : null;
+  const focus = row ? { row: row.className.replace(/\s+/g, ' ').trim(), index: [...row.children].indexOf(active) } : null;
+
+  persist();
+  state.quiet = true;
+  render();
+  state.quiet = false;
+
+  const rows = new Map([...stage.querySelectorAll(SIDEWAYS)].map((el) => [el.className.replace(/\s+/g, ' ').trim(), el]));
+  scrolled.forEach((left, key) => {
+    const el = rows.get(key);
+    if (el) el.scrollLeft = left;
+  });
+  const target = focus && rows.get(focus.row)?.children[focus.index];
+  if (target) target.focus({ preventScroll: true });
 }
 
 function renderShell() {
@@ -1118,7 +1149,7 @@ function qualityTiles(result, weeks) {
     tile(s.fixtures, 'fixtures', `${result.divisions.length} divisions, ${weeks} weeks`),
     tile(s.clashes.length, s.clashes.length === 1 ? 'crowded night' : 'crowded nights', 'Nights a club hosts more than half the teams it has out', s.clashes.length ? 'warn' : 'good'),
     tile(perTeam ? '✓' : '!', 'home and away', perTeam ? 'Every team plays each opponent home and away' : 'Some teams are uneven', perTeam ? 'good' : 'warn'),
-    tile(s.longestRun, 'in a row at most', 'Longest run of home, or of away, matches', s.longestRun > 3 ? 'warn' : 'good'),
+    tile(s.longestRun, 'in a row at most', 'Longest run of home, or of away, matches', s.longestRun > 2 ? 'warn' : 'good'),
     s.derbies.length ? tile(`Wk ${lastDerby}`, 'derbies done by', `${s.derbies.length} same-club matches played early in each half`, lastDerby > 5 ? 'warn' : 'good') : null,
     doubles.length ? h('p', { class: 'doubles' }, doubles.join('. ') + '.') : null
   );
@@ -1148,7 +1179,7 @@ function renderFixtures(stage) {
             ' ',
             loaded.intact ? 'This file is exactly as the generator wrote it, and every check below passes.' : 'This file has been changed since it was generated. It still passes every check below.'
           )
-        : h('p', { class: 'lede' }, 'Each pair meets in the first nine weeks and again, venues swapped, in the second nine. Every draw is different: press Draw again for another that passes the same checks.')
+        : h('p', { class: 'lede' }, 'Each pair meets in the first nine weeks and again, venues swapped, in the second nine. Teams alternate home and away, with two in a row at most. Every draw is different: press Draw again for another that passes the same checks.')
     )
   );
 
@@ -1673,6 +1704,7 @@ function render() {
   const stage = $('#stage');
   stage.replaceChildren();
   stage.dataset.step = state.step;
+  stage.classList.toggle('quiet', !!state.quiet);
   renderShell();
   if (state.step === 0) renderTables(stage);
   else if (state.step === 1) renderMovement(stage);

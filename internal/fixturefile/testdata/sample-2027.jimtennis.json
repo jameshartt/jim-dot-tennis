@@ -93,253 +93,247 @@
      "week": 1,
      "date": "2027-04-15",
      "home": "Hove",
-     "away": "St Ann's"
+     "away": "Queens"
     },
     {
      "week": 1,
      "date": "2027-04-15",
      "home": "King Alfred",
-     "away": "King Alfred A"
+     "away": "Dyke"
     },
     {
      "week": 1,
      "date": "2027-04-15",
      "home": "Preston Park",
-     "away": "Queens A"
+     "away": "King Alfred A"
     },
     {
      "week": 1,
      "date": "2027-04-15",
-     "home": "Queens",
+     "home": "Queens A",
      "away": "Saltdean"
     },
     {
      "week": 1,
      "date": "2027-04-15",
      "home": "St Ann's A",
-     "away": "Dyke"
+     "away": "St Ann's"
     },
     {
      "week": 2,
      "date": "2027-04-22",
      "home": "Dyke",
-     "away": "Saltdean"
-    },
-    {
-     "week": 2,
-     "date": "2027-04-22",
-     "home": "Hove",
-     "away": "King Alfred"
+     "away": "Preston Park"
     },
     {
      "week": 2,
      "date": "2027-04-22",
      "home": "King Alfred A",
+     "away": "Hove"
+    },
+    {
+     "week": 2,
+     "date": "2027-04-22",
+     "home": "Queens",
      "away": "St Ann's A"
     },
     {
      "week": 2,
      "date": "2027-04-22",
-     "home": "Queens A",
-     "away": "Queens"
+     "home": "Saltdean",
+     "away": "King Alfred"
     },
     {
      "week": 2,
      "date": "2027-04-22",
      "home": "St Ann's",
-     "away": "Preston Park"
+     "away": "Queens A"
+    },
+    {
+     "week": 3,
+     "date": "2027-04-29",
+     "home": "Dyke",
+     "away": "Saltdean"
     },
     {
      "week": 3,
      "date": "2027-04-29",
      "home": "King Alfred",
-     "away": "Dyke"
-    },
-    {
-     "week": 3,
-     "date": "2027-04-29",
-     "home": "Preston Park",
-     "away": "Hove"
-    },
-    {
-     "week": 3,
-     "date": "2027-04-29",
-     "home": "Queens",
-     "away": "King Alfred A"
-    },
-    {
-     "week": 3,
-     "date": "2027-04-29",
-     "home": "Saltdean",
      "away": "St Ann's"
     },
     {
      "week": 3,
      "date": "2027-04-29",
-     "home": "St Ann's A",
-     "away": "Queens A"
-    },
-    {
-     "week": 4,
-     "date": "2027-05-06",
-     "home": "Dyke",
+     "home": "Preston Park",
      "away": "Hove"
     },
     {
-     "week": 4,
-     "date": "2027-05-06",
-     "home": "King Alfred A",
-     "away": "Saltdean"
-    },
-    {
-     "week": 4,
-     "date": "2027-05-06",
-     "home": "Preston Park",
+     "week": 3,
+     "date": "2027-04-29",
+     "home": "Queens A",
      "away": "Queens"
     },
     {
-     "week": 4,
-     "date": "2027-05-06",
-     "home": "Queens A",
-     "away": "King Alfred"
-    },
-    {
-     "week": 4,
-     "date": "2027-05-06",
+     "week": 3,
+     "date": "2027-04-29",
      "home": "St Ann's A",
-     "away": "St Ann's"
+     "away": "King Alfred A"
     },
     {
-     "week": 5,
-     "date": "2027-05-13",
+     "week": 4,
+     "date": "2027-05-06",
      "home": "Hove",
      "away": "St Ann's A"
     },
     {
-     "week": 5,
-     "date": "2027-05-13",
+     "week": 4,
+     "date": "2027-05-06",
      "home": "King Alfred A",
+     "away": "Queens A"
+    },
+    {
+     "week": 4,
+     "date": "2027-05-06",
+     "home": "Queens",
+     "away": "King Alfred"
+    },
+    {
+     "week": 4,
+     "date": "2027-05-06",
+     "home": "Saltdean",
      "away": "Preston Park"
+    },
+    {
+     "week": 4,
+     "date": "2027-05-06",
+     "home": "St Ann's",
+     "away": "Dyke"
     },
     {
      "week": 5,
      "date": "2027-05-13",
-     "home": "Queens",
-     "away": "King Alfred"
+     "home": "Dyke",
+     "away": "Queens"
+    },
+    {
+     "week": 5,
+     "date": "2027-05-13",
+     "home": "King Alfred",
+     "away": "King Alfred A"
+    },
+    {
+     "week": 5,
+     "date": "2027-05-13",
+     "home": "Queens A",
+     "away": "Hove"
     },
     {
      "week": 5,
      "date": "2027-05-13",
      "home": "Saltdean",
-     "away": "Queens A"
+     "away": "St Ann's"
     },
     {
      "week": 5,
      "date": "2027-05-13",
-     "home": "St Ann's",
+     "home": "St Ann's A",
+     "away": "Preston Park"
+    },
+    {
+     "week": 6,
+     "date": "2027-05-20",
+     "home": "Hove",
+     "away": "King Alfred"
+    },
+    {
+     "week": 6,
+     "date": "2027-05-20",
+     "home": "King Alfred A",
      "away": "Dyke"
     },
     {
      "week": 6,
      "date": "2027-05-20",
-     "home": "Dyke",
-     "away": "Queens"
+     "home": "Preston Park",
+     "away": "St Ann's"
     },
     {
      "week": 6,
      "date": "2027-05-20",
+     "home": "Queens",
+     "away": "Saltdean"
+    },
+    {
+     "week": 6,
+     "date": "2027-05-20",
+     "home": "St Ann's A",
+     "away": "Queens A"
+    },
+    {
+     "week": 7,
+     "date": "2027-05-27",
+     "home": "Dyke",
+     "away": "Hove"
+    },
+    {
+     "week": 7,
+     "date": "2027-05-27",
      "home": "King Alfred",
      "away": "St Ann's A"
     },
     {
-     "week": 6,
-     "date": "2027-05-20",
-     "home": "Preston Park",
-     "away": "Saltdean"
-    },
-    {
-     "week": 6,
-     "date": "2027-05-20",
+     "week": 7,
+     "date": "2027-05-27",
      "home": "Queens A",
-     "away": "Hove"
+     "away": "Preston Park"
     },
     {
-     "week": 6,
-     "date": "2027-05-20",
-     "home": "St Ann's",
+     "week": 7,
+     "date": "2027-05-27",
+     "home": "Saltdean",
      "away": "King Alfred A"
     },
     {
      "week": 7,
      "date": "2027-05-27",
-     "home": "Hove",
+     "home": "St Ann's",
      "away": "Queens"
     },
     {
-     "week": 7,
-     "date": "2027-05-27",
-     "home": "King Alfred A",
-     "away": "Dyke"
-    },
-    {
-     "week": 7,
-     "date": "2027-05-27",
-     "home": "Queens A",
-     "away": "St Ann's"
-    },
-    {
-     "week": 7,
-     "date": "2027-05-27",
-     "home": "Saltdean",
-     "away": "King Alfred"
-    },
-    {
-     "week": 7,
-     "date": "2027-05-27",
-     "home": "St Ann's A",
-     "away": "Preston Park"
+     "week": 8,
+     "date": "2027-06-03",
+     "home": "Hove",
+     "away": "Saltdean"
     },
     {
      "week": 8,
      "date": "2027-06-03",
      "home": "King Alfred A",
-     "away": "Queens A"
+     "away": "St Ann's"
     },
     {
      "week": 8,
      "date": "2027-06-03",
      "home": "Preston Park",
-     "away": "Dyke"
+     "away": "Queens"
     },
     {
      "week": 8,
      "date": "2027-06-03",
-     "home": "Queens",
-     "away": "St Ann's A"
-    },
-    {
-     "week": 8,
-     "date": "2027-06-03",
-     "home": "Saltdean",
-     "away": "Hove"
-    },
-    {
-     "week": 8,
-     "date": "2027-06-03",
-     "home": "St Ann's",
+     "home": "Queens A",
      "away": "King Alfred"
+    },
+    {
+     "week": 8,
+     "date": "2027-06-03",
+     "home": "St Ann's A",
+     "away": "Dyke"
     },
     {
      "week": 9,
      "date": "2027-06-10",
      "home": "Dyke",
      "away": "Queens A"
-    },
-    {
-     "week": 9,
-     "date": "2027-06-10",
-     "home": "Hove",
-     "away": "King Alfred A"
     },
     {
      "week": 9,
@@ -351,79 +345,79 @@
      "week": 9,
      "date": "2027-06-10",
      "home": "Queens",
-     "away": "St Ann's"
+     "away": "King Alfred A"
     },
     {
      "week": 9,
      "date": "2027-06-10",
-     "home": "St Ann's A",
-     "away": "Saltdean"
+     "home": "Saltdean",
+     "away": "St Ann's A"
+    },
+    {
+     "week": 9,
+     "date": "2027-06-10",
+     "home": "St Ann's",
+     "away": "Hove"
     },
     {
      "week": 10,
      "date": "2027-06-17",
      "home": "Dyke",
-     "away": "St Ann's A"
+     "away": "King Alfred"
     },
     {
      "week": 10,
      "date": "2027-06-17",
      "home": "King Alfred A",
-     "away": "King Alfred"
-    },
-    {
-     "week": 10,
-     "date": "2027-06-17",
-     "home": "Queens A",
      "away": "Preston Park"
     },
     {
      "week": 10,
      "date": "2027-06-17",
+     "home": "Queens",
+     "away": "Hove"
+    },
+    {
+     "week": 10,
+     "date": "2027-06-17",
      "home": "Saltdean",
-     "away": "Queens"
+     "away": "Queens A"
     },
     {
      "week": 10,
      "date": "2027-06-17",
      "home": "St Ann's",
-     "away": "Hove"
+     "away": "St Ann's A"
+    },
+    {
+     "week": 11,
+     "date": "2027-06-24",
+     "home": "Hove",
+     "away": "King Alfred A"
     },
     {
      "week": 11,
      "date": "2027-06-24",
      "home": "King Alfred",
-     "away": "Hove"
+     "away": "Saltdean"
     },
     {
      "week": 11,
      "date": "2027-06-24",
      "home": "Preston Park",
-     "away": "St Ann's"
-    },
-    {
-     "week": 11,
-     "date": "2027-06-24",
-     "home": "Queens",
-     "away": "Queens A"
-    },
-    {
-     "week": 11,
-     "date": "2027-06-24",
-     "home": "Saltdean",
      "away": "Dyke"
     },
     {
      "week": 11,
      "date": "2027-06-24",
-     "home": "St Ann's A",
-     "away": "King Alfred A"
+     "home": "Queens A",
+     "away": "St Ann's"
     },
     {
-     "week": 12,
-     "date": "2027-07-01",
-     "home": "Dyke",
-     "away": "King Alfred"
+     "week": 11,
+     "date": "2027-06-24",
+     "home": "St Ann's A",
+     "away": "Queens"
     },
     {
      "week": 12,
@@ -435,175 +429,187 @@
      "week": 12,
      "date": "2027-07-01",
      "home": "King Alfred A",
-     "away": "Queens"
-    },
-    {
-     "week": 12,
-     "date": "2027-07-01",
-     "home": "Queens A",
      "away": "St Ann's A"
     },
     {
      "week": 12,
      "date": "2027-07-01",
+     "home": "Queens",
+     "away": "Queens A"
+    },
+    {
+     "week": 12,
+     "date": "2027-07-01",
+     "home": "Saltdean",
+     "away": "Dyke"
+    },
+    {
+     "week": 12,
+     "date": "2027-07-01",
      "home": "St Ann's",
+     "away": "King Alfred"
+    },
+    {
+     "week": 13,
+     "date": "2027-07-08",
+     "home": "Dyke",
+     "away": "St Ann's"
+    },
+    {
+     "week": 13,
+     "date": "2027-07-08",
+     "home": "King Alfred",
+     "away": "Queens"
+    },
+    {
+     "week": 13,
+     "date": "2027-07-08",
+     "home": "Preston Park",
      "away": "Saltdean"
     },
     {
      "week": 13,
      "date": "2027-07-08",
-     "home": "Hove",
-     "away": "Dyke"
-    },
-    {
-     "week": 13,
-     "date": "2027-07-08",
-     "home": "King Alfred",
-     "away": "Queens A"
-    },
-    {
-     "week": 13,
-     "date": "2027-07-08",
-     "home": "Queens",
-     "away": "Preston Park"
-    },
-    {
-     "week": 13,
-     "date": "2027-07-08",
-     "home": "Saltdean",
+     "home": "Queens A",
      "away": "King Alfred A"
     },
     {
      "week": 13,
      "date": "2027-07-08",
-     "home": "St Ann's",
-     "away": "St Ann's A"
+     "home": "St Ann's A",
+     "away": "Hove"
     },
     {
      "week": 14,
      "date": "2027-07-15",
-     "home": "Dyke",
-     "away": "St Ann's"
+     "home": "Hove",
+     "away": "Queens A"
     },
     {
      "week": 14,
      "date": "2027-07-15",
-     "home": "King Alfred",
-     "away": "Queens"
+     "home": "King Alfred A",
+     "away": "King Alfred"
     },
     {
      "week": 14,
      "date": "2027-07-15",
      "home": "Preston Park",
-     "away": "King Alfred A"
+     "away": "St Ann's A"
     },
     {
      "week": 14,
      "date": "2027-07-15",
-     "home": "Queens A",
+     "home": "Queens",
+     "away": "Dyke"
+    },
+    {
+     "week": 14,
+     "date": "2027-07-15",
+     "home": "St Ann's",
      "away": "Saltdean"
     },
     {
-     "week": 14,
-     "date": "2027-07-15",
-     "home": "St Ann's A",
+     "week": 15,
+     "date": "2027-07-22",
+     "home": "Dyke",
+     "away": "King Alfred A"
+    },
+    {
+     "week": 15,
+     "date": "2027-07-22",
+     "home": "King Alfred",
      "away": "Hove"
     },
     {
      "week": 15,
      "date": "2027-07-22",
-     "home": "Hove",
-     "away": "Queens A"
-    },
-    {
-     "week": 15,
-     "date": "2027-07-22",
-     "home": "King Alfred A",
-     "away": "St Ann's"
-    },
-    {
-     "week": 15,
-     "date": "2027-07-22",
-     "home": "Queens",
-     "away": "Dyke"
+     "home": "Queens A",
+     "away": "St Ann's A"
     },
     {
      "week": 15,
      "date": "2027-07-22",
      "home": "Saltdean",
-     "away": "Preston Park"
+     "away": "Queens"
     },
     {
      "week": 15,
      "date": "2027-07-22",
+     "home": "St Ann's",
+     "away": "Preston Park"
+    },
+    {
+     "week": 16,
+     "date": "2027-07-29",
+     "home": "Hove",
+     "away": "Dyke"
+    },
+    {
+     "week": 16,
+     "date": "2027-07-29",
+     "home": "King Alfred A",
+     "away": "Saltdean"
+    },
+    {
+     "week": 16,
+     "date": "2027-07-29",
+     "home": "Preston Park",
+     "away": "Queens A"
+    },
+    {
+     "week": 16,
+     "date": "2027-07-29",
+     "home": "Queens",
+     "away": "St Ann's"
+    },
+    {
+     "week": 16,
+     "date": "2027-07-29",
      "home": "St Ann's A",
      "away": "King Alfred"
     },
     {
-     "week": 16,
-     "date": "2027-07-29",
+     "week": 17,
+     "date": "2027-08-05",
      "home": "Dyke",
-     "away": "King Alfred A"
-    },
-    {
-     "week": 16,
-     "date": "2027-07-29",
-     "home": "King Alfred",
-     "away": "Saltdean"
-    },
-    {
-     "week": 16,
-     "date": "2027-07-29",
-     "home": "Preston Park",
      "away": "St Ann's A"
     },
     {
-     "week": 16,
-     "date": "2027-07-29",
-     "home": "Queens",
-     "away": "Hove"
-    },
-    {
-     "week": 16,
-     "date": "2027-07-29",
-     "home": "St Ann's",
+     "week": 17,
+     "date": "2027-08-05",
+     "home": "King Alfred",
      "away": "Queens A"
     },
     {
      "week": 17,
      "date": "2027-08-05",
-     "home": "Dyke",
+     "home": "Queens",
      "away": "Preston Park"
     },
     {
      "week": 17,
      "date": "2027-08-05",
-     "home": "Hove",
-     "away": "Saltdean"
+     "home": "Saltdean",
+     "away": "Hove"
     },
     {
      "week": 17,
      "date": "2027-08-05",
-     "home": "King Alfred",
-     "away": "St Ann's"
-    },
-    {
-     "week": 17,
-     "date": "2027-08-05",
-     "home": "Queens A",
+     "home": "St Ann's",
      "away": "King Alfred A"
     },
     {
-     "week": 17,
-     "date": "2027-08-05",
-     "home": "St Ann's A",
-     "away": "Queens"
+     "week": 18,
+     "date": "2027-08-12",
+     "home": "Hove",
+     "away": "St Ann's"
     },
     {
      "week": 18,
      "date": "2027-08-12",
      "home": "King Alfred A",
-     "away": "Hove"
+     "away": "Queens"
     },
     {
      "week": 18,
@@ -620,14 +626,8 @@
     {
      "week": 18,
      "date": "2027-08-12",
-     "home": "Saltdean",
-     "away": "St Ann's A"
-    },
-    {
-     "week": 18,
-     "date": "2027-08-12",
-     "home": "St Ann's",
-     "away": "Queens"
+     "home": "St Ann's A",
+     "away": "Saltdean"
     }
    ]
   },
@@ -702,37 +702,37 @@
      "week": 1,
      "date": "2027-04-14",
      "home": "Blakers",
-     "away": "Saltdean A"
+     "away": "Preston Park B"
     },
     {
      "week": 1,
      "date": "2027-04-14",
-     "home": "Dyke A",
-     "away": "Preston Park A"
-    },
-    {
-     "week": 1,
-     "date": "2027-04-14",
-     "home": "Hove B",
-     "away": "Dyke B"
-    },
-    {
-     "week": 1,
-     "date": "2027-04-14",
-     "home": "Preston Park B",
+     "home": "Dyke B",
      "away": "St Ann's B"
     },
     {
      "week": 1,
      "date": "2027-04-14",
-     "home": "Queens B",
+     "home": "Hove B",
      "away": "Hove A"
+    },
+    {
+     "week": 1,
+     "date": "2027-04-14",
+     "home": "Preston Park A",
+     "away": "Dyke A"
+    },
+    {
+     "week": 1,
+     "date": "2027-04-14",
+     "home": "Queens B",
+     "away": "Saltdean A"
     },
     {
      "week": 2,
      "date": "2027-04-21",
      "home": "Dyke A",
-     "away": "Preston Park B"
+     "away": "Hove B"
     },
     {
      "week": 2,
@@ -743,26 +743,26 @@
     {
      "week": 2,
      "date": "2027-04-21",
-     "home": "Preston Park A",
-     "away": "Blakers"
+     "home": "Preston Park B",
+     "away": "Queens B"
     },
     {
      "week": 2,
      "date": "2027-04-21",
      "home": "Saltdean A",
-     "away": "Hove B"
+     "away": "Preston Park A"
     },
     {
      "week": 2,
      "date": "2027-04-21",
      "home": "St Ann's B",
-     "away": "Queens B"
+     "away": "Blakers"
     },
     {
      "week": 3,
      "date": "2027-04-28",
      "home": "Blakers",
-     "away": "St Ann's B"
+     "away": "Hove A"
     },
     {
      "week": 3,
@@ -774,19 +774,19 @@
      "week": 3,
      "date": "2027-04-28",
      "home": "Hove B",
-     "away": "Hove A"
+     "away": "Saltdean A"
     },
     {
      "week": 3,
      "date": "2027-04-28",
-     "home": "Preston Park B",
-     "away": "Preston Park A"
-    },
-    {
-     "week": 3,
-     "date": "2027-04-28",
-     "home": "Saltdean A",
+     "home": "Preston Park A",
      "away": "Queens B"
+    },
+    {
+     "week": 3,
+     "date": "2027-04-28",
+     "home": "St Ann's B",
+     "away": "Preston Park B"
     },
     {
      "week": 4,
@@ -798,211 +798,211 @@
      "week": 4,
      "date": "2027-05-05",
      "home": "Hove A",
-     "away": "Saltdean A"
+     "away": "St Ann's B"
     },
     {
      "week": 4,
      "date": "2027-05-05",
      "home": "Preston Park A",
-     "away": "Hove B"
-    },
-    {
-     "week": 4,
-     "date": "2027-05-05",
-     "home": "Queens B",
      "away": "Preston Park B"
     },
     {
      "week": 4,
      "date": "2027-05-05",
-     "home": "St Ann's B",
+     "home": "Queens B",
+     "away": "Hove B"
+    },
+    {
+     "week": 4,
+     "date": "2027-05-05",
+     "home": "Saltdean A",
      "away": "Dyke B"
     },
     {
      "week": 5,
      "date": "2027-05-12",
+     "home": "Blakers",
+     "away": "Saltdean A"
+    },
+    {
+     "week": 5,
+     "date": "2027-05-12",
      "home": "Dyke B",
+     "away": "Queens B"
+    },
+    {
+     "week": 5,
+     "date": "2027-05-12",
+     "home": "Hove B",
      "away": "Preston Park A"
     },
     {
      "week": 5,
      "date": "2027-05-12",
-     "home": "Hove A",
-     "away": "St Ann's B"
-    },
-    {
-     "week": 5,
-     "date": "2027-05-12",
      "home": "Preston Park B",
-     "away": "Hove B"
-    },
-    {
-     "week": 5,
-     "date": "2027-05-12",
-     "home": "Queens B",
-     "away": "Blakers"
-    },
-    {
-     "week": 5,
-     "date": "2027-05-12",
-     "home": "Saltdean A",
-     "away": "Dyke A"
-    },
-    {
-     "week": 6,
-     "date": "2027-05-19",
-     "home": "Blakers",
      "away": "Hove A"
     },
     {
-     "week": 6,
-     "date": "2027-05-19",
-     "home": "Dyke B",
-     "away": "Queens B"
-    },
-    {
-     "week": 6,
-     "date": "2027-05-19",
-     "home": "Hove B",
-     "away": "Dyke A"
-    },
-    {
-     "week": 6,
-     "date": "2027-05-19",
-     "home": "Preston Park A",
-     "away": "St Ann's B"
-    },
-    {
-     "week": 6,
-     "date": "2027-05-19",
-     "home": "Saltdean A",
-     "away": "Preston Park B"
-    },
-    {
-     "week": 7,
-     "date": "2027-05-26",
-     "home": "Blakers",
-     "away": "Hove B"
-    },
-    {
-     "week": 7,
-     "date": "2027-05-26",
-     "home": "Dyke A",
-     "away": "Queens B"
-    },
-    {
-     "week": 7,
-     "date": "2027-05-26",
-     "home": "Hove A",
-     "away": "Preston Park A"
-    },
-    {
-     "week": 7,
-     "date": "2027-05-26",
-     "home": "Preston Park B",
-     "away": "Dyke B"
-    },
-    {
-     "week": 7,
-     "date": "2027-05-26",
-     "home": "St Ann's B",
-     "away": "Saltdean A"
-    },
-    {
-     "week": 8,
-     "date": "2027-06-02",
-     "home": "Dyke B",
-     "away": "Blakers"
-    },
-    {
-     "week": 8,
-     "date": "2027-06-02",
-     "home": "Hove A",
-     "away": "Preston Park B"
-    },
-    {
-     "week": 8,
-     "date": "2027-06-02",
-     "home": "Preston Park A",
-     "away": "Saltdean A"
-    },
-    {
-     "week": 8,
-     "date": "2027-06-02",
-     "home": "Queens B",
-     "away": "Hove B"
-    },
-    {
-     "week": 8,
-     "date": "2027-06-02",
+     "week": 5,
+     "date": "2027-05-12",
      "home": "St Ann's B",
      "away": "Dyke A"
     },
     {
-     "week": 9,
-     "date": "2027-06-09",
+     "week": 6,
+     "date": "2027-05-19",
      "home": "Dyke A",
      "away": "Hove A"
     },
     {
+     "week": 6,
+     "date": "2027-05-19",
+     "home": "Hove B",
+     "away": "Preston Park B"
+    },
+    {
+     "week": 6,
+     "date": "2027-05-19",
+     "home": "Preston Park A",
+     "away": "Dyke B"
+    },
+    {
+     "week": 6,
+     "date": "2027-05-19",
+     "home": "Queens B",
+     "away": "Blakers"
+    },
+    {
+     "week": 6,
+     "date": "2027-05-19",
+     "home": "Saltdean A",
+     "away": "St Ann's B"
+    },
+    {
+     "week": 7,
+     "date": "2027-05-26",
+     "home": "Blakers",
+     "away": "Preston Park A"
+    },
+    {
+     "week": 7,
+     "date": "2027-05-26",
+     "home": "Dyke B",
+     "away": "Hove B"
+    },
+    {
+     "week": 7,
+     "date": "2027-05-26",
+     "home": "Hove A",
+     "away": "Saltdean A"
+    },
+    {
+     "week": 7,
+     "date": "2027-05-26",
+     "home": "Preston Park B",
+     "away": "Dyke A"
+    },
+    {
+     "week": 7,
+     "date": "2027-05-26",
+     "home": "St Ann's B",
+     "away": "Queens B"
+    },
+    {
+     "week": 8,
+     "date": "2027-06-02",
+     "home": "Dyke B",
+     "away": "Preston Park B"
+    },
+    {
+     "week": 8,
+     "date": "2027-06-02",
+     "home": "Hove B",
+     "away": "Blakers"
+    },
+    {
+     "week": 8,
+     "date": "2027-06-02",
+     "home": "Preston Park A",
+     "away": "St Ann's B"
+    },
+    {
+     "week": 8,
+     "date": "2027-06-02",
+     "home": "Queens B",
+     "away": "Hove A"
+    },
+    {
+     "week": 8,
+     "date": "2027-06-02",
+     "home": "Saltdean A",
+     "away": "Dyke A"
+    },
+    {
      "week": 9,
      "date": "2027-06-09",
-     "home": "Hove B",
-     "away": "St Ann's B"
+     "home": "Blakers",
+     "away": "Dyke B"
+    },
+    {
+     "week": 9,
+     "date": "2027-06-09",
+     "home": "Dyke A",
+     "away": "Queens B"
+    },
+    {
+     "week": 9,
+     "date": "2027-06-09",
+     "home": "Hove A",
+     "away": "Preston Park A"
     },
     {
      "week": 9,
      "date": "2027-06-09",
      "home": "Preston Park B",
-     "away": "Blakers"
+     "away": "Saltdean A"
     },
     {
      "week": 9,
      "date": "2027-06-09",
-     "home": "Queens B",
-     "away": "Preston Park A"
-    },
-    {
-     "week": 9,
-     "date": "2027-06-09",
-     "home": "Saltdean A",
-     "away": "Dyke B"
-    },
-    {
-     "week": 10,
-     "date": "2027-06-16",
-     "home": "Dyke B",
+     "home": "St Ann's B",
      "away": "Hove B"
     },
     {
      "week": 10,
      "date": "2027-06-16",
+     "home": "Dyke A",
+     "away": "Preston Park A"
+    },
+    {
+     "week": 10,
+     "date": "2027-06-16",
      "home": "Hove A",
-     "away": "Queens B"
+     "away": "Hove B"
     },
     {
      "week": 10,
      "date": "2027-06-16",
-     "home": "Preston Park A",
-     "away": "Dyke A"
-    },
-    {
-     "week": 10,
-     "date": "2027-06-16",
-     "home": "Saltdean A",
+     "home": "Preston Park B",
      "away": "Blakers"
     },
     {
      "week": 10,
      "date": "2027-06-16",
+     "home": "Saltdean A",
+     "away": "Queens B"
+    },
+    {
+     "week": 10,
+     "date": "2027-06-16",
      "home": "St Ann's B",
-     "away": "Preston Park B"
+     "away": "Dyke B"
     },
     {
      "week": 11,
      "date": "2027-06-23",
      "home": "Blakers",
-     "away": "Preston Park A"
+     "away": "St Ann's B"
     },
     {
      "week": 11,
@@ -1014,19 +1014,19 @@
      "week": 11,
      "date": "2027-06-23",
      "home": "Hove B",
-     "away": "Saltdean A"
-    },
-    {
-     "week": 11,
-     "date": "2027-06-23",
-     "home": "Preston Park B",
      "away": "Dyke A"
     },
     {
      "week": 11,
      "date": "2027-06-23",
+     "home": "Preston Park A",
+     "away": "Saltdean A"
+    },
+    {
+     "week": 11,
+     "date": "2027-06-23",
      "home": "Queens B",
-     "away": "St Ann's B"
+     "away": "Preston Park B"
     },
     {
      "week": 12,
@@ -1038,25 +1038,25 @@
      "week": 12,
      "date": "2027-06-30",
      "home": "Hove A",
-     "away": "Hove B"
+     "away": "Blakers"
     },
     {
      "week": 12,
      "date": "2027-06-30",
-     "home": "Preston Park A",
-     "away": "Preston Park B"
+     "home": "Preston Park B",
+     "away": "St Ann's B"
     },
     {
      "week": 12,
      "date": "2027-06-30",
      "home": "Queens B",
-     "away": "Saltdean A"
+     "away": "Preston Park A"
     },
     {
      "week": 12,
      "date": "2027-06-30",
-     "home": "St Ann's B",
-     "away": "Blakers"
+     "home": "Saltdean A",
+     "away": "Hove B"
     },
     {
      "week": 13,
@@ -1068,175 +1068,175 @@
      "week": 13,
      "date": "2027-07-07",
      "home": "Dyke B",
-     "away": "St Ann's B"
+     "away": "Saltdean A"
     },
     {
      "week": 13,
      "date": "2027-07-07",
      "home": "Hove B",
-     "away": "Preston Park A"
+     "away": "Queens B"
     },
     {
      "week": 13,
      "date": "2027-07-07",
      "home": "Preston Park B",
-     "away": "Queens B"
+     "away": "Preston Park A"
     },
     {
      "week": 13,
      "date": "2027-07-07",
-     "home": "Saltdean A",
+     "home": "St Ann's B",
      "away": "Hove A"
     },
     {
      "week": 14,
      "date": "2027-07-14",
-     "home": "Blakers",
-     "away": "Queens B"
-    },
-    {
-     "week": 14,
-     "date": "2027-07-14",
      "home": "Dyke A",
-     "away": "Saltdean A"
+     "away": "St Ann's B"
     },
     {
      "week": 14,
      "date": "2027-07-14",
-     "home": "Hove B",
+     "home": "Hove A",
      "away": "Preston Park B"
     },
     {
      "week": 14,
      "date": "2027-07-14",
      "home": "Preston Park A",
+     "away": "Hove B"
+    },
+    {
+     "week": 14,
+     "date": "2027-07-14",
+     "home": "Queens B",
      "away": "Dyke B"
     },
     {
      "week": 14,
      "date": "2027-07-14",
-     "home": "St Ann's B",
-     "away": "Hove A"
+     "home": "Saltdean A",
+     "away": "Blakers"
     },
     {
      "week": 15,
      "date": "2027-07-21",
-     "home": "Dyke A",
-     "away": "Hove B"
+     "home": "Blakers",
+     "away": "Queens B"
+    },
+    {
+     "week": 15,
+     "date": "2027-07-21",
+     "home": "Dyke B",
+     "away": "Preston Park A"
     },
     {
      "week": 15,
      "date": "2027-07-21",
      "home": "Hove A",
-     "away": "Blakers"
+     "away": "Dyke A"
     },
     {
      "week": 15,
      "date": "2027-07-21",
      "home": "Preston Park B",
-     "away": "Saltdean A"
-    },
-    {
-     "week": 15,
-     "date": "2027-07-21",
-     "home": "Queens B",
-     "away": "Dyke B"
+     "away": "Hove B"
     },
     {
      "week": 15,
      "date": "2027-07-21",
      "home": "St Ann's B",
-     "away": "Preston Park A"
+     "away": "Saltdean A"
     },
     {
      "week": 16,
      "date": "2027-07-28",
-     "home": "Dyke B",
+     "home": "Dyke A",
      "away": "Preston Park B"
     },
     {
      "week": 16,
      "date": "2027-07-28",
      "home": "Hove B",
-     "away": "Blakers"
+     "away": "Dyke B"
     },
     {
      "week": 16,
      "date": "2027-07-28",
      "home": "Preston Park A",
-     "away": "Hove A"
+     "away": "Blakers"
     },
     {
      "week": 16,
      "date": "2027-07-28",
      "home": "Queens B",
-     "away": "Dyke A"
+     "away": "St Ann's B"
     },
     {
      "week": 16,
      "date": "2027-07-28",
      "home": "Saltdean A",
-     "away": "St Ann's B"
+     "away": "Hove A"
     },
     {
      "week": 17,
      "date": "2027-08-04",
      "home": "Blakers",
-     "away": "Dyke B"
+     "away": "Hove B"
     },
     {
      "week": 17,
      "date": "2027-08-04",
      "home": "Dyke A",
-     "away": "St Ann's B"
+     "away": "Saltdean A"
     },
     {
      "week": 17,
      "date": "2027-08-04",
-     "home": "Hove B",
+     "home": "Hove A",
      "away": "Queens B"
     },
     {
      "week": 17,
      "date": "2027-08-04",
      "home": "Preston Park B",
-     "away": "Hove A"
+     "away": "Dyke B"
     },
     {
      "week": 17,
      "date": "2027-08-04",
-     "home": "Saltdean A",
+     "home": "St Ann's B",
      "away": "Preston Park A"
     },
     {
      "week": 18,
      "date": "2027-08-11",
-     "home": "Blakers",
-     "away": "Preston Park B"
-    },
-    {
-     "week": 18,
-     "date": "2027-08-11",
      "home": "Dyke B",
-     "away": "Saltdean A"
+     "away": "Blakers"
     },
     {
      "week": 18,
      "date": "2027-08-11",
-     "home": "Hove A",
-     "away": "Dyke A"
+     "home": "Hove B",
+     "away": "St Ann's B"
     },
     {
      "week": 18,
      "date": "2027-08-11",
      "home": "Preston Park A",
-     "away": "Queens B"
+     "away": "Hove A"
     },
     {
      "week": 18,
      "date": "2027-08-11",
-     "home": "St Ann's B",
-     "away": "Hove B"
+     "home": "Queens B",
+     "away": "Dyke A"
+    },
+    {
+     "week": 18,
+     "date": "2027-08-11",
+     "home": "Saltdean A",
+     "away": "Preston Park B"
     }
    ]
   },
@@ -1310,80 +1310,80 @@
     {
      "week": 1,
      "date": "2027-04-13",
-     "home": "Dyke D",
-     "away": "Hove C"
-    },
-    {
-     "week": 1,
-     "date": "2027-04-13",
-     "home": "Hove D",
-     "away": "Queens D"
-    },
-    {
-     "week": 1,
-     "date": "2027-04-13",
-     "home": "King Alfred B",
+     "home": "Dyke C",
      "away": "St Ann's D"
     },
     {
      "week": 1,
      "date": "2027-04-13",
+     "home": "Hove C",
+     "away": "Hove D"
+    },
+    {
+     "week": 1,
+     "date": "2027-04-13",
+     "home": "Queens C",
+     "away": "Queens D"
+    },
+    {
+     "week": 1,
+     "date": "2027-04-13",
      "home": "Saltdean B",
-     "away": "Dyke C"
+     "away": "Dyke D"
     },
     {
      "week": 1,
      "date": "2027-04-13",
      "home": "St Ann's C",
-     "away": "Queens C"
-    },
-    {
-     "week": 2,
-     "date": "2027-04-20",
-     "home": "Dyke C",
-     "away": "Dyke D"
-    },
-    {
-     "week": 2,
-     "date": "2027-04-20",
-     "home": "Hove C",
      "away": "King Alfred B"
     },
     {
      "week": 2,
      "date": "2027-04-20",
-     "home": "Queens C",
-     "away": "Queens D"
+     "home": "Dyke D",
+     "away": "Hove C"
     },
     {
      "week": 2,
      "date": "2027-04-20",
-     "home": "Saltdean B",
-     "away": "Hove D"
+     "home": "Hove D",
+     "away": "Dyke C"
+    },
+    {
+     "week": 2,
+     "date": "2027-04-20",
+     "home": "King Alfred B",
+     "away": "Saltdean B"
+    },
+    {
+     "week": 2,
+     "date": "2027-04-20",
+     "home": "Queens D",
+     "away": "St Ann's C"
     },
     {
      "week": 2,
      "date": "2027-04-20",
      "home": "St Ann's D",
-     "away": "St Ann's C"
+     "away": "Queens C"
     },
     {
      "week": 3,
      "date": "2027-04-27",
-     "home": "Dyke D",
+     "home": "Dyke C",
+     "away": "Dyke D"
+    },
+    {
+     "week": 3,
+     "date": "2027-04-27",
+     "home": "Hove C",
      "away": "King Alfred B"
     },
     {
      "week": 3,
      "date": "2027-04-27",
-     "home": "Hove D",
-     "away": "Dyke C"
-    },
-    {
-     "week": 3,
-     "date": "2027-04-27",
      "home": "Queens C",
-     "away": "Saltdean B"
+     "away": "Hove D"
     },
     {
      "week": 3,
@@ -1395,96 +1395,96 @@
      "week": 3,
      "date": "2027-04-27",
      "home": "St Ann's C",
-     "away": "Hove C"
-    },
-    {
-     "week": 4,
-     "date": "2027-05-04",
-     "home": "Hove D",
-     "away": "Dyke D"
-    },
-    {
-     "week": 4,
-     "date": "2027-05-04",
-     "home": "King Alfred B",
      "away": "Saltdean B"
     },
     {
      "week": 4,
      "date": "2027-05-04",
-     "home": "Queens C",
-     "away": "Hove C"
+     "home": "Dyke D",
+     "away": "Queens C"
     },
     {
      "week": 4,
      "date": "2027-05-04",
-     "home": "Queens D",
-     "away": "St Ann's C"
+     "home": "Hove D",
+     "away": "Queens D"
+    },
+    {
+     "week": 4,
+     "date": "2027-05-04",
+     "home": "King Alfred B",
+     "away": "Dyke C"
+    },
+    {
+     "week": 4,
+     "date": "2027-05-04",
+     "home": "Saltdean B",
+     "away": "Hove C"
     },
     {
      "week": 4,
      "date": "2027-05-04",
      "home": "St Ann's D",
-     "away": "Dyke C"
+     "away": "St Ann's C"
     },
     {
      "week": 5,
      "date": "2027-05-11",
      "home": "Dyke C",
-     "away": "Hove C"
+     "away": "Saltdean B"
     },
     {
      "week": 5,
      "date": "2027-05-11",
-     "home": "Dyke D",
-     "away": "St Ann's D"
+     "home": "Hove C",
+     "away": "St Ann's C"
     },
     {
      "week": 5,
      "date": "2027-05-11",
-     "home": "King Alfred B",
-     "away": "Queens C"
+     "home": "Queens C",
+     "away": "King Alfred B"
     },
     {
      "week": 5,
      "date": "2027-05-11",
-     "home": "Saltdean B",
-     "away": "Queens D"
+     "home": "Queens D",
+     "away": "Dyke D"
     },
     {
      "week": 5,
      "date": "2027-05-11",
-     "home": "St Ann's C",
+     "home": "St Ann's D",
      "away": "Hove D"
     },
     {
      "week": 6,
      "date": "2027-05-18",
      "home": "Dyke D",
-     "away": "Queens D"
+     "away": "St Ann's D"
     },
     {
      "week": 6,
      "date": "2027-05-18",
      "home": "Hove C",
-     "away": "Saltdean B"
-    },
-    {
-     "week": 6,
-     "date": "2027-05-18",
-     "home": "King Alfred B",
-     "away": "St Ann's C"
-    },
-    {
-     "week": 6,
-     "date": "2027-05-18",
-     "home": "Queens C",
      "away": "Dyke C"
     },
     {
      "week": 6,
      "date": "2027-05-18",
-     "home": "St Ann's D",
+     "home": "King Alfred B",
+     "away": "Queens D"
+    },
+    {
+     "week": 6,
+     "date": "2027-05-18",
+     "home": "Saltdean B",
+     "away": "Queens C"
+    },
+    {
+     "week": 6,
+     "date": "2027-05-18",
+     "home": "St Ann's C",
      "away": "Hove D"
     },
     {
@@ -1497,37 +1497,37 @@
      "week": 7,
      "date": "2027-05-25",
      "home": "Hove D",
+     "away": "Dyke D"
+    },
+    {
+     "week": 7,
+     "date": "2027-05-25",
+     "home": "Queens C",
      "away": "Hove C"
     },
     {
      "week": 7,
      "date": "2027-05-25",
      "home": "Queens D",
-     "away": "King Alfred B"
-    },
-    {
-     "week": 7,
-     "date": "2027-05-25",
-     "home": "Saltdean B",
-     "away": "Dyke D"
+     "away": "Saltdean B"
     },
     {
      "week": 7,
      "date": "2027-05-25",
      "home": "St Ann's D",
-     "away": "Queens C"
+     "away": "King Alfred B"
     },
     {
      "week": 8,
      "date": "2027-06-01",
-     "home": "Dyke D",
+     "home": "Dyke C",
      "away": "Queens C"
     },
     {
      "week": 8,
      "date": "2027-06-01",
      "home": "Hove C",
-     "away": "St Ann's D"
+     "away": "Queens D"
     },
     {
      "week": 8,
@@ -1538,128 +1538,128 @@
     {
      "week": 8,
      "date": "2027-06-01",
-     "home": "Queens D",
-     "away": "Dyke C"
+     "home": "Saltdean B",
+     "away": "St Ann's D"
     },
     {
      "week": 8,
      "date": "2027-06-01",
      "home": "St Ann's C",
-     "away": "Saltdean B"
+     "away": "Dyke D"
     },
     {
      "week": 9,
      "date": "2027-06-08",
-     "home": "Dyke C",
+     "home": "Dyke D",
      "away": "King Alfred B"
     },
     {
      "week": 9,
      "date": "2027-06-08",
-     "home": "Hove C",
-     "away": "Queens D"
+     "home": "Hove D",
+     "away": "Saltdean B"
     },
     {
      "week": 9,
      "date": "2027-06-08",
      "home": "Queens C",
-     "away": "Hove D"
+     "away": "St Ann's C"
     },
     {
      "week": 9,
      "date": "2027-06-08",
-     "home": "Saltdean B",
-     "away": "St Ann's D"
+     "home": "Queens D",
+     "away": "Dyke C"
     },
     {
      "week": 9,
      "date": "2027-06-08",
-     "home": "St Ann's C",
-     "away": "Dyke D"
+     "home": "St Ann's D",
+     "away": "Hove C"
     },
     {
      "week": 10,
      "date": "2027-06-15",
-     "home": "Dyke C",
+     "home": "Dyke D",
      "away": "Saltdean B"
     },
     {
      "week": 10,
      "date": "2027-06-15",
-     "home": "Hove C",
-     "away": "Dyke D"
+     "home": "Hove D",
+     "away": "Hove C"
     },
     {
      "week": 10,
      "date": "2027-06-15",
-     "home": "Queens C",
+     "home": "King Alfred B",
      "away": "St Ann's C"
     },
     {
      "week": 10,
      "date": "2027-06-15",
      "home": "Queens D",
-     "away": "Hove D"
+     "away": "Queens C"
     },
     {
      "week": 10,
      "date": "2027-06-15",
      "home": "St Ann's D",
-     "away": "King Alfred B"
-    },
-    {
-     "week": 11,
-     "date": "2027-06-22",
-     "home": "Dyke D",
      "away": "Dyke C"
     },
     {
      "week": 11,
      "date": "2027-06-22",
-     "home": "Hove D",
-     "away": "Saltdean B"
+     "home": "Dyke C",
+     "away": "Hove D"
     },
     {
      "week": 11,
      "date": "2027-06-22",
+     "home": "Hove C",
+     "away": "Dyke D"
+    },
+    {
+     "week": 11,
+     "date": "2027-06-22",
+     "home": "Queens C",
+     "away": "St Ann's D"
+    },
+    {
+     "week": 11,
+     "date": "2027-06-22",
+     "home": "Saltdean B",
+     "away": "King Alfred B"
+    },
+    {
+     "week": 11,
+     "date": "2027-06-22",
+     "home": "St Ann's C",
+     "away": "Queens D"
+    },
+    {
+     "week": 12,
+     "date": "2027-06-29",
+     "home": "Dyke D",
+     "away": "Dyke C"
+    },
+    {
+     "week": 12,
+     "date": "2027-06-29",
+     "home": "Hove D",
+     "away": "Queens C"
+    },
+    {
+     "week": 12,
+     "date": "2027-06-29",
      "home": "King Alfred B",
      "away": "Hove C"
     },
     {
-     "week": 11,
-     "date": "2027-06-22",
-     "home": "Queens D",
-     "away": "Queens C"
-    },
-    {
-     "week": 11,
-     "date": "2027-06-22",
-     "home": "St Ann's C",
-     "away": "St Ann's D"
-    },
-    {
-     "week": 12,
-     "date": "2027-06-29",
-     "home": "Dyke C",
-     "away": "Hove D"
-    },
-    {
-     "week": 12,
-     "date": "2027-06-29",
-     "home": "Hove C",
-     "away": "St Ann's C"
-    },
-    {
-     "week": 12,
-     "date": "2027-06-29",
-     "home": "King Alfred B",
-     "away": "Dyke D"
-    },
-    {
      "week": 12,
      "date": "2027-06-29",
      "home": "Saltdean B",
-     "away": "Queens C"
+     "away": "St Ann's C"
     },
     {
      "week": 12,
@@ -1671,115 +1671,115 @@
      "week": 13,
      "date": "2027-07-06",
      "home": "Dyke C",
-     "away": "St Ann's D"
-    },
-    {
-     "week": 13,
-     "date": "2027-07-06",
-     "home": "Dyke D",
-     "away": "Hove D"
-    },
-    {
-     "week": 13,
-     "date": "2027-07-06",
-     "home": "Hove C",
-     "away": "Queens C"
-    },
-    {
-     "week": 13,
-     "date": "2027-07-06",
-     "home": "Saltdean B",
      "away": "King Alfred B"
     },
     {
      "week": 13,
      "date": "2027-07-06",
+     "home": "Hove C",
+     "away": "Saltdean B"
+    },
+    {
+     "week": 13,
+     "date": "2027-07-06",
+     "home": "Queens C",
+     "away": "Dyke D"
+    },
+    {
+     "week": 13,
+     "date": "2027-07-06",
+     "home": "Queens D",
+     "away": "Hove D"
+    },
+    {
+     "week": 13,
+     "date": "2027-07-06",
      "home": "St Ann's C",
+     "away": "St Ann's D"
+    },
+    {
+     "week": 14,
+     "date": "2027-07-13",
+     "home": "Dyke D",
      "away": "Queens D"
     },
     {
      "week": 14,
      "date": "2027-07-13",
-     "home": "Hove C",
+     "home": "Hove D",
+     "away": "St Ann's D"
+    },
+    {
+     "week": 14,
+     "date": "2027-07-13",
+     "home": "King Alfred B",
+     "away": "Queens C"
+    },
+    {
+     "week": 14,
+     "date": "2027-07-13",
+     "home": "Saltdean B",
      "away": "Dyke C"
     },
     {
      "week": 14,
      "date": "2027-07-13",
-     "home": "Hove D",
-     "away": "St Ann's C"
-    },
-    {
-     "week": 14,
-     "date": "2027-07-13",
-     "home": "Queens C",
-     "away": "King Alfred B"
-    },
-    {
-     "week": 14,
-     "date": "2027-07-13",
-     "home": "Queens D",
-     "away": "Saltdean B"
-    },
-    {
-     "week": 14,
-     "date": "2027-07-13",
-     "home": "St Ann's D",
-     "away": "Dyke D"
-    },
-    {
-     "week": 15,
-     "date": "2027-07-20",
-     "home": "Dyke C",
-     "away": "Queens C"
-    },
-    {
-     "week": 15,
-     "date": "2027-07-20",
-     "home": "Hove D",
-     "away": "St Ann's D"
-    },
-    {
-     "week": 15,
-     "date": "2027-07-20",
-     "home": "Queens D",
-     "away": "Dyke D"
-    },
-    {
-     "week": 15,
-     "date": "2027-07-20",
-     "home": "Saltdean B",
+     "home": "St Ann's C",
      "away": "Hove C"
     },
     {
      "week": 15,
      "date": "2027-07-20",
-     "home": "St Ann's C",
+     "home": "Dyke C",
+     "away": "Hove C"
+    },
+    {
+     "week": 15,
+     "date": "2027-07-20",
+     "home": "Hove D",
+     "away": "St Ann's C"
+    },
+    {
+     "week": 15,
+     "date": "2027-07-20",
+     "home": "Queens C",
+     "away": "Saltdean B"
+    },
+    {
+     "week": 15,
+     "date": "2027-07-20",
+     "home": "Queens D",
      "away": "King Alfred B"
+    },
+    {
+     "week": 15,
+     "date": "2027-07-20",
+     "home": "St Ann's D",
+     "away": "Dyke D"
     },
     {
      "week": 16,
      "date": "2027-07-27",
      "home": "Dyke D",
-     "away": "Saltdean B"
-    },
-    {
-     "week": 16,
-     "date": "2027-07-27",
-     "home": "Hove C",
      "away": "Hove D"
     },
     {
      "week": 16,
      "date": "2027-07-27",
-     "home": "King Alfred B",
-     "away": "Queens D"
+     "home": "Hove C",
+     "away": "Queens C"
     },
     {
      "week": 16,
      "date": "2027-07-27",
-     "home": "Queens C",
+     "home": "King Alfred B",
      "away": "St Ann's D"
+    },
+    {
+     "week": 16,
+     "date": "2027-07-27",
+     "home": "Saltdean B",
+     "away": "Queens D"
     },
     {
      "week": 16,
@@ -1790,8 +1790,8 @@
     {
      "week": 17,
      "date": "2027-08-03",
-     "home": "Dyke C",
-     "away": "Queens D"
+     "home": "Dyke D",
+     "away": "St Ann's C"
     },
     {
      "week": 17,
@@ -1803,49 +1803,49 @@
      "week": 17,
      "date": "2027-08-03",
      "home": "Queens C",
-     "away": "Dyke D"
+     "away": "Dyke C"
     },
     {
      "week": 17,
      "date": "2027-08-03",
-     "home": "Saltdean B",
-     "away": "St Ann's C"
+     "home": "Queens D",
+     "away": "Hove C"
     },
     {
      "week": 17,
      "date": "2027-08-03",
      "home": "St Ann's D",
-     "away": "Hove C"
+     "away": "Saltdean B"
     },
     {
      "week": 18,
      "date": "2027-08-10",
-     "home": "Dyke D",
-     "away": "St Ann's C"
+     "home": "Dyke C",
+     "away": "Queens D"
     },
     {
      "week": 18,
      "date": "2027-08-10",
-     "home": "Hove D",
-     "away": "Queens C"
+     "home": "Hove C",
+     "away": "St Ann's D"
     },
     {
      "week": 18,
      "date": "2027-08-10",
      "home": "King Alfred B",
-     "away": "Dyke C"
+     "away": "Dyke D"
     },
     {
      "week": 18,
      "date": "2027-08-10",
-     "home": "Queens D",
-     "away": "Hove C"
+     "home": "Saltdean B",
+     "away": "Hove D"
     },
     {
      "week": 18,
      "date": "2027-08-10",
-     "home": "St Ann's D",
-     "away": "Saltdean B"
+     "home": "St Ann's C",
+     "away": "Queens C"
     }
    ]
   },
@@ -1932,355 +1932,349 @@
      "week": 1,
      "date": "2027-04-06",
      "home": "Blakers A",
-     "away": "Hollingbury",
+     "away": "Dyke E",
      "extra": true
     },
     {
      "week": 1,
      "date": "2027-04-06",
-     "home": "Hollingbury A",
-     "away": "Park Avenue",
+     "home": "Hollingbury",
+     "away": "Hove F",
      "extra": true
     },
     {
      "week": 1,
      "date": "2027-04-06",
-     "home": "Hove F",
+     "home": "Hove E",
+     "away": "King Alfred C",
+     "extra": true
+    },
+    {
+     "week": 1,
+     "date": "2027-04-06",
+     "home": "Preston Park C",
      "away": "Saltdean C",
      "extra": true
     },
     {
      "week": 1,
      "date": "2027-04-06",
-     "home": "King Alfred C",
-     "away": "Hove E",
-     "extra": true
-    },
-    {
-     "week": 1,
-     "date": "2027-04-06",
      "home": "Queens E",
-     "away": "Dyke E",
+     "away": "Park Avenue",
      "extra": true
     },
     {
      "week": 1,
      "date": "2027-04-06",
      "home": "Saltdean D",
-     "away": "Preston Park C",
+     "away": "Hollingbury A",
      "extra": true
     },
     {
      "week": 1,
      "date": "2027-04-13",
-     "home": "Blakers A",
-     "away": "Hollingbury A"
+     "home": "Dyke E",
+     "away": "Queens E"
     },
     {
      "week": 1,
      "date": "2027-04-13",
-     "home": "Dyke E",
+     "home": "Hollingbury A",
+     "away": "Hollingbury"
+    },
+    {
+     "week": 1,
+     "date": "2027-04-13",
+     "home": "Hove F",
+     "away": "Blakers A"
+    },
+    {
+     "week": 1,
+     "date": "2027-04-13",
+     "home": "King Alfred C",
      "away": "Preston Park C"
     },
     {
      "week": 1,
      "date": "2027-04-13",
-     "home": "Hollingbury",
-     "away": "Hove F"
-    },
-    {
-     "week": 1,
-     "date": "2027-04-13",
-     "home": "Hove E",
-     "away": "Saltdean C"
-    },
-    {
-     "week": 1,
-     "date": "2027-04-13",
      "home": "Park Avenue",
-     "away": "Saltdean D"
-    },
-    {
-     "week": 1,
-     "date": "2027-04-13",
-     "home": "Queens E",
-     "away": "King Alfred C"
-    },
-    {
-     "week": 2,
-     "date": "2027-04-20",
-     "home": "Dyke E",
      "away": "Hove E"
     },
     {
-     "week": 2,
-     "date": "2027-04-20",
-     "home": "Hollingbury",
-     "away": "Hollingbury A"
-    },
-    {
-     "week": 2,
-     "date": "2027-04-20",
-     "home": "Hove F",
-     "away": "Queens E"
-    },
-    {
-     "week": 2,
-     "date": "2027-04-20",
-     "home": "King Alfred C",
-     "away": "Park Avenue"
-    },
-    {
-     "week": 2,
-     "date": "2027-04-20",
-     "home": "Preston Park C",
-     "away": "Blakers A"
-    },
-    {
-     "week": 2,
-     "date": "2027-04-20",
+     "week": 1,
+     "date": "2027-04-13",
      "home": "Saltdean C",
      "away": "Saltdean D"
     },
     {
+     "week": 2,
+     "date": "2027-04-20",
+     "home": "Blakers A",
+     "away": "Hollingbury A"
+    },
+    {
+     "week": 2,
+     "date": "2027-04-20",
+     "home": "Hollingbury",
+     "away": "Saltdean C"
+    },
+    {
+     "week": 2,
+     "date": "2027-04-20",
+     "home": "Hove E",
+     "away": "Preston Park C"
+    },
+    {
+     "week": 2,
+     "date": "2027-04-20",
+     "home": "Park Avenue",
+     "away": "Dyke E"
+    },
+    {
+     "week": 2,
+     "date": "2027-04-20",
+     "home": "Queens E",
+     "away": "Hove F"
+    },
+    {
+     "week": 2,
+     "date": "2027-04-20",
+     "home": "Saltdean D",
+     "away": "King Alfred C"
+    },
+    {
      "week": 3,
      "date": "2027-04-27",
-     "home": "Blakers A",
-     "away": "Saltdean C"
+     "home": "Dyke E",
+     "away": "Hove E"
     },
     {
      "week": 3,
      "date": "2027-04-27",
      "home": "Hollingbury A",
-     "away": "Preston Park C"
+     "away": "Queens E"
     },
     {
      "week": 3,
      "date": "2027-04-27",
-     "home": "Hove E",
-     "away": "Hove F"
+     "home": "Hove F",
+     "away": "Park Avenue"
     },
     {
      "week": 3,
      "date": "2027-04-27",
      "home": "King Alfred C",
-     "away": "Dyke E"
-    },
-    {
-     "week": 3,
-     "date": "2027-04-27",
-     "home": "Park Avenue",
      "away": "Hollingbury"
     },
     {
      "week": 3,
      "date": "2027-04-27",
-     "home": "Saltdean D",
-     "away": "Queens E"
+     "home": "Preston Park C",
+     "away": "Saltdean D"
     },
     {
-     "week": 4,
-     "date": "2027-05-04",
-     "home": "Dyke E",
+     "week": 3,
+     "date": "2027-04-27",
+     "home": "Saltdean C",
      "away": "Blakers A"
     },
     {
      "week": 4,
      "date": "2027-05-04",
-     "home": "Hollingbury A",
-     "away": "Hove E"
+     "home": "Blakers A",
+     "away": "King Alfred C"
     },
     {
      "week": 4,
      "date": "2027-05-04",
-     "home": "Hove F",
+     "home": "Dyke E",
+     "away": "Hove F"
+    },
+    {
+     "week": 4,
+     "date": "2027-05-04",
+     "home": "Hollingbury",
+     "away": "Preston Park C"
+    },
+    {
+     "week": 4,
+     "date": "2027-05-04",
+     "home": "Hove E",
      "away": "Saltdean D"
     },
     {
      "week": 4,
      "date": "2027-05-04",
      "home": "Park Avenue",
-     "away": "Queens E"
+     "away": "Hollingbury A"
     },
     {
      "week": 4,
      "date": "2027-05-04",
-     "home": "Preston Park C",
-     "away": "King Alfred C"
-    },
-    {
-     "week": 4,
-     "date": "2027-05-04",
-     "home": "Saltdean C",
-     "away": "Hollingbury"
-    },
-    {
-     "week": 5,
-     "date": "2027-05-11",
-     "home": "Hollingbury",
-     "away": "Preston Park C"
-    },
-    {
-     "week": 5,
-     "date": "2027-05-11",
-     "home": "Hove E",
-     "away": "Blakers A"
-    },
-    {
-     "week": 5,
-     "date": "2027-05-11",
-     "home": "Hove F",
-     "away": "King Alfred C"
-    },
-    {
-     "week": 5,
-     "date": "2027-05-11",
-     "home": "Park Avenue",
+     "home": "Queens E",
      "away": "Saltdean C"
     },
     {
      "week": 5,
      "date": "2027-05-11",
-     "home": "Queens E",
-     "away": "Hollingbury A"
+     "home": "Hollingbury A",
+     "away": "Dyke E"
+    },
+    {
+     "week": 5,
+     "date": "2027-05-11",
+     "home": "Hove E",
+     "away": "Hove F"
+    },
+    {
+     "week": 5,
+     "date": "2027-05-11",
+     "home": "King Alfred C",
+     "away": "Queens E"
+    },
+    {
+     "week": 5,
+     "date": "2027-05-11",
+     "home": "Preston Park C",
+     "away": "Blakers A"
+    },
+    {
+     "week": 5,
+     "date": "2027-05-11",
+     "home": "Saltdean C",
+     "away": "Park Avenue"
     },
     {
      "week": 5,
      "date": "2027-05-11",
      "home": "Saltdean D",
-     "away": "Dyke E"
+     "away": "Hollingbury"
     },
     {
      "week": 6,
      "date": "2027-05-18",
      "home": "Blakers A",
-     "away": "Hove F"
+     "away": "Saltdean D"
     },
     {
      "week": 6,
      "date": "2027-05-18",
-     "home": "Hollingbury A",
-     "away": "Dyke E"
-    },
-    {
-     "week": 6,
-     "date": "2027-05-18",
-     "home": "Hove E",
-     "away": "Park Avenue"
-    },
-    {
-     "week": 6,
-     "date": "2027-05-18",
-     "home": "Preston Park C",
+     "home": "Dyke E",
      "away": "Saltdean C"
     },
     {
      "week": 6,
      "date": "2027-05-18",
-     "home": "Queens E",
-     "away": "Hollingbury"
+     "home": "Hollingbury",
+     "away": "Hove E"
     },
     {
      "week": 6,
      "date": "2027-05-18",
-     "home": "Saltdean D",
+     "home": "Hove F",
+     "away": "Hollingbury A"
+    },
+    {
+     "week": 6,
+     "date": "2027-05-18",
+     "home": "Park Avenue",
      "away": "King Alfred C"
     },
     {
-     "week": 7,
-     "date": "2027-05-25",
-     "home": "Dyke E",
-     "away": "Hollingbury"
+     "week": 6,
+     "date": "2027-05-18",
+     "home": "Queens E",
+     "away": "Preston Park C"
     },
     {
      "week": 7,
      "date": "2027-05-25",
-     "home": "Hollingbury A",
-     "away": "Saltdean D"
+     "home": "Hollingbury",
+     "away": "Blakers A"
     },
     {
      "week": 7,
      "date": "2027-05-25",
-     "home": "Hove F",
-     "away": "Park Avenue"
+     "home": "Hove E",
+     "away": "Hollingbury A"
     },
     {
      "week": 7,
      "date": "2027-05-25",
      "home": "King Alfred C",
-     "away": "Blakers A"
+     "away": "Dyke E"
     },
     {
      "week": 7,
      "date": "2027-05-25",
      "home": "Preston Park C",
-     "away": "Hove E"
+     "away": "Park Avenue"
     },
     {
      "week": 7,
      "date": "2027-05-25",
      "home": "Saltdean C",
+     "away": "Hove F"
+    },
+    {
+     "week": 7,
+     "date": "2027-05-25",
+     "home": "Saltdean D",
      "away": "Queens E"
     },
     {
      "week": 8,
      "date": "2027-06-01",
-     "home": "Hollingbury",
-     "away": "King Alfred C"
+     "home": "Blakers A",
+     "away": "Hove E"
     },
     {
      "week": 8,
      "date": "2027-06-01",
-     "home": "Hove F",
-     "away": "Dyke E"
-    },
-    {
-     "week": 8,
-     "date": "2027-06-01",
-     "home": "Park Avenue",
+     "home": "Dyke E",
      "away": "Preston Park C"
     },
     {
      "week": 8,
      "date": "2027-06-01",
+     "home": "Hollingbury A",
+     "away": "Saltdean C"
+    },
+    {
+     "week": 8,
+     "date": "2027-06-01",
+     "home": "Hove F",
+     "away": "King Alfred C"
+    },
+    {
+     "week": 8,
+     "date": "2027-06-01",
+     "home": "Park Avenue",
+     "away": "Saltdean D"
+    },
+    {
+     "week": 8,
+     "date": "2027-06-01",
      "home": "Queens E",
-     "away": "Blakers A"
-    },
-    {
-     "week": 8,
-     "date": "2027-06-01",
-     "home": "Saltdean C",
-     "away": "Hollingbury A"
-    },
-    {
-     "week": 8,
-     "date": "2027-06-01",
-     "home": "Saltdean D",
-     "away": "Hove E"
+     "away": "Hollingbury"
     },
     {
      "week": 9,
      "date": "2027-06-08",
      "home": "Blakers A",
-     "away": "Park Avenue"
-    },
-    {
-     "week": 9,
-     "date": "2027-06-08",
-     "home": "Dyke E",
-     "away": "Saltdean C"
+     "away": "Queens E"
     },
     {
      "week": 9,
      "date": "2027-06-08",
      "home": "Hollingbury",
-     "away": "Saltdean D"
+     "away": "Park Avenue"
     },
     {
      "week": 9,
      "date": "2027-06-08",
      "home": "Hove E",
-     "away": "Queens E"
+     "away": "Saltdean C"
     },
     {
      "week": 9,
@@ -2293,40 +2287,46 @@
      "date": "2027-06-08",
      "home": "Preston Park C",
      "away": "Hove F"
+    },
+    {
+     "week": 9,
+     "date": "2027-06-08",
+     "home": "Saltdean D",
+     "away": "Dyke E"
     },
     {
      "week": 9,
      "date": "2027-06-12",
-     "home": "Blakers A",
-     "away": "Saltdean D",
-     "extra": true
-    },
-    {
-     "week": 9,
-     "date": "2027-06-12",
-     "home": "Hollingbury A",
-     "away": "Hove F",
-     "extra": true
-    },
-    {
-     "week": 9,
-     "date": "2027-06-12",
-     "home": "Hove E",
+     "home": "Dyke E",
      "away": "Hollingbury",
      "extra": true
     },
     {
      "week": 9,
      "date": "2027-06-12",
+     "home": "Hollingbury A",
+     "away": "Preston Park C",
+     "extra": true
+    },
+    {
+     "week": 9,
+     "date": "2027-06-12",
+     "home": "Hove F",
+     "away": "Saltdean D",
+     "extra": true
+    },
+    {
+     "week": 9,
+     "date": "2027-06-12",
      "home": "Park Avenue",
-     "away": "Dyke E",
+     "away": "Blakers A",
      "extra": true
     },
     {
      "week": 9,
      "date": "2027-06-12",
      "home": "Queens E",
-     "away": "Preston Park C",
+     "away": "Hove E",
      "extra": true
     },
     {
@@ -2339,332 +2339,338 @@
     {
      "week": 10,
      "date": "2027-06-15",
-     "home": "Hollingbury A",
-     "away": "Blakers A"
+     "home": "Blakers A",
+     "away": "Hove F"
     },
     {
      "week": 10,
      "date": "2027-06-15",
-     "home": "Hove F",
-     "away": "Hollingbury"
+     "home": "Hollingbury",
+     "away": "Hollingbury A"
     },
     {
      "week": 10,
      "date": "2027-06-15",
-     "home": "King Alfred C",
-     "away": "Queens E"
+     "home": "Hove E",
+     "away": "Park Avenue"
     },
     {
      "week": 10,
      "date": "2027-06-15",
      "home": "Preston Park C",
+     "away": "King Alfred C"
+    },
+    {
+     "week": 10,
+     "date": "2027-06-15",
+     "home": "Queens E",
      "away": "Dyke E"
     },
     {
      "week": 10,
      "date": "2027-06-15",
-     "home": "Saltdean C",
-     "away": "Hove E"
-    },
-    {
-     "week": 10,
-     "date": "2027-06-15",
      "home": "Saltdean D",
-     "away": "Park Avenue"
+     "away": "Saltdean C"
     },
     {
      "week": 10,
      "date": "2027-06-19",
      "home": "Dyke E",
-     "away": "Queens E",
-     "extra": true
-    },
-    {
-     "week": 10,
-     "date": "2027-06-19",
-     "home": "Hollingbury",
      "away": "Blakers A",
      "extra": true
     },
     {
      "week": 10,
      "date": "2027-06-19",
-     "home": "Hove E",
-     "away": "King Alfred C",
-     "extra": true
-    },
-    {
-     "week": 10,
-     "date": "2027-06-19",
-     "home": "Park Avenue",
-     "away": "Hollingbury A",
-     "extra": true
-    },
-    {
-     "week": 10,
-     "date": "2027-06-19",
-     "home": "Preston Park C",
+     "home": "Hollingbury A",
      "away": "Saltdean D",
      "extra": true
     },
     {
      "week": 10,
      "date": "2027-06-19",
+     "home": "Hove F",
+     "away": "Hollingbury",
+     "extra": true
+    },
+    {
+     "week": 10,
+     "date": "2027-06-19",
+     "home": "King Alfred C",
+     "away": "Hove E",
+     "extra": true
+    },
+    {
+     "week": 10,
+     "date": "2027-06-19",
+     "home": "Park Avenue",
+     "away": "Queens E",
+     "extra": true
+    },
+    {
+     "week": 10,
+     "date": "2027-06-19",
      "home": "Saltdean C",
-     "away": "Hove F",
+     "away": "Preston Park C",
      "extra": true
     },
     {
      "week": 11,
      "date": "2027-06-22",
-     "home": "Blakers A",
-     "away": "Preston Park C"
+     "home": "Dyke E",
+     "away": "Park Avenue"
     },
     {
      "week": 11,
      "date": "2027-06-22",
      "home": "Hollingbury A",
+     "away": "Blakers A"
+    },
+    {
+     "week": 11,
+     "date": "2027-06-22",
+     "home": "Hove F",
+     "away": "Queens E"
+    },
+    {
+     "week": 11,
+     "date": "2027-06-22",
+     "home": "King Alfred C",
+     "away": "Saltdean D"
+    },
+    {
+     "week": 11,
+     "date": "2027-06-22",
+     "home": "Preston Park C",
+     "away": "Hove E"
+    },
+    {
+     "week": 11,
+     "date": "2027-06-22",
+     "home": "Saltdean C",
      "away": "Hollingbury"
     },
     {
-     "week": 11,
-     "date": "2027-06-22",
-     "home": "Hove E",
-     "away": "Dyke E"
-    },
-    {
-     "week": 11,
-     "date": "2027-06-22",
-     "home": "Park Avenue",
-     "away": "King Alfred C"
-    },
-    {
-     "week": 11,
-     "date": "2027-06-22",
-     "home": "Queens E",
-     "away": "Hove F"
-    },
-    {
-     "week": 11,
-     "date": "2027-06-22",
-     "home": "Saltdean D",
+     "week": 12,
+     "date": "2027-06-29",
+     "home": "Blakers A",
      "away": "Saltdean C"
     },
     {
      "week": 12,
      "date": "2027-06-29",
-     "home": "Dyke E",
+     "home": "Hollingbury",
      "away": "King Alfred C"
     },
     {
      "week": 12,
      "date": "2027-06-29",
-     "home": "Hollingbury",
-     "away": "Park Avenue"
+     "home": "Hove E",
+     "away": "Dyke E"
     },
     {
      "week": 12,
      "date": "2027-06-29",
-     "home": "Hove F",
-     "away": "Hove E"
-    },
-    {
-     "week": 12,
-     "date": "2027-06-29",
-     "home": "Preston Park C",
-     "away": "Hollingbury A"
+     "home": "Park Avenue",
+     "away": "Hove F"
     },
     {
      "week": 12,
      "date": "2027-06-29",
      "home": "Queens E",
-     "away": "Saltdean D"
+     "away": "Hollingbury A"
     },
     {
      "week": 12,
      "date": "2027-06-29",
-     "home": "Saltdean C",
+     "home": "Saltdean D",
+     "away": "Preston Park C"
+    },
+    {
+     "week": 13,
+     "date": "2027-07-06",
+     "home": "Hollingbury A",
+     "away": "Park Avenue"
+    },
+    {
+     "week": 13,
+     "date": "2027-07-06",
+     "home": "Hove F",
+     "away": "Dyke E"
+    },
+    {
+     "week": 13,
+     "date": "2027-07-06",
+     "home": "King Alfred C",
      "away": "Blakers A"
     },
     {
      "week": 13,
      "date": "2027-07-06",
-     "home": "Blakers A",
-     "away": "Dyke E"
+     "home": "Preston Park C",
+     "away": "Hollingbury"
     },
     {
      "week": 13,
      "date": "2027-07-06",
-     "home": "Hollingbury",
-     "away": "Saltdean C"
-    },
-    {
-     "week": 13,
-     "date": "2027-07-06",
-     "home": "Hove E",
-     "away": "Hollingbury A"
-    },
-    {
-     "week": 13,
-     "date": "2027-07-06",
-     "home": "King Alfred C",
-     "away": "Preston Park C"
-    },
-    {
-     "week": 13,
-     "date": "2027-07-06",
-     "home": "Queens E",
-     "away": "Park Avenue"
+     "home": "Saltdean C",
+     "away": "Queens E"
     },
     {
      "week": 13,
      "date": "2027-07-06",
      "home": "Saltdean D",
-     "away": "Hove F"
-    },
-    {
-     "week": 14,
-     "date": "2027-07-13",
-     "home": "Blakers A",
      "away": "Hove E"
     },
     {
      "week": 14,
      "date": "2027-07-13",
+     "home": "Blakers A",
+     "away": "Preston Park C"
+    },
+    {
+     "week": 14,
+     "date": "2027-07-13",
      "home": "Dyke E",
+     "away": "Hollingbury A"
+    },
+    {
+     "week": 14,
+     "date": "2027-07-13",
+     "home": "Hollingbury",
      "away": "Saltdean D"
     },
     {
      "week": 14,
      "date": "2027-07-13",
-     "home": "Hollingbury A",
-     "away": "Queens E"
+     "home": "Hove F",
+     "away": "Hove E"
     },
     {
      "week": 14,
      "date": "2027-07-13",
-     "home": "King Alfred C",
+     "home": "Park Avenue",
+     "away": "Saltdean C"
+    },
+    {
+     "week": 14,
+     "date": "2027-07-13",
+     "home": "Queens E",
+     "away": "King Alfred C"
+    },
+    {
+     "week": 15,
+     "date": "2027-07-20",
+     "home": "Hollingbury A",
      "away": "Hove F"
     },
     {
-     "week": 14,
-     "date": "2027-07-13",
-     "home": "Preston Park C",
+     "week": 15,
+     "date": "2027-07-20",
+     "home": "Hove E",
      "away": "Hollingbury"
     },
     {
-     "week": 14,
-     "date": "2027-07-13",
-     "home": "Saltdean C",
+     "week": 15,
+     "date": "2027-07-20",
+     "home": "King Alfred C",
      "away": "Park Avenue"
     },
     {
      "week": 15,
      "date": "2027-07-20",
-     "home": "Dyke E",
-     "away": "Hollingbury A"
-    },
-    {
-     "week": 15,
-     "date": "2027-07-20",
-     "home": "Hollingbury",
+     "home": "Preston Park C",
      "away": "Queens E"
     },
     {
      "week": 15,
      "date": "2027-07-20",
-     "home": "Hove F",
-     "away": "Blakers A"
-    },
-    {
-     "week": 15,
-     "date": "2027-07-20",
-     "home": "King Alfred C",
-     "away": "Saltdean D"
-    },
-    {
-     "week": 15,
-     "date": "2027-07-20",
-     "home": "Park Avenue",
-     "away": "Hove E"
-    },
-    {
-     "week": 15,
-     "date": "2027-07-20",
      "home": "Saltdean C",
-     "away": "Preston Park C"
+     "away": "Dyke E"
+    },
+    {
+     "week": 15,
+     "date": "2027-07-20",
+     "home": "Saltdean D",
+     "away": "Blakers A"
     },
     {
      "week": 16,
      "date": "2027-07-27",
      "home": "Blakers A",
+     "away": "Hollingbury"
+    },
+    {
+     "week": 16,
+     "date": "2027-07-27",
+     "home": "Dyke E",
      "away": "King Alfred C"
     },
     {
      "week": 16,
      "date": "2027-07-27",
-     "home": "Hollingbury",
-     "away": "Dyke E"
+     "home": "Hollingbury A",
+     "away": "Hove E"
     },
     {
      "week": 16,
      "date": "2027-07-27",
-     "home": "Hove E",
-     "away": "Preston Park C"
+     "home": "Hove F",
+     "away": "Saltdean C"
     },
     {
      "week": 16,
      "date": "2027-07-27",
      "home": "Park Avenue",
-     "away": "Hove F"
+     "away": "Preston Park C"
     },
     {
      "week": 16,
      "date": "2027-07-27",
      "home": "Queens E",
-     "away": "Saltdean C"
-    },
-    {
-     "week": 16,
-     "date": "2027-07-27",
-     "home": "Saltdean D",
-     "away": "Hollingbury A"
-    },
-    {
-     "week": 17,
-     "date": "2027-08-03",
-     "home": "Blakers A",
-     "away": "Queens E"
-    },
-    {
-     "week": 17,
-     "date": "2027-08-03",
-     "home": "Dyke E",
-     "away": "Hove F"
-    },
-    {
-     "week": 17,
-     "date": "2027-08-03",
-     "home": "Hollingbury A",
-     "away": "Saltdean C"
-    },
-    {
-     "week": 17,
-     "date": "2027-08-03",
-     "home": "Hove E",
      "away": "Saltdean D"
     },
     {
      "week": 17,
      "date": "2027-08-03",
+     "home": "Hollingbury",
+     "away": "Queens E"
+    },
+    {
+     "week": 17,
+     "date": "2027-08-03",
+     "home": "Hove E",
+     "away": "Blakers A"
+    },
+    {
+     "week": 17,
+     "date": "2027-08-03",
      "home": "King Alfred C",
-     "away": "Hollingbury"
+     "away": "Hove F"
     },
     {
      "week": 17,
      "date": "2027-08-03",
      "home": "Preston Park C",
+     "away": "Dyke E"
+    },
+    {
+     "week": 17,
+     "date": "2027-08-03",
+     "home": "Saltdean C",
+     "away": "Hollingbury A"
+    },
+    {
+     "week": 17,
+     "date": "2027-08-03",
+     "home": "Saltdean D",
      "away": "Park Avenue"
+    },
+    {
+     "week": 18,
+     "date": "2027-08-10",
+     "home": "Dyke E",
+     "away": "Saltdean D"
     },
     {
      "week": 18,
@@ -2682,30 +2688,24 @@
      "week": 18,
      "date": "2027-08-10",
      "home": "Park Avenue",
-     "away": "Blakers A"
+     "away": "Hollingbury"
     },
     {
      "week": 18,
      "date": "2027-08-10",
      "home": "Queens E",
-     "away": "Hove E"
+     "away": "Blakers A"
     },
     {
      "week": 18,
      "date": "2027-08-10",
      "home": "Saltdean C",
-     "away": "Dyke E"
-    },
-    {
-     "week": 18,
-     "date": "2027-08-10",
-     "home": "Saltdean D",
-     "away": "Hollingbury"
+     "away": "Hove E"
     },
     {
      "week": 18,
      "date": "2027-08-17",
-     "home": "Dyke E",
+     "home": "Blakers A",
      "away": "Park Avenue",
      "extra": true
     },
@@ -2713,14 +2713,14 @@
      "week": 18,
      "date": "2027-08-17",
      "home": "Hollingbury",
-     "away": "Hove E",
+     "away": "Dyke E",
      "extra": true
     },
     {
      "week": 18,
      "date": "2027-08-17",
-     "home": "Hove F",
-     "away": "Hollingbury A",
+     "home": "Hove E",
+     "away": "Queens E",
      "extra": true
     },
     {
@@ -2734,19 +2734,19 @@
      "week": 18,
      "date": "2027-08-17",
      "home": "Preston Park C",
-     "away": "Queens E",
+     "away": "Hollingbury A",
      "extra": true
     },
     {
      "week": 18,
      "date": "2027-08-17",
      "home": "Saltdean D",
-     "away": "Blakers A",
+     "away": "Hove F",
      "extra": true
     }
    ]
   }
  ],
  "acceptedAt": "2026-11-18T12:00:00.000Z",
- "checksum": "288bb635"
+ "checksum": "b93a17b1"
 }

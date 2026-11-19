@@ -236,6 +236,42 @@ test.describe("Fixture generator", () => {
     await expect(page.locator(".division")).toHaveCount(4);
   });
 
+  test("choosing a club or team on a phone keeps the pills where they were scrolled", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.getByRole("button", { name: /Apply promotion/ }).click();
+    await page.getByRole("button", { name: /Generate fixtures/ }).click();
+    await expect(page.locator(".cards .card").first()).toBeVisible({ timeout: 30_000 });
+
+    // Scroll the club pills to the end and pick the last club.
+    const clubs = page.locator(".filter .chips").first();
+    await clubs.evaluate((el) => (el.scrollLeft = el.scrollWidth));
+    const before = await clubs.evaluate((el) => el.scrollLeft);
+    expect(before).toBeGreaterThan(100);
+    await clubs.locator(".chip").last().click();
+    await expect(clubs.locator(".chip").last()).toHaveAttribute("aria-pressed", "true");
+    expect(await clubs.evaluate((el) => el.scrollLeft)).toBe(before);
+    // Focus stays on the pill that was pressed.
+    await expect(clubs.locator(".chip").last()).toBeFocused();
+
+    // The same for the team pills that appear beneath, and the division tabs.
+    const teams = page.locator(".filter .chips.teams");
+    await teams.evaluate((el) => (el.scrollLeft = el.scrollWidth));
+    const teamsBefore = await teams.evaluate((el) => el.scrollLeft);
+    expect(teamsBefore).toBeGreaterThan(0);
+    await teams.locator(".chip").last().click();
+    expect(await teams.evaluate((el) => el.scrollLeft)).toBe(teamsBefore);
+    expect(await clubs.evaluate((el) => el.scrollLeft)).toBe(before);
+
+    const tabs = page.locator(".tabs");
+    await tabs.evaluate((el) => (el.scrollLeft = el.scrollWidth));
+    const tabsBefore = await tabs.evaluate((el) => el.scrollLeft);
+    expect(tabsBefore).toBeGreaterThan(0);
+    await tabs.getByRole("tab", { name: /Division 4/ }).click();
+    expect(await tabs.evaluate((el) => el.scrollLeft)).toBe(tabsBefore);
+  });
+
   test("works on a phone", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.getByRole("button", { name: /Apply promotion/ }).click();

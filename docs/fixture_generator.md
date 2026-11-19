@@ -53,22 +53,31 @@ do not change. The committee can overrule it like any other ruling.
   rounds go in the opening and closing weeks of each half first (weeks 1 and 9,
   so 10 and 18). Following past practice the extra round of week 1 is played a
   week early, that of week 18 a week late, and others on the Saturday.
-- The search then arranges the draw so that, in order of importance:
-  1. no club hosts more than half the teams it has out on one day (clubs share
-     courts across divisions that play the same night);
-  2. each team's first half splits evenly between home and away;
-  3. runs of three or more home (or away) matches are rare;
-  4. same-club derbies fall in the first five weeks of each half.
+- **Home and away.** The round robin is the classic circle-method draw with its
+  minimum-break pattern, the same shape as the league's hand-made cards (the
+  2026 Division 2 card shows the same home/away patterns). Teams alternate home and away, and
+  where that cannot be done they play two in a row, never three. This is fixed
+  by construction: the rounds may start anywhere in the cycle and run forwards
+  or backwards, and only the layouts that keep runs to two are used.
+- **Court sharing.** What is left to decide is which team takes which place in
+  that draw. A search across all divisions at once (clubs share courts across
+  divisions that play the same night) places teams so that no club hosts more
+  than half the teams it has out on one day, and same-club derbies fall in the
+  first five weeks of each half. It makes up to 24 short attempts and stops at
+  the first that meets both.
+- With an odd number of teams one team sits out each round; which place is
+  empty then affects the runs, so the search handles runs too.
 - The draw is reproducible: the file records the seed.
 
 Strict home, away, home, away for every team is not possible. Two teams with
 the same alternating pattern are at home on the same weeks and away on the
 same weeks, so they could never meet; there are only two alternating patterns,
 so at most two teams in a division can alternate all season. Everyone else
-must play two in a row somewhere. The search keeps those runs short. Pushing
-harder on runs costs court sharing: on the 2026 tables, weighting runs twelve
-times more heavily cut the teams with a run of three from about nine to three,
-but put a club over its share of home matches on three or four nights.
+must play two in a row somewhere. Two in a row is the best that can be done,
+and it is what every draw gives: on the 2026 tables, with an 11- or a 12-team
+Division 4, every draw tested had no team above two in a row and no club over
+its share of home matches on any night. (The 2026 cards themselves had runs
+of three in Division 1 and up to five in Divisions 3 and 4.)
 
 ## The fixture file
 

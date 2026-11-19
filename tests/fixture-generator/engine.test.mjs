@@ -181,14 +181,28 @@ test('generated 2027 fixtures are a sound double round robin', () => {
   assert.equal(divisions[0].fixtures[0].date, '2027-04-15');
 });
 
-test('generation is quality-controlled across seeds', () => {
-  const mv = E.resolveMovement(tables2026());
-  for (const seed of [1, 2, 3]) {
-    const { stats } = E.generateFixtures(mv.divisions, { year: 2027, seed });
-    assert.deepEqual(stats.errors, []);
-    assert.ok(stats.clashes.length <= 1, `seed ${seed}: clubs are not over-hosted (${stats.clashes.length})`);
-    assert.ok(stats.longestRun <= 4, `seed ${seed}: no long home or away runs`);
-    assert.ok(stats.derbies.every((d) => d.week <= 6), `seed ${seed}: derbies fall early`);
+test('nobody plays more than two in a row, home or away, and courts are shared', () => {
+  // The league's hand-made cards alternate home and away with the odd pair of
+  // matches at the same venue. Every draw must do at least as well, in every
+  // division, while never asking a club to host more than half its teams.
+  for (const options of [{}, { withdrawn: ['Saltdean D'] }]) {
+    const mv = E.resolveMovement(tables2026(), options);
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const { stats } = E.generateFixtures(mv.divisions, { year: 2027, seed });
+      assert.deepEqual(stats.errors, []);
+      assert.equal(stats.longestRun, 2, `seed ${seed}: longest run`);
+      assert.equal(stats.clashes.length, 0, `seed ${seed}: crowded nights`);
+      assert.ok(stats.derbies.every((d) => d.week <= 5), `seed ${seed}: derbies fall early`);
+    }
+  }
+});
+
+test('even-sized divisions of any size keep runs to two', () => {
+  const teams = (n) => Array.from({ length: n }, (_, i) => ({ name: `Club${i}`, club: `Club${i}` }));
+  for (const n of [6, 8, 10, 12, 14, 16, 18]) {
+    const { stats } = E.generateFixtures([{ name: 'Division 1', level: 1, teams: teams(n) }], { year: 2027, seed: n });
+    assert.deepEqual(stats.errors, [], `${n} teams`);
+    assert.equal(stats.longestRun, 2, `${n} teams`);
   }
 });
 
