@@ -422,28 +422,36 @@ export function buildSlots(rounds, half) {
   return slots;
 }
 
-// Circle method: one round robin over n (even) positions.
-function circleRounds(n) {
+// Circle method with the classic minimum-break home/away pattern. n is even:
+// seats 0..n-2 sit on the circle and seat n-1 stays put. In round r, seats i
+// and j meet when i + j = r (mod n-1); the seat with 2i = r meets the fixed
+// seat. Each pair is listed home first. Played in this order, every seat
+// alternates home and away with at most one "break" (two the same in a row),
+// which is the fewest a round robin allows.
+function canonicalRounds(n) {
+  const m = n - 1;
   const rounds = [];
-  const ring = [];
-  for (let i = 1; i < n; i++) ring.push(i);
-  for (let r = 0; r < n - 1; r++) {
-    const pairs = [[0, ring[0]]];
-    for (let i = 1; i < n / 2; i++) pairs.push([ring[i], ring[n - 1 - i]]);
-    // Alternate venue by round so the starting point is already well balanced.
-    rounds.push(pairs.map(([a, b], i) => ((r + i) % 2 === 0 ? [a, b] : [b, a])));
-    ring.unshift(ring.pop());
+  for (let r = 0; r < m; r++) {
+    const pairs = [];
+    for (let i = 0; i < m; i++) {
+      const j = (((r - i) % m) + m) % m;
+      if (i === j) pairs.push(r % 2 === 0 ? [i, m] : [m, i]);
+      else if (i < j) pairs.push((((i - j) % m) + m) % m % 2 === 1 ? [i, j] : [j, i]);
+    }
+    rounds.push(pairs);
   }
   return rounds;
 }
 
-// What the search minimises. The 2026 card, drawn up by hand, never asks a
-// club to host more than half the teams it has out on a night, so that comes
-// first by a distance; an even split of each half and short runs follow.
+// What the search minimises. Runs are handled first by construction (see
+// attemptSchedule): the weight here only matters where a bye makes them
+// depend on who sits where. Court sharing comes next: the 2026 card, drawn up
+// by hand, never asks a club to host more than half the teams it has out on a
+// night.
 const WEIGHTS = {
+  run: 80, // three or more consecutive home (or away) matches
   clash: 60, // a club hosting more than its fair share on one day
   balance: 40, // home/away split within a half off by more than one
-  run: 5, // three or more consecutive home (or away) matches
   derby: 2, // same-club matches drifting later in the half
   lateDerby: 25, // ...and especially past week 5
 };
@@ -456,16 +464,22 @@ const WEIGHTS = {
  *
  * Returns { divisions: [{ ...division, fixtures: [{ week, extra, date, home, away }] }], stats, config }.
  *
- * Each division is a single round robin (circle method) played in the first
- * half and mirrored, venues reversed, in the second. Starting from a draw
- * shuffled by the seed, a search across all divisions at once moves teams
- * around the draw, rounds between weeks and matches between venues so that
- * clubs sharing courts on a night are not asked to host more than half their
- * teams, nobody has long runs at home or away, each half splits evenly, and
- * same-club derbies fall in the opening weeks.
+ * Each division is a single round robin played in the first half and
+ * mirrored, venues reversed, in the second. The round robin is the classic
+ * circle-method draw with its minimum-break home/away pattern, the same shape
+ * as the league's hand-made cards: teams alternate home and away, and where
+ * that is impossible play two in a row, never three. That is fixed by
+ * construction, by choosing only the ways of laying the rounds over the
+ * weeks that keep it true.
+ *
+ * What is left to decide is who sits where in that draw. A search across all
+ * divisions at once shuffles teams between seats (starting from the seed, so
+ * every draw differs) until clubs sharing courts on a night are not asked to
+ * host more than half their teams and same-club derbies fall in the opening
+ * weeks. It makes several short attempts and keeps the best.
  */
 export function generateFixtures(divisions, config = {}) {
-  const cfg = { weeks: 18, derbiesEarly: true, effort: 1, seed: 1, iterations: 18000, startTemp: 14, attempts: 1, ...config };
+  const cfg = { weeks: 18, derbiesEarly: true, effort: 1, seed: 1, iterations: 3000, startTemp: 14, attempts: 24, ...config };
   if (cfg.weeks % 2) throw new Error('The season needs an even number of weeks');
   if (!cfg.week1Monday) cfg.week1Monday = defaultWeek1Monday(cfg.year || new Date().getUTCFullYear() + 1);
   const half = cfg.weeks / 2;
@@ -475,7 +489,7 @@ export function generateFixtures(divisions, config = {}) {
   for (let attempt = 0; attempt < attempts; attempt++) {
     const result = attemptSchedule(divisions, cfg, half, (cfg.seed >>> 0) + attempt * 0x9e3779b1);
     if (!best || result.cost < best.cost) best = result;
-    if (best.cost === 0) break;
+    if (best.settled) break;
   }
 
   const out = best.model.map((m, i) => {
@@ -523,9 +537,12 @@ function attemptSchedule(divisions, cfg, half, seed) {
   };
 
   // --- the mutable model ------------------------------------------------------
-  // rounds: the circle-method pairings by seat, each pair listed home first
-  // seats:  which team sits in which seat (-1 is the bye)
-  // order:  which first-half slot each round is played in
+  // rounds:   the minimum-break pairings by seat, each pair listed home first
+  // layouts:  the ways of laying those rounds over the weeks that keep their
+  //           order (start anywhere, run forwards or backwards)
+  // layout:   which of those is in use
+  // swapped:  whether every venue in the division is reversed
+  // seats:    which team sits in which seat (-1 is the bye)
   const model = divisions.map((d) => {
     const division = { ...d, playDay: d.playDay || defaultPlayDay(d.level) };
     const teams = d.teams.map((t) => ({
@@ -533,7 +550,7 @@ function attemptSchedule(divisions, cfg, half, seed) {
       club: clubId(t.club ? cleanName(t.club) : clubOf(t.name)),
     }));
     const n = teams.length + (teams.length % 2);
-    const rounds = n >= 2 ? circleRounds(n) : [];
+    const rounds = n >= 2 ? canonicalRounds(n) : [];
     const slots = buildSlots(rounds.length, half).map((s) => {
       const first = slotDate(cfg, division, s.week, s.extra);
       const second = slotDate(cfg, division, s.week + half, s.extra);
@@ -544,10 +561,22 @@ function attemptSchedule(divisions, cfg, half, seed) {
       ...slots.map((s, i) => ({ slot: i, second: false, date: s.first })),
       ...slots.map((s, i) => ({ slot: i, second: true, date: s.second })),
     ].sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0));
+    const inDateOrder = slots.map((_, i) => i).sort((x, y) => (slots[x].first < slots[y].first ? -1 : slots[x].first > slots[y].first ? 1 : 0));
+    const count = rounds.length;
+    const layouts = [];
+    for (let start = 0; start < count; start++) {
+      for (const backwards of [false, true]) {
+        const order = new Int16Array(count); // round → slot
+        for (let i = 0; i < count; i++) {
+          const round = (((backwards ? -i : i) + start) % count + count) % count;
+          order[round] = inDateOrder[i];
+        }
+        layouts.push(order);
+      }
+    }
     const seats = teams.map((_, i) => i);
     while (seats.length < n) seats.push(-1);
     shuffle(seats);
-    const order = shuffle(rounds.map((_, i) => i));
     return {
       division,
       teams,
@@ -555,7 +584,9 @@ function attemptSchedule(divisions, cfg, half, seed) {
       rounds,
       slots,
       seats,
-      order,
+      layouts,
+      layout: layouts.length ? pick(layouts.length) : 0,
+      swapped: rand() < 0.5,
       timelineSlot: Int16Array.from(timeline, (e) => e.slot),
       timelineSign: Int8Array.from(timeline, (e) => (e.second ? -1 : 1)),
       grid: new Int8Array(slots.length * Math.max(1, teams.length)),
@@ -571,7 +602,10 @@ function attemptSchedule(divisions, cfg, half, seed) {
   // division; the club-day loads couple divisions that share a night.
   function divisionCost(m) {
     let cost = 0;
-    const { teams, rounds, slots, order, seats, grid, timelineSlot, timelineSign } = m;
+    const { teams, rounds, slots, seats, grid, timelineSlot, timelineSign } = m;
+    if (!rounds.length) return 0;
+    const order = m.layouts[m.layout];
+    const hi = m.swapped ? 1 : 0;
     const count = teams.length;
     const slotCount = slots.length;
     grid.fill(0); // grid[slot * count + team]: +1 home, -1 away, 0 bye (first half)
@@ -579,8 +613,8 @@ function attemptSchedule(divisions, cfg, half, seed) {
       const slot = order[r];
       const pairs = rounds[r];
       for (let p = 0; p < pairs.length; p++) {
-        const h = seats[pairs[p][0]];
-        const a = seats[pairs[p][1]];
+        const h = seats[pairs[p][hi]];
+        const a = seats[pairs[p][1 - hi]];
         if (h < 0 || a < 0) continue;
         grid[slot * count + h] = 1;
         grid[slot * count + a] = -1;
@@ -609,7 +643,7 @@ function attemptSchedule(divisions, cfg, half, seed) {
         if (v === 0) continue;
         if (v === last) {
           run++;
-          if (run >= 3) cost += WEIGHTS.run * (2 * run - 5); // 3 in a row: 5, 4: 20, 5: 45
+          if (run >= 3) cost += WEIGHTS.run * (2 * run - 5); // 3 in a row: 1x, 4: 4x, 5: 9x
         } else {
           last = v;
           run = 1;
@@ -622,13 +656,16 @@ function attemptSchedule(divisions, cfg, half, seed) {
   // A club with several teams out on the same day shares its courts: at most
   // half of them (rounded up) should be at home. A derby is one home match.
   function applyLoad(m, sign) {
-    const { teams, rounds, slots, order, seats } = m;
+    const { teams, rounds, slots, seats } = m;
+    if (!rounds.length) return;
+    const order = m.layouts[m.layout];
+    const hi = m.swapped ? 1 : 0;
     for (let r = 0; r < rounds.length; r++) {
       const slot = slots[order[r]];
       const pairs = rounds[r];
       for (let p = 0; p < pairs.length; p++) {
-        const h = seats[pairs[p][0]];
-        const a = seats[pairs[p][1]];
+        const h = seats[pairs[p][hi]];
+        const a = seats[pairs[p][1 - hi]];
         if (h < 0 || a < 0) continue;
         const hc = teams[h].club * dateTotal;
         const ac = teams[a].club * dateTotal;
@@ -651,6 +688,27 @@ function attemptSchedule(divisions, cfg, half, seed) {
     return cost;
   }
 
+  // With an even number of teams, how long anyone's runs are depends only on
+  // the layout, not on who sits where. Keep just the layouts that do best on
+  // that score, so the search below cannot trade short runs away. (With a bye
+  // the runs depend on which seat is empty, so every layout stays in play.)
+  model.forEach((m) => {
+    if (!m.rounds.length || m.teams.length % 2) return;
+    const seats = m.seats;
+    m.seats = m.teams.map((_, i) => i);
+    const derbies = cfg.derbiesEarly;
+    cfg.derbiesEarly = false;
+    const scored = m.layouts.map((order, i) => {
+      m.layout = i;
+      return [divisionCost(m), order];
+    });
+    cfg.derbiesEarly = derbies;
+    const best = Math.min(...scored.map(([cost]) => cost));
+    m.layouts = scored.filter(([cost]) => cost === best).map(([, order]) => order);
+    m.layout = pick(m.layouts.length);
+    m.seats = seats;
+  });
+
   // --- simulated annealing ------------------------------------------------------
   model.forEach((m) => applyLoad(m, 1));
   const partial = model.map(divisionCost);
@@ -664,34 +722,30 @@ function attemptSchedule(divisions, cfg, half, seed) {
     const di = usable[pick(usable.length)];
     const m = model[di];
     const kind = rand();
-    let swap;
-    if (kind < 0.55) {
-      // Flip the venue of one match.
-      const r = pick(m.rounds.length);
-      const pair = m.rounds[r][pick(m.rounds[r].length)];
-      swap = () => {
-        [pair[0], pair[1]] = [pair[1], pair[0]];
-      };
-    } else if (kind < 0.8) {
+    let change;
+    let undo;
+    if (kind < 0.72) {
       // Swap two teams' seats in the draw.
       const a = pick(m.n);
       let b = pick(m.n - 1);
       if (b >= a) b++;
-      swap = () => {
+      change = undo = () => {
         [m.seats[a], m.seats[b]] = [m.seats[b], m.seats[a]];
       };
+    } else if (kind < 0.92) {
+      // Lay the rounds over the weeks differently.
+      const before = m.layout;
+      if (m.layouts.length < 2) continue;
+      const after = pick(m.layouts.length);
+      if (after === before) continue;
+      change = () => (m.layout = after);
+      undo = () => (m.layout = before);
     } else {
-      // Swap the weeks of two rounds.
-      if (m.order.length < 2) continue;
-      const a = pick(m.order.length);
-      let b = pick(m.order.length - 1);
-      if (b >= a) b++;
-      swap = () => {
-        [m.order[a], m.order[b]] = [m.order[b], m.order[a]];
-      };
+      // Reverse every venue in the division.
+      change = undo = () => (m.swapped = !m.swapped);
     }
     applyLoad(m, -1);
-    swap();
+    change();
     applyLoad(m, 1);
     const nextPartial = divisionCost(m);
     const nextClash = clashCost();
@@ -703,7 +757,7 @@ function attemptSchedule(divisions, cfg, half, seed) {
       current = next;
     } else {
       applyLoad(m, -1);
-      swap();
+      undo();
       applyLoad(m, 1);
     }
   }
@@ -711,15 +765,21 @@ function attemptSchedule(divisions, cfg, half, seed) {
   // Flatten to matches for the caller.
   model.forEach((m) => {
     m.matches = [];
+    const order = m.layouts[m.layout];
+    const hi = m.swapped ? 1 : 0;
     m.rounds.forEach((round, r) => {
-      round.forEach(([x, y]) => {
-        const a = m.seats[x];
-        const b = m.seats[y];
-        if (a >= 0 && b >= 0) m.matches.push({ slot: m.order[r], a, b, flip: false });
+      round.forEach((pair) => {
+        const a = m.seats[pair[hi]];
+        const b = m.seats[pair[1 - hi]];
+        if (a >= 0 && b >= 0) m.matches.push({ slot: order[r], a, b, flip: false });
       });
     });
   });
-  return { model, cost: Math.round(current) };
+  // Settled: nobody over-hosted and no derby later than week 5.
+  const settled =
+    clash === 0 &&
+    model.every((m) => m.matches.every((x) => m.teams[x.a].club !== m.teams[x.b].club || m.slots[x.slot].week <= 5 || !cfg.derbiesEarly));
+  return { model, cost: Math.round(current), settled };
 }
 
 export function compareFixtures(a, b) {

@@ -1118,7 +1118,7 @@ function qualityTiles(result, weeks) {
     tile(s.fixtures, 'fixtures', `${result.divisions.length} divisions, ${weeks} weeks`),
     tile(s.clashes.length, s.clashes.length === 1 ? 'crowded night' : 'crowded nights', 'Nights a club hosts more than half the teams it has out', s.clashes.length ? 'warn' : 'good'),
     tile(perTeam ? '✓' : '!', 'home and away', perTeam ? 'Every team plays each opponent home and away' : 'Some teams are uneven', perTeam ? 'good' : 'warn'),
-    tile(s.longestRun, 'in a row at most', 'Longest run of home, or of away, matches', s.longestRun > 3 ? 'warn' : 'good'),
+    tile(s.longestRun, 'in a row at most', 'Longest run of home, or of away, matches', s.longestRun > 2 ? 'warn' : 'good'),
     s.derbies.length ? tile(`Wk ${lastDerby}`, 'derbies done by', `${s.derbies.length} same-club matches played early in each half`, lastDerby > 5 ? 'warn' : 'good') : null,
     doubles.length ? h('p', { class: 'doubles' }, doubles.join('. ') + '.') : null
   );
@@ -1148,7 +1148,7 @@ function renderFixtures(stage) {
             ' ',
             loaded.intact ? 'This file is exactly as the generator wrote it, and every check below passes.' : 'This file has been changed since it was generated. It still passes every check below.'
           )
-        : h('p', { class: 'lede' }, 'Each pair meets in the first nine weeks and again, venues swapped, in the second nine. Every draw is different: press Draw again for another that passes the same checks.')
+        : h('p', { class: 'lede' }, 'Each pair meets in the first nine weeks and again, venues swapped, in the second nine. Teams alternate home and away, with two in a row at most. Every draw is different: press Draw again for another that passes the same checks.')
     )
   );
 
