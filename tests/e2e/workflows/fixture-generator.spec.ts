@@ -178,7 +178,7 @@ test.describe("Fixture generator", () => {
       .locator("#print-root .print-page")
       .nth(3)
       .evaluate((el) => (el.getBoundingClientRect().height * 25.4) / 96);
-    expect(heightMm).toBeLessThanOrEqual(277);
+    expect(heightMm).toBeLessThanOrEqual(271);
     await page.emulateMedia({ media: "screen", reducedMotion: "reduce" });
 
     await page.getByRole("button", { name: "Print the big sheet" }).click();

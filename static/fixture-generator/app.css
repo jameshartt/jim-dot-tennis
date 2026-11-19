@@ -1685,7 +1685,7 @@ button.wk:hover {
 .print-root .card {
   background: #fff;
   border: 0.25mm solid #333;
-  border-radius: 1.2mm;
+  border-radius: 1.8mm;
   overflow: visible;
   break-inside: avoid;
   page-break-inside: avoid;
@@ -1699,11 +1699,11 @@ button.wk:hover {
   align-items: center;
   justify-content: space-between;
   gap: 1.5mm;
-  height: calc(var(--pl) + 1.4mm);
-  padding: 0 2mm;
+  height: calc(var(--pl) + 2.2mm);
+  padding: 0 3mm;
   background: #e9e9e9;
   border-bottom: 0.25mm solid #333;
-  border-radius: 1.1mm 1.1mm 0 0;
+  border-radius: 1.6mm 1.6mm 0 0;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
@@ -1736,7 +1736,7 @@ button.wk:hover {
 }
 .print-root .card ul {
   list-style: none;
-  padding: 0.6mm 1.5mm 0.8mm;
+  padding: 1.4mm 3mm 1.6mm;
 }
 .print-root .fx {
   height: var(--pl);
@@ -1753,7 +1753,7 @@ button.wk:hover {
   font-weight: 400;
 }
 .print-root .fx.rest {
-  margin: 0;
+  margin-top: 0.4mm;
   padding: 0;
   border-top: 0.2mm dashed #777;
   color: #222;
@@ -1810,25 +1810,25 @@ button.wk:hover {
   page-break-after: auto;
 }
 .print-page > header {
-  height: 21mm;
+  height: 25mm;
   overflow: hidden;
 }
 .print-page .cards {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .print-page > footer {
-  height: 7mm;
+  height: 9mm;
 }
 
 /* The big sheet. */
 .poster {
-  --pl: 4.6mm;
-  --pf: 3.3mm;
-  --pg: 2.2mm;
+  --pl: 4.9mm;
+  --pf: 3.4mm;
+  --pg: 3.4mm;
   background: #fff;
 }
 .poster > header {
-  padding-bottom: 6mm;
+  padding-bottom: 10mm;
 }
 .poster > header h2 {
   font-size: 30pt;
@@ -1847,8 +1847,8 @@ button.wk:hover {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 2.5mm;
-  padding-bottom: 1.2mm;
+  margin-bottom: 4mm;
+  padding-bottom: 1.6mm;
   border-bottom: 0.6mm solid #000;
   font-size: 15pt;
   letter-spacing: -0.01em;
@@ -1861,7 +1861,7 @@ button.wk:hover {
   grid-template-columns: minmax(0, 1fr);
 }
 .poster > footer {
-  padding-top: 5mm;
+  padding-top: 9mm;
   font-size: 9pt;
 }
 .poster .memorial {

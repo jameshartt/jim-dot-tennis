@@ -1472,9 +1472,9 @@ function setPageRule(css) {
   el.textContent = css;
 }
 
-const A4 = { width: 210, height: 297, margin: 10 };
-const PRINT_HEADER_MM = 21; // league, title and division lines
-const PRINT_FOOTER_MM = 7;
+const A4 = { width: 210, height: 297, margin: 13 };
+const PRINT_HEADER_MM = 25; // league, title and division lines, with space beneath
+const PRINT_FOOTER_MM = 9;
 
 /**
  * Row height that lets a division's cards fill one A4 page, two cards across.
@@ -1486,11 +1486,11 @@ function printDensity(division, weeks) {
   const cards = fixtureCards(division, weeks);
   const rows = Math.ceil(cards.length / 2);
   const lines = Math.max(1, ...cards.map((c) => c.rows.length + (c.resting.length ? 1 : 0)));
-  const gap = 2;
-  const usable = A4.height - 2 * A4.margin - PRINT_HEADER_MM - PRINT_FOOTER_MM;
+  const gap = 3.2;
+  const usable = A4.height - 2 * A4.margin - PRINT_HEADER_MM - PRINT_FOOTER_MM - 1.5; // a little slack for rounding
   const perCard = (usable - (rows - 1) * gap) / Math.max(1, rows);
-  const chrome = 3.4; // heading padding, list padding and borders
-  const line = Math.min(5, Math.max(2.9, (perCard - chrome) / (lines + 1)));
+  const chrome = 6.8; // heading padding, list padding and borders
+  const line = Math.min(5.8, Math.max(2.9, (perCard - chrome) / (lines + 1)));
   return `--pl:${line.toFixed(2)}mm;--pf:${(line * 0.72).toFixed(2)}mm;--pg:${gap}mm`;
 }
 
@@ -1531,9 +1531,9 @@ function printCards() {
 function printPoster() {
   const file = currentFile();
   const weeks = file.season.weeks || 18;
-  const column = 96;
-  const gap = 7;
-  const margin = 10;
+  const column = 100;
+  const gap = 11;
+  const margin = 16;
   const width = file.divisions.length * column + (file.divisions.length - 1) * gap;
 
   const root = $('#print-root');
