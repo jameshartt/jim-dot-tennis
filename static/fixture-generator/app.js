@@ -1429,8 +1429,15 @@ function renderShare(stage) {
         'article',
         { class: 'share-card' },
         h('h3', {}, 'Fixture cards'),
-        h('p', {}, 'One page per division, laid out like the cards clubs are used to.'),
+        h('p', {}, 'One A4 page per division, laid out like the cards clubs are used to.'),
         h('button', { type: 'button', class: 'btn', onclick: printCards }, 'Print or save as PDF')
+      ),
+      h(
+        'article',
+        { class: 'share-card' },
+        h('h3', {}, 'All divisions on one sheet'),
+        h('p', {}, 'Every division side by side on a single large sheet. It is bigger than A4: save it as a PDF, then print it large or scaled to fit.'),
+        h('button', { type: 'button', class: 'btn', onclick: printPoster }, 'Print the big sheet')
       ),
       h(
         'article',
@@ -1455,20 +1462,104 @@ function renderShare(stage) {
   );
 }
 
+/** The @page rule for the next print: A4 for the cards, a made-to-measure sheet for the poster. */
+function setPageRule(css) {
+  let el = $('#print-page-style');
+  if (!el) {
+    el = h('style', { id: 'print-page-style' });
+    document.head.append(el);
+  }
+  el.textContent = css;
+}
+
+const A4 = { width: 210, height: 297, margin: 13 };
+const A4_CARD_GAP = 2; // mm between cards
+const PRINT_HEADER_MM = 25; // league, title and division lines, with space beneath
+const PRINT_FOOTER_MM = 9;
+
+/**
+ * Row height that lets a division's cards fill one A4 page, two cards across.
+ * A card is a one-line heading plus one line per match (and one for the team
+ * with no match). Below about 6pt the page stops being readable, so very
+ * large divisions run onto a second page instead, breaking between cards.
+ */
+function printDensity(division, weeks) {
+  const cards = fixtureCards(division, weeks);
+  const rows = Math.ceil(cards.length / 2);
+  const lines = Math.max(1, ...cards.map((c) => c.rows.length + (c.resting.length ? 1 : 0)));
+  const gap = A4_CARD_GAP;
+  const usable = A4.height - 2 * A4.margin - PRINT_HEADER_MM - PRINT_FOOTER_MM - 1.5; // a little slack for rounding
+  const perCard = (usable - (rows - 1) * gap) / Math.max(1, rows);
+  const chrome = 6.8; // heading padding, list padding and borders
+  const line = Math.min(5.8, Math.max(2.9, (perCard - chrome) / (lines + 1)));
+  return `--pl:${line.toFixed(2)}mm;--pf:${(line * 0.72).toFixed(2)}mm;--pg:${gap}mm`;
+}
+
+function printHeader(file, title) {
+  return h('header', {}, h('p', {}, file.league?.name || ''), h('h2', {}, `Fixtures ${file.season.year}`), h('h3', {}, title));
+}
+
+function printFooter(file, weeks) {
+  return h(
+    'footer',
+    {},
+    h('span', {}, `Wks 1–${weeks / 2}: home team on left. Wks ${weeks / 2 + 1}–${weeks}: home team on right.`),
+    h('span', { class: 'draft' }, file.status === 'accepted' ? '' : 'DRAFT'),
+    h('span', { class: 'memorial' }, 'In memory of Mick Cox, who made the Parks League fixtures')
+  );
+}
+
+/** One A4 page per division. */
 function printCards() {
   const file = currentFile();
   const weeks = file.season.weeks || 18;
-  $('#print-root').replaceChildren(
+  // The margin is padding inside each page, not an @page margin: browsers
+  // differ on @page margins, and this way the whole sheet is painted white.
+  setPageRule('@page { size: A4 portrait; margin: 0; }');
+  const root = $('#print-root');
+  root.className = 'print-root';
+  root.replaceChildren(
     ...file.divisions.map((d) =>
-      h(
-        'section',
-        { class: 'print-page' },
-        h('header', {}, h('p', {}, file.league?.name || ''), h('h2', {}, `Fixtures ${file.season.year}`), h('h3', {}, `${d.name} · ${d.playDay || ''}s`)),
-        renderCards(d, weeks),
-        h('footer', {}, h('span', {}, `Wks 1–${weeks / 2}: home team on left. Wks ${weeks / 2 + 1}–${weeks}: home team on right.`), h('span', {}, file.status === 'accepted' ? '' : 'DRAFT'), h('span', { class: 'memorial' }, 'In memory of Mick Cox, who made the Parks League fixtures'))
-      )
+      h('section', { class: 'print-page', style: `${printDensity(d, weeks)};padding:${A4.margin}mm` }, printHeader(file, `${d.name} · ${d.playDay || ''}s`), renderCards(d, weeks), printFooter(file, weeks))
     )
   );
+  window.print();
+}
+
+/**
+ * Every division side by side on one sheet, as large as it needs to be. The
+ * sheet is laid out in millimetres, measured, and the page is made that size,
+ * so it saves as a single-page PDF to print big or scaled to fit.
+ */
+function printPoster() {
+  const file = currentFile();
+  const weeks = file.season.weeks || 18;
+  // Columns are exactly as wide as a card on the A4 pages (two across).
+  const column = (A4.width - 2 * A4.margin - A4_CARD_GAP) / 2;
+  const gap = 11;
+  const margin = 16;
+  const width = file.divisions.length * column + (file.divisions.length - 1) * gap;
+
+  const root = $('#print-root');
+  root.replaceChildren(
+    h(
+      'section',
+      { class: 'poster', style: `width:${width + 2 * margin}mm;padding:${margin}mm;--col:${column}mm;--gap:${gap}mm` },
+      printHeader(file, 'All divisions'),
+      h(
+        'div',
+        { class: 'poster-grid' },
+        file.divisions.map((d) => h('section', { class: 'poster-division' }, h('h3', {}, d.name, h('span', {}, `${d.playDay || ''}s · ${d.teams.length} teams`)), renderCards(d, weeks)))
+      ),
+      printFooter(file, weeks)
+    )
+  );
+  // Measure it laid out exactly as it will print.
+  root.className = 'print-root measuring';
+  const px = root.firstElementChild.getBoundingClientRect().height;
+  root.className = 'print-root';
+  const height = Math.ceil((px * 25.4) / 96) + 1;
+  setPageRule(`@page { size: ${width + 2 * margin}mm ${height}mm; margin: 0; }`);
   window.print();
 }
 

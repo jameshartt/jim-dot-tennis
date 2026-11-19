@@ -158,6 +158,53 @@ test.describe("Fixture generator", () => {
     await expect(page.locator(".intro .pill")).toHaveText("Unaltered");
   });
 
+  test("prints one A4 page per division and one big sheet of all divisions", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: /Apply promotion/ }).click();
+    await page.getByRole("button", { name: /Generate fixtures/ }).click();
+    await expect(page.locator(".cards .card").first()).toBeVisible({ timeout: 30_000 });
+    await page.getByRole("button", { name: /Accept these fixtures/ }).click();
+    await page.evaluate(() => {
+      window.print = () => {};
+    });
+
+    await page.getByRole("button", { name: "Print or save as PDF" }).click();
+    await expect(page.locator("#print-root .print-page")).toHaveCount(4);
+    expect(await page.locator("#print-page-style").textContent()).toContain("A4 portrait");
+    // Division 4's eleven cards must fit the printable height of an A4 page.
+    await page.emulateMedia({ media: "print" });
+    const heightMm = await page
+      .locator("#print-root .print-page")
+      .nth(3)
+      .evaluate((el) => (el.getBoundingClientRect().height * 25.4) / 96);
+    expect(heightMm).toBeLessThanOrEqual(297);
+    // The margin is part of the page itself, so it survives any print dialog.
+    const padding = await page
+      .locator("#print-root .print-page")
+      .first()
+      .evaluate((el) => parseFloat(getComputedStyle(el).paddingLeft));
+    expect(padding).toBeGreaterThan(40);
+    await page.emulateMedia({ media: "screen", reducedMotion: "reduce" });
+
+    await page.getByRole("button", { name: "Print the big sheet" }).click();
+    // Cards on the big sheet are the same width as on the A4 pages.
+    await page.locator("#print-root").evaluate((el) => el.classList.add("measuring"));
+    const posterCardWidth = await page
+      .locator("#print-root .poster .card")
+      .first()
+      .evaluate((el) => el.getBoundingClientRect().width);
+    await page.locator("#print-root").evaluate((el) => el.classList.remove("measuring"));
+    // An A4 card is half of (210mm - two 13mm margins - a 2mm gap) = 91mm.
+    expect(Math.abs((posterCardWidth * 25.4) / 96 - 91)).toBeLessThan(0.5);
+    await expect(page.locator("#print-root .poster-division")).toHaveCount(4);
+    await expect(page.locator("#print-root .poster .card")).toHaveCount(9 * 3 + 11);
+    // The page is made to measure, wider than A4.
+    const rule = (await page.locator("#print-page-style").textContent()) ?? "";
+    const [, width] = rule.match(/size:\s*([\d.]+)mm/) ?? [];
+    expect(Number(width)).toBeGreaterThan(297);
+  });
+
   test("rejects a file that is not a fixture file", async ({ page }) => {
     await page.locator("#load-file-input").setInputFiles({
       name: "holiday.json",

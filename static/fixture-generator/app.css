@@ -1656,100 +1656,236 @@ button.wk:hover {
 
 /* ----------------------------------------------------------------- print */
 
+/* The print root is laid out in millimetres with its own light colours, and
+   its rules sit outside @media print so the big sheet can be measured on
+   screen (off to one side) exactly as it will print. */
+.print-root.measuring {
+  display: block;
+  position: absolute;
+  left: -100000px;
+  top: 0;
+}
+.print-root {
+  color: #000;
+  color-scheme: light;
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+.print-root header,
+.print-root footer,
+.print-root h2,
+.print-root h3,
+.print-root p,
+.print-root ul {
+  margin: 0;
+}
+.print-root .cards {
+  display: grid;
+  gap: var(--pg, 2mm);
+}
+.print-root .card {
+  background: #fff;
+  border: 0.25mm solid #333;
+  border-radius: 1.8mm;
+  overflow: visible;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  animation: none !important;
+}
+.print-root .card.extra {
+  border-style: dashed;
+}
+.print-root .card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5mm;
+  height: calc(var(--pl) + 2.2mm);
+  padding: 0 3mm;
+  background: #e9e9e9;
+  border-bottom: 0.25mm solid #333;
+  border-radius: 1.6mm 1.6mm 0 0;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.print-root .wk {
+  display: flex;
+  align-items: baseline;
+  gap: 1.4mm;
+  margin: 0;
+  padding: 0;
+  font-size: var(--pf);
+  line-height: var(--pl);
+}
+.print-root .wk-n {
+  font-weight: 750;
+}
+.print-root .wk-d,
+.print-root .mirror,
+.print-root .fx .v {
+  color: #222;
+  font-size: calc(var(--pf) * 0.92);
+}
+.print-root .extra-tag {
+  padding: 0 1.2mm;
+  border: 0.2mm solid #000;
+  border-radius: 2mm;
+  background: none;
+  color: #000;
+  font-size: calc(var(--pf) * 0.78);
+  line-height: calc(var(--pl) * 0.8);
+}
+.print-root .card ul {
+  list-style: none;
+  padding: 1.4mm 3mm 1.6mm;
+}
+.print-root .fx {
+  height: var(--pl);
+  min-height: 0;
+  padding: 0;
+  border-radius: 0;
+  font-size: var(--pf);
+  line-height: var(--pl);
+  opacity: 1;
+  animation: none !important;
+}
+.print-root .fx.derby .v {
+  color: #222;
+  font-weight: 400;
+}
+.print-root .fx.rest {
+  margin-top: 0.4mm;
+  padding: 0;
+  border-top: 0.2mm dashed #777;
+  color: #222;
+  font-size: calc(var(--pf) * 0.9);
+}
+.print-root .rest-l {
+  font-size: calc(var(--pf) * 0.72);
+}
+.print-root section > header {
+  text-align: center;
+}
+.print-root section > header p {
+  font-size: 8.5pt;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.print-root section > header h2 {
+  font-size: 17pt;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.print-root section > header h3 {
+  font-size: 11pt;
+  font-weight: 600;
+}
+.print-root section > footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 4mm;
+  color: #222;
+  font-size: 7.5pt;
+}
+.print-root .draft {
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+.print-root .memorial {
+  margin: 0;
+  color: #222;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 8pt;
+  font-style: italic;
+}
+
+/* A4 cards: header and footer have fixed heights so printDensity() in app.js
+   can work out a row height that fills the page. */
+.print-page {
+  box-sizing: border-box;
+  background: #fff;
+  break-after: page;
+  page-break-after: always;
+}
+.print-page:last-child {
+  break-after: auto;
+  page-break-after: auto;
+}
+.print-page > header {
+  height: 25mm;
+  overflow: hidden;
+}
+.print-page .cards {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.print-page > footer {
+  height: 9mm;
+}
+
+/* The big sheet. */
+.poster {
+  --pl: 4.9mm;
+  --pf: 3.4mm;
+  --pg: 2.2mm;
+  box-sizing: border-box;
+  background: #fff;
+}
+.poster > header {
+  padding-bottom: 10mm;
+}
+.poster > header h2 {
+  font-size: 30pt;
+}
+.poster > header h3 {
+  font-size: 13pt;
+}
+.poster-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--col);
+  gap: var(--gap);
+  align-items: start;
+}
+.poster-division > h3 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 4mm;
+  padding-bottom: 1.6mm;
+  border-bottom: 0.6mm solid #000;
+  font-size: 15pt;
+  letter-spacing: -0.01em;
+}
+.poster-division > h3 span {
+  font-size: 8.5pt;
+  font-weight: 500;
+}
+.poster-division .cards {
+  grid-template-columns: minmax(0, 1fr);
+}
+.poster > footer {
+  padding-top: 9mm;
+  font-size: 9pt;
+}
+.poster .memorial {
+  font-size: 11pt;
+}
+
 @media print {
-  @page {
-    size: A4 portrait;
-    margin: 12mm;
+  :root {
+    color-scheme: light;
   }
   html,
   body {
     background: #fff !important;
     color: #000;
     padding: 0 !important;
+    margin: 0;
   }
   body > *:not(.print-root) {
     display: none !important;
   }
   .print-root {
     display: block;
-    color-scheme: light;
-  }
-  .print-page {
-    break-after: page;
-    font-size: 9.5pt;
-  }
-  .print-page:last-child {
-    break-after: auto;
-  }
-  .print-page > header {
-    text-align: center;
-    margin-bottom: 5mm;
-  }
-  .print-page > header p {
-    font-size: 9pt;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-  .print-page > header h2 {
-    font-size: 20pt;
-    letter-spacing: -0.02em;
-  }
-  .print-page > header h3 {
-    font-size: 12pt;
-    font-weight: 600;
-  }
-  .print-page .cards {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 3mm;
-  }
-  .print-page .card {
-    background: #fff;
-    border: 0.4pt solid #444;
-    border-radius: 2mm;
-    break-inside: avoid;
-    animation: none !important;
-  }
-  .print-page .card > header {
-    background: #eee;
-    border-bottom: 0.4pt solid #444;
-    padding: 1mm 2.5mm;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-  .print-page .wk-d,
-  .print-page .fx .v,
-  .print-page .mirror {
-    color: #333;
-  }
-  .print-page .extra-tag {
-    background: none;
-    color: #000;
-    border: 0.4pt solid #000;
-  }
-  .print-page .card ul {
-    padding: 0.8mm 2mm 1.2mm;
-  }
-  .print-page .fx {
-    min-height: 0;
-    padding: 0.35mm 0;
-    font-size: 9.5pt;
-    animation: none !important;
-  }
-  .print-page .fx.rest {
-    border-top: 0.4pt dashed #666;
-    color: #333;
-    font-size: 8.5pt;
-  }
-  .print-page > footer {
-    display: flex;
-    justify-content: space-between;
-    gap: 4mm;
-    margin-top: 4mm;
-    font-size: 8pt;
-    color: #333;
-  }
-  .print-page .memorial {
-    color: #333;
-    margin: 0;
   }
 }
