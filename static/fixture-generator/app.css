@@ -292,6 +292,12 @@ a {
   outline: none;
 }
 
+/* A redraw in place (a filter or tab change): nothing new is arriving. */
+#stage.quiet *,
+#stage.quiet {
+  animation: none !important;
+}
+
 .intro {
   max-width: 46rem;
   margin-bottom: 1.5rem;

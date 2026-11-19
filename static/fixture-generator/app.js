@@ -228,7 +228,7 @@ function flyRows(before) {
 }
 
 function countUp(el, to) {
-  if (reduceMotion() || !Number.isFinite(to) || to === 0) {
+  if (state.quiet || reduceMotion() || !Number.isFinite(to) || to === 0) {
     el.textContent = to;
     return;
   }
@@ -277,6 +277,7 @@ function canVisit(step) {
 
 function go(step, opts = {}) {
   if (!canVisit(step)) return;
+  if (opts.keepScroll && step === state.step) return refresh();
   const before = opts.fly ? snapshotRows() : null;
   state.step = step;
   persist();
@@ -284,6 +285,36 @@ function go(step, opts = {}) {
   if (before) flyRows(before);
   if (!opts.keepScroll) window.scrollTo({ top: 0, behavior: reduceMotion() ? 'auto' : 'smooth' });
   $('#stage').focus({ preventScroll: true });
+}
+
+// The rows of pills and tabs that scroll sideways on a phone.
+const SIDEWAYS = '.tabs, .chips';
+
+/**
+ * Redraw the current step in place after a filter or tab change. The page is
+ * rebuilt, so put back what the rebuild would otherwise lose: how far each
+ * row of pills was scrolled sideways, and which pill had focus. Entrance
+ * animations are skipped; nothing new has arrived.
+ */
+function refresh() {
+  const stage = $('#stage');
+  const scrolled = new Map([...stage.querySelectorAll(SIDEWAYS)].map((el) => [el.className.replace(/\s+/g, ' ').trim(), el.scrollLeft]));
+  const active = document.activeElement;
+  const row = active && stage.contains(active) ? active.closest(SIDEWAYS) : null;
+  const focus = row ? { row: row.className.replace(/\s+/g, ' ').trim(), index: [...row.children].indexOf(active) } : null;
+
+  persist();
+  state.quiet = true;
+  render();
+  state.quiet = false;
+
+  const rows = new Map([...stage.querySelectorAll(SIDEWAYS)].map((el) => [el.className.replace(/\s+/g, ' ').trim(), el]));
+  scrolled.forEach((left, key) => {
+    const el = rows.get(key);
+    if (el) el.scrollLeft = left;
+  });
+  const target = focus && rows.get(focus.row)?.children[focus.index];
+  if (target) target.focus({ preventScroll: true });
 }
 
 function renderShell() {
@@ -1673,6 +1704,7 @@ function render() {
   const stage = $('#stage');
   stage.replaceChildren();
   stage.dataset.step = state.step;
+  stage.classList.toggle('quiet', !!state.quiet);
   renderShell();
   if (state.step === 0) renderTables(stage);
   else if (state.step === 1) renderMovement(stage);
