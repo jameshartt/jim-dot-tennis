@@ -178,7 +178,13 @@ test.describe("Fixture generator", () => {
       .locator("#print-root .print-page")
       .nth(3)
       .evaluate((el) => (el.getBoundingClientRect().height * 25.4) / 96);
-    expect(heightMm).toBeLessThanOrEqual(271);
+    expect(heightMm).toBeLessThanOrEqual(297);
+    // The margin is part of the page itself, so it survives any print dialog.
+    const padding = await page
+      .locator("#print-root .print-page")
+      .first()
+      .evaluate((el) => parseFloat(getComputedStyle(el).paddingLeft));
+    expect(padding).toBeGreaterThan(40);
     await page.emulateMedia({ media: "screen", reducedMotion: "reduce" });
 
     await page.getByRole("button", { name: "Print the big sheet" }).click();

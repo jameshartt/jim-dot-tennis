@@ -1802,6 +1802,8 @@ button.wk:hover {
 /* A4 cards: header and footer have fixed heights so printDensity() in app.js
    can work out a row height that fills the page. */
 .print-page {
+  box-sizing: border-box;
+  background: #fff;
   break-after: page;
   page-break-after: always;
 }
@@ -1824,7 +1826,8 @@ button.wk:hover {
 .poster {
   --pl: 4.9mm;
   --pf: 3.4mm;
-  --pg: 3.4mm;
+  --pg: 2.2mm;
+  box-sizing: border-box;
   background: #fff;
 }
 .poster > header {
@@ -1869,6 +1872,9 @@ button.wk:hover {
 }
 
 @media print {
+  :root {
+    color-scheme: light;
+  }
   html,
   body {
     background: #fff !important;

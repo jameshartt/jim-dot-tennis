@@ -1486,7 +1486,7 @@ function printDensity(division, weeks) {
   const cards = fixtureCards(division, weeks);
   const rows = Math.ceil(cards.length / 2);
   const lines = Math.max(1, ...cards.map((c) => c.rows.length + (c.resting.length ? 1 : 0)));
-  const gap = 3.2;
+  const gap = 2;
   const usable = A4.height - 2 * A4.margin - PRINT_HEADER_MM - PRINT_FOOTER_MM - 1.5; // a little slack for rounding
   const perCard = (usable - (rows - 1) * gap) / Math.max(1, rows);
   const chrome = 6.8; // heading padding, list padding and borders
@@ -1512,12 +1512,14 @@ function printFooter(file, weeks) {
 function printCards() {
   const file = currentFile();
   const weeks = file.season.weeks || 18;
-  setPageRule(`@page { size: A4 portrait; margin: ${A4.margin}mm; }`);
+  // The margin is padding inside each page, not an @page margin: browsers
+  // differ on @page margins, and this way the whole sheet is painted white.
+  setPageRule('@page { size: A4 portrait; margin: 0; }');
   const root = $('#print-root');
   root.className = 'print-root';
   root.replaceChildren(
     ...file.divisions.map((d) =>
-      h('section', { class: 'print-page', style: printDensity(d, weeks) }, printHeader(file, `${d.name} · ${d.playDay || ''}s`), renderCards(d, weeks), printFooter(file, weeks))
+      h('section', { class: 'print-page', style: `${printDensity(d, weeks)};padding:${A4.margin}mm` }, printHeader(file, `${d.name} · ${d.playDay || ''}s`), renderCards(d, weeks), printFooter(file, weeks))
     )
   );
   window.print();
@@ -1540,7 +1542,7 @@ function printPoster() {
   root.replaceChildren(
     h(
       'section',
-      { class: 'poster', style: `width:${width}mm;--col:${column}mm;--gap:${gap}mm` },
+      { class: 'poster', style: `width:${width + 2 * margin}mm;padding:${margin}mm;--col:${column}mm;--gap:${gap}mm` },
       printHeader(file, 'All divisions'),
       h(
         'div',
@@ -1554,8 +1556,8 @@ function printPoster() {
   root.className = 'print-root measuring';
   const px = root.firstElementChild.getBoundingClientRect().height;
   root.className = 'print-root';
-  const height = Math.ceil((px * 25.4) / 96) + 2;
-  setPageRule(`@page { size: ${width + 2 * margin}mm ${height + 2 * margin}mm; margin: ${margin}mm; }`);
+  const height = Math.ceil((px * 25.4) / 96) + 1;
+  setPageRule(`@page { size: ${width + 2 * margin}mm ${height}mm; margin: 0; }`);
   window.print();
 }
 
