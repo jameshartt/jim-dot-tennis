@@ -1801,11 +1801,32 @@ button.wk:hover {
 
 /* A4 cards: header and footer have fixed heights so printDensity() in app.js
    can work out a row height that fills the page. */
+/* A fixed box a millimetre under A4: header, cards, then the footer pinned to
+   the bottom. Nothing may spill out of it, so nothing can reach a second
+   sheet. printCards() in app.js sizes the cards to fit inside. */
 .print-page {
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: #fff;
   break-after: page;
   page-break-after: always;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.print-page > * {
+  flex: none;
+}
+.print-page > footer {
+  margin-top: auto;
+}
+/* A division too large for one page at readable type: let it run on. */
+.print-page.flow {
+  display: block;
+  overflow: visible;
+  break-inside: auto;
+  page-break-inside: auto;
 }
 .print-page:last-child {
   break-after: auto;
@@ -1828,7 +1849,18 @@ button.wk:hover {
   --pf: 3.4mm;
   --pg: 2.2mm;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: #fff;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.poster > * {
+  flex: none;
+}
+.poster > footer {
+  margin-top: auto;
 }
 .poster > header {
   padding-bottom: 10mm;

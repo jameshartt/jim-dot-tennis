@@ -178,7 +178,28 @@ test.describe("Fixture generator", () => {
       .locator("#print-root .print-page")
       .nth(3)
       .evaluate((el) => (el.getBoundingClientRect().height * 25.4) / 96);
-    expect(heightMm).toBeLessThanOrEqual(297);
+    expect(heightMm).toBeLessThan(297);
+    // Every page is a fixed box with the dedication pinned inside it and the
+    // cards clear of it, so the dedication cannot fall onto another sheet.
+    const pages = await page.locator("#print-root .print-page").evaluateAll((els) =>
+      els.map((el) => {
+        const box = el.getBoundingClientRect();
+        const footer = el.querySelector("footer")!.getBoundingClientRect();
+        const cards = el.querySelector(".cards")!.getBoundingClientRect();
+        return {
+          clipped: getComputedStyle(el).overflow === "hidden",
+          footerInside: footer.bottom <= box.bottom + 0.5,
+          cardsClearOfFooter: cards.bottom < footer.top,
+          dedication: el.querySelector("footer .memorial")!.textContent,
+        };
+      }),
+    );
+    for (const p of pages) {
+      expect(p.clipped).toBe(true);
+      expect(p.footerInside).toBe(true);
+      expect(p.cardsClearOfFooter).toBe(true);
+      expect(p.dedication).toContain("Mick Cox");
+    }
     // The margin is part of the page itself, so it survives any print dialog.
     const padding = await page
       .locator("#print-root .print-page")
