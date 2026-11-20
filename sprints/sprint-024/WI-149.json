@@ -1,0 +1,45 @@
+{
+  "id": "WI-149",
+  "title": "User guides and in-app help: administrators, captains, players, tournaments",
+  "description": "Guides for the people who use the app. Administrator: first season, inviting captains, player links, settings, season rollover, match-card import. Captain: the week's rhythm - availability, planning, selection, notifying players, entering results, rescheduling - and how the playing-down and one-team-per-week rules show up. Player: a one-page 'your link' sheet a club can send round, covering availability, notifications and adding the app to a phone. Tournaments: a short path from switching tournaments on to publishing a club championship draw, pointing to CourtHive's own documentation for depth. Add contextual help links from the main admin pages to the relevant guide sections, served from the app so they work offline of GitHub.",
+  "type": "documentation",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5",
+    "rationale": "Clear explanatory writing from well-defined product behaviour."
+  },
+  "acceptance_criteria": [
+    "Four guides exist: administrator, captain, player one-pager, running a club championship",
+    "Each main admin page has a help link opening the matching section",
+    "Guides are served by the app itself (rendered Markdown or static pages) and match the installed version",
+    "The roles table states exactly what administrators and captains can each do",
+    "Player-facing text uses positive framing and contains no rules lectures",
+    "Screenshots, where used, come from demo data, never real members"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "docs/guide-admin.md",
+      "docs/guide-captain.md",
+      "docs/guide-player.md",
+      "docs/guide-tournaments.md",
+      "internal/help/ (serving)",
+      "templates/help/*.html"
+    ],
+    "files_to_modify": [
+      "templates/admin/*.html (help links)",
+      "templates/about.html"
+    ]
+  },
+  "testing_requirements": [
+    "e2e: help links resolve on every main admin page"
+  ],
+  "context": {
+    "user_story": "As a captain new to the app, I want a short guide for my week.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "id": "WI-128",
+  "title": "Passkeys: registration, sign-in and management",
+  "description": "Add WebAuthn passkeys as the default way to sign in. Storage: a credentials table (credential id, public key, sign counter, transports, backup flags, user-given name, created and last-used times) and a stable random user handle per user. Flows: enrol a passkey when accepting an invite, during first-run setup, and from a 'Sign-in methods' page; sign in with a discoverable credential (no username typed) with a username-first path as fallback; rename and remove passkeys; never allow removal of a user's last sign-in method. The relying-party ID and origin come from the public URL (WI-126). Challenges are single-use, short-lived and bound to the browser session. The login page leads with 'Sign in with a passkey' and offers the password form as a secondary option only when the user or instance allows it. Use the maintained github.com/go-webauthn/webauthn library; read its current documentation before coding rather than relying on remembered API shapes.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-126"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Fable 5.2",
+    "id": "claude-fable-5-2",
+    "rationale": "Security-critical protocol work where subtle mistakes (origin checks, challenge reuse, enumeration, lockout) are easy to make and hard to spot."
+  },
+  "acceptance_criteria": [
+    "A user can enrol more than one passkey, name them, see when each was last used, and remove any but their last sign-in method",
+    "Sign-in works with a discoverable credential on current Safari (iOS/macOS), Chrome (Android/desktop) and Firefox, and degrades to a clear message where WebAuthn is unavailable",
+    "Challenges are random, single-use, expire within minutes, and are verified against the configured origin and relying-party ID",
+    "A cloned-authenticator signal (sign counter going backwards) is logged and surfaced to administrators",
+    "First-run setup (WI-117) offers passkey enrolment for the first administrator",
+    "Successful passkey sign-in creates the same session as password sign-in, with the same expiry rules",
+    "Login throttling covers passkey attempts without letting an attacker lock out a named user",
+    "No WebAuthn JavaScript is loaded from a third-party host"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "migrations/0NN_webauthn_credentials.up.sql / .down.sql (next free number)",
+      "internal/auth/passkey.go",
+      "internal/repository/webauthn_credential.go",
+      "static/passkey.js",
+      "templates/account/signin_methods.html"
+    ],
+    "files_to_modify": [
+      "internal/auth/handlers.go",
+      "internal/auth/service.go",
+      "templates/login.html",
+      "internal/models/user.go",
+      "go.mod",
+      "templates/setup/admin.html"
+    ],
+    "routes_to_add": [
+      "POST /login/passkey/begin",
+      "POST /login/passkey/finish",
+      "POST /account/passkeys/begin",
+      "POST /account/passkeys/finish",
+      "POST /account/passkeys/{id}/rename",
+      "POST /account/passkeys/{id}/delete"
+    ],
+    "notes": [
+      "Request user verification as 'preferred' and resident keys as 'required' for enrolment so discoverable sign-in works.",
+      "Do not reveal whether a username exists in the username-first path.",
+      "Local development on http://localhost is a valid WebAuthn origin; document the dev settings."
+    ]
+  },
+  "testing_requirements": [
+    "Unit tests with the library's test helpers / a software authenticator",
+    "Playwright with a virtual authenticator (WI-133)"
+  ],
+  "context": {
+    "user_story": "As a captain, I want to sign in with my phone's fingerprint or face instead of remembering a password.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

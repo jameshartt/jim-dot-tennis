@@ -1,0 +1,48 @@
+{
+  "id": "WI-113",
+  "title": "Commit the real reference deployment (compose + Caddyfile)",
+  "description": "scripts/deploy-app.sh says the production compose file has deliberately diverged from the repo and is not synced, so the only working deployment definition lives on one server. The tracked docker-compose.courthive.yml is the pre-Postgres stack and Caddyfile.courthive only has an active :80 block. Jim supplies the live compose file, Caddyfile and the variable NAMES from the server .env; this item commits them with secrets replaced by ${VAR} references, deletes or archives the stale variants, and adds .env.example listing every variable the stack reads. The result is the starting point for the packaged deployment in Sprints 022 and 023.",
+  "type": "infrastructure",
+  "priority": "high",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5",
+    "rationale": "Small, careful file consolidation with no design decisions."
+  },
+  "acceptance_criteria": [
+    "A tracked compose file and Caddyfile match what production runs, with every secret and the domain expressed as ${VAR}",
+    ".env.example exists, lists every variable read by the app and the stack with a one-line description and safe placeholder, and contains no real value",
+    "The stale docker-compose.courthive.yml (LevelDB era) and docs/courthive_postgres_phase2c.docker-compose.courthive.yml are removed or moved under docs/archive/ with a note",
+    "APP_ENV=production is set in the reference compose so session cookies are Secure",
+    "scripts/deploy-app.sh no longer says compose has diverged; whether it syncs compose is stated explicitly",
+    "README/CLAUDE.md variable tables include MY_TENNIS_ENABLED, WRAPPED_ACCESS_PASSWORD, TEMPLATE_RELOAD and MIGRATE_ALLOW_DIRTY_FORCE"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      ".env.example",
+      "deploy/docker-compose.yml (or agreed location)",
+      "deploy/Caddyfile"
+    ],
+    "files_to_modify": [
+      "scripts/deploy-app.sh",
+      "README.md",
+      "CLAUDE.md",
+      "CONTRIBUTING.md"
+    ],
+    "notes": [
+      "The live files are on the server only; the agent must be handed copies by Jim - do not SSH to production to fetch them without his say-so.",
+      "docker-compose.yml's e2e service shares the production data volume (audit 1.5); give e2e its own volume while here."
+    ]
+  },
+  "testing_requirements": [
+    "docker compose -f <reference file> config succeeds with only .env.example values filled in"
+  ],
+  "context": {
+    "user_story": "As the operator, I want the deployment that actually runs to be in git so that it can be reproduced and packaged.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

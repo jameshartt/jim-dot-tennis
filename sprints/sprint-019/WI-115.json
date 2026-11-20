@@ -1,0 +1,43 @@
+{
+  "id": "WI-115",
+  "title": "Declare SQLite the only database and remove the Postgres path",
+  "description": "CLAUDE.md and README advertise 'SQLite (default) or PostgreSQL', but the Postgres branch is untested and most repositories use `?` placeholders that would not work on it. Remove DB_TYPE=postgres handling, the DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME/DB_SSLMODE variables (including the 'postgres' default password), the lib/pq dependency and the golang-migrate postgres driver from the app and from cmd/migrate / cmd/migrate-down. Update every doc that claims Postgres support. This does not touch CourtHive's own Postgres database.",
+  "type": "refactor",
+  "priority": "medium",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5",
+    "rationale": "Deletion-heavy refactor guarded by the existing test suites."
+  },
+  "acceptance_criteria": [
+    "The app and migrate tools accept only SQLite; setting DB_TYPE to anything else fails at startup with a clear message",
+    "lib/pq and the postgres migrate driver are gone from go.mod",
+    "No doc claims PostgreSQL support for jim-dot-tennis",
+    "Unit and e2e suites pass"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "cmd/jim-dot-tennis/main.go (getEnv DB_* block around lines 262-277)",
+      "internal/database/database.go",
+      "cmd/migrate/main.go",
+      "cmd/migrate-down/main.go",
+      "go.mod",
+      "CLAUDE.md",
+      "README.md",
+      "CONTRIBUTING.md",
+      "docs/docker_setup.md"
+    ]
+  },
+  "testing_requirements": [
+    "make test",
+    "make test-e2e"
+  ],
+  "context": {
+    "user_story": "As a club operator, I want one supported database so that there is one way to back up and restore.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

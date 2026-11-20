@@ -1,0 +1,46 @@
+{
+  "id": "WI-145",
+  "title": "Provision the club's tournament provider and administrator automatically",
+  "description": "A working stack still needs CourtHive-side setup that today is done by hand with scripts and copied tokens: a provider for the club, a tournament administrator account, and the matching tournament-provider record in jim-dot-tennis. When an administrator switches Tournaments on, the app performs this against the local tournament server: creates the club's provider, creates the first tournament administrator (credentials shown once, or linked per the sign-in decision in WI-142), and registers the provider in the app so calendar sync works immediately. The step is safe to repeat.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [
+    "WI-144"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "Cross-system provisioning with idempotency and credential handling."
+  },
+  "acceptance_criteria": [
+    "Switching Tournaments on in a fresh instance results in a provider, a tournament administrator and a registered provider record, with no command-line step",
+    "Any credential created is shown once to the administrator and never logged",
+    "Running the step again changes nothing and reports the existing state",
+    "Tournament sync from the app works immediately afterwards and an empty calendar shows a helpful 'create your first tournament' pointer",
+    "Failures (server not ready) are reported with a retry, leaving no half-created state",
+    "`jim-dot-tennis tournaments provision` offers the same from the server"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/admin/service_tournaments.go (185-211)",
+      "internal/admin/settings.go",
+      "templates/admin/tournament_providers.html",
+      "cmd/jim-dot-tennis/cli.go"
+    ],
+    "notes": [
+      "The tournament server has a seed-admin script and a provider API; use its supported interfaces, not direct database writes.",
+      "Tokens copied from browsers have been truncated in the past - generate and pass credentials programmatically."
+    ]
+  },
+  "testing_requirements": [
+    "Integration test against the tournament server image",
+    "e2e in WI-147"
+  ],
+  "context": {
+    "user_story": "As a club administrator, I want tournaments to be ready to use the moment I turn them on.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

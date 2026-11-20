@@ -1,0 +1,29 @@
+{
+  "sprint": {
+    "id": "sprint-021",
+    "name": "Authentication: Passkeys, Recovery and a Real Captain Role",
+    "goal": "Replace username-and-password-only login with passkeys as the default, keep passwords as an optional fallback for people who cannot use a passkey, give administrators and server operators a safe way to invite and recover accounts without email, and make the captain role grant real, limited access.",
+    "start_date": null,
+    "end_date": null,
+    "type": "numbered",
+    "status": "planned",
+    "programme": "club-readiness (sprints 019-024)",
+    "focus_areas": [
+      "Passkeys by default; passwords as an optional per-user fallback",
+      "Account recovery without email: single-use links from the admin UI or the command line",
+      "Captain role enforced on routes - everything except users, settings and backups",
+      "Session and login hardening, then an independent security review"
+    ],
+    "work_items": [
+      "WI-126",
+      "WI-127",
+      "WI-128",
+      "WI-129",
+      "WI-130",
+      "WI-131",
+      "WI-132",
+      "WI-133",
+      "WI-134"
+    ]
+  }
+}

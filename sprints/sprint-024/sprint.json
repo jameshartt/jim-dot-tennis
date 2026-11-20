@@ -1,0 +1,24 @@
+{
+  "sprint": {
+    "id": "sprint-024",
+    "name": "Documentation and Onboarding for New Clubs",
+    "goal": "A volunteer at another BHPLTA club, with no familiarity with the project and modest technical confidence, can install it, set it up, keep it backed up and upgraded, and explain it to their captains and players - using only what ships with the project. Close with version 1.0.0.",
+    "start_date": null,
+    "end_date": null,
+    "type": "numbered",
+    "status": "planned",
+    "programme": "club-readiness (sprints 019-024)",
+    "focus_areas": [
+      "Install, upgrade, backup and troubleshooting guides written for a first-time operator",
+      "Guides for administrators, captains and players, including running club championships",
+      "Clear out stale documents so what remains is true",
+      "A cold install by a reader with only the docs, then fix what tripped them"
+    ],
+    "work_items": [
+      "WI-148",
+      "WI-149",
+      "WI-150",
+      "WI-151"
+    ]
+  }
+}

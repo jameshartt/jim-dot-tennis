@@ -1,0 +1,47 @@
+{
+  "id": "WI-123",
+  "title": "Instance isolation: no seeded accounts, no shared or default secrets",
+  "description": "The agreed principle is that each club owns its instance outright and the original author can never get into it. Three things currently break that. (1) migrations/004 inserts eight named admin accounts with a shared password hash into every new database - remove the INSERTs from the migration file (existing installs have already applied it and are unaffected; their accounts are left alone). (2) Secrets must be generated per instance, never defaulted or shared: the Club Wrapped access code, and later the CourtHive JWT secret (WI-144), are generated on first run and stored on the instance. (3) The app must not send anything to the author: confirm there is no telemetry, update ping or remote logging, and write down every outbound connection the instance makes. Add a startup self-check that refuses to run in production mode with a known default secret.",
+  "type": "security",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-117"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "The isolation guarantee is the programme's central trust promise; needs a thorough, sceptical pass rather than a mechanical one."
+  },
+  "acceptance_criteria": [
+    "A database created from scratch contains zero user rows until setup creates the first administrator",
+    "Real people's names no longer appear in migration 004; the e2e seed provides its own test administrator",
+    "No secret has a hardcoded default; anything required is generated with crypto/rand at first run and stored locally",
+    "The app starts no outbound connection except those listed in a new 'What this instance connects to' doc section (BHPLTA, open-meteo weather, browser push services, and the container registry for updates)",
+    "No analytics, error reporting, licence check or update ping exists, and a test asserts the absence of unexpected hosts in the code",
+    "Existing installs upgrade without losing or changing any account"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "migrations/004_create_auth_tables.up.sql (remove lines 47-60 INSERTs)",
+      "tests/e2e/fixtures/seed.sql",
+      "internal/players/availability.go (wrapped access code source, 421-466)",
+      "docs (new section)"
+    ],
+    "notes": [
+      "Editing an applied migration is safe here only because golang-migrate tracks version numbers, not checksums. Say so in migrations/README.md, and fix that README's stale 'next available' line.",
+      "The author's names remain in git history; that is accepted.",
+      "Hardcoded jim.tennis values (VAPID subscriber in internal/webpush/webpush.go:273, iCal UID domain in internal/services/ical_generator.go:38) are replaced by the instance's public URL in WI-126."
+    ]
+  },
+  "testing_requirements": [
+    "Fresh-database test asserting an empty users table after migrations",
+    "Upgrade test: apply to a copy of a populated database and assert accounts unchanged"
+  ],
+  "context": {
+    "user_story": "As a club, I want certainty that nobody outside my club - including the software's author - has an account or a key to my instance.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

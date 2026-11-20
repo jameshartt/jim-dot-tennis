@@ -1,0 +1,46 @@
+{
+  "id": "WI-127",
+  "title": "Account commands on the server: list, create, reset, disable",
+  "description": "There is no way to create or rescue an account outside the admin UI, and the runtime image has neither the sqlite3 tool nor any helper binary. Add subcommands to the main binary, run on the club's own server via SSH or `docker exec`: `user list`, `user create --role`, `user reset <username>` (issues a single-use recovery link once WI-129 lands; until then sets a temporary password that must be changed), `user disable|enable`, `user sessions revoke <username>`, and `setup code` (prints a fresh setup code while setup is incomplete). Running the binary with no subcommand keeps starting the server. Every command writes an audit record and prints plainly what it did. This is the answer to 'every administrator is locked out'.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "Restructures startup into subcommands and extracts a shared account service; moderate design work."
+  },
+  "acceptance_criteria": [
+    "`jim-dot-tennis user ...` and `jim-dot-tennis setup code` work inside the running container against the live database without stopping the server",
+    "No subcommand ever prints or accepts a password on the command line arguments (prompt or generated value only)",
+    "A reset ends all of that user's sessions",
+    "Each action is recorded with time, command and target user (audit table from WI-131, or a log line until then)",
+    "`--help` text is understandable by a non-developer and is reproduced in the operations guide",
+    "Refuses to disable or demote the last active administrator"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "cmd/jim-dot-tennis/cli.go (subcommand dispatch)",
+      "internal/accounts/ (shared service used by CLI and admin UI)"
+    ],
+    "files_to_modify": [
+      "cmd/jim-dot-tennis/main.go",
+      "internal/admin/service_users_sessions.go (move logic into the shared service)"
+    ],
+    "notes": [
+      "SQLite with WAL allows a second process to write while the server runs; set a busy timeout.",
+      "Anyone who can run this already controls the server and the database file - the tool adds convenience, not privilege. State that in the docs."
+    ]
+  },
+  "testing_requirements": [
+    "Integration test running subcommands against a temp database",
+    "Last-administrator guard test"
+  ],
+  "context": {
+    "user_story": "As the person who runs our club's server, I want to reset a locked-out administrator from the command line.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "id": "WI-138",
+  "title": "Backup and restore as tested commands",
+  "description": "Backups today are a sidecar container that copies the database to another volume on the same disk, with an untested, hand-written restore procedure that ignores WAL files. Add `jim-dot-tennis backup` (a consistent online copy using SQLite's backup mechanism, plus uploaded files such as the club logo, into one dated archive with a manifest recording app version and schema version) and `jim-dot-tennis restore <archive>` (refuses to run while the server is up, checks the manifest, migrates forward if the archive is older, refuses if it is newer). Take an automatic backup before any migration runs. Give administrators a 'Download backup' button and show the time of the last successful backup. Keep a configurable number of local copies and document copying them off the server, since same-disk backups do not survive losing the server.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [
+    "WI-135"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "Data-safety feature where a subtle mistake loses a club's season."
+  },
+  "acceptance_criteria": [
+    "`backup` produces a single archive that `restore` turns back into a working instance, proven by an automated round-trip test",
+    "Restore refuses when the server is running or the archive comes from a newer schema, with clear messages",
+    "A backup is taken automatically before migrations and kept until the next successful start",
+    "Administrators (not captains) can download a backup and see when the last one succeeded; a stale backup shows a warning",
+    "The scheduled backup runs inside the app (no separate container that installs packages from the network at every start)",
+    "The operations guide explains off-server copies in plain steps"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "internal/backup/backup.go",
+      "internal/backup/restore.go",
+      "internal/admin/backups.go",
+      "templates/admin/backups.html"
+    ],
+    "files_to_modify": [
+      "cmd/jim-dot-tennis/cli.go",
+      "docker-compose.yml (remove backup sidecar 69-95)",
+      "scripts/backup-manager.sh (delete)",
+      "Makefile (backup targets)",
+      "docs/docker_setup.md (false S3/B2 claim)"
+    ],
+    "notes": [
+      "Use VACUUM INTO or the online backup API - never copy the live file.",
+      "The backup contains personal data and password hashes; the download is administrator-only and the docs say to store it carefully.",
+      "CourtHive's database is added to the archive in Sprint 023 (WI-146)."
+    ]
+  },
+  "testing_requirements": [
+    "Round-trip test: seed, backup, wipe, restore, compare row counts and a checksum of key tables"
+  ],
+  "context": {
+    "user_story": "As a club operator, I want one command to back up and one to restore, and to know it works.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

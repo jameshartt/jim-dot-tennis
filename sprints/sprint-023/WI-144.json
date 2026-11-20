@@ -1,0 +1,48 @@
+{
+  "id": "WI-144",
+  "title": "Opt-in tournament stack in the packaged deployment",
+  "description": "Add the tournament stack to the released deployment as a compose profile that is off by default: Postgres, Redis, the tournament server, and the Caddy routes for /tournaments and /public alongside the app. Turning it on is one documented step (enable the profile, then switch on 'Tournaments' in settings from WI-122). All secrets (database password, the server's signing secret) are generated on the club's server on first start and stored in its own environment file or volume; nothing is defaulted. The tournament server's port is not published to the internet; only Caddy is. Resource limits reflect the footprint measured in WI-142.",
+  "type": "infrastructure",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-142",
+    "WI-143"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "Multi-service deployment design with secret generation and health ordering."
+  },
+  "acceptance_criteria": [
+    "With the profile off, only the app and Caddy run, and the app shows no tournament links",
+    "With the profile on, /tournaments (TMX) and /public (public pages) work under the club's own domain over HTTPS",
+    "Every secret is generated locally on first start; the compose file contains no password, and startup fails clearly rather than falling back to a default",
+    "Only ports 80 and 443 are exposed publicly",
+    "Services start in dependency order with health checks, on a server of the documented minimum size",
+    "Disabling the profile later leaves tournament data intact on its volume"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "deploy/docker-compose.yml",
+      "deploy/Caddyfile",
+      ".env.example"
+    ],
+    "files_to_create": [
+      "deploy/init-secrets.sh or an equivalent first-start step in the app CLI"
+    ],
+    "notes": [
+      "Start from the live production stack captured in WI-113.",
+      "The app reaches the server at COURTHIVE_API_URL (default http://courthive-server:8383)."
+    ]
+  },
+  "testing_requirements": [
+    "Bring the stack up from nothing on a clean machine with the profile on and off"
+  ],
+  "context": {
+    "user_story": "As a club operator, I want to switch tournaments on with one step.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

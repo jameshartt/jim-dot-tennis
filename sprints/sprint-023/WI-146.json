@@ -1,0 +1,45 @@
+{
+  "id": "WI-146",
+  "title": "Tournament data in backups; unattended CourtHive upgrades",
+  "description": "Extend backup and restore (WI-138) to include the tournament database when the profile is on, so one archive restores the whole club. Make CourtHive upgrades unattended: the calendar refactor in the server's 7.x line needed a backfill script run by hand between two migrations or the server crashed on start. Wrap such steps so that moving from one bundled version to the next is 'pull, restart' - with a pre-upgrade backup, ordered migration and backfill steps, and a clear stop-and-report if one fails. Record which bundled app versions pair with which CourtHive versions.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [
+    "WI-144"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "Data-safety work across two databases with ordering constraints learned the hard way."
+  },
+  "acceptance_criteria": [
+    "`backup` with tournaments on includes a consistent dump of the tournament database; `restore` brings back both systems",
+    "Round-trip test: create a tournament with a draw, back up, wipe, restore, and the draw is intact",
+    "Upgrading between two bundled versions that include a data backfill needs no manual command",
+    "A failed upgrade step leaves the previous version runnable and says what to do",
+    "A compatibility table of app and CourtHive versions is published with each release"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/backup/backup.go",
+      "internal/backup/restore.go",
+      "deploy/docker-compose.yml",
+      "CHANGELOG.md conventions"
+    ],
+    "notes": [
+      "Existing tournaments with draws must never be modified by tooling without a backup first.",
+      "The known manual sequence is in docs/PRODUCTION_QUICK_REFERENCE.md section 4 (backfill-calendar-tournaments between migrations 047 and 048)."
+    ]
+  },
+  "testing_requirements": [
+    "Backup and restore round trip with tournament data",
+    "Upgrade rehearsal across a backfill boundary using a copy of real data"
+  ],
+  "context": {
+    "user_story": "As a club, I want my championship draws to be as safe as my league data.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

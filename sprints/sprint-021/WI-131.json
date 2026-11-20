@@ -1,0 +1,50 @@
+{
+  "id": "WI-131",
+  "title": "Session and login hardening, account audit log",
+  "description": "Close the gaps the survey found. Store session identifiers hashed (today the raw token is the sessions primary key). Add a per-IP throttle alongside the per-username-and-IP one, so one password tried across many usernames is slowed. Add a scheduled cleanup that deletes expired sessions and old login attempts (nothing is ever deleted today). Add an account audit log covering sign-in method changes, invites, recoveries, role changes, deactivations and CLI actions, viewable by administrators. Make logout POST-only. Read the cookie name from config in internal/admin/sessions.go:70. Stop logging raw player tokens in RequireFantasyTokenAuth (middleware.go:164,170).",
+  "type": "security",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [
+    "WI-129"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "Several independent hardening changes that each need care with upgrade behaviour."
+  },
+  "acceptance_criteria": [
+    "A copy of the database does not contain usable session tokens",
+    "Existing sessions survive the upgrade or users are signed out once, cleanly - whichever is chosen is documented",
+    "Repeated failures from one IP across different usernames are throttled; throttling never lets an attacker lock a named user out of passkey sign-in",
+    "Expired sessions and login attempts older than 90 days are deleted automatically",
+    "An administrator can view the account audit log; entries cannot be edited through the UI",
+    "Logout requires POST; raw tokens no longer appear in logs"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "migrations/0NN_account_audit_log.up.sql / .down.sql (next free number)",
+      "internal/accounts/audit.go",
+      "templates/admin/audit_log.html"
+    ],
+    "files_to_modify": [
+      "internal/auth/service.go (182-238, 295-312)",
+      "internal/repository/login_attempt.go",
+      "internal/auth/handlers.go (153-168)",
+      "internal/admin/sessions.go",
+      "internal/auth/middleware.go"
+    ],
+    "notes": [
+      "The audit doc lists token entropy and player-link rate limiting as accepted by design - do not reopen them."
+    ]
+  },
+  "testing_requirements": [
+    "Unit tests for throttle keys, cleanup, hashed lookup"
+  ],
+  "context": {
+    "user_story": "As a club administrator, I want to see who changed what on accounts and know stolen backups do not contain live sessions.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

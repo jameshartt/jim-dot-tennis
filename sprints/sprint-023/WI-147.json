@@ -1,0 +1,38 @@
+{
+  "id": "WI-147",
+  "title": "E2E smoke for the bundled stack",
+  "description": "A CI job that brings up the full packaged deployment with the tournament profile on, from published images, and checks the path a club would take: enable tournaments, see provisioning succeed, open TMX and sign in, create a tournament, see it on the public pages and in the app's home page after sync.",
+  "type": "testing",
+  "priority": "medium",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-145",
+    "WI-146"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5",
+    "rationale": "Test authoring over a defined happy path."
+  },
+  "acceptance_criteria": [
+    "A scheduled and on-release CI job runs the packaged stack end to end with tournaments on",
+    "Covers provisioning, TMX sign-in, tournament creation, public page visibility and app sync",
+    "Also runs once with the profile off to confirm no tournament links appear",
+    "Failures upload container logs and Playwright traces"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/bundle/*.spec.ts",
+      ".github/workflows/bundle-smoke.yml"
+    ]
+  },
+  "testing_requirements": [
+    "The job itself, green on two consecutive runs"
+  ],
+  "context": {
+    "user_story": "As the maintainer, I want to know each release's tournament bundle actually works.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

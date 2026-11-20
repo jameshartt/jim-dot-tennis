@@ -1,0 +1,46 @@
+{
+  "id": "WI-139",
+  "title": "Continuous integration on every push and pull request",
+  "description": "There is no .github/workflows directory. Add a workflow that runs on pushes to main and on pull requests: build, go vet, formatting check, lint, unit tests, and the Playwright suites (main, multi-club, and fresh-install once Sprint 020 lands) with reports uploaded on failure. Fix the lint setup first: .golangci.yml is in v1 format while `make lint` installs the latest (v2) release - migrate the config and pin the version. Pin third-party actions by commit. Add Dependabot or Renovate for Go modules, actions and the Playwright image.",
+  "type": "infrastructure",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5",
+    "rationale": "Standard workflow authoring with known tools."
+  },
+  "acceptance_criteria": [
+    "A pull request shows separate checks for lint, unit tests and e2e, all required for merge on main",
+    "golangci-lint is pinned and its config is valid for the pinned version; `make lint` and CI use the same version",
+    "Playwright HTML report and traces are uploaded as artifacts when e2e fails",
+    "Third-party actions are pinned to commit SHAs; workflow permissions are read-only by default",
+    "Total CI time for a typical pull request is recorded, with caching for Go modules and the Playwright image",
+    "A dependency update tool opens grouped update pull requests"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      ".github/workflows/ci.yml",
+      ".github/dependabot.yml (or renovate.json)"
+    ],
+    "files_to_modify": [
+      ".golangci.yml",
+      "Makefile (lint target)",
+      "CONTRIBUTING.md"
+    ],
+    "notes": [
+      "Pushing workflow files needs a GitHub token with the `workflow` scope - Jim's gh token has lacked it before; check before the first push.",
+      "E2E currently runs through docker compose; CI can call the same make targets."
+    ]
+  },
+  "testing_requirements": [
+    "Open a pull request with a deliberate lint error and a failing test to confirm both are caught"
+  ],
+  "context": {
+    "user_story": "As the maintainer, I want every change tested automatically before it can reach a club.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "id": "WI-126",
+  "title": "Public URL setting, secure cookies by default, redirect and link fixes",
+  "description": "Passkeys bind to an origin, and several things already guess the origin wrongly. Add a public URL setting (PUBLIC_URL env and/or the stored setting from WI-119), required when APP_ENV=production. Use it for: absolute links (getBaseURL in internal/admin/players.go:1037-1043 builds http:// behind Caddy because r.TLS is nil), the VAPID subscriber (hardcoded https://jim.tennis in internal/webpush/webpush.go:273), the iCal UID domain (internal/services/ical_generator.go:38) and later the passkey relying-party ID. Make Secure cookies the default with an explicit development opt-out, instead of depending on APP_ENV=production being set (no tracked compose file sets it). Fix the login redirect: the form posts to /login and drops ?redirect=, and the handler accepts any URL (handlers.go:129) - carry the parameter through and allow only same-site relative paths.",
+  "type": "security",
+  "priority": "high",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5",
+    "rationale": "Small targeted fixes with clear test cases."
+  },
+  "acceptance_criteria": [
+    "Production mode refuses to start without a valid https public URL, with a message saying how to set it",
+    "Generated player links, calendar files and push configuration use the public URL; no jim.tennis literal remains in Go code",
+    "Session cookies are Secure unless development mode is explicitly enabled",
+    "After signing in from a protected page the user returns to that page; an absolute or cross-site redirect value is ignored",
+    "Existing calendar subscriptions keep working (UID change considered and documented)"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/config/config.go",
+      "internal/admin/players.go",
+      "internal/webpush/webpush.go",
+      "internal/services/ical_generator.go",
+      "internal/auth/handlers.go",
+      "templates/login.html",
+      "internal/auth/service.go (cookie config 62-74)",
+      "cmd/jim-dot-tennis/main.go (79-83)"
+    ],
+    "notes": [
+      "Changing iCal UIDs makes calendar apps treat events as new; keep the existing UID domain for jim.tennis by deriving it from the public URL host (which is jim.tennis there)."
+    ]
+  },
+  "testing_requirements": [
+    "Unit tests for redirect validation (relative ok, //host, https://host, backslash variants rejected)"
+  ],
+  "context": {
+    "user_story": "As a club operator, I want the app to know its own address so that links, cookies and passkeys are correct.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

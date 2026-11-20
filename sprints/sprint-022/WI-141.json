@@ -1,0 +1,46 @@
+{
+  "id": "WI-141",
+  "title": "Move jim.tennis onto the released image",
+  "description": "Replace the current deploy (rsync source to the droplet, build on a small server, restart) with pulling a released image. This proves the upgrade path that other clubs will use, on real data, before anyone else depends on it. Steps: droplet snapshot; in-app backup; switch the compose file to the published image; start; verify; keep the previous image for rollback. Then retire scripts/deploy-app.sh's build path and rewrite the production runbook around 'pull version, restart'. This changes production and must be done with Jim present and only on his explicit go-ahead on the day.",
+  "type": "infrastructure",
+  "priority": "medium",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-138",
+    "WI-140"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "A production change on real data; needs judgement and a careful rollback plan, with the owner present."
+  },
+  "acceptance_criteria": [
+    "Jim has given an explicit go-ahead on the day and a droplet snapshot was taken first",
+    "jim.tennis runs the published image at a named version; /version confirms it",
+    "All existing data, sessions policy, player links and push subscriptions work after the switch",
+    "Rollback to the previous image was rehearsed or the exact command is recorded and tested on a copy",
+    "docs/PRODUCTION_QUICK_REFERENCE.md describes the new procedure and the lessons from the switch",
+    "The droplet no longer needs the Go source tree or a build step for the app"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "scripts/deploy-app.sh",
+      "docs/PRODUCTION_QUICK_REFERENCE.md",
+      "docs/digitalocean_deployment.md"
+    ],
+    "notes": [
+      "Production runs CourtHive alongside; this item touches only the app service.",
+      "Existing administrator accounts on jim.tennis are unaffected by WI-123.",
+      "After pulling a production database locally, recreate the container with `up -d`, not `start`, so .env is re-read."
+    ]
+  },
+  "testing_requirements": [
+    "Smoke test checklist run against production after the switch"
+  ],
+  "context": {
+    "user_story": "As the maintainer, I want my own club on the same release path as everyone else.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

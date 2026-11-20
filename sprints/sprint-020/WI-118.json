@@ -1,0 +1,51 @@
+{
+  "id": "WI-118",
+  "title": "Bootstrap league, divisions, clubs and season from BHPLTA in-app",
+  "description": "Leagues are only ever created by cmd/populate-db (hardcoded BHPLTA 2025) and divisions only by populate-db or by copying a prior season, so a new instance has no way to get its structure. Since the product is BHPLTA-only, setup does this for the club: after the club is chosen, the app creates the BHPLTA league, scrapes the current season's fixtures (internal/services/fixture_scraper.go, as cmd/import-season does), creates divisions, all clubs and teams, weeks and fixtures, imports club venue data (club_scraper), marks the chosen club as home, and reports what it created. The same action is available later from admin as 'Start a new season from BHPLTA' for instances with no previous season to copy. BHPLTA being unreachable or changing its markup must produce a clear, retryable message, never a half-built season.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-116",
+    "WI-117"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "Lifts CLI logic into a transactional service across several repositories, with failure handling against an external site."
+  },
+  "acceptance_criteria": [
+    "From an empty database, choosing a club in setup results in a league, divisions, clubs, teams, weeks and fixtures for the current BHPLTA season, with the chosen club set as home",
+    "The whole import runs in a transaction; any failure leaves the database as it was and shows a retry option",
+    "A summary screen lists counts created and anything that could not be matched",
+    "The action is repeatable from admin for a later season without duplicating clubs or teams",
+    "Scraper failures (network error, unexpected markup) surface as a readable message naming what failed",
+    "cmd/import-season and cmd/populate-db are no longer needed for a new club (they may remain for the author's use)"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/admin/service_seasons.go (around 303-316, 366)",
+      "internal/services/fixture_scraper.go",
+      "internal/services/club_scraper.go",
+      "internal/repository/league.go",
+      "internal/repository/season_copy.go",
+      "cmd/import-season/main.go (lift logic into a shared service)",
+      "templates/admin/season_copy.html"
+    ],
+    "notes": [
+      "cmd/import-season currently requires clubs to exist (lines 194-197) - the shared service must create them.",
+      "Week count defaults to 18 and second-half start is derived from it (team_eligibility.go:429-441); keep those rules as they are.",
+      "Record scraper fixtures (saved HTML) for tests so the suite does not hit bhplta.co.uk."
+    ]
+  },
+  "testing_requirements": [
+    "Service tests against saved BHPLTA HTML fixtures",
+    "Rollback test: inject a failure midway and assert no rows remain"
+  ],
+  "context": {
+    "user_story": "As a new club, I want my divisions, opponents and fixtures to appear without typing them in.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

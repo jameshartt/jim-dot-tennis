@@ -1,0 +1,53 @@
+{
+  "id": "WI-133",
+  "title": "E2E: passkeys, links, roles",
+  "description": "Extend the Playwright suite to cover the new sign-in system using Chromium's virtual authenticator, and update the shared sign-in helper so the existing suites keep working.",
+  "type": "testing",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-128",
+    "WI-129",
+    "WI-130",
+    "WI-131",
+    "WI-132"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5",
+    "rationale": "Test authoring against specified behaviour."
+  },
+  "acceptance_criteria": [
+    "Covers: enrol passkey from an invite link, sign in with it, add and remove a second passkey, recovery link ends old sessions, link reuse and expiry rejected",
+    "Covers: password fallback add/change/remove and the 'require passkeys for administrators' setting",
+    "Covers: captain reaches captain pages and is refused administrator pages",
+    "Covers: CLI `user reset` producing a working link (run inside the app container)",
+    "tests/e2e/admin/users.spec.ts now actually creates a user and changes a role",
+    "All previously passing suites still pass"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/passkeys.spec.ts",
+      "tests/e2e/account-links.spec.ts",
+      "tests/e2e/roles.spec.ts"
+    ],
+    "files_to_modify": [
+      "tests/e2e/helpers/auth.ts",
+      "tests/e2e/global-setup.ts",
+      "tests/e2e/fixtures/seed.sql",
+      "tests/e2e/auth.spec.ts"
+    ],
+    "notes": [
+      "Virtual authenticators are added through a CDP session (WebAuthn.enable / addVirtualAuthenticator) and are Chromium-only."
+    ]
+  },
+  "testing_requirements": [
+    "The suites themselves"
+  ],
+  "context": {
+    "user_story": "As the maintainer, I want the sign-in system protected by tests before other clubs depend on it.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

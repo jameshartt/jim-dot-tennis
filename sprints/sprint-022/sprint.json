@@ -1,0 +1,27 @@
+{
+  "sprint": {
+    "id": "sprint-022",
+    "name": "Packaging, CI and Releases",
+    "goal": "Turn the app into something that can be shipped: one self-contained binary and a container image per tagged version, built and tested automatically, with a visible version number, safe upgrades, and a tested backup and restore - and move jim.tennis itself onto those releases.",
+    "start_date": null,
+    "end_date": null,
+    "type": "numbered",
+    "status": "planned",
+    "programme": "club-readiness (sprints 019-024)",
+    "focus_areas": [
+      "One self-contained binary: assets embedded, no CGO",
+      "CI on every push; tagged releases with binaries and a multi-architecture image",
+      "Upgrades that back up first and stop on failure",
+      "Backup and restore as first-class, tested commands"
+    ],
+    "work_items": [
+      "WI-135",
+      "WI-136",
+      "WI-137",
+      "WI-138",
+      "WI-139",
+      "WI-140",
+      "WI-141"
+    ]
+  }
+}

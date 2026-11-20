@@ -1,0 +1,45 @@
+{
+  "id": "WI-137",
+  "title": "Operational basics: health, shutdown, strict migrations, version",
+  "description": "Bring the server up to what an unattended instance needs. Add /healthz (cheap: database ping only) and point the container health check at it instead of rendering the home page. Shut down gracefully on SIGTERM/SIGINT so in-flight requests finish and the database closes. Make a migration failure stop startup (main.go:44-45 only logs a warning today). Inject the version, commit and build date at build time; show the version in the admin footer, at /version, and in `jim-dot-tennis version`. Stop logging every static file request and the VAPID key. Validate configuration at startup with messages a non-developer can act on.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5",
+    "rationale": "A list of small, well-understood server changes."
+  },
+  "acceptance_criteria": [
+    "/healthz returns 200 only when the database is reachable and migrations are current; the Dockerfile has a HEALTHCHECK using it",
+    "SIGTERM completes in-flight requests within a timeout and exits 0",
+    "A failed or dirty migration prevents startup with a message that names the migration and the recovery steps",
+    "Version is visible in the admin footer, at /version and from the command line",
+    "Startup logs are a short, readable summary; static requests are not logged",
+    "CLAUDE.md no longer says dirty state is handled by forcing the version"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "cmd/jim-dot-tennis/main.go (42-46, 198-222)",
+      "Dockerfile",
+      "docker-compose.yml (32-37)",
+      "templates/admin (footer)",
+      "CLAUDE.md",
+      "migrations/README.md"
+    ],
+    "files_to_create": [
+      "internal/version/version.go"
+    ]
+  },
+  "testing_requirements": [
+    "Unit test for health handler",
+    "Manual: docker stop exits promptly and cleanly"
+  ],
+  "context": {
+    "user_story": "As a club operator, I want to know what version I am running and that the service is healthy.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

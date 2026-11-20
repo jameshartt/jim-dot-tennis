@@ -1,0 +1,52 @@
+{
+  "id": "WI-119",
+  "title": "Club settings page: identity, logo, colours, BHPLTA identifiers",
+  "description": "Admin-only settings page backed by app_settings. Covers: club display name; logo upload (replacing the default /static/st-anns-tennis.jpg and the HOME_CLUB_LOGO_PATH variable); primary and secondary colours (today literal in templates/admin/week_overview.html:13-14 and theme_color in main.go:159 and static/manifest.json); the BHPLTA club code, BHPLTA club name and BHPLTA club id used by match-card import (today the code comes from env while the name 'St+Anns' and id '10' are hardcoded in templates/admin/match_card_importation.html:330,336); the instance's public URL (consumed by WI-126). Uploaded logos are stored on the data volume, validated by type and size, and served from a dedicated path. Environment variables continue to override stored values where they exist today.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-116"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "New admin surface with file upload handling and config precedence rules."
+  },
+  "acceptance_criteria": [
+    "An administrator can change club name, logo, both colours and the three BHPLTA identifiers from one page",
+    "Logo upload accepts PNG, JPEG or WebP only (no SVG), enforces a size limit, and stores the file on the data volume so it survives upgrades",
+    "Templates, the dynamic manifest and the service worker use the stored name, logo and colours",
+    "Match-card import posts the stored BHPLTA name and id; nothing in templates hardcodes St Ann's values",
+    "The BHPLTA identifiers are pre-filled during setup from the chosen club where they can be derived, and the page explains where to find them otherwise",
+    "Only the admin role can open or change settings"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "internal/admin/settings.go",
+      "templates/admin/settings.html"
+    ],
+    "files_to_modify": [
+      "internal/config/config.go",
+      "templates/admin/match_card_importation.html",
+      "internal/services/matchcard_service.go (313-314)",
+      "templates/admin/week_overview.html",
+      "cmd/jim-dot-tennis/main.go (manifest 144-166)",
+      "static/manifest.json"
+    ],
+    "notes": [
+      "Do not accept SVG uploads (script injection).",
+      "Whether BHPLTA's club id can be discovered automatically is unverified - check the club scores page markup before promising it."
+    ]
+  },
+  "testing_requirements": [
+    "Handler tests for role gating and upload validation",
+    "e2e: change name and logo, see them on the week overview"
+  ],
+  "context": {
+    "user_story": "As a club administrator, I want to set my club's name, logo and league identifiers in the app so that nothing about another club shows.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

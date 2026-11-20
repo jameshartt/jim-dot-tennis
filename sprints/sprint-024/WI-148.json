@@ -1,0 +1,44 @@
+{
+  "id": "WI-148",
+  "title": "Operator guides: install, upgrade, back up, restore, troubleshoot",
+  "description": "Write the guides a club's operator follows, tested against the released images. Install: what you need (server size and rough cost, domain), pointing the domain, installing Docker, downloading the release compose file and environment template, starting, reading the setup code from the log, completing setup. Optional: turning on tournaments. Upgrade: reading upgrade notes, pulling a version, restarting, checking the version, rolling back. Backups: what is backed up, the download button, copying off the server, a restore drill. Troubleshooting: the ten most likely problems with the exact message and the fix. Account rescue: the server commands from WI-127. A privacy section: what personal data the instance holds, the club as its controller, what the instance connects to, and a short template notice a club can adapt.",
+  "type": "documentation",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "Accuracy and judgement about what a newcomer does not know matter more than volume."
+  },
+  "acceptance_criteria": [
+    "docs/install.md takes a reader from nothing to a completed setup using copy-paste commands only",
+    "docs/upgrade.md, docs/backup-and-restore.md, docs/troubleshooting.md and docs/accounts-and-recovery.md exist and match the shipped behaviour",
+    "Every command in the guides was run against the release it documents",
+    "The install guide states minimum server size with and without tournaments, from WI-142's measurements",
+    "A privacy and data-ownership section lists every outbound connection and says who has access (only the club)",
+    "No guide mentions jim.tennis, the author's server, or assumes Go is installed"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "docs/install.md",
+      "docs/upgrade.md",
+      "docs/backup-and-restore.md",
+      "docs/troubleshooting.md",
+      "docs/accounts-and-recovery.md",
+      "docs/privacy-and-data.md"
+    ],
+    "notes": [
+      "Lessons already paid for belong in troubleshooting: domain renewal lapses, recreating containers so environment changes take effect, changing the domain invalidating passkeys."
+    ]
+  },
+  "testing_requirements": [
+    "Follow each guide on a clean machine before marking done (feeds WI-151)"
+  ],
+  "context": {
+    "user_story": "As a volunteer setting this up for my club, I want instructions I can follow without being a developer.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

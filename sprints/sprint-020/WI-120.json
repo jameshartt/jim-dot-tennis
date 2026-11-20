@@ -1,0 +1,57 @@
+{
+  "id": "WI-120",
+  "title": "Remove the remaining St Ann's defaults and the dormant trigger",
+  "description": "Sweep the leftovers the Sprint 014 refactor missed. Drop trigger trg_set_managing_team_id (migrations/010, selects the managing team via name LIKE '%St Ann%'; dormant because Go always sets ManagingTeamID, but live in every database) with a new migration. Remove the HOME_CLUB_NAME default of 'St Ann' from the compose files. Replace the 'e.g. STANN' placeholder, the stanns_played filter alias, the hardcoded 'Brighton & Hove Parks Tennis League' subtitle and week-overview league image with stored values or neutral text. Fix the about page's 'four or more' wording to match the rule the code applies (locked after more than four). Remove the dead /static/img/favicon.png reference. Delete or parameterise the duplicate import scripts in scripts/ that default to club-name St+Anns / club-id 10.",
+  "type": "refactor",
+  "priority": "medium",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [
+    "WI-116"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5",
+    "rationale": "Wide but shallow sweep with a grep-verifiable end state."
+  },
+  "acceptance_criteria": [
+    "A new migration drops trg_set_managing_team_id; the down migration restores it verbatim",
+    "No compose file, template or shipped script defaults to St Ann's, its BHPLTA code, or its BHPLTA id",
+    "grep for 'St Ann' in non-test Go, templates, compose files and scripts returns only attribution text on the about/README pages",
+    "The about page states the playing-down rule exactly as team_eligibility.go applies it",
+    "Unit, e2e and multi-club suites pass"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "migrations/031_drop_managing_team_trigger.up.sql / .down.sql (tentative number)"
+    ],
+    "files_to_modify": [
+      "docker-compose.yml:23",
+      "templates/about.html",
+      "templates/admin/tournament_providers.html:73",
+      "internal/admin/service_players.go:66",
+      "templates/admin/players.html:347",
+      "templates/players/standings.html:159",
+      "templates/admin/week_overview.html:337-347",
+      "templates/index.html:9",
+      "scripts/import_all_weeks*.sh",
+      "scripts/local-import*.sh",
+      "scripts/test_matchcard_api.template.sh",
+      "scripts/import_parks_league.py"
+    ],
+    "notes": [
+      "Rule 16 locks at five or more higher-team matches (more than four). Do not change the rule, only the wording.",
+      "Attribution to St Ann's as the project's origin on the about page and README stays."
+    ]
+  },
+  "testing_requirements": [
+    "make test",
+    "make test-e2e",
+    "make test-e2e-multiclub"
+  ],
+  "context": {
+    "user_story": "As another club, I never want to see St Ann's defaults in my instance.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

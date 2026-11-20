@@ -1,0 +1,59 @@
+{
+  "id": "WI-129",
+  "title": "Invite and recovery links (no email)",
+  "description": "Accounts are created and recovered through single-use links. An administrator creates a user (username, role, optional linked player) and gets an invite link to pass on; the recipient opens it, enrols a passkey (or sets a password if they cannot), and is signed in. The same mechanism recovers an account: 'Send recovery link' in the admin UI or `user reset` on the server produces a link that lets the user enrol a new sign-in method. Using a recovery link ends all existing sessions and, by choice on the confirmation screen, removes the old passkeys and password. Links are random, stored only as a hash, expire (default 48 hours for invites, 1 hour for recovery), work once, and can be revoked. This replaces the current admin 'reset password' action, which sets a password the administrator knows and leaves old sessions alive.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-127",
+    "WI-128"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Fable 5.2",
+    "id": "claude-fable-5-2",
+    "rationale": "The recovery path is the weakest point of any passkey system and must be designed together with WI-128."
+  },
+  "acceptance_criteria": [
+    "Administrators never see or set another user's password; the old reset-password action is removed",
+    "Links are at least 128 bits of randomness, stored hashed, single-use, expiring and revocable, and are shown once at creation",
+    "Opening a link shows who it is for and what it will do before anything changes",
+    "Completing recovery ends every existing session for that user",
+    "The link page is not cacheable, is excluded from referrers (Referrer-Policy: no-referrer) and its token is never written to logs",
+    "Guessing at link URLs is throttled",
+    "Creating, revoking and using a link are recorded in the account audit log",
+    "`user reset` on the server (WI-127) prints a recovery link built from the public URL"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "migrations/0NN_account_links.up.sql / .down.sql (next free number; may be combined with the WI-128 migration)",
+      "internal/accounts/links.go",
+      "templates/account/accept_link.html"
+    ],
+    "files_to_modify": [
+      "internal/admin/users.go (136-186)",
+      "templates/admin/users.html",
+      "cmd/jim-dot-tennis/cli.go"
+    ],
+    "routes_to_add": [
+      "GET/POST /account/link/{token}",
+      "POST /admin/league/users/{id}/invite",
+      "POST /admin/league/users/{id}/recover",
+      "POST /admin/league/users/links/{id}/revoke"
+    ],
+    "notes": [
+      "users.password_hash is NOT NULL today; passkey-only users need it nullable (SQLite table rebuild in the migration).",
+      "GetAllUsers currently passes password_hash to the template (service_users_sessions.go:23) - stop that here."
+    ]
+  },
+  "testing_requirements": [
+    "Unit tests: expiry, reuse, revocation, session invalidation",
+    "e2e in WI-133"
+  ],
+  "context": {
+    "user_story": "As a club administrator, I want to invite a captain or rescue a locked-out one by sending them a link.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

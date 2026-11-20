@@ -1,0 +1,51 @@
+{
+  "id": "WI-116",
+  "title": "Setup mode: start on an empty database; home club as a stored setting",
+  "description": "Today config.Load requires a clubs row and main.go calls log.Fatalf before the server listens, so an empty database can never be set up through the UI (audit 6.3, the 'bootstrap deadlock'). Introduce an app_settings table and a 'needs setup' state. When no home club is configured and no administrator exists, the server starts normally but routes every request except static assets, /healthz and /setup to the setup flow (WI-117). The home club is resolved in this order: HOME_CLUB_ID env, HOME_CLUB_NAME env, stored setting. Because the home club can now change at runtime (when setup completes), the config middleware must read it from a holder that can be updated rather than a value frozen at startup. Also fix the latent crash where a clubs row with NULL address/website/phone_number fails to scan into models.Club and produces a misleading 'does not match any club' error.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "Touches startup, config injection and every handler's view of the home club; needs careful reasoning about state that used to be immutable."
+  },
+  "acceptance_criteria": [
+    "With an empty database and no HOME_CLUB_* variables the server starts, listens, and serves the setup entry page",
+    "A migration adds app_settings (key/value, updated_at); a settings repository provides typed getters and setters",
+    "Home club resolution order is env ID, env name, stored setting; with env set, behaviour is identical to today",
+    "Completing setup makes the home club effective without restarting the process",
+    "A clubs row with NULL optional columns loads without error",
+    "The compose health check passes on a brand-new volume",
+    "The e2e bootstrap no longer depends on a pre-seeded club for the health check (tests/e2e fixtures and audit 6.3 updated)"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "migrations/030_app_settings.up.sql / .down.sql (tentative number - take the next free one; never reuse 026)",
+      "internal/repository/settings.go",
+      "internal/setup/ (handler + state)"
+    ],
+    "files_to_modify": [
+      "internal/config/config.go",
+      "internal/config/middleware.go",
+      "cmd/jim-dot-tennis/main.go (lines 42-52 startup, 216 middleware)",
+      "internal/models/models.go (Club nullable fields, lines 107-109)",
+      "internal/repository/club.go"
+    ],
+    "notes": [
+      "admin.New and players.New currently receive the config value at construction (main.go:102,105) - they need the live holder.",
+      "Keep the helpful 'available clubs' error for the case where an env value is set but matches nothing."
+    ]
+  },
+  "testing_requirements": [
+    "Unit tests for resolution order and the NULL-column scan",
+    "Start against an empty volume in Docker and confirm health goes green"
+  ],
+  "context": {
+    "user_story": "As a new club's volunteer, I want the app to open a setup page on first start so that I never need to touch the database.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}
