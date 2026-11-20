@@ -4,17 +4,13 @@ set -e
 # Jim.Tennis Deployment Script for DigitalOcean
 
 # Configuration - Update these values
-DROPLET_IP="144.126.228.64"              # Your droplet's IP address
-SSH_USER="root"            # SSH user (usually root for initial setup)
-SSH_KEY_PATH=""            # Path to your SSH private key (leave empty for default)
-DEPLOY_DIR="/opt/jim-dot-tennis" # Deployment directory on the server
-APP_DOMAIN="jim.tennis"              # Optional: your domain if you have one
-
-# Validate configuration
-if [ -z "$DROPLET_IP" ]; then
-  echo "Error: You must set DROPLET_IP in the script."
-  exit 1
-fi
+# SERVER, SSH_KEY, REMOTE_PATH come from the environment or scripts/.deploy.env
+# (see scripts/.deploy.env.example); the script exits with a message if unset.
+. "$(cd "$(dirname "$0")" && pwd)/lib-deploy-env.sh"
+DROPLET_IP="${SERVER#*@}"
+SSH_KEY_PATH="$SSH_KEY"
+DEPLOY_DIR="$REMOTE_PATH"
+APP_DOMAIN="${APP_DOMAIN:-}"         # Optional: your domain if you have one
 
 # Determine SSH key parameter
 if [ -n "$SSH_KEY_PATH" ]; then
@@ -31,7 +27,6 @@ echo "========================================================"
 echo "Jim.Tennis Deployment to DigitalOcean"
 echo "========================================================"
 echo "Droplet IP:     $DROPLET_IP"
-echo "SSH User:       $SSH_USER"
 echo "Deploy Directory: $DEPLOY_DIR"
 echo "Domain:         ${APP_DOMAIN:-None}"
 echo "========================================================"
@@ -39,7 +34,7 @@ echo "========================================================"
 # Function to handle SSH commands with proper error handling
 function remote_command() {
   echo "Running command: $1"
-  if ! ssh $SSH_KEY_PARAM $SSH_OPTS $SSH_USER@$DROPLET_IP "$1"; then
+  if ! ssh $SSH_KEY_PARAM $SSH_OPTS $SERVER "$1"; then
     echo "Error: Command failed. Check the log for details."
     exit 1
   fi
@@ -47,7 +42,7 @@ function remote_command() {
 
 # Step 1: Test SSH connection
 echo "Testing SSH connection..."
-if ! ssh $SSH_KEY_PARAM $SSH_OPTS -q $SSH_USER@$DROPLET_IP exit; then
+if ! ssh $SSH_KEY_PARAM $SSH_OPTS -q $SERVER exit; then
   echo "Error: Cannot establish SSH connection to $DROPLET_IP"
   echo "Please check your SSH key and that the server is reachable."
   exit 1
@@ -55,7 +50,7 @@ fi
 
 # Step 2: Verify if it's a new deployment or update
 echo "Checking if this is a new deployment or an update..."
-if ssh $SSH_KEY_PARAM $SSH_OPTS $SSH_USER@$DROPLET_IP "[ -d $DEPLOY_DIR/.git ]"; then
+if ssh $SSH_KEY_PARAM $SSH_OPTS $SERVER "[ -d $DEPLOY_DIR/.git ]"; then
   echo "Existing deployment found. Updating..."
   IS_UPDATE=true
 else
@@ -64,10 +59,10 @@ else
 
   # Transfer and run the server setup script
   echo "Transferring server setup script..."
-  scp $SSH_KEY_PARAM $SCP_OPTS scripts/digitalocean-server-setup.sh $SSH_USER@$DROPLET_IP:/tmp/
+  scp $SSH_KEY_PARAM $SCP_OPTS scripts/digitalocean-server-setup.sh $SERVER:/tmp/
   
   echo "Running server setup script..."
-  remote_command "chmod +x /tmp/digitalocean-server-setup.sh && sudo /tmp/digitalocean-server-setup.sh"
+  remote_command "chmod +x /tmp/digitalocean-server-setup.sh && sudo APP_DIR=$DEPLOY_DIR /tmp/digitalocean-server-setup.sh"
 fi
 
 # Step 3: Transfer application files
@@ -81,7 +76,7 @@ if [ "$IS_UPDATE" = true ]; then
   rsync -avz --exclude '.git' --exclude '.vscode' --exclude 'tennis.db' \
     --exclude 'node_modules' --exclude '.cursor' --exclude '.DS_Store' \
     -e "ssh $SSH_KEY_PARAM $SSH_OPTS" \
-    ./ $SSH_USER@$DROPLET_IP:$DEPLOY_DIR/
+    ./ $SERVER:$DEPLOY_DIR/
 else
   # For new deployments, we'll create a tarball and extract it on the server
   echo "Creating deployment archive..."
@@ -90,7 +85,7 @@ else
       -czf /tmp/jim-tennis-deploy.tar.gz .
   
   echo "Uploading deployment archive..."
-  scp $SSH_KEY_PARAM $SCP_OPTS /tmp/jim-tennis-deploy.tar.gz $SSH_USER@$DROPLET_IP:/tmp/
+  scp $SSH_KEY_PARAM $SCP_OPTS /tmp/jim-tennis-deploy.tar.gz $SERVER:/tmp/
   
   echo "Extracting archive on the server..."
   remote_command "mkdir -p $DEPLOY_DIR && tar -xzf /tmp/jim-tennis-deploy.tar.gz -C $DEPLOY_DIR && rm /tmp/jim-tennis-deploy.tar.gz"
@@ -118,7 +113,7 @@ $APP_DOMAIN {
 EOF
   
   # Upload Caddyfile
-  scp $SSH_KEY_PARAM $SCP_OPTS /tmp/Caddyfile $SSH_USER@$DROPLET_IP:$DEPLOY_DIR/
+  scp $SSH_KEY_PARAM $SCP_OPTS /tmp/Caddyfile $SERVER:$DEPLOY_DIR/
   rm /tmp/Caddyfile
   
   # Add Caddy service to docker-compose if needed
@@ -147,7 +142,7 @@ volumes:
 EOF
   
   # Upload docker-compose override
-  scp $SSH_KEY_PARAM $SCP_OPTS /tmp/docker-compose.override.yml $SSH_USER@$DROPLET_IP:$DEPLOY_DIR/
+  scp $SSH_KEY_PARAM $SCP_OPTS /tmp/docker-compose.override.yml $SERVER:$DEPLOY_DIR/
   rm /tmp/docker-compose.override.yml
 fi
 
@@ -171,4 +166,4 @@ else
 fi
 
 echo "To check the logs, run:"
-echo "ssh $SSH_USER@$DROPLET_IP \"cd $DEPLOY_DIR && docker-compose logs -f\"" 
+echo "ssh $SERVER \"cd $DEPLOY_DIR && docker-compose logs -f\"" 

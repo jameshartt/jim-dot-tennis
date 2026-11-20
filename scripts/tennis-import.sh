@@ -123,7 +123,7 @@ run_import() {
     
     # Build the Docker command
     docker run --rm \
-        --volume /opt/jim-dot-tennis:/app \
+        --volume "${APP_DIR:-$PWD}":/app \
         --volume jim-dot-tennis-data:/app/data \
         --workdir /app \
         --env TENNIS_NONCE="$TENNIS_NONCE" \

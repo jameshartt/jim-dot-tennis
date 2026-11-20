@@ -16,7 +16,7 @@ services:
       - PORT=8080
       - DB_TYPE=sqlite3
       - DB_PATH=/app/data/tennis.db
-      - WRAPPED_ACCESS_PASSWORD=${WRAPPED_ACCESS_PASSWORD}
+      - WRAPPED_ACCESS_PASSWORD=${WRAPPED_ACCESS_PASSWORD:?Set WRAPPED_ACCESS_PASSWORD in .env}
       - HOME_CLUB_ID=${HOME_CLUB_ID:-}
       - HOME_CLUB_NAME=${HOME_CLUB_NAME:-St Ann}
       - BHPLTA_CLUB_CODE=${BHPLTA_CLUB_CODE}
@@ -76,8 +76,8 @@ services:
       - REDIS_PORT=6379
       - DB_HOST=localhost
       - DB_PORT=3838
-      - DB_USER=admin
-      - DB_PASS=adminpass
+      - DB_USER=${COURTHIVE_DB_USER:?Set COURTHIVE_DB_USER in .env}
+      - DB_PASS=${COURTHIVE_DB_PASS:?Set COURTHIVE_DB_PASS in .env}
     command: sh -c "npx net-level-server & node build/src/main.js"
     networks:
       - tennis-network

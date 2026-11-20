@@ -819,7 +819,7 @@ For actual working configurations:
 ```
                               ┌──────────────────────────────────┐
                               │    DigitalOcean Droplet          │
-                              │    (144.126.228.64)              │
+                              │    (<server-ip>)              │
                               └──────────────────────────────────┘
                                               │
                                               │ Port 80/443
@@ -976,8 +976,8 @@ Static File Serving (via Caddy/Nginx):
    
    DB_HOST=localhost
    DB_PORT=3838
-   DB_USER=admin
-   DB_PASS=adminpass
+   DB_USER=<courthive-db-user>
+   DB_PASS=<courthive-db-password>
    
    MAILGUN_API_KEY='optional-for-email'
    MAILGUN_HOST='api.eu.mailgun.net'
@@ -1164,8 +1164,8 @@ Static File Serving (via Caddy/Nginx):
          - REDIS_PORT=6379
          - DB_HOST=localhost
          - DB_PORT=3838
-         - DB_USER=admin
-         - DB_PASS=adminpass
+         - DB_USER=<courthive-db-user>
+         - DB_PASS=<courthive-db-password>
        networks:
          - tennis-network
        healthcheck:
@@ -1367,9 +1367,9 @@ Static File Serving (via Caddy/Nginx):
    
    # Jim.Tennis + CourtHive Deployment Script
    
-   DROPLET_IP="144.126.228.64"
+   DROPLET_IP="<server-ip>"
    SSH_USER="root"
-   DEPLOY_DIR="/opt/jim-dot-tennis"
+   DEPLOY_DIR="$REMOTE_PATH"
    APP_DOMAIN="jim.tennis"
    
    echo "========================================================"
@@ -1493,7 +1493,7 @@ Static File Serving (via Caddy/Nginx):
    systemctl enable docker
    
    # Create deployment directory
-   mkdir -p /opt/jim-dot-tennis
+   mkdir -p $REMOTE_PATH
    
    # Create system user for running services
    if ! id -u jimtennis > /dev/null 2>&1; then
@@ -1504,7 +1504,7 @@ Static File Serving (via Caddy/Nginx):
    usermod -aG docker jimtennis
    
    # Set ownership
-   chown -R jimtennis:jimtennis /opt/jim-dot-tennis
+   chown -R jimtennis:jimtennis $REMOTE_PATH
    
    echo "Server preparation complete!"
    ```
@@ -1520,12 +1520,12 @@ Static File Serving (via Caddy/Nginx):
 
 1. **SSH into server:**
    ```bash
-   ssh root@144.126.228.64
+   ssh $SERVER
    ```
 
 2. **Create backup:**
    ```bash
-   cd /opt/jim-dot-tennis
+   cd $REMOTE_PATH
    docker-compose exec app sqlite3 /app/data/tennis.db ".backup /app/data/tennis-pre-courthive-$(date +%Y%m%d).db"
    docker cp jim-dot-tennis:/app/data/tennis-pre-courthive-*.db ~/backups/
    
@@ -1540,8 +1540,8 @@ Static File Serving (via Caddy/Nginx):
 
 1. **Run preparation script:**
    ```bash
-   scp scripts/prepare-server-courthive.sh root@144.126.228.64:/tmp/
-   ssh root@144.126.228.64 "chmod +x /tmp/prepare-server-courthive.sh && /tmp/prepare-server-courthive.sh"
+   scp scripts/prepare-server-courthive.sh $SERVER:/tmp/
+   ssh $SERVER "chmod +x /tmp/prepare-server-courthive.sh && /tmp/prepare-server-courthive.sh"
    ```
 
 #### Step 4.3: Deploy Integrated System
@@ -1560,15 +1560,15 @@ Static File Serving (via Caddy/Nginx):
 
 3. **SSH to server and verify:**
    ```bash
-   ssh root@144.126.228.64
-   cd /opt/jim-dot-tennis
+   ssh $SERVER
+   cd $REMOTE_PATH
    docker-compose ps
    docker-compose logs -f courthive-server
    ```
 
 #### Step 4.4: Configure DNS (if not already done)
 
-Ensure your domain `jim.tennis` points to `144.126.228.64`:
+Ensure your domain `jim.tennis` points to `<server-ip>`:
 
 ```bash
 # Check DNS propagation
@@ -1589,12 +1589,12 @@ nslookup jim.tennis
 2. **Copy seed script to production server:**
    ```bash
    # From local machine
-   scp /path/to/competition-factory-server/seed-admin.js root@144.126.228.64:/tmp/
+   scp /path/to/competition-factory-server/seed-admin.js $SERVER:/tmp/
    ```
 
 3. **Copy script into the running container:**
    ```bash
-   ssh root@144.126.228.64
+   ssh $SERVER
    docker cp /tmp/seed-admin.js courthive-server:/app/
    rm /tmp/seed-admin.js  # Clean up
    ```
@@ -1690,7 +1690,7 @@ nslookup jim.tennis
 2. **Add cron job for monitoring:**
    ```bash
    # On server, add to crontab
-   */15 * * * * /opt/jim-dot-tennis/scripts/health-check.sh >> /var/log/tennis-health.log 2>&1
+   */15 * * * * $REMOTE_PATH/scripts/health-check.sh >> /var/log/tennis-health.log 2>&1
    ```
 
 ---
@@ -2035,8 +2035,8 @@ curl http://localhost/api/courthive/
 ./scripts/deploy-courthive-integrated.sh
 
 # 6. Verify on production
-ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker-compose ps"
-ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker-compose logs -f"
+ssh $SERVER "cd $REMOTE_PATH && docker-compose ps"
+ssh $SERVER "cd $REMOTE_PATH && docker-compose logs -f"
 
 # 7. Test production endpoints
 curl https://jim.tennis/
@@ -2049,7 +2049,7 @@ curl https://jim.tennis/api/courthive/
 
 1. **Check all services are running:**
    ```bash
-   ssh root@144.126.228.64
+   ssh $SERVER
    docker-compose ps
    # Should show: app, redis, courthive-server, caddy, backup
    ```
@@ -2210,8 +2210,8 @@ If deployment fails, quickly revert to previous version:
 
 ```bash
 # SSH to server
-ssh root@144.126.228.64
-cd /opt/jim-dot-tennis
+ssh $SERVER
+cd $REMOTE_PATH
 
 # Stop new services
 docker-compose down
@@ -2233,10 +2233,10 @@ If database corruption occurs:
 
 ```bash
 # SSH to server
-ssh root@144.126.228.64
+ssh $SERVER
 
 # Stop application
-cd /opt/jim-dot-tennis
+cd $REMOTE_PATH
 docker-compose stop app
 
 # Restore database
@@ -2252,10 +2252,10 @@ For major issues:
 
 ```bash
 # SSH to server
-ssh root@144.126.228.64
+ssh $SERVER
 
 # Stop everything
-cd /opt/jim-dot-tennis
+cd $REMOTE_PATH
 docker-compose down -v  # WARNING: Removes volumes
 
 # Restore volumes from backup
@@ -2416,8 +2416,8 @@ REDIS_PORT=6379
 # Database (optional for LevelDB)
 DB_HOST=localhost
 DB_PORT=3838
-DB_USER=admin
-DB_PASS=adminpass
+DB_USER=<courthive-db-user>
+DB_PASS=<courthive-db-password>
 
 # Email (optional)
 MAILGUN_API_KEY=
@@ -2757,7 +2757,7 @@ Error: Illegal arguments: string, undefined
    (async () => {
      const db = new nl();
      await db.open('localhost', 3838);
-     await db.auth('admin', 'adminpass');
+     await db.auth('<courthive-db-user>', '<courthive-db-password>');
      await db.use('user', {create: true});
      await db.del('user@example.com');
      process.exit(0);
@@ -2826,16 +2826,16 @@ Good luck with your deployment!
 
 ### Phase 2-5: Production Deployment Completed ✅
 
-The production deployment to `jim.tennis` (144.126.228.64) was completed successfully on 2026-01-19. This section documents the actual hurdles encountered and solutions applied.
+The production deployment to `jim.tennis` (<server-ip>) was completed successfully on 2026-01-19. This section documents the actual hurdles encountered and solutions applied.
 
 ### Production Environment Details
 
-- **Server:** DigitalOcean droplet at 144.126.228.64
+- **Server:** DigitalOcean droplet at <server-ip>
 - **Domain:** jim.tennis (DNS already configured)
-- **SSH Access:** `ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64`
-- **Deployment Path:** `/opt/jim-dot-tennis/`
-- **User:** james.hartt (admin role)
-- **CourtHive Admin:** jameshartt@gmail.com / SecureP@ssw0rd2026!
+- **SSH Access:** `ssh -i $SSH_KEY $SERVER`
+- **Deployment Path:** `$REMOTE_PATH/`
+- **User:** <admin-username> (admin role)
+- **CourtHive Admin:** <courthive-admin-email> / <courthive-admin-password>
 
 ### Deployment Hurdles and Solutions
 
@@ -2843,14 +2843,14 @@ The production deployment to `jim.tennis` (144.126.228.64) was completed success
 
 **Symptom:**
 ```
-unable to prepare context: path "/opt/competition-factory-server" not found
+unable to prepare context: path "$REMOTE_PATH/competition-factory-server" not found
 ```
 
 **Root Cause:** The docker-compose.courthive.yml was created with relative paths `../competition-factory-server` suitable for local development structure, but production had the files at `./competition-factory-server`.
 
 **Solution:**
 ```bash
-cd /opt/jim-dot-tennis
+cd $REMOTE_PATH
 sed -i 's|context: ../competition-factory-server|context: ./competition-factory-server|g' docker-compose.courthive.yml
 sed -i 's|../competition-factory-server|./competition-factory-server|g' docker-compose.courthive.yml
 sed -i 's|../TMX/dist|./TMX/dist|g' docker-compose.courthive.yml
@@ -2873,9 +2873,9 @@ failed to calculate checksum: "/pnpm-workspace.yaml": not found
 **Solution:**
 ```bash
 rsync -avz --exclude='node_modules' --exclude='dist' --exclude='.git' \
-  -e "ssh -i ~/.ssh/digital_ocean_ssh" \
+  -e "ssh -i $SSH_KEY" \
   /home/jameshartt/Development/Tennis/competition-factory-server/ \
-  root@144.126.228.64:/opt/jim-dot-tennis/competition-factory-server/
+  $SERVER:$REMOTE_PATH/competition-factory-server/
 ```
 
 **Lesson:** Always transfer complete source for Docker builds, not just the Dockerfile.
@@ -2954,13 +2954,13 @@ jim.tennis {
 **Solution:**
 ```bash
 # Transfer updated templates
-rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
+rsync -avz --delete -e "ssh -i $SSH_KEY" \
   /home/jameshartt/Development/Tennis/jim-dot-tennis/templates/ \
-  root@144.126.228.64:/opt/jim-dot-tennis/templates/
+  $SERVER:$REMOTE_PATH/templates/
 
 # Rebuild and restart app
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose build app && docker compose up -d app"
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose build app && docker compose up -d app"
 ```
 
 **Verification:**
@@ -2981,23 +2981,23 @@ curl -s https://jim.tennis/ | grep "Tournament Management"
 - Local code: `/admin/league/*` routes
 
 **Files affected:**
-- `/opt/jim-dot-tennis/cmd/jim-dot-tennis/main.go`
-- `/opt/jim-dot-tennis/internal/admin/handler.go`
+- `$REMOTE_PATH/cmd/jim-dot-tennis/main.go`
+- `$REMOTE_PATH/internal/admin/handler.go`
 
 **Solution:**
 ```bash
 # Transfer updated source code from courthive-integration branch
-rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
+rsync -avz --delete -e "ssh -i $SSH_KEY" \
   /home/jameshartt/Development/Tennis/jim-dot-tennis/internal/ \
-  root@144.126.228.64:/opt/jim-dot-tennis/internal/
+  $SERVER:$REMOTE_PATH/internal/
 
-rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
+rsync -avz --delete -e "ssh -i $SSH_KEY" \
   /home/jameshartt/Development/Tennis/jim-dot-tennis/cmd/ \
-  root@144.126.228.64:/opt/jim-dot-tennis/cmd/
+  $SERVER:$REMOTE_PATH/cmd/
 
 # Rebuild and restart
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose build app && docker compose up -d app"
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose build app && docker compose up -d app"
 ```
 
 **Verification:**
@@ -3018,7 +3018,7 @@ curl -I https://jim.tennis/admin/league
 
 **Solution:** Created admin user directly inside the courthive-server container:
 ```bash
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker exec courthive-server node -e \"
+ssh -i $SSH_KEY $SERVER "docker exec courthive-server node -e \"
 const bcrypt = require('bcryptjs');
 const netLevelClient = require('@gridspace/net-level-client');
 
@@ -3028,10 +3028,10 @@ async function createAdminUser() {
   try {
     console.log('Connecting to LevelDB...');
     await db.open('localhost', 3838);
-    await db.auth('admin', 'adminpass');
+    await db.auth('<courthive-db-user>', '<courthive-db-password>');
     await db.use('user', { create: true });
     
-    const email = 'jameshartt@gmail.com';
+    const email = '<courthive-admin-email>';
     
     // Check if user already exists
     try {
@@ -3046,7 +3046,7 @@ async function createAdminUser() {
     }
     
     console.log('Hashing password...');
-    const hashedPassword = await bcrypt.hash('SecureP@ssw0rd2026!', 10);
+    const hashedPassword = await bcrypt.hash('<courthive-admin-password>', 10);
     
     const user = {
       email,
@@ -3072,7 +3072,7 @@ createAdminUser();
 ```
 
 **Verification:**
-- Login at `https://jim.tennis/tournaments` with `jameshartt@gmail.com` / `SecureP@ssw0rd2026!` successful
+- Login at `https://jim.tennis/tournaments` with `<courthive-admin-email>` / `<courthive-admin-password>` successful
 - Can create tournaments and manage competitions
 
 **Lesson:** User seeding should be part of the deployment checklist, especially for services with separate authentication systems.
@@ -3108,24 +3108,24 @@ When you've made changes to Go source code, templates, or static files:
 cd /home/jameshartt/Development/Tennis/jim-dot-tennis
 
 # Transfer updated files
-rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
-  internal/ root@144.126.228.64:/opt/jim-dot-tennis/internal/
+rsync -avz --delete -e "ssh -i $SSH_KEY" \
+  internal/ $SERVER:$REMOTE_PATH/internal/
 
-rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
-  cmd/ root@144.126.228.64:/opt/jim-dot-tennis/cmd/
+rsync -avz --delete -e "ssh -i $SSH_KEY" \
+  cmd/ $SERVER:$REMOTE_PATH/cmd/
 
-rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
-  templates/ root@144.126.228.64:/opt/jim-dot-tennis/templates/
+rsync -avz --delete -e "ssh -i $SSH_KEY" \
+  templates/ $SERVER:$REMOTE_PATH/templates/
 
-rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
-  static/ root@144.126.228.64:/opt/jim-dot-tennis/static/
+rsync -avz --delete -e "ssh -i $SSH_KEY" \
+  static/ $SERVER:$REMOTE_PATH/static/
 
 # Rebuild and restart (takes ~60-90 seconds)
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose build app && docker compose up -d app"
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose build app && docker compose up -d app"
 
 # Watch logs to verify restart
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker logs -f jim-dot-tennis"
 ```
 
@@ -3148,8 +3148,8 @@ BASE_URL="tournaments" \
 pnpm build
 
 # Transfer to production
-rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
-  dist/ root@144.126.228.64:/opt/jim-dot-tennis/TMX/dist/
+rsync -avz --delete -e "ssh -i $SSH_KEY" \
+  dist/ $SERVER:$REMOTE_PATH/TMX/dist/
 
 # No restart needed - Caddy serves static files
 # Test immediately
@@ -3174,8 +3174,8 @@ ENVIRONMENT="production" \
 pnpm build
 
 # Transfer to production
-rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
-  dist/ root@144.126.228.64:/opt/jim-dot-tennis/courthive-public/dist/
+rsync -avz --delete -e "ssh -i $SSH_KEY" \
+  dist/ $SERVER:$REMOTE_PATH/courthive-public/dist/
 
 # No restart needed
 curl -I https://jim.tennis/public
@@ -3194,15 +3194,15 @@ When you've made changes to competition-factory-server:
 # Transfer updated source
 cd /home/jameshartt/Development/Tennis/competition-factory-server
 rsync -avz --exclude='node_modules' --exclude='dist' --exclude='.git' \
-  -e "ssh -i ~/.ssh/digital_ocean_ssh" \
-  ./ root@144.126.228.64:/opt/jim-dot-tennis/competition-factory-server/
+  -e "ssh -i $SSH_KEY" \
+  ./ $SERVER:$REMOTE_PATH/competition-factory-server/
 
 # Rebuild and restart (takes ~90-120 seconds)
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose build courthive-server && docker compose up -d courthive-server"
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose build courthive-server && docker compose up -d courthive-server"
 
 # Watch logs
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker logs -f courthive-server"
 ```
 
@@ -3216,21 +3216,21 @@ ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
 
 ```bash
 # All services
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose logs -f"
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose logs -f"
 
 # Specific service
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker logs -f jim-dot-tennis"
 
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker logs -f courthive-server"
 
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker logs -f tennis-caddy"
 
 # Last 50 lines only
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker logs --tail 50 jim-dot-tennis"
 ```
 
@@ -3240,11 +3240,11 @@ ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
 
 ```bash
 # Container status
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker compose ps"
 
 # Resource usage
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker stats --no-stream"
 
 # Endpoint health
@@ -3261,19 +3261,19 @@ curl https://jim.tennis/api/courthive/
 
 ```bash
 # Restart all services
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose restart"
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose restart"
 
 # Restart specific service
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose restart app"
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose restart app"
 
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose restart courthive-server"
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose restart courthive-server"
 
 # Stop and start (full restart)
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose down && docker compose up -d"
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose down && docker compose up -d"
 ```
 
 ---
@@ -3281,7 +3281,7 @@ ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
 #### 8. Create CourtHive Admin User
 
 ```bash
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker exec -i courthive-server node" << 'EOFNODE'
+ssh -i $SSH_KEY $SERVER "docker exec -i courthive-server node" << 'EOFNODE'
 const bcrypt = require('bcryptjs');
 const netLevelClient = require('@gridspace/net-level-client');
 
@@ -3290,7 +3290,7 @@ async function createAdminUser() {
   
   try {
     await db.open('localhost', 3838);
-    await db.auth('admin', 'adminpass');
+    await db.auth('<courthive-db-user>', '<courthive-db-password>');
     await db.use('user', { create: true });
     
     const email = 'newuser@example.com';
@@ -3331,21 +3331,21 @@ EOFNODE
 # Backups stored in: tennis-backups volume
 
 # List backups
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker run --rm -v jim-dot-tennis-backups:/backups alpine ls -lh /backups"
 
 # Manual backup
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker run --rm -v jim-dot-tennis-data:/data -v jim-dot-tennis-backups:/backups alpine \
   sh -c 'apk add sqlite && sqlite3 /data/tennis.db \".backup /backups/manual-$(date +%Y%m%d-%H%M%S).db\"'"
 
 # Download backup to local machine
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker run --rm -v jim-dot-tennis-backups:/backups alpine cat /backups/tennis-20260119-120000.db" \
   > ~/backups/tennis-20260119.db
 
 # CourtHive data (LevelDB)
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker run --rm -v courthive-data:/data alpine tar czf - -C /data ." \
   > ~/backups/courthive-data-$(date +%Y%m%d).tar.gz
 ```
@@ -3356,12 +3356,12 @@ ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
 
 ```bash
 # Edit .env file on production
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "nano /opt/jim-dot-tennis/.env"
+ssh -i $SSH_KEY $SERVER \
+  "nano $REMOTE_PATH/.env"
 
 # After editing, restart affected services
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose up -d"
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose up -d"
 ```
 
 **Warning:** Changing environment variables requires container restart.
@@ -3377,11 +3377,11 @@ Caddy handles SSL automatically, but you can check certificate status:
 curl -vI https://jim.tennis/ 2>&1 | grep -A 5 "Server certificate"
 
 # Force certificate renewal (rarely needed)
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker compose restart caddy"
 
 # View Caddy logs for certificate issues
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker logs tennis-caddy | grep -i cert"
 ```
 
@@ -3392,46 +3392,46 @@ ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
 **Issue: Site not responding**
 ```bash
 # Check if containers are running
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker compose ps"
+ssh -i $SSH_KEY $SERVER "docker compose ps"
 
 # Check Caddy logs
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker logs --tail 50 tennis-caddy"
+ssh -i $SSH_KEY $SERVER "docker logs --tail 50 tennis-caddy"
 
 # Restart Caddy
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker compose restart caddy"
+ssh -i $SSH_KEY $SERVER "docker compose restart caddy"
 ```
 
 **Issue: API errors**
 ```bash
 # Check courthive-server logs
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker logs --tail 100 courthive-server"
+ssh -i $SSH_KEY $SERVER "docker logs --tail 100 courthive-server"
 
 # Check if Redis is running
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker exec courthive-redis redis-cli ping"
+ssh -i $SSH_KEY $SERVER "docker exec courthive-redis redis-cli ping"
 # Should return: PONG
 
 # Restart courthive-server
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker compose restart courthive-server"
+ssh -i $SSH_KEY $SERVER "docker compose restart courthive-server"
 ```
 
 **Issue: Admin login not working**
 ```bash
 # Check jim-dot-tennis logs
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker logs --tail 50 jim-dot-tennis | grep -i auth"
+ssh -i $SSH_KEY $SERVER "docker logs --tail 50 jim-dot-tennis | grep -i auth"
 
 # Check database exists
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker exec jim-dot-tennis ls -lh /app/data/tennis.db"
 ```
 
 **Issue: TMX login not working**
 ```bash
 # Check if LevelDB server is running
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker exec courthive-server ps aux | grep net-level"
 
 # Check if user exists
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker exec courthive-server cat /app/data/.users"
 ```
 
@@ -3496,7 +3496,7 @@ ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
 - ✅ JWT secrets configured (COURTHIVE_JWT_SECRET)
 - ✅ Database credentials not exposed
 - ✅ Environment variables in .env (not committed to git)
-- ✅ LevelDB authentication (admin/adminpass - change in production)
+- ✅ LevelDB authentication (<courthive-db-user>/<courthive-db-password>)
 - ✅ SSH key authentication (no password login)
 
 **TODO for enhanced security:**

@@ -112,7 +112,7 @@ Almost nothing here requires a rewrite. The highest-risk items are mostly S-effo
 
 | # | Candidate | Risk addressed | Effort | Status |
 |---|-----------|----------------|--------|--------|
-| 1 | Rotate CourtHive admin password + scrub from docs | Prod admin compromise | S | open |
+| 1 | Rotate CourtHive admin password + scrub from docs | Prod admin compromise | S | ✅ done 2026-11-20 - credentials, server IP, SSH key path and deploy paths scrubbed from tracked files (WI-112); scripts read untracked `scripts/.deploy.env`; rotation done by the owner on the server |
 | 2 | Deploy hardening (sync set, pre-deploy backup, image tag rollback) | Bad deploy = data loss window | S–M | open |
 | 3 | Test a droplet snapshot restore; confirm snapshot cadence | Untested recovery path | S | open |
 | 4 | Auth-gate push endpoints | Anonymous broadcast to all subscribers | M | ✅ done 2026-10-06 — broadcast + VAPID reset admin-only, status oracle removed |
@@ -138,7 +138,7 @@ Almost nothing here requires a rewrite. The highest-risk items are mostly S-effo
 **Mitigated by droplet snapshots** (owner confirmed, 2026-07-02). Residual risks: (a) a restore from snapshot has never been exercised — the recovery path is assumption, not procedure; (b) snapshot cadence determines the data-loss window (manual snapshots drift; DO scheduled snapshots are weekly, so the in-container daily sqlite backup is still the finer-grained layer — but it lives on the snapshotted disk, which is fine). The in-repo claims remain wrong: `docs/docker_setup.md:141` says S3/B2 offsite support exists but `scripts/backup-manager.sh` has only commented-out template code.
 **Fix (S):** do one test restore from a snapshot to a throwaway droplet and write the steps into `docs/PRODUCTION_QUICK_REFERENCE.md`; confirm snapshots are on a schedule, not memory; correct the docker_setup.md claim.
 
-### 1.2 CourtHive admin password tracked in git — HIGH *(revised: wrapped passwords accepted)*
+### 1.2 CourtHive admin password tracked in git - DONE 2026-11-20 (scrubbed, WI-112) — HIGH *(revised: wrapped passwords accepted)*
 `git grep` confirms the CourtHive admin password in `docs/PRODUCTION_QUICK_REFERENCE.md` (~line 389) and `COURTHIVE_SETUP.md`. The repo has a GitHub remote; it lives in history forever. *(The `WRAPPED_ACCESS_PASSWORD` values also present in docs are accepted as committed — the gate is deliberately decorative, see §2.5.)*
 **Fix (S):** rotate the CourtHive admin password; replace the doc value with a pointer to the server `.env`.
 
@@ -149,7 +149,7 @@ Almost nothing here requires a rewrite. The highest-risk items are mostly S-effo
 
 ### 1.4 Deploy fragility: sync gaps, no rollback, repo/prod divergence — PARTIAL
 - ~~`scripts/deploy-app.sh:67` syncs only `internal cmd templates static migrations` — **not** `go.mod`/`go.sum`, nor `Dockerfile`~~ ✅ **fixed 2026-07-02** — the script now also syncs `go.mod`, `go.sum`, `Dockerfile`, `Dockerfile.import`, `.dockerignore`, and (best-effort) takes a pre-deploy sqlite `.backup` + tags the running image `jim-dot-tennis-app:prev` before building. Verified against prod (deployed the §7.1 Dockerfile this way: image is now Alpine 3.23.5 and `.env` no longer leaks into it). Compose files remain **deliberately unsynced** (prod compose has diverged from the repo — see below).
-- `docker-compose.courthive.yml` in the repo still describes the **pre-Postgres** stack (LevelDB/net-level, hardcoded `admin/adminpass`, port 4040 published). Production's post-cutover compose exists only as a doc artifact (`docs/courthive_postgres_phase2c.docker-compose.courthive.yml`). Disaster recovery from the repo would resurrect the dead stack.
+- `docker-compose.courthive.yml` in the repo still describes the **pre-Postgres** stack (LevelDB/net-level, hardcoded `admin/<courthive-db-password>`, port 4040 published). Production's post-cutover compose exists only as a doc artifact (`docs/courthive_postgres_phase2c.docker-compose.courthive.yml`). Disaster recovery from the repo would resurrect the dead stack.
 - No rollback: `docker compose build app` overwrites the only image; migrations auto-apply on start with no pre-deploy backup; daily backup means a botched migration can cost up to 24h of data.
 - ~~`deploy-with-import.sh` rsyncs `./` wholesale (would push `.go-mod-cache/` 228MB + local `.env` over prod's)~~ ✅ **deleted 2026-07-02** (unreferenced, superseded by `deploy-app.sh`). `deploy-digitalocean.sh` still half-duplicates config but is referenced in `docs/`, so it stays for now.
 **Fix (S–M):** extend `deploy-app.sh`'s sync set; add pre-deploy sqlite `.backup` + `docker tag jim-dot-tennis:latest :prev` before build; copy the real prod compose back into the repo; delete `deploy-with-import.sh`.

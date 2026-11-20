@@ -1,9 +1,9 @@
 # Production Quick Reference - jim.tennis
 
-**Server:** 144.126.228.64
+**Server:** set in your own `scripts/.deploy.env` (`SERVER`, `SSH_KEY`, `REMOTE_PATH`; see `scripts/.deploy.env.example`). Commands below use these variables - `export` them (or `source scripts/.deploy.env`) first.
 **Domain:** jim.tennis
-**SSH:** `ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64`
-**Path:** `/opt/jim-dot-tennis/`
+**SSH:** `ssh -i $SSH_KEY $SERVER`
+**Path:** `$REMOTE_PATH/`
 **Go Version:** 1.26 (bumped from 1.25 on 2026-09-25; runtime image alpine:3.24)
 
 ---
@@ -26,12 +26,12 @@ cd ~/Development/Tennis/jim-dot-tennis
 ```bash
 # Transfer and rebuild
 cd ~/Development/Tennis/jim-dot-tennis
-rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" internal/ root@144.126.228.64:/opt/jim-dot-tennis/internal/
-rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" cmd/ root@144.126.228.64:/opt/jim-dot-tennis/cmd/
-rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" templates/ root@144.126.228.64:/opt/jim-dot-tennis/templates/
-rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" static/ root@144.126.228.64:/opt/jim-dot-tennis/static/
-rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" migrations/ root@144.126.228.64:/opt/jim-dot-tennis/migrations/
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker compose build app && docker compose up -d app"
+rsync -avz --delete -e "ssh -i $SSH_KEY" internal/ $SERVER:$REMOTE_PATH/internal/
+rsync -avz --delete -e "ssh -i $SSH_KEY" cmd/ $SERVER:$REMOTE_PATH/cmd/
+rsync -avz --delete -e "ssh -i $SSH_KEY" templates/ $SERVER:$REMOTE_PATH/templates/
+rsync -avz --delete -e "ssh -i $SSH_KEY" static/ $SERVER:$REMOTE_PATH/static/
+rsync -avz --delete -e "ssh -i $SSH_KEY" migrations/ $SERVER:$REMOTE_PATH/migrations/
+ssh -i $SSH_KEY $SERVER "cd $REMOTE_PATH && docker compose build app && docker compose up -d app"
 ```
 
 > **Do not forget `migrations/`!** Migrations are `COPY`'d into the Docker image at build time and run automatically on app startup. If new migrations exist in the source but are missing from the server, the build will bake in stale migration files and the app will fail with "no such column" errors at runtime. (The script always includes them.)
@@ -49,7 +49,7 @@ cd ~/Development/Tennis/TMX
 git checkout jim-tennis-deploy   # MUST build from this branch — see warning below
 nvm use 24
 pnpm build                # Uses .env.production → https://jim.tennis/api/courthive
-rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" dist/ root@144.126.228.64:/opt/jim-dot-tennis/TMX/dist/
+rsync -avz --delete -e "ssh -i $SSH_KEY" dist/ $SERVER:$REMOTE_PATH/TMX/dist/
 ```
 
 > **⚠️ Build ONLY from the `jim-tennis-deploy` branch.** The production `.env.production`
@@ -83,7 +83,7 @@ rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" dist/ root@144.126.228.
 cd ~/Development/Tennis/courthive-public
 nvm use 20
 pnpm build                # Uses .env.production → https://jim.tennis/api/courthive
-rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" dist/ root@144.126.228.64:/opt/jim-dot-tennis/courthive-public/dist/
+rsync -avz --delete -e "ssh -i $SSH_KEY" dist/ $SERVER:$REMOTE_PATH/courthive-public/dist/
 ```
 
 > **Remember to rebuild for local after deploying:** `pnpm build --mode development`
@@ -99,11 +99,11 @@ rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" dist/ root@144.126.228.
 ```bash
 # Transfer and rebuild
 cd ~/Development/Tennis/competition-factory-server
-rsync -avz --delete --exclude='node_modules' --exclude='dist' --exclude='.git' --exclude='build' --exclude='backups' --exclude='.env' -e "ssh -i ~/.ssh/digital_ocean_ssh" ./ root@144.126.228.64:/opt/competition-factory-server/
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker compose stop courthive-server && docker compose build courthive-server && docker compose up -d courthive-server"
+rsync -avz --delete --exclude='node_modules' --exclude='dist' --exclude='.git' --exclude='build' --exclude='backups' --exclude='.env' -e "ssh -i $SSH_KEY" ./ $SERVER:$REMOTE_PATH/competition-factory-server/
+ssh -i $SSH_KEY $SERVER "cd $REMOTE_PATH && docker compose stop courthive-server && docker compose build courthive-server && docker compose up -d courthive-server"
 ```
 
-> **Source path:** The compose files use `context: ../competition-factory-server` (relative to `/opt/jim-dot-tennis/`), so the rsync target is `/opt/competition-factory-server/` — sibling to `jim-dot-tennis/`, not inside it.
+> **Source path:** The compose files use `context: ../competition-factory-server` (relative to `$REMOTE_PATH/`), so the rsync target is `$REMOTE_PATH/competition-factory-server/` — sibling to `jim-dot-tennis/`, not inside it.
 
 > **`--delete` is required (learned 2026-07-11):** without it, files removed from the repo linger on the server and get swept into the Docker build context — a stale `src/modules/email/email.service.ts` (removed upstream) broke `pnpm build` with phantom `mailgun.js` import errors. `--exclude='.env'` protects the server-local env file from deletion; `.env` lives only on the server and must never be clobbered.
 
@@ -117,11 +117,11 @@ ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && d
 > ```bash
 > # From a one-off container off the NEW image (scripts/ is NOT in the prod image,
 > # so bind-mount it from the rsync'd source; runtime image has node_modules + factory).
-> ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 '
+> ssh -i $SSH_KEY $SERVER '
 >   umask 077
 >   docker inspect courthive-server --format "{{range .Config.Env}}{{println .}}{{end}}" | grep -E "^PG_" > /tmp/pg.env
 >   docker run --rm --network jim-dot-tennis_tennis-network --env-file /tmp/pg.env \
->     -v /opt/competition-factory-server/scripts:/app/host-scripts:ro -w /app \
+>     -v $REMOTE_PATH/competition-factory-server/scripts:/app/host-scripts:ro -w /app \
 >     jim-dot-tennis-courthive-server:latest \
 >     node host-scripts/backfill-calendar-tournaments.mjs --dry     # then --apply
 >   rm -f /tmp/pg.env'
@@ -138,11 +138,11 @@ ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && d
 
 ```bash
 # All services
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker compose logs -f"
+ssh -i $SSH_KEY $SERVER "cd $REMOTE_PATH && docker compose logs -f"
 
 # Specific service (jim-dot-tennis, courthive-server, tennis-caddy, courthive-redis)
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker logs -f jim-dot-tennis"
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker logs --tail 50 courthive-server"
+ssh -i $SSH_KEY $SERVER "docker logs -f jim-dot-tennis"
+ssh -i $SSH_KEY $SERVER "docker logs --tail 50 courthive-server"
 ```
 
 ---
@@ -151,10 +151,10 @@ ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker logs --tail 50 court
 
 ```bash
 # Container status
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker compose ps"
+ssh -i $SSH_KEY $SERVER "docker compose ps"
 
 # Resource usage
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker stats --no-stream"
+ssh -i $SSH_KEY $SERVER "docker stats --no-stream"
 
 # Test endpoints
 curl -I https://jim.tennis/
@@ -170,14 +170,14 @@ curl https://jim.tennis/api/courthive/
 
 ```bash
 # Restart specific service
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker compose restart app"
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker compose restart courthive-server"
+ssh -i $SSH_KEY $SERVER "cd $REMOTE_PATH && docker compose restart app"
+ssh -i $SSH_KEY $SERVER "cd $REMOTE_PATH && docker compose restart courthive-server"
 
 # Restart all
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker compose restart"
+ssh -i $SSH_KEY $SERVER "cd $REMOTE_PATH && docker compose restart"
 
 # Full restart (down/up)
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker compose down && docker compose up -d"
+ssh -i $SSH_KEY $SERVER "cd $REMOTE_PATH && docker compose down && docker compose up -d"
 ```
 
 ---
@@ -185,7 +185,7 @@ ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && d
 ### 8. Create CourtHive User
 
 ```bash
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker exec -i courthive-server node" << 'EOFNODE'
+ssh -i $SSH_KEY $SERVER "docker exec -i courthive-server node" << 'EOFNODE'
 const bcrypt = require('bcryptjs');
 const netLevelClient = require('@gridspace/net-level-client');
 
@@ -193,7 +193,7 @@ async function createAdminUser() {
   const db = new netLevelClient();
   try {
     await db.open('localhost', 3838);
-    await db.auth('admin', 'adminpass');
+    await db.auth('<courthive-db-user>', '<courthive-db-password>');
     await db.use('user', { create: true });
 
     const email = 'newuser@example.com';  // CHANGE THIS
@@ -228,7 +228,7 @@ EOFNODE
 For when someone has signed up via an invite link but can't log in. The most common cause was mobile keyboards capitalizing the first character of the email — fixed upstream in TMX `loginModal.ts` (`type: 'email'`) and `competition-factory-server` `users.service.ts` (lowercase normalization), but worth knowing about for any user who registered before those fixes shipped.
 
 ```bash
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker exec -i courthive-server node" << 'EOFNODE'
+ssh -i $SSH_KEY $SERVER "docker exec -i courthive-server node" << 'EOFNODE'
 const bcrypt = require('bcryptjs');
 const netLevelClient = require('@gridspace/net-level-client');
 
@@ -236,7 +236,7 @@ async function resetPassword() {
   const db = new netLevelClient();
   try {
     await db.open('localhost', 3838);
-    await db.auth('admin', 'adminpass');
+    await db.auth('<courthive-db-user>', '<courthive-db-password>');
     await db.use('user', { create: true });
 
     const email = 'user@example.com';                // CHANGE THIS
@@ -273,12 +273,12 @@ For a memorable-but-decent-entropy password, a 3–4 word passphrase like `marin
 To list users (useful to confirm the email casing in storage before resetting):
 
 ```bash
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker exec -i courthive-server node" << 'EOFNODE'
+ssh -i $SSH_KEY $SERVER "docker exec -i courthive-server node" << 'EOFNODE'
 const netLevelClient = require('@gridspace/net-level-client');
 (async () => {
   const db = new netLevelClient();
   await db.open('localhost', 3838);
-  await db.auth('admin', 'adminpass');
+  await db.auth('<courthive-db-user>', '<courthive-db-password>');
   await db.use('user', { create: true });
   const all = await db.list({ all: true });
   for (const e of all || []) {
@@ -295,16 +295,16 @@ EOFNODE
 
 ```bash
 # List backups
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker run --rm -v jim-dot-tennis-backups:/backups alpine ls -lh /backups"
+ssh -i $SSH_KEY $SERVER "docker run --rm -v jim-dot-tennis-backups:/backups alpine ls -lh /backups"
 
 # Manual backup
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker run --rm -v jim-dot-tennis-data:/data -v jim-dot-tennis-backups:/backups alpine sh -c 'apk add sqlite && sqlite3 /data/tennis.db \".backup /backups/manual-\$(date +%Y%m%d-%H%M%S).db\"'"
+ssh -i $SSH_KEY $SERVER "docker run --rm -v jim-dot-tennis-data:/data -v jim-dot-tennis-backups:/backups alpine sh -c 'apk add sqlite && sqlite3 /data/tennis.db \".backup /backups/manual-\$(date +%Y%m%d-%H%M%S).db\"'"
 
 # Download backup
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker run --rm -v jim-dot-tennis-backups:/backups alpine cat /backups/tennis-YYYYMMDD-HHMMSS.db" > ~/backups/tennis-backup.db
+ssh -i $SSH_KEY $SERVER "docker run --rm -v jim-dot-tennis-backups:/backups alpine cat /backups/tennis-YYYYMMDD-HHMMSS.db" > ~/backups/tennis-backup.db
 
 # CourtHive data backup
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker run --rm -v courthive-data:/data alpine tar czf - -C /data ." > ~/backups/courthive-$(date +%Y%m%d).tar.gz
+ssh -i $SSH_KEY $SERVER "docker run --rm -v courthive-data:/data alpine tar czf - -C /data ." > ~/backups/courthive-$(date +%Y%m%d).tar.gz
 ```
 
 ---
@@ -396,46 +396,44 @@ make check            # Runs: vet, fmt, lint, deadcode
 
 ### Site not responding
 ```bash
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker compose ps"
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker logs --tail 50 tennis-caddy"
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker compose restart caddy"
+ssh -i $SSH_KEY $SERVER "docker compose ps"
+ssh -i $SSH_KEY $SERVER "docker logs --tail 50 tennis-caddy"
+ssh -i $SSH_KEY $SERVER "docker compose restart caddy"
 ```
 
 ### API errors
 ```bash
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker logs --tail 100 courthive-server"
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker exec courthive-redis redis-cli ping"
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker compose restart courthive-server"
+ssh -i $SSH_KEY $SERVER "docker logs --tail 100 courthive-server"
+ssh -i $SSH_KEY $SERVER "docker exec courthive-redis redis-cli ping"
+ssh -i $SSH_KEY $SERVER "docker compose restart courthive-server"
 ```
 
 ### Admin login issues
 ```bash
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker logs --tail 50 jim-dot-tennis | grep -i auth"
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker exec jim-dot-tennis ls -lh /app/data/tennis.db"
+ssh -i $SSH_KEY $SERVER "docker logs --tail 50 jim-dot-tennis | grep -i auth"
+ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ls -lh /app/data/tennis.db"
 ```
 
 ### TMX login issues
 ```bash
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker exec courthive-server ps aux | grep net-level"
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 "docker exec courthive-server cat /app/data/.users"
+ssh -i $SSH_KEY $SERVER "docker exec courthive-server ps aux | grep net-level"
+ssh -i $SSH_KEY $SERVER "docker exec courthive-server cat /app/data/.users"
 ```
 
 ---
 
 ## Credentials
 
-**jim-dot-tennis admin:**
-- User: james.hartt
-- Login: https://jim.tennis/admin/league
+No credentials are stored in this repository. Keep the real values in your own
+password manager or an untracked operator runbook.
 
-**CourtHive/TMX admin:**
-- Email: jameshartt@gmail.com
-- Password: SecureP@ssw0rd2026!
-- Login: https://jim.tennis/tournaments
+**jim-dot-tennis admin:** create the admin user for your instance; do not reuse a shared or default password.
 
-**Environment secrets:**
-- WRAPPED_ACCESS_PASSWORD: st.anns.2025
-- COURTHIVE_JWT_SECRET: (in /opt/jim-dot-tennis/.env)
+**CourtHive/TMX admin:** created on the server by the operator (see `COURTHIVE_SETUP.md`). Store the email and password in your password manager.
+
+**Environment secrets** (set in the server's `.env`, never committed):
+- `WRAPPED_ACCESS_PASSWORD`: access code for Club Wrapped; each club chooses its own
+- `COURTHIVE_JWT_SECRET`: must match `JWT_SECRET` of competition-factory-server (`.env` under `$REMOTE_PATH`)
 
 ---
 
