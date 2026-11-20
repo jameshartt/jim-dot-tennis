@@ -11,25 +11,28 @@ import (
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"           // PostgreSQL driver
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
 )
 
 // Config holds the database configuration
 type Config struct {
-	Driver   string
-	Host     string
-	Port     int
-	User     string
-	Password string
-	DBName   string
-	SSLMode  string
-	FilePath string // For SQLite
+	Driver   string // must be "sqlite3" (the only supported driver)
+	FilePath string // SQLite database file path
+}
+
+// DriverSQLite is the only supported database driver.
+const DriverSQLite = "sqlite3"
+
+// RequireSQLite returns a clear error unless driver is empty or "sqlite3".
+// SQLite is the only database jim-dot-tennis supports.
+func RequireSQLite(driver string) error {
+	if driver == "" || driver == DriverSQLite {
+		return nil
+	}
+	return fmt.Errorf("unsupported database type %q: only SQLite is supported (leave DB_TYPE unset or set DB_TYPE=sqlite3)", driver)
 }
 
 // DB is a wrapper around sqlx.DB
@@ -39,29 +42,19 @@ type DB struct {
 
 // New creates a new database connection
 func New(cfg Config) (*DB, error) {
-	var db *sqlx.DB
-	var err error
-	var dataSourceName string
-
-	switch cfg.Driver {
-	case "postgres":
-		dataSourceName = fmt.Sprintf(
-			"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-			cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode,
-		)
-	case "sqlite3":
-		// WAL + busy_timeout let concurrent readers/writers wait instead of
-		// failing with "database is locked"; foreign_keys is off by default
-		// in mattn/go-sqlite3, so cascades are unenforced without it.
-		dataSourceName = fmt.Sprintf(
-			"file:%s?_journal_mode=WAL&_busy_timeout=5000&_synchronous=NORMAL&_foreign_keys=on",
-			cfg.FilePath,
-		)
-	default:
-		return nil, fmt.Errorf("unsupported database driver: %s", cfg.Driver)
+	if err := RequireSQLite(cfg.Driver); err != nil {
+		return nil, err
 	}
 
-	db, err = sqlx.Connect(cfg.Driver, dataSourceName)
+	// WAL + busy_timeout let concurrent readers/writers wait instead of
+	// failing with "database is locked"; foreign_keys is off by default
+	// in mattn/go-sqlite3, so cascades are unenforced without it.
+	dataSourceName := fmt.Sprintf(
+		"file:%s?_journal_mode=WAL&_busy_timeout=5000&_synchronous=NORMAL&_foreign_keys=on",
+		cfg.FilePath,
+	)
+
+	db, err := sqlx.Connect(DriverSQLite, dataSourceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -96,18 +89,7 @@ func (db *DB) Close() error {
 func (db *DB) ExecuteMigrations(migrationsPath string) error {
 	log.Printf("Running migrations from: %s", migrationsPath)
 
-	var driver database.Driver
-	var err error
-
-	switch db.DriverName() {
-	case "postgres":
-		driver, err = postgres.WithInstance(db.DB.DB, &postgres.Config{})
-	case "sqlite3":
-		driver, err = sqlite3.WithInstance(db.DB.DB, &sqlite3.Config{})
-	default:
-		return fmt.Errorf("unsupported database driver for migrations: %s", db.DriverName())
-	}
-
+	driver, err := sqlite3.WithInstance(db.DB.DB, &sqlite3.Config{})
 	if err != nil {
 		return fmt.Errorf("failed to create migration driver: %w", err)
 	}

@@ -25,11 +25,8 @@ go build -o bin/migrate cmd/migrate/main.go
 
 2. Run the migrations:
 ```bash
-# For SQLite (default)
+# SQLite (the only supported database)
 ./bin/migrate -db sqlite3 -db-path ./tennis.db
-
-# For PostgreSQL
-./bin/migrate -db postgres -host localhost -port 5432 -user postgres -pass postgres -name tennis
 ```
 
 The tool will automatically apply any pending migrations.
@@ -43,11 +40,8 @@ go build -o bin/migrate-down cmd/migrate-down/main.go
 
 2. Roll back to a specific version:
 ```bash
-# Roll back to version 5 (SQLite)
+# Roll back to version 5
 ./bin/migrate-down -db-path ./tennis.db -version 5
-
-# Roll back to version 3 (PostgreSQL)
-./bin/migrate-down -db postgres -host localhost -port 5432 -user postgres -pass postgres -name tennis -version 3
 ```
 
 The tool will migrate down to the specified version, running all down migrations in reverse order.
@@ -56,12 +50,7 @@ The tool will migrate down to the specified version, running all down migrations
 
 #### Migration Tool (cmd/migrate/main.go)
 - `-path`: Path to migration files (default: "./migrations")
-- `-db`: Database type (postgres or sqlite3)
-- `-host`: Database host (PostgreSQL only)
-- `-port`: Database port (PostgreSQL only)
-- `-user`: Database user (PostgreSQL only)
-- `-pass`: Database password (PostgreSQL only) 
-- `-name`: Database name (PostgreSQL only)
+- `-db`: Database type (only sqlite3 is supported; anything else is rejected)
 - `-db-path`: Database file path (SQLite only)
 
 #### Migrate Down Tool (cmd/migrate-down/main.go)
@@ -78,12 +67,7 @@ The tool will migrate down to the specified version, running all down migrations
 
 The migration tool also supports configuration via environment variables:
 
-- `DB_TYPE`: Database type (postgres or sqlite3)
-- `DB_HOST`: Database host (PostgreSQL only)
-- `DB_PORT`: Database port (PostgreSQL only)
-- `DB_USER`: Database user (PostgreSQL only)
-- `DB_PASSWORD`: Database password (PostgreSQL only)
-- `DB_NAME`: Database name (PostgreSQL only)
+- `DB_TYPE`: Optional; only sqlite3 is supported (any other value fails)
 - `DB_PATH`: Database file path (SQLite only)
 
 ## Creating New Migrations
@@ -118,4 +102,4 @@ To create a new migration:
 
 - **Rolling Back Migrations**: Use the migrate down tool to roll back to a specific version. This is useful for testing migrations or fixing issues with recent schema changes.
 
-- **Database-Specific Syntax**: Be aware that PostgreSQL and SQLite have different SQL syntax for some operations. Make sure your migrations are compatible with the database you're using. 
+- **SQLite Syntax**: SQLite is the only supported database, so write migrations in SQLite-compatible SQL. 

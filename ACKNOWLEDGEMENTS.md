@@ -21,7 +21,6 @@ Direct dependencies of the main module (`go.mod`):
 | [github.com/golang-migrate/migrate](https://github.com/golang-migrate/migrate) | MIT | Database migration framework |
 | [github.com/google/uuid](https://github.com/google/uuid) | BSD-3-Clause | UUID generation |
 | [github.com/jmoiron/sqlx](https://github.com/jmoiron/sqlx) | MIT | SQL extensions for Go's database/sql |
-| [github.com/lib/pq](https://github.com/lib/pq) | MIT | PostgreSQL driver |
 | [github.com/mattn/go-sqlite3](https://github.com/mattn/go-sqlite3) | MIT | SQLite3 driver (CGo) |
 | [golang.org/x/crypto](https://pkg.go.dev/golang.org/x/crypto) | BSD-3-Clause | Cryptographic functions |
 | [golang.org/x/net](https://pkg.go.dev/golang.org/x/net) | BSD-3-Clause | Networking libraries |

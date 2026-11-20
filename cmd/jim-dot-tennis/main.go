@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"jim-dot-tennis/internal/admin"
@@ -262,23 +261,15 @@ func loadTemplatesWithFuncs(templateDir string, funcMap template.FuncMap) (*temp
 
 // setupDatabase initializes the database connection
 func setupDatabase() (*database.DB, error) {
-	// Get database config from environment variables with defaults
-	dbType := getEnv("DB_TYPE", "sqlite3")
-
-	config := database.Config{
-		Driver: dbType,
+	// SQLite is the only supported database.
+	dbType := getEnv("DB_TYPE", database.DriverSQLite)
+	if err := database.RequireSQLite(dbType); err != nil {
+		return nil, err
 	}
 
-	if dbType == "postgres" {
-		config.Host = getEnv("DB_HOST", "localhost")
-		config.Port, _ = strconv.Atoi(getEnv("DB_PORT", "5432"))
-		config.User = getEnv("DB_USER", "postgres")
-		config.Password = getEnv("DB_PASSWORD", "postgres")
-		config.DBName = getEnv("DB_NAME", "tennis")
-		config.SSLMode = getEnv("DB_SSLMODE", "disable")
-	} else {
-		// SQLite
-		config.FilePath = getEnv("DB_PATH", "./tennis.db")
+	config := database.Config{
+		Driver:   database.DriverSQLite,
+		FilePath: getEnv("DB_PATH", "./tennis.db"),
 	}
 
 	return database.New(config)
