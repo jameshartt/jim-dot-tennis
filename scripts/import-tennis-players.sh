@@ -12,9 +12,12 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-PRODUCTION_SERVER="144.126.228.64"
-PRODUCTION_USER="root"
-PRODUCTION_PATH="/opt/jim-dot-tennis"
+# SERVER, SSH_KEY, REMOTE_PATH come from the environment or scripts/.deploy.env
+# (see scripts/.deploy.env.example); the script exits with a message if unset.
+. "$(cd "$(dirname "$0")" && pwd)/lib-deploy-env.sh"
+PRODUCTION_SERVER="${SERVER#*@}"
+PRODUCTION_PATH="$REMOTE_PATH"
+SSH_OPTS=(-i "$SSH_KEY")
 BINARY_NAME="import-tennis-players"
 JSON_FILE="cmd/collect_tennis_data/tennis_players.json"
 
@@ -38,18 +41,18 @@ echo -e "${GREEN}✓ Binary built successfully${NC}"
 
 # Transfer files to production server
 echo -e "${YELLOW}📤 Transferring files to production server...${NC}"
-scp "bin/$BINARY_NAME" "$PRODUCTION_USER@$PRODUCTION_SERVER:$PRODUCTION_PATH/"
-scp "$JSON_FILE" "$PRODUCTION_USER@$PRODUCTION_SERVER:$PRODUCTION_PATH/"
+scp "${SSH_OPTS[@]}" "bin/$BINARY_NAME" "$SERVER:$PRODUCTION_PATH/"
+scp "${SSH_OPTS[@]}" "$JSON_FILE" "$SERVER:$PRODUCTION_PATH/"
 echo -e "${GREEN}✓ Files transferred successfully${NC}"
 
 # Make binary executable on production server
 echo -e "${YELLOW}🔧 Setting up permissions on production server...${NC}"
-ssh "$PRODUCTION_USER@$PRODUCTION_SERVER" "cd $PRODUCTION_PATH && chmod +x $BINARY_NAME"
+ssh "${SSH_OPTS[@]}" "$SERVER" "cd $PRODUCTION_PATH && chmod +x $BINARY_NAME"
 echo -e "${GREEN}✓ Permissions set${NC}"
 
 # Check current state on production (dry run)
 echo -e "${YELLOW}🔍 Checking current state on production server...${NC}"
-ssh "$PRODUCTION_USER@$PRODUCTION_SERVER" "cd $PRODUCTION_PATH && ./$BINARY_NAME -db-path /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db -json-file tennis_players.json -dry-run -verbose"
+ssh "${SSH_OPTS[@]}" "$SERVER" "cd $PRODUCTION_PATH && ./$BINARY_NAME -db-path /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db -json-file tennis_players.json -dry-run -verbose"
 
 # Ask user for confirmation
 echo
@@ -66,7 +69,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo -e "${YELLOW}🚀 Starting import on production server...${NC}"
     
     # Run the actual import
-    ssh "$PRODUCTION_USER@$PRODUCTION_SERVER" "cd $PRODUCTION_PATH && ./$BINARY_NAME -db-path /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db -json-file tennis_players.json -verbose"
+    ssh "${SSH_OPTS[@]}" "$SERVER" "cd $PRODUCTION_PATH && ./$BINARY_NAME -db-path /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db -json-file tennis_players.json -verbose"
     
     echo -e "${GREEN}✅ Import completed successfully!${NC}"
     echo -e "${BLUE}🔗 Check your application at: http://$PRODUCTION_SERVER${NC}"

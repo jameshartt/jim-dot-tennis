@@ -18,7 +18,7 @@ The integration consists of:
 
 ```bash
 # Jim-dot-tennis Configuration
-WRAPPED_ACCESS_PASSWORD=welovestanns
+WRAPPED_ACCESS_PASSWORD=<wrapped-access-password>
 
 # CourtHive JWT Secret (must match competition-factory-server)
 COURTHIVE_JWT_SECRET=<generate-with-openssl-rand-base64-48>
@@ -50,8 +50,8 @@ REDIS_PORT=6379
 # Database Configuration (optional for LevelDB)
 DB_HOST=localhost
 DB_PORT=3838
-DB_USER=admin
-DB_PASS=adminpass
+DB_USER=<courthive-db-user>
+DB_PASS=<courthive-db-password>
 
 # Email Configuration (optional)
 MAILGUN_API_KEY=

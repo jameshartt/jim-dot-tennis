@@ -26,9 +26,9 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
-SSH_KEY="${SSH_KEY:-$HOME/.ssh/digital_ocean_ssh}"
-SERVER="${SERVER:-root@144.126.228.64}"
-REMOTE_PATH="${REMOTE_PATH:-/opt/jim-dot-tennis}"
+# SERVER, SSH_KEY, REMOTE_PATH come from the environment or scripts/.deploy.env
+# (see scripts/.deploy.env.example); exits with a message if unset.
+. "$REPO_ROOT/scripts/lib-deploy-env.sh"
 APP_CONTAINER="jim-dot-tennis"
 
 GREEN='\033[0;32m'

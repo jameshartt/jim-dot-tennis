@@ -1,6 +1,6 @@
 # Phase 2c: Compose + .env diff (review before applying)
 
-Reviewable artifact for the cutover edits to `/opt/jim-dot-tennis/docker-compose.courthive.yml` and `/opt/jim-dot-tennis/.env`.
+Reviewable artifact for the cutover edits to `$REMOTE_PATH/docker-compose.courthive.yml` and `$REMOTE_PATH/.env`.
 
 Captured against prod state on 2026-05-18. Re-pull and re-diff at cutover-time if more than a few weeks pass.
 
@@ -9,15 +9,15 @@ Captured against prod state on 2026-05-18. Re-pull and re-diff at cutover-time i
 Before applying these diffs, run:
 
 ```bash
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cp /opt/jim-dot-tennis/docker-compose.courthive.yml /opt/jim-dot-tennis/docker-compose.courthive.yml.pre-pg && \
-   cp /opt/jim-dot-tennis/.env /opt/jim-dot-tennis/.env.pre-pg && \
-   ls -la /opt/jim-dot-tennis/*.pre-pg"
+ssh -i $SSH_KEY $SERVER \
+  "cp $REMOTE_PATH/docker-compose.courthive.yml $REMOTE_PATH/docker-compose.courthive.yml.pre-pg && \
+   cp $REMOTE_PATH/.env $REMOTE_PATH/.env.pre-pg && \
+   ls -la $REMOTE_PATH/*.pre-pg"
 ```
 
 This gives Phase 3b Lever 1 something to restore from. Don't skip.
 
-## `/opt/jim-dot-tennis/.env` — additions
+## `$REMOTE_PATH/.env` — additions
 
 Append to the end (the rest of the file stays as-is):
 
@@ -33,7 +33,7 @@ Generate a value with e.g. `openssl rand -base64 36 | tr -d '/+='` (gives ~48 ch
 
 `COURTHIVE_JWT_SECRET` stays unchanged (Decision #4).
 
-## `/opt/jim-dot-tennis/docker-compose.courthive.yml` — diff
+## `$REMOTE_PATH/docker-compose.courthive.yml` — diff
 
 ### Change 1: Add `postgres` service
 
@@ -105,8 +105,8 @@ Before/after for the `courthive-server` block (lines 47–88 today):
        - REDIS_PORT=6379
 -      - DB_HOST=localhost
 -      - DB_PORT=3838
--      - DB_USER=admin
--      - DB_PASS=adminpass
+-      - DB_USER=<courthive-db-user>
+-      - DB_PASS=<courthive-db-password>
 -    command: sh -c "npx net-level-server & node build/src/main.js"
 +      - PG_HOST=postgres
 +      - PG_PORT=5432
@@ -146,12 +146,12 @@ Append to the `volumes:` block at the bottom of the file (after `caddy-config`):
 
 ```bash
 # Parse-check the edited compose without bringing services up
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose -f docker-compose.courthive.yml config" | tail -30
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose -f docker-compose.courthive.yml config" | tail -30
 
 # Confirm COURTHIVE_PG_PASSWORD is set (non-empty) in env
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "grep -c '^COURTHIVE_PG_PASSWORD=.\\+' /opt/jim-dot-tennis/.env"
+ssh -i $SSH_KEY $SERVER \
+  "grep -c '^COURTHIVE_PG_PASSWORD=.\\+' $REMOTE_PATH/.env"
 # Expect: 1
 ```
 

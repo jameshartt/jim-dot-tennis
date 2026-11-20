@@ -1,3 +1,6 @@
+# Operator-specific deployment settings (see scripts/.deploy.env.example)
+scripts/.deploy.env
+
 # Go specific
 # Binaries for programs and plugins
 *.exe

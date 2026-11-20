@@ -62,7 +62,7 @@ systemctl enable fail2ban
 systemctl start fail2ban
 
 # Create application directory
-APP_DIR="/opt/jim-dot-tennis"
+APP_DIR="${APP_DIR:?Set APP_DIR to the deployment directory, e.g. APP_DIR=/path/to/jim-dot-tennis}"
 echo "[$(date)] Creating application directory at $APP_DIR..."
 mkdir -p $APP_DIR
 mkdir -p $APP_DIR/external-backups

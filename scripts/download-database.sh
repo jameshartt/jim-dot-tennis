@@ -5,10 +5,11 @@ set -e
 # Downloads the production database from DigitalOcean server and replaces local database
 
 # Configuration - matches deploy-digitalocean.sh
-DROPLET_IP="144.126.228.64"              # Your droplet's IP address
-SSH_USER="root"                           # SSH user
-SSH_KEY_PATH="$HOME/.ssh/digital_ocean_ssh"  # Path to your SSH private key (leave empty for default)
-DEPLOY_DIR="/opt/jim-dot-tennis"          # Deployment directory on the server
+# SERVER, SSH_KEY, REMOTE_PATH come from the environment or scripts/.deploy.env
+# (see scripts/.deploy.env.example); the script exits with a message if unset.
+. "$(cd "$(dirname "$0")" && pwd)/lib-deploy-env.sh"
+DROPLET_IP="${SERVER#*@}"
+SSH_KEY_PATH="$SSH_KEY"
 DB_PATH_SERVER="/var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db"  # Database path on server (Docker volume)
 DB_PATH_LOCAL="./tennis.db"               # Local database path
 
@@ -33,14 +34,13 @@ echo "========================================================"
 echo "Jim.Tennis Database Download"
 echo "========================================================"
 echo "Server IP:      $DROPLET_IP"
-echo "SSH User:       $SSH_USER"
 echo "Remote DB:      $DB_PATH_SERVER"
 echo "Local DB:       $DB_PATH_LOCAL"
 echo "========================================================"
 
 # Function to handle SSH commands with proper error handling
 function remote_command() {
-  if ! ssh $SSH_KEY_PARAM $SSH_OPTS $SSH_USER@$DROPLET_IP "$1"; then
+  if ! ssh $SSH_KEY_PARAM $SSH_OPTS $SERVER "$1"; then
     echo -e "${RED}Error: Command failed: $1${NC}"
     exit 1
   fi
@@ -48,7 +48,7 @@ function remote_command() {
 
 # Step 1: Test SSH connection
 echo "Testing SSH connection..."
-if ! ssh $SSH_KEY_PARAM $SSH_OPTS -q $SSH_USER@$DROPLET_IP exit; then
+if ! ssh $SSH_KEY_PARAM $SSH_OPTS -q $SERVER exit; then
   echo -e "${RED}Error: Cannot establish SSH connection to $DROPLET_IP${NC}"
   echo "Please check your SSH key and that the server is reachable."
   exit 1
@@ -57,7 +57,7 @@ echo -e "${GREEN}✓ SSH connection successful${NC}"
 
 # Step 2: Check if remote database exists
 echo "Checking if remote database exists..."
-if ! ssh $SSH_KEY_PARAM $SSH_OPTS $SSH_USER@$DROPLET_IP "[ -f $DB_PATH_SERVER ]"; then
+if ! ssh $SSH_KEY_PARAM $SSH_OPTS $SERVER "[ -f $DB_PATH_SERVER ]"; then
   echo -e "${RED}Error: Database file not found at $DB_PATH_SERVER${NC}"
   echo "Please verify the database path on the server."
   exit 1
@@ -66,8 +66,8 @@ echo -e "${GREEN}✓ Remote database found${NC}"
 
 # Step 3: Get database file size for confirmation
 echo "Getting remote database information..."
-DB_SIZE=$(ssh $SSH_KEY_PARAM $SSH_OPTS $SSH_USER@$DROPLET_IP "ls -lh $DB_PATH_SERVER | awk '{print \$5}'")
-DB_DATE=$(ssh $SSH_KEY_PARAM $SSH_OPTS $SSH_USER@$DROPLET_IP "ls -l $DB_PATH_SERVER | awk '{print \$6, \$7, \$8}'")
+DB_SIZE=$(ssh $SSH_KEY_PARAM $SSH_OPTS $SERVER "ls -lh $DB_PATH_SERVER | awk '{print \$5}'")
+DB_DATE=$(ssh $SSH_KEY_PARAM $SSH_OPTS $SERVER "ls -l $DB_PATH_SERVER | awk '{print \$6, \$7, \$8}'")
 echo "Remote database size: $DB_SIZE"
 echo "Remote database date: $DB_DATE"
 
@@ -81,7 +81,7 @@ fi
 
 # Step 5: Download the database
 echo "Downloading database from server..."
-if scp $SSH_KEY_PARAM $SCP_OPTS $SSH_USER@$DROPLET_IP:$DB_PATH_SERVER $DB_PATH_LOCAL; then
+if scp $SSH_KEY_PARAM $SCP_OPTS $SERVER:$DB_PATH_SERVER $DB_PATH_LOCAL; then
   echo -e "${GREEN}✓ Database downloaded successfully${NC}"
 else
   echo -e "${RED}Error: Failed to download database${NC}"
