@@ -3,10 +3,10 @@
     "id": "sprint-019",
     "name": "Public Repo Cleanup & SQLite-Only",
     "goal": "Make the public repository safe and honest to hand to another club: no live credentials or author-specific server details in tracked files, the real reference deployment in git, no AGPL dependency in the shipped module, and SQLite declared (and coded) as the only supported database.",
-    "start_date": null,
+    "start_date": "2026-11-20",
     "end_date": null,
     "type": "numbered",
-    "status": "planned",
+    "status": "in_progress",
     "programme": "club-readiness (sprints 019-024)",
     "focus_areas": [
       "Remove credentials and author-server details from tracked docs",
