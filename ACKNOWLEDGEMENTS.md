@@ -12,11 +12,12 @@ The BHPLTA organises the parks league infrastructure. Match card data is importe
 
 ## Go Dependencies
 
+Direct dependencies of the main module (`go.mod`):
+
 | Package | License | Description |
 |---------|---------|-------------|
 | [github.com/PuerkitoBio/goquery](https://github.com/PuerkitoBio/goquery) | BSD-3-Clause | HTML parsing and DOM manipulation |
 | [github.com/SherClockHolmes/webpush-go](https://github.com/SherClockHolmes/webpush-go) | MIT | Web push notification library |
-| [github.com/gen2brain/go-fitz](https://github.com/gen2brain/go-fitz) | MIT | PDF rendering (MuPDF bindings) |
 | [github.com/golang-migrate/migrate](https://github.com/golang-migrate/migrate) | MIT | Database migration framework |
 | [github.com/google/uuid](https://github.com/google/uuid) | BSD-3-Clause | UUID generation |
 | [github.com/jmoiron/sqlx](https://github.com/jmoiron/sqlx) | MIT | SQL extensions for Go's database/sql |
@@ -30,7 +31,30 @@ The BHPLTA organises the parks league infrastructure. Match card data is importe
 | Package | License | Description |
 |---------|---------|-------------|
 | [github.com/andybalholm/cascadia](https://github.com/andybalholm/cascadia) | BSD-2-Clause | CSS selector engine (used by goquery) |
-| [github.com/ebitengine/purego](https://github.com/ebitengine/purego) | Apache-2.0 | Pure Go calling of C functions |
-| [github.com/golang-jwt/jwt](https://github.com/golang-jwt/jwt) | MIT | JSON Web Token implementation |
-| [github.com/jupiterrider/ffi](https://github.com/jupiterrider/ffi) | MIT | Foreign function interface |
-| [golang.org/x/sys](https://pkg.go.dev/golang.org/x/sys) | BSD-3-Clause | System-level interfaces |
+| [github.com/golang-jwt/jwt](https://github.com/golang-jwt/jwt) | MIT | JSON Web Token implementation (used by webpush-go) |
+
+## Front-end dependencies
+
+Loaded in the browser from `templates/`; nothing is vendored in `static/`.
+
+| Package | License | Description |
+|---------|---------|-------------|
+| [htmx](https://htmx.org) 1.9.4 (via unpkg / jsDelivr) | BSD-2-Clause | HTML-over-the-wire interactivity |
+| [Inter](https://rsms.me/inter/) (Google Fonts) | SIL OFL 1.1 | Typeface |
+| [Nunito](https://fonts.google.com/specimen/Nunito) (Google Fonts) | SIL OFL 1.1 | Typeface |
+
+## Test dependencies
+
+End-to-end and accessibility tests (`tests/e2e/package.json`). Not part of any released binary or image.
+
+| Package | License | Description |
+|---------|---------|-------------|
+| [@playwright/test](https://playwright.dev) | Apache-2.0 | Browser end-to-end test runner |
+| [@axe-core/playwright](https://github.com/dequelabs/axe-core-npm) | MPL-2.0 | Accessibility checks for Playwright (pulls in axe-core, also MPL-2.0) |
+| [typescript](https://www.typescriptlang.org) | Apache-2.0 | Type checking for the test suite |
+
+## Development-only tools
+
+| Tool | License | Description |
+|------|---------|-------------|
+| [tools/scraper](tools/scraper/README.md) | AGPL-3.0 (via MuPDF) | One-off 2025 fixture PDF extractor. A separate Go module that links [go-fitz](https://github.com/gen2brain/go-fitz) (MIT bindings) and [MuPDF](https://mupdf.com) (AGPL-3.0). It is not part of the main module, any released binary or any Docker image. |
