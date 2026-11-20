@@ -8,7 +8,7 @@ Jim.Tennis is a club-agnostic tennis league management system, originally built 
 
 **Key Technical Stack:**
 - Go 1.26+
-- SQLite (default) or PostgreSQL
+- SQLite (the only supported database)
 - Server-side rendered templates with HTMX
 - PWA with push notifications
 - Docker for production deployment
@@ -246,9 +246,8 @@ Each major handler (Admin, Players) delegates to domain-specific sub-handlers:
 - `BHPLTA_CLUB_CODE`: Club code on the BHPLTA website (e.g. `STANN001`) — used for match card imports
 
 **Database:**
-- `DB_TYPE`: "sqlite3" (default) or "postgres"
+- `DB_TYPE`: optional; only "sqlite3" is supported (any other value fails at startup)
 - `DB_PATH`: SQLite file path (default: "./tennis.db")
-- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSLMODE`: PostgreSQL config
 
 **Application:**
 - `PORT`: HTTP server port (default: "8080")

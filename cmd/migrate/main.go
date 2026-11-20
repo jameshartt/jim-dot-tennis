@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 
 	"jim-dot-tennis/internal/database"
 )
@@ -15,32 +14,19 @@ import (
 func main() {
 	// Define command line flags
 	migrationsPath := flag.String("path", "./migrations", "Path to migration files")
-	dbType := flag.String("db", "", "Database type (postgres or sqlite3), defaults to env DB_TYPE")
-	dbHost := flag.String("host", "", "Database host (for postgres), defaults to env DB_HOST")
-	dbPort := flag.String("port", "", "Database port (for postgres), defaults to env DB_PORT")
-	dbUser := flag.String("user", "", "Database user (for postgres), defaults to env DB_USER")
-	dbPass := flag.String("pass", "", "Database password (for postgres), defaults to env DB_PASSWORD")
-	dbName := flag.String("name", "", "Database name (for postgres), defaults to env DB_NAME")
-	dbPath := flag.String("db-path", "", "Database file path (for sqlite3), defaults to env DB_PATH")
+	dbType := flag.String("db", "", "Database type (only sqlite3 is supported), defaults to env DB_TYPE")
+	dbPath := flag.String("db-path", "", "Database file path, defaults to env DB_PATH")
 	flag.Parse()
 
-	// Get database configuration from flags or environment variables
-	config := database.Config{
-		Driver: getStringValue(*dbType, "DB_TYPE", "sqlite3"),
+	// SQLite is the only supported database.
+	driver := getStringValue(*dbType, "DB_TYPE", database.DriverSQLite)
+	if err := database.RequireSQLite(driver); err != nil {
+		log.Fatalf("%v", err)
 	}
 
-	if config.Driver == "postgres" {
-		config.Host = getStringValue(*dbHost, "DB_HOST", "localhost")
-		portStr := getStringValue(*dbPort, "DB_PORT", "5432")
-		config.Port, _ = strconv.Atoi(portStr)
-		config.User = getStringValue(*dbUser, "DB_USER", "postgres")
-		config.Password = getStringValue(*dbPass, "DB_PASSWORD", "postgres")
-		config.DBName = getStringValue(*dbName, "DB_NAME", "tennis")
-		config.SSLMode = "disable"
-	} else if config.Driver == "sqlite3" {
-		config.FilePath = getStringValue(*dbPath, "DB_PATH", "./tennis.db")
-	} else {
-		log.Fatalf("Unsupported database driver: %s", config.Driver)
+	config := database.Config{
+		Driver:   database.DriverSQLite,
+		FilePath: getStringValue(*dbPath, "DB_PATH", "./tennis.db"),
 	}
 
 	// Connect to the database

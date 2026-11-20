@@ -45,7 +45,7 @@ func main() {
 
 	flag.StringVar(&config.CSVDir, "csv-dir", "pdf_output", "Directory containing CSV files")
 	flag.StringVar(&config.DBPath, "db-path", "./tennis.db", "Path to SQLite database file")
-	flag.StringVar(&config.DBType, "db-type", "sqlite3", "Database type (sqlite3 or postgres)")
+	flag.StringVar(&config.DBType, "db-type", "sqlite3", "Database type (only sqlite3 is supported)")
 	flag.BoolVar(&config.DryRun, "dry-run", false, "Print what would be done without making changes")
 	flag.BoolVar(&config.Verbose, "verbose", false, "Enable verbose logging")
 	flag.StringVar(&config.PlayersFile, "players-file", "players-import/players.html", "Path to the players HTML file")

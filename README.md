@@ -29,7 +29,7 @@ The BHPLTA organises the parks league that jim.tennis is built around. Match car
 ## Tech stack
 
 - **Go 1.25** — server-side application
-- **SQLite** (default) or PostgreSQL
+- **SQLite** (the only supported database)
 - **HTMX** — server-rendered HTML with minimal client-side JavaScript
 - **PWA** — progressive web app with push notification support
 - **Docker** — production deployment with Caddy reverse proxy
