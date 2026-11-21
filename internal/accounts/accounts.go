@@ -31,7 +31,7 @@ import (
 var (
 	ErrNotFound      = errors.New("no account with that username")
 	ErrUsernameTaken = errors.New("that username is already used by another account")
-	ErrInvalidRole   = errors.New("the role must be admin, captain or player")
+	ErrInvalidRole   = errors.New("the role must be admin or captain")
 	// ErrLastAdmin: the change would leave no active administrator.
 	ErrLastAdmin = errors.New("this is the last active administrator: make another account an active administrator first")
 	// ErrWrongPassword: the current password given to ChangeOwnPassword is wrong.
@@ -56,9 +56,12 @@ func (e *InvalidUsernameError) Error() string {
 var usernamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._@-]{2,63}$`)
 
 // ParseRole returns the role named s (case-insensitive) or ErrInvalidRole.
+// Only admin and captain can be given to an account: the player role is
+// retired (players use link tokens), so no account can be made or changed to
+// it. An existing player-role account keeps its role and reaches nothing.
 func ParseRole(s string) (models.Role, error) {
 	switch r := models.Role(strings.ToLower(strings.TrimSpace(s))); r {
-	case models.RoleAdmin, models.RoleCaptain, models.RolePlayer:
+	case models.RoleAdmin, models.RoleCaptain:
 		return r, nil
 	}
 	return "", ErrInvalidRole

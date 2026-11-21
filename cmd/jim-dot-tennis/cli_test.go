@@ -123,7 +123,7 @@ func TestCLIUserCommands(t *testing.T) {
 	if r := runCLITest(t, "user", "create", "--role=captain", "bob"); r.code != exitOK {
 		t.Fatalf("create bob: %d %s", r.code, r.stderr)
 	}
-	if r := runCLITest(t, "user", "create", "ALICE", "--role", "player"); r.code != exitError || !strings.Contains(r.stderr, "already used") {
+	if r := runCLITest(t, "user", "create", "ALICE", "--role", "captain"); r.code != exitError || !strings.Contains(r.stderr, "already used") {
 		t.Errorf("duplicate create: %+v", r)
 	}
 

@@ -8,6 +8,7 @@ This directory contains documentation for the Jim.Tennis application -- a club-a
 
 - [Project Overview](./project_overview.md) - Goals, purpose, and core requirements of the system
 - [User Experience Requirements](./user_experience_requirements.md) - Detailed requirements for the application's UX
+- [Account Roles](./roles.md) - What captains and administrators can each do
 - [Technical Implementation Plan](./technical_implementation_plan.md) - Approach for building and implementing the application
 
 ## Infrastructure and Deployment

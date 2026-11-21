@@ -39,10 +39,11 @@ Accounts
   user list                        Show every account: its role, whether it can
                                    sign in, and when it last signed in.
   user create <username> --role <role>
-                                   Make a new account. <role> is admin, captain
-                                   or player. Prints an invite link once; the
-                                   person who opens it sets up their own passkey
-                                   or password. The link works once, for 48 hours.
+                                   Make a new account. <role> is admin (runs the
+                                   instance) or captain (runs every team).
+                                   Prints an invite link once; the person who
+                                   opens it sets up their own passkey or
+                                   password. The link works once, for 48 hours.
   user reset <username>            For someone who is locked out (even the last
                                    administrator): prints a recovery link once.
                                    Whoever opens it sets a new passkey or
@@ -165,7 +166,7 @@ func parseCommand(args []string) (command, error) {
 		case "role":
 			if !hasValue {
 				if i+1 >= len(args) {
-					return command{}, fmt.Errorf("%w: --role needs a value: admin, captain or player", errUsage)
+					return command{}, fmt.Errorf("%w: --role needs a value: admin or captain", errUsage)
 				}
 				i++
 				value = args[i]
@@ -220,11 +221,11 @@ func parseCommand(args []string) (command, error) {
 			return cmd, noRole()
 		case "create":
 			cmd.name = "user create"
-			if err := need(1, "user create <username> --role <admin|captain|player>"); err != nil {
+			if err := need(1, "user create <username> --role <admin|captain>"); err != nil {
 				return command{}, err
 			}
 			if cmd.role == "" {
-				return command{}, fmt.Errorf("%w: say which role the new account has: --role admin, --role captain or --role player", errUsage)
+				return command{}, fmt.Errorf("%w: say which role the new account has: --role admin or --role captain", errUsage)
 			}
 			if _, err := accounts.ParseRole(cmd.role); err != nil {
 				return command{}, fmt.Errorf("%w: %v", errUsage, err)
@@ -238,7 +239,7 @@ func parseCommand(args []string) (command, error) {
 			return cmd, noRole()
 		case "role":
 			cmd.name = "user role"
-			if err := need(2, "user role <username> <admin|captain|player>"); err != nil {
+			if err := need(2, "user role <username> <admin|captain>"); err != nil {
 				return command{}, err
 			}
 			if _, err := accounts.ParseRole(cmd.args[1]); err != nil {

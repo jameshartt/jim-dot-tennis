@@ -207,8 +207,14 @@ Key repositories: `SeasonRepository`, `WeekRepository`, `LeagueRepository`, `Div
 1. **Session-based (Admin)**: Cookie-based authentication with role-based access control
    - Login at `/login` → redirects to `/admin/league/dashboard`. Two ways in, one session: a passkey (the login page leads with it) or username and password. Both end in `auth.Service.completeLogin` → `createSession`, so the sessions are identical
    - Sessions stored in database with expiry (7 days default)
-   - Middleware: `auth.Middleware.RequireAuth()` + `RequireRole("admin")`
+   - Middleware: `auth.Middleware.RequireAuth()` + `RequireRole(admin, captain)` on the `/admin/league` mount, then a per-route role check
    - Protected routes: `/admin/league/*`
+
+**Roles** (WI-132; the role matrix for users is `docs/roles.md`): `captain` does everything a captain does for every team (no per-team isolation; scope filters are a focus aid only); `admin` does that plus users, sessions, audit log, settings and feature switches, BHPLTA import configuration, seasons, divisions, tournaments, demo data, passkey clone warnings and VAPID reset. `models.RoleAtLeast(role, min)` is the one ordering (admin ⊇ captain; anything else grants nothing). The `player` role is retired: `accounts.ParseRole` refuses it, so no account can be given it; a leftover player-role account can sign in and use `/account/*` but gets 403 everywhere else.
+- `/admin/league/*`: `adminRouteRoles` in `internal/admin/roles.go` maps every pattern to `captainRoute`, `adminRoute`, or a mixed rule (`captainReadsAdminWrites`, `captainExcept(fn)`) for patterns where some actions need an administrator. `handler.go` registers on a `guardedMux`, which panics at startup on a pattern with no entry and wraps each handler with the check. Templates gate links and forms with `canUse .User "/admin/league/..."` (or `"POST /admin/league/..."`), which reads the same table; never hand-roll a role check in a template. Tests: `TestEveryAdminRouteHasADeclaredRole`, `TestAdminRouteRoleMatrix`, `TestCaptainAccessSpec` (`internal/admin/roles_test.go`).
+- A refused request gets `auth.WriteForbidden`: a friendly 403 page, or for HTMX a short text body with `HX-Reswap: none`. `RequireRole` uses it too.
+- Other groups: push `/api/push/test` and `/api/vapid-reset` (admin, wrapper in main.go), `/account/passkeys/{id}/clear-warning` (admin), `/setup/demo*` (admin, checked in `internal/setup`), the rest of `/account/*` (any signed-in account).
+- After sign-in and after link redemption everyone lands on `/admin/league/dashboard`, which both roles can use; the dashboard hides what the role cannot use. `users.player_id` (set by the user on `/admin/league/planning/link` or by an administrator on the users page, `POST /admin/league/users/{id}/player`, `accounts.SetPlayerLink`) marks "My Teams" on the planning dashboard.
 
 2. **Token-based (Fantasy Players)**: URL-embedded tokens for player availability
    - URL pattern: `/my-availability/{token}` where token is composite player names
@@ -319,9 +325,9 @@ Club names extracted from team names (e.g., "Dyke A" → Club: "Dyke").
 ### Adding a New Admin Feature
 
 1. Create sub-handler in `internal/admin/` (e.g., `new_feature.go`)
-2. Register routes in `internal/admin/handler.go` `RegisterRoutes()`
-3. Add templates in `templates/admin/`
-4. Apply `authMiddleware.RequireAuth()` + `RequireRole("admin")`
+2. Declare each route pattern's role in `adminRouteRoles` (`internal/admin/roles.go`): `captainRoute` for captain work, otherwise `adminRoute`
+3. Register routes in `internal/admin/handler.go` `RegisterRoutes()` (the guarded mux refuses undeclared patterns and enforces the role)
+4. Add templates in `templates/admin/`; gate links and forms with `canUse .User "..."`
 
 ### Working with Migrations
 

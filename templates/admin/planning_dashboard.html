@@ -322,6 +322,11 @@
                 <button type="button" class="pill {{if .IsAllTeams}}active{{end}}" data-testid="teams-all"
                    onclick="planningGoto({team_id: null})"
                    title="Clear team selection (show every team)">All Teams</button>
+                {{if .MyTeamIDs}}
+                <button type="button" class="pill {{if .IsMyTeams}}active{{end}}" data-testid="teams-mine"
+                   onclick="planningGoto({team_id: {{.MyTeamIDs}}})"
+                   title="Show only the teams you captain">My Teams ★</button>
+                {{end}}
 
                 {{range .TeamOptions}}
                 <label class="team-check {{if .IsMine}}mine{{end}} {{if .IsSelected}}ticked{{end}}"

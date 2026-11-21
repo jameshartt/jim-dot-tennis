@@ -125,7 +125,7 @@ func (m *Middleware) RequireRole(requiredRoles ...models.Role) func(http.Handler
 
 			if !hasRequiredRole {
 				log.Printf("User with role %s does not have required role", role)
-				http.Error(w, "Forbidden", http.StatusForbidden)
+				WriteForbidden(w, r)
 				return
 			}
 

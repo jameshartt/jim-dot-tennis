@@ -294,8 +294,9 @@ func getProjectRoot() (string, error) {
 func loadTemplatesWithFuncs(templateDir string, funcMap template.FuncMap) (*template.Template, error) {
 	log.Printf("Loading templates from: %s", templateDir)
 
-	// Create a new template with the function map
-	tmpl := template.New("").Funcs(funcMap)
+	// Create a new template with the function map (plus the role helpers the
+	// admin dashboard, which is among templates/*.html, uses)
+	tmpl := template.New("").Funcs(admin.NavTemplateFuncs()).Funcs(funcMap)
 
 	// Parse all HTML files in the template directory
 	pattern := filepath.Join(templateDir, "*.html")

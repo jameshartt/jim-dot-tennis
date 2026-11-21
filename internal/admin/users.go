@@ -33,7 +33,8 @@ func NewUsersHandler(service *Service, templateDir string) *UsersHandler {
 //	GET  /admin/league/users                       the page
 //	POST /admin/league/users                       create an account and its invite link
 //	POST /admin/league/users/{id}/toggle-active    enable or disable
-//	POST /admin/league/users/{id}/role             change role
+//	POST /admin/league/users/{id}/role             change role (admin or captain)
+//	POST /admin/league/users/{id}/player           link to a player record (empty: unlink)
 //	POST /admin/league/users/{id}/invite           new invite link (users_links.go)
 //	POST /admin/league/users/{id}/recover          recovery link (users_links.go)
 //	POST /admin/league/users/links/{id}/revoke     cancel an unused link (users_links.go)
@@ -100,7 +101,8 @@ func (h *UsersHandler) renderUsers(w http.ResponseWriter, r *http.Request, user 
 		"Users":        users,
 		"PendingLinks": pending,
 		"Players":      h.linkablePlayers(r, users),
-		"Roles":        []string{string(models.RoleAdmin), string(models.RoleCaptain), string(models.RolePlayer)},
+		"PlayerNames":  h.linkedPlayerNames(r, users),
+		"Roles":        assignableRoles,
 		"IssuedLink":   issued,
 		"SuccessMsg":   r.URL.Query().Get("success"),
 		"ErrorMsg":     r.URL.Query().Get("error"),
@@ -143,6 +145,28 @@ func (h *UsersHandler) linkablePlayers(r *http.Request, users []accounts.Account
 		out = append(out, playerOption{ID: p.ID, Name: p.FirstName + " " + p.LastName})
 	}
 	return out
+}
+
+// assignableRoles are the roles the users page offers (the player role is
+// retired: players use link tokens, not accounts).
+var assignableRoles = []string{string(models.RoleCaptain), string(models.RoleAdmin)}
+
+// linkedPlayerNames maps the player id of every linked account to the
+// player's name, for the per-account "Linked player" control.
+func (h *UsersHandler) linkedPlayerNames(r *http.Request, users []accounts.Account) map[string]string {
+	names := map[string]string{}
+	for _, u := range users {
+		if u.PlayerID == nil || *u.PlayerID == "" {
+			continue
+		}
+		p, err := h.service.playerRepository.FindByID(r.Context(), *u.PlayerID)
+		if err != nil || p == nil {
+			names[*u.PlayerID] = *u.PlayerID
+			continue
+		}
+		names[*u.PlayerID] = p.FirstName + " " + p.LastName
+	}
+	return names
 }
 
 // handleUsersPost creates a new account with no password and shows its
@@ -242,6 +266,20 @@ func (h *UsersHandler) handleUserAction(w http.ResponseWriter, r *http.Request, 
 			return
 		}
 		http.Redirect(w, r, "/admin/league/users?success=Role+updated+successfully", http.StatusSeeOther)
+
+	case "player":
+		// Link the account to a player record, change it, or remove it
+		// (empty player_id). "My teams" on the planning dashboard uses it.
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Invalid form data", http.StatusBadRequest)
+			return
+		}
+		if _, err := h.service.accounts.SetPlayerLink(r.Context(), actorFor(currentUser), targetID, r.FormValue("player_id")); err != nil {
+			log.Printf("Failed to update the linked player: %v", err)
+			redirectUsersError(w, r, err, "Failed to update the linked player")
+			return
+		}
+		http.Redirect(w, r, "/admin/league/users?success=Linked+player+updated", http.StatusSeeOther)
 
 	case "invite":
 		h.handleIssueLink(w, r, currentUser, targetID, accounts.LinkInvite)
