@@ -9,6 +9,7 @@ const adminSections = [
   { name: "Seasons", url: "/admin/league/seasons" },
   { name: "Users", url: "/admin/league/users" },
   { name: "Sessions", url: "/admin/league/sessions" },
+  { name: "Audit Log", url: "/admin/league/audit-log" },
   { name: "Points Table", url: "/admin/league/points-table" },
   { name: "Match Card Import", url: "/admin/league/match-card-import" },
   { name: "Selection Overview", url: "/admin/league/selection-overview" },

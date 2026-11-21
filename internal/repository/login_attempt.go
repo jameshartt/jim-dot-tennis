@@ -11,6 +11,7 @@ import (
 type LoginAttemptRepository interface {
 	FindByUsername(username string, limit int) ([]models.LoginAttempt, error)
 	FindByUsernameAndIP(username, ip string, limit int) ([]models.LoginAttempt, error)
+	FindPasswordFailuresByIP(ip string, limit int) ([]models.LoginAttempt, error)
 	Create(attempt *models.LoginAttempt) error
 }
 
@@ -49,6 +50,25 @@ func (r *loginAttemptRepository) FindByUsernameAndIP(username, ip string, limit 
 		ORDER BY created_at DESC 
 		LIMIT ?
 	`, username, ip, limit)
+	return attempts, err
+}
+
+// PasskeyAttemptUsername is the username failed passkey sign-ins are recorded
+// under (a passkey failure has no trustworthy account name).
+const PasskeyAttemptUsername = "(passkey)"
+
+// FindPasswordFailuresByIP returns the latest failed password sign-ins from
+// ip (a throttle key), against any username, newest first. Passkey failures
+// are left out: they have their own limiter.
+func (r *loginAttemptRepository) FindPasswordFailuresByIP(ip string, limit int) ([]models.LoginAttempt, error) {
+	var attempts []models.LoginAttempt
+	err := r.db.Select(&attempts, `
+		SELECT id, username, ip, user_agent, success, created_at
+		FROM login_attempts
+		WHERE ip = ? AND success = FALSE AND username <> ?
+		ORDER BY id DESC
+		LIMIT ?
+	`, ip, PasskeyAttemptUsername, limit)
 	return attempts, err
 }
 

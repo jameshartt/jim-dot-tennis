@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/models"
 )
 
@@ -27,8 +28,6 @@ func NewSessionsHandler(service *Service, templateDir string) *SessionsHandler {
 
 // HandleSessions handles session management routes
 func (h *SessionsHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Admin sessions handler called with path: %s, method: %s", r.URL.Path, r.Method)
-
 	user, err := getUserFromContext(r)
 	if err != nil {
 		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
@@ -65,11 +64,10 @@ func (h *SessionsHandler) handleSessionsGet(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Get the current session ID from cookie to highlight it
-	currentSessionID := ""
-	if cookie, err := r.Cookie("session_token"); err == nil {
-		currentSessionID = cookie.Value
-	}
+	// The current session, to highlight it: its numeric id, as RequireAuth
+	// put it in the context (nothing here reads the session cookie, so the
+	// cookie's name and token never reach this page).
+	currentSessionID := auth.SessionIDFromContext(r.Context())
 
 	data := map[string]interface{}{
 		"User":             user,
@@ -121,11 +119,12 @@ func (h *SessionsHandler) handleSessionAction(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// POST /admin/league/sessions/{id}/invalidate
+	// POST /admin/league/sessions/{id}/invalidate, id being the session's
+	// numeric id (never its token)
 	if strings.HasSuffix(path, "/invalidate") {
-		sessionID := strings.TrimPrefix(path, "/admin/league/sessions/")
-		sessionID = strings.TrimSuffix(sessionID, "/invalidate")
-		if sessionID == "" {
+		idStr := strings.TrimSuffix(strings.TrimPrefix(path, "/admin/league/sessions/"), "/invalidate")
+		sessionID, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil || sessionID <= 0 {
 			http.Error(w, "Invalid session ID", http.StatusBadRequest)
 			return
 		}

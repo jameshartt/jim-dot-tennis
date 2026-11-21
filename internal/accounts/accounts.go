@@ -368,9 +368,9 @@ func (s *Service) RevokeSessions(ctx context.Context, actor Actor, id int64) (in
 	return ended, err
 }
 
-// RevokeSession ends one session (the admin sessions page). The session
-// identifier is never recorded.
-func (s *Service) RevokeSession(ctx context.Context, actor Actor, sessionID string) error {
+// RevokeSession ends one session (the admin sessions page), named by its
+// numeric id (sessions.id, not a credential). The session id is not recorded.
+func (s *Service) RevokeSession(ctx context.Context, actor Actor, sessionID int64) error {
 	return s.inTx(ctx, func(tx *sqlx.Tx) error {
 		var owner struct {
 			ID       int64  `db:"id"`

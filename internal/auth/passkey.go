@@ -40,8 +40,8 @@ const (
 	// passkeyAttemptUsername is the name failed passkey sign-ins are recorded
 	// under in login_attempts. A failed passkey attempt is never recorded
 	// against a real username, so it can never count towards that user's
-	// password throttle.
-	passkeyAttemptUsername = "(passkey)"
+	// password throttle (the per-address password count leaves it out too).
+	passkeyAttemptUsername = repository.PasskeyAttemptUsername
 )
 
 // Passkey throttling, per client address only (see windowLimiter).
@@ -308,7 +308,7 @@ func (p *Passkeys) BeginRegistration(r *http.Request, user *models.User, session
 		return nil, "", err
 	}
 	now := p.now()
-	if !p.begins.hit(clientIP(r), now) {
+	if !p.begins.hit(ThrottleKey(r), now) {
 		return nil, "", ErrPasskeyThrottled
 	}
 	wu, stored, err := p.loadUser(r.Context(), user)
@@ -435,7 +435,7 @@ func (p *Passkeys) BeginLogin(r *http.Request, username string) (*protocol.Crede
 		return nil, "", err
 	}
 	now := p.now()
-	ip := clientIP(r)
+	ip := ThrottleKey(r)
 	if p.failures.blocked(ip, now) || !p.begins.hit(ip, now) {
 		return nil, "", ErrPasskeyThrottled
 	}
@@ -542,7 +542,7 @@ func (p *Passkeys) decoyKeyBytes(ctx context.Context) ([]byte, error) {
 // client address's throttle (never towards any user's).
 func (p *Passkeys) FinishLogin(r *http.Request, ticket string, body io.Reader) (*models.User, error) {
 	now := p.now()
-	ip := clientIP(r)
+	ip := ThrottleKey(r)
 	// Taken before anything else, so a ceremony is spent even by a throttled
 	// or malformed attempt.
 	c, ok := p.ceremonies.take(ticket, ceremonyLogin, now)

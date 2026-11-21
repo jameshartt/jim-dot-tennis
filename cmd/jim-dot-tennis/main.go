@@ -9,7 +9,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"jim-dot-tennis/internal/accounts"
@@ -184,6 +186,12 @@ func main() {
 			log.Printf("Failed to record %s: %v", action, err)
 		}
 	})
+	// Administrators' sign-ins (any method) go to the account audit log too.
+	authService.SetSignInAudit(func(ctx context.Context, user *models.User, method, address string) {
+		if err := passkeyAudit.RecordSignIn(ctx, user.ID, user.Username, method, address); err != nil {
+			log.Printf("Failed to record a sign-in: %v", err)
+		}
+	})
 	auth.NewPasskeyHandler(passkeys, templateDir, "/admin/league").RegisterRoutes(mux, authMiddleware)
 	authHandler.SetPasskeys(passkeys)
 	setupHandler.OfferPasskeys(passkeys.Available)
@@ -269,8 +277,35 @@ func main() {
 		WriteTimeout: 30 * time.Second,  // Generous for mobile
 		IdleTimeout:  120 * time.Second, // Keep connections alive
 	}
-	log.Printf("Server started at http://localhost:%s", port)
-	log.Fatal(server.ListenAndServe())
+	serve(server, authService)
+}
+
+// serve runs the server and the scheduled cleanup (expired sessions, old
+// login attempts, finished links: auth.Service.Cleanup) until SIGINT or
+// SIGTERM, then stops both: the cleanup first, then the server, letting
+// requests in flight finish for a few seconds.
+func serve(server *http.Server, authService *auth.Service) {
+	ctx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
+	stopCleanup := authService.StartCleanup(ctx, auth.CleanupFirstDelay, auth.CleanupInterval)
+
+	failed := make(chan error, 1)
+	go func() { failed <- server.ListenAndServe() }()
+	log.Printf("Server started at http://localhost%s", server.Addr)
+	select {
+	case err := <-failed:
+		stopCleanup()
+		log.Fatal(err)
+	case <-ctx.Done():
+	}
+
+	log.Printf("Shutting down")
+	stopCleanup()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Server shutdown: %v", err)
+	}
 }
 
 // getProjectRoot returns the project root directory

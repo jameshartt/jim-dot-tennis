@@ -61,9 +61,16 @@ type User struct {
 	MustChangePassword bool `db:"must_change_password"`
 }
 
-// Session represents a user's authenticated session
+// Session represents a user's authenticated session. The browser's cookie
+// carries a random token; the database stores only its SHA-256 (TokenHash),
+// so a copy of the database holds no usable session. ID is a plain number
+// for naming a session (admin pages, URLs) and reveals nothing.
 type Session struct {
-	ID             string    `db:"id"`
+	ID        int64  `db:"id"`
+	TokenHash string `db:"token_hash"`
+	// Token is the raw cookie value. It is set only on a session that has
+	// just been created (to put in the cookie) and is never stored.
+	Token          string    `db:"-"`
 	UserID         int64     `db:"user_id"`
 	Role           Role      `db:"role"`
 	CreatedAt      time.Time `db:"created_at"`

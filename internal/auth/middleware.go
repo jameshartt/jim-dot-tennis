@@ -46,27 +46,22 @@ func NewMiddleware(service *Service, playerRepo repository.PlayerRepository, fan
 	}
 }
 
-// RequireAuth middleware ensures the request has a valid session
+// RequireAuth middleware ensures the request has a valid session. It logs
+// nothing on the normal path (no per-request lines, no usernames).
 func (m *Middleware) RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("RequireAuth middleware triggered for path: %s", r.URL.Path)
-
 		// Get session cookie
 		cookie, err := r.Cookie(m.service.config.CookieName)
 		if err != nil {
-			log.Printf("No session cookie found: %v", err)
 			// Redirect to login with the original URL as a redirect parameter
 			loginURL := loginRedirectURL(r)
 			http.Redirect(w, r, loginURL, http.StatusSeeOther)
 			return
 		}
-		log.Printf("Found session cookie: %s", redactToken(cookie.Value))
 
 		// Validate session
 		session, err := m.service.ValidateSession(cookie.Value, r)
 		if err != nil {
-			log.Printf("Invalid session: %v", err)
-
 			// Clear cookie if session is invalid or expired
 			m.service.ClearSessionCookie(w)
 			// Redirect to login with the original URL as a redirect parameter
@@ -74,30 +69,30 @@ func (m *Middleware) RequireAuth(next http.Handler) http.Handler {
 			http.Redirect(w, r, loginURL, http.StatusSeeOther)
 			return
 		}
-		log.Printf("Session validated: %s (User ID: %d, Role: %s)", redactToken(session.ID), session.UserID, session.Role)
 
 		// Get user details
 		var user models.User
 		err = m.service.db.Get(&user, `
-			SELECT * FROM users 
+			SELECT * FROM users
 			WHERE id = ? AND is_active = true
 		`, session.UserID)
 		if err != nil {
-			log.Printf("User not found or inactive: %v", err)
-			m.service.InvalidateSession(session.ID)
+			m.service.invalidateSessionByID(session.ID)
 			m.service.ClearSessionCookie(w)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		log.Printf("User details retrieved: ID=%d, Username=%s, Role=%s", user.ID, user.Username, user.Role)
+		// The user in the context never carries the password hash: handlers
+		// pass it to templates. Anything that needs the hash (sign-in,
+		// changing one's own password) reads it from the database itself.
+		user.PasswordHash = ""
 
-		// Add user and role to request context
+		// Add user, role and the session's (non-secret) id to the context
 		ctx := context.WithValue(r.Context(), UserContextKey, user)
 		ctx = context.WithValue(ctx, RoleContextKey, user.Role)
-		log.Printf("Added user and role to request context")
+		ctx = context.WithValue(ctx, SessionContextKey, session.ID)
 
 		// Call the next handler with the enriched context
-		log.Printf("Proceeding to next handler, %s", r.URL.Path)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -135,7 +130,9 @@ func (m *Middleware) RequireRole(requiredRoles ...models.Role) func(http.Handler
 	}
 }
 
-// GetUserFromContext gets the user from the request context
+// GetUserFromContext gets the user from the request context. Its
+// PasswordHash is always empty (RequireAuth removes it), whether or not the
+// account has a password.
 func GetUserFromContext(ctx context.Context) (models.User, error) {
 	user, ok := ctx.Value(UserContextKey).(models.User)
 	if !ok {
@@ -155,34 +152,30 @@ func GetPlayerFromContext(ctx context.Context) (models.Player, error) {
 
 // RequireFantasyTokenAuth middleware validates fantasy mixed doubles auth tokens from URL
 // Expected URL format: /my-availability/Sabalenka_Djokovic_Gauff_Sinner
+//
+// The token is the player's credential, so neither it nor the request path
+// (which contains it) is ever logged; log lines name the fantasy match id.
 func (m *Middleware) RequireFantasyTokenAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("FantasyTokenAuth middleware for path: %s", r.URL.Path)
-
 		// Extract auth token from URL path
 		authToken := extractFantasyTokenFromPath(r.URL.Path)
 		if authToken == "" {
-			log.Printf("No fantasy auth token found in URL path: %s", r.URL.Path)
 			http.Error(w, "Invalid fantasy auth token in URL", http.StatusBadRequest)
 			return
 		}
-		log.Printf("Extracted fantasy auth token: %s", authToken)
 
 		// Find the fantasy match by auth token
 		ctx := r.Context()
 		fantasyMatch, err := m.fantasyMatchRepo.FindByAuthToken(ctx, authToken)
 		if err != nil {
-			log.Printf("Fantasy match not found for token %s: %v", authToken, err)
 			http.Error(w, "Invalid fantasy match token", http.StatusNotFound)
 			return
 		}
 
 		if !fantasyMatch.IsActive {
-			log.Printf("Fantasy match is inactive for token %s", authToken)
 			http.Error(w, "Fantasy match is not active", http.StatusForbidden)
 			return
 		}
-		log.Printf("Found active fantasy match ID: %d", fantasyMatch.ID)
 
 		// Find the actual player assigned to this fantasy match
 		player, err := m.playerRepo.FindByFantasyMatchID(ctx, fantasyMatch.ID)
@@ -191,11 +184,9 @@ func (m *Middleware) RequireFantasyTokenAuth(next http.Handler) http.Handler {
 			http.Error(w, "No player assigned to this fantasy match", http.StatusNotFound)
 			return
 		}
-		log.Printf("Found assigned player: %s %s (ID: %s)", player.FirstName, player.LastName, player.ID)
 
 		// Add player to request context
 		ctx = context.WithValue(ctx, PlayerContextKey, *player)
-		log.Printf("Added player to request context")
 
 		// Call the next handler with the enriched context
 		next.ServeHTTP(w, r.WithContext(ctx))

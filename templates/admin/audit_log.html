@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Audit Log - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+        .content-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+        .content-section h2 {
+            margin: 0 0 0.5rem 0;
+            color: var(--primary-color);
+        }
+        .intro {
+            color: #495057;
+            font-size: 0.9rem;
+            margin: 0 0 1rem 0;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .data-table th, .data-table td {
+            padding: 0.6rem 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+        .data-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .when-cell {
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+        .action-cell {
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+        .detail-cell {
+            font-size: 0.85rem;
+            color: #495057;
+        }
+        .actor-kind {
+            display: inline-block;
+            padding: 0.05rem 0.35rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            background: #e9ecef;
+            color: #495057;
+            margin-right: 0.25rem;
+        }
+        .pager {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin/league">Admin Dashboard</a> &gt; Account Audit Log
+            </div>
+            <h1 data-testid="audit-log-title">Account Audit Log</h1>
+        </div>
+    </header>
+
+    <main class="admin-content">
+        <div class="container">
+            <div class="content-section">
+                <h2>Account changes ({{.Total}})</h2>
+                <p class="intro">
+                    Every change to an account is recorded here, newest first: invites and recovery links,
+                    sign-in method changes, roles, activation, session revocations, commands run on the
+                    server, and administrators' sign-ins. Entries cannot be changed or removed.
+                </p>
+                <div class="table-container">
+                    <table class="data-table" data-testid="audit-log-table">
+                        <thead>
+                            <tr>
+                                <th>When</th>
+                                <th>Who</th>
+                                <th>Action</th>
+                                <th>Account</th>
+                                <th>Detail</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{if .Entries}}
+                                {{range .Entries}}
+                                <tr data-testid="audit-entry" data-action="{{.Action}}">
+                                    <td class="when-cell">{{.CreatedAt.Format "02 Jan 2006 15:04:05"}}</td>
+                                    <td>
+                                        {{if eq .ActorKind "cli"}}<span class="actor-kind">server command</span>{{.Actor}}
+                                        {{else if eq .ActorKind "user"}}{{.Actor}}
+                                        {{else}}<span class="actor-kind">system</span>{{end}}
+                                    </td>
+                                    <td class="action-cell">{{.Action}}</td>
+                                    <td>{{.TargetUsername}}</td>
+                                    <td class="detail-cell">{{.Detail}}</td>
+                                </tr>
+                                {{end}}
+                            {{else}}
+                            <tr data-testid="audit-log-empty">
+                                <td colspan="5" style="text-align: center; color: #6c757d; padding: 2rem;">Nothing has been recorded yet</td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+                <nav class="pager" aria-label="Audit log pages">
+                    <span>{{if .PrevPage}}<a href="/admin/league/audit-log?page={{.PrevPage}}" data-testid="audit-log-newer">&larr; Newer</a>{{end}}</span>
+                    <span data-testid="audit-log-page">Page {{.Page}} of {{.Pages}}</span>
+                    <span>{{if .NextPage}}<a href="/admin/league/audit-log?page={{.NextPage}}" data-testid="audit-log-older">Older &rarr;</a>{{end}}</span>
+                </nav>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

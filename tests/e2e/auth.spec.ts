@@ -28,9 +28,17 @@ test.describe("Authentication flows", () => {
     await expect(password).toHaveAttribute("required", "");
   });
 
+  test("GET /logout is refused and does not sign out", async ({ page }) => {
+    await loginAsAdmin(page);
+    const response = await page.goto("/logout");
+    expect(response?.status()).toBe(405);
+    await page.goto("/admin/league/dashboard");
+    await expect(page).toHaveURL(/\/admin\/league\/dashboard/);
+  });
+
   test("logout redirects to login and clears session", async ({ page }) => {
     await loginAsAdmin(page);
-    await page.goto("/logout");
+    await page.click('[data-testid="logout-button"]');
     await expect(page).toHaveURL(/\/login/);
     // Trying to access admin should redirect to login
     await page.goto("/admin/league/dashboard");

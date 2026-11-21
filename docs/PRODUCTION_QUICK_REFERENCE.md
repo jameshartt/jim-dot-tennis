@@ -346,9 +346,10 @@ What they do and do not do:
 - `setup code` only works while the app has no administrator. The new code
   replaces the one in the startup log and works once. The server's limit on
   wrong codes is not reset by it (restarting the app resets it).
-- Each command writes an audit line (time, command, account, action) to the
-  terminal it ran in. No password, code or link is ever included. A stored audit log
-  that administrators can view comes later.
+- Each command records what it did (time, command, account, action) in the
+  account audit log that administrators see at `/admin/league/audit-log`
+  (section 13), and writes the same line to the terminal it ran in. No password,
+  code or link is ever included.
 
 The full `help` text:
 
@@ -568,6 +569,79 @@ person back in with `user reset <username>`. Rolling back (`cmd/migrate-down
 -version 33`) gives accounts without a password an empty one that matches
 nothing, and discards unused links.
 
+### 13. Sessions, Sign-in Throttling, Audit Log and Cleanup
+
+**Upgrading to this version (migration 035) signs everyone out once.** Sessions
+used to be stored under the raw cookie token, so a copy of the database (a
+backup, a droplet snapshot) held a working sign-in for everybody who was signed
+in. Now the cookie carries a random token and the database stores only its
+SHA-256 (`sessions.token_hash`); `sessions.id` is a plain number. The migration
+deletes the old sessions instead of converting them, which also makes the raw
+tokens inside every earlier backup useless. After the upgrade each person signs
+in again (passkey or password); nothing else about their account changes.
+Rolling back (`cmd/migrate-down -version 34`) signs everyone out again and drops
+the audit log.
+
+**Throttling of password sign-in.** Counted from `login_attempts` over 15
+minutes:
+
+- 5 failures for one username from one address block that username from that
+  address only;
+- 30 failures against any usernames from one address block password sign-in
+  from that address (one password tried across many usernames).
+
+Neither limit ever counts other addresses, so nobody can lock a named person out
+of signing in from somewhere else, and neither applies to passkeys (section 11):
+password failures against a name never block that person's passkey. While
+blocked, further attempts are refused without being counted, so retrying does
+not extend the block. An IPv6 client counts as its whole /64 network; the
+dashboard's login attempts show that network for IPv6 clients.
+
+**Client addresses.** Every throttle and recorded address comes from one
+function (`clientIP` in `internal/auth/clientip.go`). It trusts the rightmost
+`X-Forwarded-For` entry only when the direct peer is a private or loopback
+address, i.e. the proxy. This is safe only while **the app's port is reachable
+through Caddy alone**, as in `deploy/docker-compose.yml` (only Caddy publishes
+ports). Never publish the app's port 8080 directly on a live server: Docker
+would make every visitor appear to come from a private gateway address and
+visitors could then choose their own address with that header.
+
+**Account audit log** (`/admin/league/audit-log`, administrators only, linked
+from the dashboard's System section). One row per account action, newest first,
+50 per page: accounts created, invite and recovery links made, cancelled and
+used, passwords changed, passkeys added, renamed, removed or blocked, roles
+changed, accounts disabled and enabled, sessions revoked, commands run on the
+server (`user ...`, `setup code`), and every administrator's sign-in (method and
+address). Each row is written in the same database transaction as the change,
+so there is no change without its row. Rows never contain a password, a token, a
+hash or a session identifier. The page has no edit or delete, and the table
+itself refuses UPDATE and DELETE (triggers). **Retention: kept for good**; the
+rows are small. To prune it anyway, take a backup, then in `sqlite3` drop the
+triggers `account_audit_log_no_update` and `account_audit_log_no_delete`, delete
+what you must, and recreate the triggers from
+`migrations/035_session_hashes_and_account_audit_log.up.sql`.
+
+**Scheduled cleanup.** The app runs a cleanup a minute after it starts and then
+every hour (`auth.Service.Cleanup`), and stops it when the app shuts down. It
+deletes:
+
+- sessions that are signed out, revoked, past their 7-day expiry or past the
+  30-day absolute limit;
+- login attempts older than 90 days;
+- invite and recovery links that are used, cancelled or expired and were made
+  more than 30 days ago.
+
+It never deletes audit log rows. A run that deleted something writes one log
+line with the counts.
+
+**Logging.** Sign-in logs no usernames (attempted usernames are in
+`login_attempts`, visible to administrators) and nothing per request; player
+link tokens and the paths that contain them are never logged.
+
+**Signing out** is a POST form (the Logout / Sign out buttons). `GET /logout`
+answers 405 and signs nobody out, so a link or image on another page cannot
+sign anyone out.
+
 ---
 
 ## Go Tooling (Sprint 004)
@@ -614,7 +688,8 @@ make check            # Runs: vet, fmt, lint, deadcode
 | `/admin/league/clubs` | Club management |
 | `/admin/league/divisions/` | Division editing (Sprint 003) |
 | `/admin/league/users` | User management - list, create, toggle active, password reset (Sprint 003) |
-| `/admin/league/sessions` | Session management - view active, revoke (Sprint 003) |
+| `/admin/league/sessions` | Session management - view active, revoke (Sprint 003; sessions named by number, WI-131) |
+| `/admin/league/audit-log` | Account audit log, read-only, administrators only (WI-131) |
 | `/admin/league/points-table` | Points/standings table |
 | `/admin/league/match-card-import` | BHPLTA match card import |
 | `/admin/league/club-data-import` | Club data import |

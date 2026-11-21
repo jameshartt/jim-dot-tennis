@@ -115,10 +115,10 @@ func NewAttemptLimiter(limit int, window time.Duration) *AttemptLimiter {
 
 // Blocked reports whether the address behind r has used up its failures.
 func (a *AttemptLimiter) Blocked(r *http.Request, now time.Time) bool {
-	return a.l.blocked(clientIP(r), now)
+	return a.l.blocked(ThrottleKey(r), now)
 }
 
 // Fail counts one failure for the address behind r.
 func (a *AttemptLimiter) Fail(r *http.Request, now time.Time) {
-	a.l.record(clientIP(r), now)
+	a.l.record(ThrottleKey(r), now)
 }

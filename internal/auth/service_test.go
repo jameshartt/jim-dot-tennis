@@ -3,6 +3,9 @@
 package auth
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -55,15 +58,16 @@ func newTestService(t *testing.T, config Config) *Service {
 	return NewService(db, config)
 }
 
-// insertSession writes a session row directly so its timestamps can be forged.
-func insertSession(t *testing.T, s *Service, id string, createdAt time.Time, expiresAt time.Time) {
+// insertSession writes a session row directly so its timestamps can be
+// forged. token is the cookie value; only its hash is stored.
+func insertSession(t *testing.T, s *Service, token string, createdAt time.Time, expiresAt time.Time) {
 	t.Helper()
 	_, err := s.db.Exec(`
-		INSERT INTO sessions (id, user_id, role, created_at, expires_at, last_activity_at, ip, user_agent, device_info, is_valid)
+		INSERT INTO sessions (token_hash, user_id, role, created_at, expires_at, last_activity_at, ip, user_agent, device_info, is_valid)
 		VALUES (?, 1, 'admin', ?, ?, ?, '127.0.0.1', 'test', '{}', true)
-	`, id, createdAt, expiresAt, createdAt)
+	`, HashSessionToken(token), createdAt, expiresAt, createdAt)
 	if err != nil {
-		t.Fatalf("insert session %s: %v", id, err)
+		t.Fatalf("insert session %s: %v", token, err)
 	}
 }
 
@@ -96,34 +100,58 @@ func TestValidateSessionAbsoluteLifetimeCap(t *testing.T) {
 	}
 }
 
-func TestRedactToken(t *testing.T) {
-	const secret = "super-secret-session-id-value-1234567890"
-
-	got := redactToken(secret)
-
-	// The fingerprint must never contain the raw token (that is the whole point).
-	if strings.Contains(got, secret) {
-		t.Fatalf("redactToken leaked the raw token: %q", got)
+// A session is stored under the SHA-256 of its cookie token: the database
+// holds nothing that works as a cookie, and the hash itself does not either.
+func TestSessionsAreStoredHashed(t *testing.T) {
+	s := newTestService(t, DefaultConfig())
+	w := httptest.NewRecorder()
+	if err := s.StartSession(w, httptest.NewRequest("POST", "/setup/admin", nil), 1); err != nil {
+		t.Fatal(err)
 	}
-	if strings.Contains(secret, got) {
-		t.Fatalf("redactToken output is a prefix of the token: %q", got)
+	var token string
+	for _, c := range w.Result().Cookies() {
+		if c.Name == "session_token" {
+			token = c.Value
+		}
 	}
-
-	// It must be deterministic so log lines correlate across a session.
-	if again := redactToken(secret); again != got {
-		t.Fatalf("redactToken not deterministic: %q != %q", got, again)
-	}
-
-	// Different tokens must produce different fingerprints.
-	if other := redactToken(secret + "x"); other == got {
-		t.Fatal("redactToken collided for distinct tokens")
+	if len(token) < 40 {
+		t.Fatalf("session cookie %q, want a long random token", token)
 	}
 
-	if !strings.HasPrefix(got, "sha256:") {
-		t.Fatalf("expected sha256: prefix, got %q", got)
+	var row struct {
+		ID        int64  `db:"id"`
+		TokenHash string `db:"token_hash"`
+	}
+	if err := s.db.Get(&row, `SELECT id, token_hash FROM sessions`); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256([]byte(token))
+	if row.TokenHash != hex.EncodeToString(sum[:]) {
+		t.Fatalf("token_hash %q is not the SHA-256 of the cookie token", row.TokenHash)
+	}
+	// No column of any session row holds the token.
+	var leaks int
+	if err := s.db.Get(&leaks, `SELECT COUNT(*) FROM sessions WHERE instr(id || token_hash || ip || user_agent || device_info, ?) > 0`, token); err != nil {
+		t.Fatal(err)
+	}
+	if leaks != 0 {
+		t.Fatal("the raw session token is stored in the sessions table")
 	}
 
-	if empty := redactToken(""); empty != "<empty>" {
-		t.Fatalf("expected <empty> for empty token, got %q", empty)
+	r := httptest.NewRequest("GET", "/admin/league", nil)
+	session, err := s.ValidateSession(token, r)
+	if err != nil || session.ID != row.ID {
+		t.Fatalf("lookup by cookie token: %+v, %v", session, err)
+	}
+	for _, guess := range []string{row.TokenHash, strings.ToUpper(row.TokenHash), "", fmt.Sprint(row.ID)} {
+		if _, err := s.ValidateSession(guess, r); err == nil {
+			t.Fatalf("ValidateSession(%q) succeeded; only the cookie token may", guess)
+		}
+	}
+	if err := s.InvalidateSession(token); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ValidateSession(token, r); err == nil {
+		t.Fatal("session still valid after logout")
 	}
 }

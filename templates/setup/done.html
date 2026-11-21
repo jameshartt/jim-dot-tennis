@@ -8,7 +8,7 @@
 {{end}}
 
 {{define "user-controls"}}
-<a href="/logout" class="btn btn-sm">Sign out</a>
+<form method="POST" action="/logout" class="logout-form" style="display:inline;margin:0"><button type="submit" class="btn btn-sm" data-testid="logout-button">Sign out</button></form>
 {{end}}
 
 {{define "content"}}

@@ -322,7 +322,9 @@
                 <div class="user-controls">
                     <span class="user-info">Logged in as: {{.User.Username}}</span>
                     <a href="{{.SignInMethodsPath}}" class="btn btn-sm" data-testid="signin-methods-link">Sign-in methods</a>
-                    <a href="/logout" class="btn btn-sm btn-danger">Logout</a>
+                    <form method="POST" action="/logout" class="logout-form" style="display:inline;margin:0">
+                        <button type="submit" class="btn btn-sm btn-danger" data-testid="logout-button">Logout</button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -465,6 +467,9 @@
                             </a>
                             <a href="/admin/league/sessions" class="action-link">
                                 <span class="action-link-icon">&#128274;</span> View Sessions
+                            </a>
+                            <a href="/admin/league/audit-log" class="action-link" data-testid="audit-log-link">
+                                <span class="action-link-icon">&#128220;</span> Account Audit Log
                             </a>
                             <a href="/admin/league/settings" class="action-link">
                                 <span class="action-link-icon">&#9881;</span> Club Settings

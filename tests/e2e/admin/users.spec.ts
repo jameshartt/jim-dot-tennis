@@ -48,4 +48,18 @@ test.describe("Admin Users", () => {
     expect(response?.status()).toBe(200);
     await expectNoErrorBanner(adminPage);
   });
+
+  test("audit log lists the administrator's sign-in, read-only", async ({
+    adminPage,
+  }) => {
+    const response = await adminPage.goto("/admin/league/audit-log");
+    expect(response?.status()).toBe(200);
+    await expect(adminPage.locator('[data-testid="audit-log-title"]')).toBeVisible();
+    // The shared admin session was created by a password sign-in.
+    await expect(
+      adminPage.locator('[data-testid="audit-entry"][data-action="user.sign_in"]').first(),
+    ).toBeVisible();
+    // Nothing on the page can change an entry.
+    await expect(adminPage.locator('[data-testid="audit-log-table"] form')).toHaveCount(0);
+  });
 });
