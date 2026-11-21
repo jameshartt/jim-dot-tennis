@@ -186,7 +186,8 @@ func (s *Service) RedeemCode(ctx context.Context, code, client string) (string, 
 		return "", ErrUnavailable
 	}
 	now := s.now()
-	if s.throttle.blocked(client, now) {
+	// An address that has used up its own wrong codes gets nothing checked.
+	if s.throttle.clientBlocked(client, now) {
 		return "", ErrThrottled
 	}
 	settings := repository.NewSettingsRepository(s.db)
@@ -197,8 +198,26 @@ func (s *Service) RedeemCode(ctx context.Context, code, client string) (string, 
 	if !ok || stored == "" {
 		return "", ErrNoActiveCode
 	}
+	// The code is compared (in constant time, by hash) before the global
+	// limit is looked at, and the right code is accepted whatever that limit
+	// says. The global limit used to refuse every code, right or wrong, once
+	// 30 wrong ones had arrived from anywhere, so a stranger sending 30 wrong
+	// codes every 15 minutes could stop the owner ever claiming their own
+	// instance.
+	//
+	// Letting the right code through does mean guesses spread over many
+	// addresses are each still checked (5 per address per window). That is
+	// safe because the code is 60 random bits: at a million guesses a second,
+	// far more than this server could answer, the expected time to hit it is
+	// about 18,000 years, and the code is replaced at every restart. The
+	// limits are there to keep the noise down, not to make the code strong.
+	// Wrong codes are counted either way, so the per-address limit holds
+	// during a flood too.
 	if !secretMatches(normalizeCode(code), stored) {
 		s.throttle.fail(client, now)
+		if s.throttle.globalBlocked(now) {
+			return "", ErrThrottled
+		}
 		return "", ErrWrongCode
 	}
 

@@ -194,8 +194,8 @@
                 <h2>Sign-in for administrators</h2>
                 <p class="section-intro">Passkeys can't be guessed, reused from another site or typed into a fake page, so they protect administrator accounts far better than passwords. You can require them: administrators then can't sign in with a password, and anyone made an administrator must have a passkey first.</p>
                 {{if .AdminPasskeys.Error}}<div class="alert alert-error" role="alert" data-admin-passkeys-error>{{.AdminPasskeys.Error}}</div>{{end}}
-                {{if not .AdminPasskeys.PublicURLSet}}
-                <span class="env-note" data-admin-passkeys-no-url>Passkeys need the public URL above. Until it is set, passkeys can't be used and this setting has no effect (administrators can still use passwords).</span>
+                {{if not .AdminPasskeys.PasskeysAvailable}}
+                <span class="env-note" data-admin-passkeys-no-url>Passkeys can't be used at the address you opened this page at: they need the public URL above, and the site opened at that address. Until then this setting has no effect (administrators can still use passwords).</span>
                 {{end}}
                 {{if .AdminPasskeys.Required}}
                 <p data-admin-passkeys-state>Passkeys are <strong>required</strong> for administrators.</p>

@@ -84,6 +84,8 @@ func (h *SessionsHandler) handleSessionsGet(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Who is signed in, from where, and recent sign-in attempts: not for a cache.
+	w.Header().Set("Cache-Control", "no-store")
 	if err := renderTemplate(w, tmpl, data); err != nil {
 		logAndError(w, "Failed to render template", err, http.StatusInternalServerError)
 	}

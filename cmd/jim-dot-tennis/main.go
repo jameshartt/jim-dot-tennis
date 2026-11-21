@@ -54,9 +54,7 @@ func main() {
 
 	// Execute migrations
 	migrationsPath := filepath.Join(projectRoot, "migrations")
-	if err := db.ExecuteMigrations(migrationsPath); err != nil {
-		log.Printf("Warning: Failed to run migrations: %v", err)
-	}
+	migrateOrStop(db, migrationsPath, log.Fatalf)
 
 	// Load the embedded fantasy name list on first run (also in setup mode).
 	if n, err := repository.NewProTennisPlayerRepository(db).SeedIfEmpty(context.Background()); err != nil {
@@ -194,6 +192,7 @@ func main() {
 	})
 	auth.NewPasskeyHandler(passkeys, templateDir, "/admin/league").RegisterRoutes(mux, authMiddleware)
 	authHandler.SetPasskeys(passkeys)
+	adminHandler.SetPasskeysAvailable(passkeys.Available)
 	setupHandler.OfferPasskeys(passkeys.Available)
 
 	// Auth routes
@@ -273,12 +272,27 @@ func main() {
 	port := getPort()
 	server := &http.Server{
 		Addr:         ":" + port,
-		Handler:      auth.CrossOriginGuard(setupState.Gate(setupService.DemoBanner(config.HomeClubMiddleware(homeClub, mux)))),
+		Handler:      auth.NoFraming(auth.CrossOriginGuard(setupState.Gate(setupService.DemoBanner(config.HomeClubMiddleware(homeClub, mux))))),
 		ReadTimeout:  30 * time.Second,  // Generous for mobile
 		WriteTimeout: 30 * time.Second,  // Generous for mobile
 		IdleTimeout:  120 * time.Second, // Keep connections alive
 	}
 	serve(server, authService)
+}
+
+// migrateOrStop applies the migrations and stops the server (through fatalf,
+// log.Fatalf in the server) if that fails. A failed migration used to be only
+// a warning, from the first commit on and for no recorded reason, and the app
+// then ran against a schema older than the code. Sign-in, sessions and the
+// audit log all depend on their tables being as the code expects, so that is
+// not a state to serve requests in. (The command line never migrates; it
+// checks the schema version itself and refuses, see cli.go.)
+func migrateOrStop(db *database.DB, migrationsPath string, fatalf func(format string, args ...any)) {
+	if err := db.ExecuteMigrations(migrationsPath); err != nil {
+		fatalf("Database migration failed, so the app cannot start: %v\n"+
+			"Nothing was served. Check that the migrations directory (%s) is present and matches this build, "+
+			"and see \"Working with Migrations\" in CLAUDE.md for a migration that stopped part-way.", err, migrationsPath)
+	}
 }
 
 // serve runs the server and the scheduled cleanup (expired sessions, old

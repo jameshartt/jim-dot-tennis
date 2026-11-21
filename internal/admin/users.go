@@ -116,7 +116,12 @@ func (h *UsersHandler) renderUsers(w http.ResponseWriter, r *http.Request, user 
 
 	// The page can carry a link that works once: never cache it.
 	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Referrer-Policy", "no-referrer")
+	// same-origin, not no-referrer: the page never sends its address to
+	// another site either way, but with no-referrer a browser posts this
+	// page's forms with "Origin: null", which the cross-origin guard refuses
+	// wherever the browser sends no Sec-Fetch-Site header (plain http to
+	// anything but localhost). See internal/setup/handler.go.
+	w.Header().Set("Referrer-Policy", "same-origin")
 	if err := renderTemplate(w, tmpl, data); err != nil {
 		logAndError(w, "Failed to render template", err, http.StatusInternalServerError)
 	}
@@ -310,7 +315,7 @@ func redirectUsersError(w http.ResponseWriter, r *http.Request, err error, fallb
 		msg = upperFirst(err.Error())
 	case errors.As(err, &invalidName):
 		msg = upperFirst(err.Error())
-	case errors.Is(err, accounts.ErrAdminNeedsPasskey):
+	case errors.Is(err, accounts.ErrAdminNeedsPasskey), errors.Is(err, accounts.ErrEnableNeedsPasskey):
 		msg = upperFirst(err.Error())
 	}
 	http.Redirect(w, r, "/admin/league/users?error="+url.QueryEscape(msg), http.StatusSeeOther)

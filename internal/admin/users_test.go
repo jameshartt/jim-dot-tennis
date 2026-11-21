@@ -115,7 +115,7 @@ func TestUsersPageInvitesAndRecoversWithLinks(t *testing.T) {
 	if !strings.HasPrefix(link, "https://tennis.example.org/account/link/") {
 		t.Errorf("invite link %q is not built from the public URL", link)
 	}
-	if rec.Header().Get("Cache-Control") != "no-store" || rec.Header().Get("Referrer-Policy") != "no-referrer" || rec.Header().Get("Location") != "" {
+	if rec.Header().Get("Cache-Control") != "no-store" || rec.Header().Get("Referrer-Policy") != "same-origin" || rec.Header().Get("Location") != "" {
 		t.Errorf("headers of the response carrying the link: %v", rec.Header())
 	}
 	body = rec.Body.String()

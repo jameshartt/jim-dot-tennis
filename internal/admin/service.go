@@ -45,6 +45,9 @@ type Service struct {
 	pushService                  *webpush.Service
 	courthiveAPIURL              string
 	accounts                     *accounts.Service
+	// passkeysAvailable reports whether passkeys work at a request's address
+	// (set by Handler.SetPasskeysAvailable; nil in tests).
+	passkeysAvailable func(*http.Request) bool
 }
 
 // homeClubID returns the current home club ID (0 while the instance is still

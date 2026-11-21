@@ -47,6 +47,10 @@ const (
 	dashboardPath = "/admin/league/dashboard"
 )
 
+// maxFormBody bounds the body of every setup form post (a code, a username
+// and password, a club choice).
+const maxFormBody = 16 << 10
+
 // ticketCookie carries the browser ticket from a redeemed setup code.
 const ticketCookie = "setup_ticket"
 
@@ -264,6 +268,7 @@ func (h *Handler) code(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxFormBody)
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return
@@ -320,6 +325,7 @@ func (h *Handler) admin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxFormBody)
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return
@@ -430,6 +436,7 @@ func (h *Handler) club(w http.ResponseWriter, r *http.Request) {
 		h.render(w, http.StatusOK, "club", data)
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxFormBody)
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return

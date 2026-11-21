@@ -5,8 +5,9 @@ import {
   expectTitleContains,
 } from "../helpers/assertions";
 
-// Runs in the passkey-enabled "auth" project (http://localhost:8080): see
-// AUTH_SPECS in playwright.config.ts for why.
+// Runs in the main suite, over plain http to http://app-e2e:8080, where the
+// browser sends no Sec-Fetch-Site: the users page's forms must still post
+// (WI-134: its Referrer-Policy is same-origin, see playwright.config.ts).
 test.describe("Admin Users", () => {
   test("users page loads", async ({ adminPage }) => {
     const response = await adminPage.goto("/admin/league/users");

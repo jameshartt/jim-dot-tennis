@@ -68,6 +68,7 @@
 <body>
 <div class="planning-link-wrapper">
     <h1>Which player are you?</h1>
+    {{if .Error}}<div class="alert alert-danger" role="alert" data-planning-link-error>{{.Error}}</div>{{end}}
     <p class="hint">
         Pick your player record so the planning dashboard can default to
         <strong>your teams</strong>. You can still see every team — this only

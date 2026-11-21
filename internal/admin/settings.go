@@ -178,6 +178,8 @@ func (h *SettingsHandler) render(w http.ResponseWriter, r *http.Request, user *m
 		logAndError(w, "Failed to parse template", err, http.StatusInternalServerError)
 		return
 	}
+	// The page shows the instance's settings and its Club Wrapped code.
+	w.Header().Set("Cache-Control", "no-store")
 	if status != http.StatusOK {
 		w.WriteHeader(status)
 	}

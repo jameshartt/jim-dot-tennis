@@ -3,9 +3,12 @@
 package admin
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"strings"
+
+	"jim-dot-tennis/internal/accounts"
 )
 
 // PlanningLinkHandler handles the one-time 'I am…' picker that writes
@@ -37,18 +40,28 @@ func (h *PlanningLinkHandler) HandleLink(w http.ResponseWriter, r *http.Request)
 			logAndError(w, "bad form", err, http.StatusBadRequest)
 			return
 		}
+		// Through the account service, like the users page: it checks the
+		// player exists and is not linked to another account, and records the
+		// change in the audit log. An empty player_id removes the link.
 		playerID := strings.TrimSpace(r.FormValue("player_id"))
-		if playerID == "" {
-			// POST with empty player_id unlinks
-			if err := h.service.SetPlayerIDOnUser(r.Context(), user.ID, nil); err != nil {
-				logAndError(w, "unlink failed", err, http.StatusInternalServerError)
+		if _, err := h.service.accounts.SetPlayerLink(r.Context(), actorFor(user), user.ID, playerID); err != nil {
+			code := "failed"
+			switch {
+			case errors.Is(err, accounts.ErrPlayerLinked):
+				code = "taken"
+			case errors.Is(err, accounts.ErrPlayerNotFound):
+				code = "unknown"
+			default:
+				log.Printf("planning link: user %d: %v", user.ID, err)
+			}
+			target := "/admin/league/planning/link?force=1&error=" + code
+			if r.Header.Get("HX-Request") == "true" {
+				w.Header().Set("HX-Redirect", target)
+				w.WriteHeader(http.StatusNoContent)
 				return
 			}
-		} else {
-			if err := h.service.SetPlayerIDOnUser(r.Context(), user.ID, &playerID); err != nil {
-				logAndError(w, "link failed", err, http.StatusInternalServerError)
-				return
-			}
+			http.Redirect(w, r, target, http.StatusSeeOther)
+			return
 		}
 		// HTMX requests get a small acknowledgement header so the client can
 		// reload the dashboard in place. Full-page POSTs get a redirect.
@@ -61,6 +74,13 @@ func (h *PlanningLinkHandler) HandleLink(w http.ResponseWriter, r *http.Request)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+// planningLinkErrors are the messages for a refused link (?error=<code>).
+var planningLinkErrors = map[string]string{
+	"taken":   "That player is already linked to another account. If that is you, ask an administrator to sort it out on the users page.",
+	"unknown": "That player could not be found. Pick one from the list.",
+	"failed":  "Something went wrong. Nothing was changed; please try again.",
 }
 
 // renderPicker renders the 'I am…' picker. Also used as the 'unlink/relink'
@@ -90,6 +110,7 @@ func (h *PlanningLinkHandler) renderPicker(w http.ResponseWriter, r *http.Reques
 		"LinkedID":    user.PlayerID,
 		"ClubName":    homeClubNameFromContext(r),
 		"IsForceShow": r.URL.Query().Get("force") == "1",
+		"Error":       planningLinkErrors[r.URL.Query().Get("error")],
 	}
 	if err := renderTemplate(w, tmpl, data); err != nil {
 		log.Printf("planning link render failed: %v", err)

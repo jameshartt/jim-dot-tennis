@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -57,6 +58,23 @@ func (s *Service) handleGetVAPIDPublicKey(w http.ResponseWriter, r *http.Request
 	})
 }
 
+// Limits on what an anonymous subscription request may store.
+const (
+	maxSubscriptionBody = 8 << 10
+	maxEndpointBytes    = 2048
+	maxKeyBytes         = 512
+	maxPlayerTokenBytes = 256
+	maxUserAgentBytes   = 256
+)
+
+// clipUserAgent cuts a User-Agent header to what is stored.
+func clipUserAgent(ua string) string {
+	if len(ua) > maxUserAgentBytes {
+		return strings.ToValidUTF8(ua[:maxUserAgentBytes], "")
+	}
+	return ua
+}
+
 // handleSubscribe handles subscription requests
 func (s *Service) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -64,8 +82,15 @@ func (s *Service) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Anyone can call this, so everything it stores is bounded: the body as
+	// a whole, and each stored field.
 	var subReq SubscriptionRequest
-	if err := json.NewDecoder(r.Body).Decode(&subReq); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxSubscriptionBody)).Decode(&subReq); err != nil {
+		http.Error(w, "Invalid subscription data", http.StatusBadRequest)
+		return
+	}
+	if len(subReq.Endpoint) > maxEndpointBytes || len(subReq.Keys.P256dh) > maxKeyBytes ||
+		len(subReq.Keys.Auth) > maxKeyBytes || len(subReq.PlayerToken) > maxPlayerTokenBytes {
 		http.Error(w, "Invalid subscription data", http.StatusBadRequest)
 		return
 	}
@@ -85,7 +110,7 @@ func (s *Service) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 		Endpoint:    subReq.Endpoint,
 		P256dh:      subReq.Keys.P256dh,
 		Auth:        subReq.Keys.Auth,
-		UserAgent:   r.UserAgent(),
+		UserAgent:   clipUserAgent(r.UserAgent()),
 		PlayerToken: playerToken,
 		CreatedAt:   time.Now(),
 	}
@@ -184,7 +209,8 @@ func (s *Service) handleResetVAPIDKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	publicKey, privateKey, err := s.ResetVAPIDKeys()
+	// The private key stays on the server: no part of it is returned or logged.
+	publicKey, _, err := s.ResetVAPIDKeys()
 	if err != nil {
 		log.Printf("Error resetting VAPID keys: %v", err)
 		http.Error(w, "Failed to reset VAPID keys", http.StatusInternalServerError)
@@ -193,9 +219,8 @@ func (s *Service) handleResetVAPIDKeys(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
-		"status":     "success",
-		"publicKey":  publicKey,
-		"privateKey": privateKey[:10] + "..." + privateKey[len(privateKey)-10:], // Only show part of private key
+		"status":    "success",
+		"publicKey": publicKey,
 	})
 }
 
@@ -225,7 +250,8 @@ func (s *Service) handleTestPlayerPush(w http.ResponseWriter, r *http.Request) {
 
 	sent, err := s.SendToPlayer(req.PlayerToken, payload)
 	if err != nil {
-		log.Printf("Error sending test to player %s: %v", req.PlayerToken, err)
+		// A player's token is their link: it is never logged.
+		log.Printf("Error sending a test notification to a player: %v", err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

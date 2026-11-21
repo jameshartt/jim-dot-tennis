@@ -2,17 +2,18 @@ import { defineConfig } from "@playwright/test";
 
 // Specs that need passkeys (WebAuthn needs a secure context), so they only run
 // in the "auth" project against http://localhost:8080.
+//
+// admin/users.spec.ts used to be here for another reason: the users page sent
+// "Referrer-Policy: no-referrer", so over plain http to a non-localhost host
+// (http://app-e2e:8080, no Sec-Fetch-Site) the browser posted its forms with
+// "Origin: null" and the app's cross-origin guard refused them. The page now
+// sends "same-origin" (WI-134), and the spec runs in the main suite, at exactly
+// that kind of address, as the regression test for it.
 const AUTH_SPECS = [
   "**/passkeys.spec.ts",
   "**/account-links.spec.ts",
   "**/admin-passkeys.spec.ts",
   "**/cli-reset.spec.ts",
-  // Creates users and changes roles: those forms POST from a page whose
-  // Referrer-Policy is no-referrer, and over plain http to a non-localhost host
-  // the browser then sends Origin: null with no Sec-Fetch-Site, which the
-  // app's cross-origin guard (correctly) refuses. http://localhost is a secure
-  // context, so the browser sends Sec-Fetch-Site there.
-  "**/admin/users.spec.ts",
 ];
 
 export default defineConfig({

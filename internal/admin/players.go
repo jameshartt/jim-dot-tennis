@@ -549,7 +549,8 @@ func (h *PlayersHandler) handleCreateFantasyDoubles(w http.ResponseWriter, r *ht
 		return
 	}
 
-	log.Printf("Created fantasy doubles pairing with ID: %d, AuthToken: %s", fantasyMatch.ID, fantasyMatch.AuthToken)
+	// The pairing's token is the player's link: log its id, never the token.
+	log.Printf("Created fantasy doubles pairing with ID: %d for player %s", fantasyMatch.ID, playerID)
 
 	// Assign the newly created pairing to the player
 	err = h.service.UpdatePlayerFantasyMatch(playerID, &fantasyMatch.ID)
@@ -573,7 +574,7 @@ func (h *PlayersHandler) handleGenerateRandomFantasyDoubles(w http.ResponseWrite
 		return
 	}
 
-	log.Printf("Generated and assigned random fantasy pairing %s to player %s", fantasyDetail.Match.AuthToken, playerID)
+	log.Printf("Generated and assigned random fantasy pairing %d to player %s", fantasyDetail.Match.ID, playerID)
 
 	// Redirect back to the player edit page to show the new assignment
 	http.Redirect(w, r, fmt.Sprintf("/admin/league/players/%s/edit", playerID), http.StatusSeeOther)

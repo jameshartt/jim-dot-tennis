@@ -78,6 +78,12 @@ func New(db *database.DB, templateDir string, courthiveAPIURL string, homeClub c
 }
 
 // RegisterRoutes registers all admin routes with the given mux
+// SetPasskeysAvailable tells the settings page how to find out whether
+// passkeys work at a request's address (auth.Passkeys.Available).
+func (h *Handler) SetPasskeysAvailable(available func(*http.Request) bool) {
+	h.service.passkeysAvailable = available
+}
+
 func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middleware) {
 	// Create admin mux for all admin routes. Every pattern must have a role
 	// declared in adminRouteRoles (roles.go); the mux enforces it per request.

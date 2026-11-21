@@ -21,10 +21,12 @@ const settingsAdminPasskeysPath = settingsPath + "/admin-passkeys"
 // adminPasskeysView is the settings page's "Sign-in" section.
 type adminPasskeysView struct {
 	accounts.AdminPasskeyStatus
-	// PublicURLSet: a public URL is configured, without which passkeys do
-	// not work and the requirement does not apply.
-	PublicURLSet bool
-	Error        string
+	// PasskeysAvailable: passkeys can be used at the address this page was
+	// opened at (auth.Passkeys.Available: normally "a public URL is set",
+	// and also localhost in development). Without them the requirement does
+	// not apply.
+	PasskeysAvailable bool
+	Error             string
 }
 
 func (h *SettingsHandler) adminPasskeysView(r *http.Request, cs *config.ClubSettings) adminPasskeysView {
@@ -34,7 +36,11 @@ func (h *SettingsHandler) adminPasskeysView(r *http.Request, cs *config.ClubSett
 		log.Printf("Settings: administrator passkey status: %v", err)
 	}
 	v.AdminPasskeyStatus = st
-	_, v.PublicURLSet, _ = cs.ResolvePublicURL()
+	if h.service.passkeysAvailable != nil {
+		v.PasskeysAvailable = h.service.passkeysAvailable(r)
+	} else {
+		_, v.PasskeysAvailable, _ = cs.ResolvePublicURL()
+	}
 	v.Error = r.URL.Query().Get("passkey_error")
 	return v
 }

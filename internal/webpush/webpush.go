@@ -236,7 +236,9 @@ func (s *Service) GetSubscriptionsByPlayerToken(playerToken string) ([]Subscript
 func (s *Service) SendToPlayer(playerToken string, payload map[string]interface{}) (int, error) {
 	subs, err := s.GetSubscriptionsByPlayerToken(playerToken)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get subscriptions for player %s: %v", playerToken, err)
+		// The token is the player's link, so it stays out of the error (and so
+		// out of whatever logs it).
+		return 0, fmt.Errorf("failed to get the player's push subscriptions: %v", err)
 	}
 
 	if len(subs) == 0 {
@@ -251,7 +253,7 @@ func (s *Service) SendToPlayer(playerToken string, payload map[string]interface{
 	successCount := 0
 	for _, sub := range subs {
 		if err := s.sendRawNotification(sub, payloadBytes); err != nil {
-			log.Printf("Failed to send notification to player %s device %s: %v", playerToken, sub.Endpoint, err)
+			log.Printf("Failed to send notification to subscription %d of a player: %v", sub.ID, err)
 		} else {
 			successCount++
 		}
@@ -278,7 +280,7 @@ func (s *Service) sendRawNotification(sub Subscription, payload []byte) error {
 		return err
 	}
 
-	log.Printf("Sending notification to endpoint: %s", sub.Endpoint)
+	log.Printf("Sending notification to subscription %d", sub.ID)
 
 	options := &webpush.Options{
 		VAPIDPublicKey:  vapidPublic,
@@ -311,7 +313,7 @@ func (s *Service) sendRawNotification(sub Subscription, payload []byte) error {
 	if resp.StatusCode >= 400 {
 		log.Printf("Failed to send notification, status: %d", resp.StatusCode)
 		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone || resp.StatusCode == http.StatusUnauthorized {
-			log.Printf("Removing stale subscription (status %d): %s", resp.StatusCode, sub.Endpoint)
+			log.Printf("Removing stale subscription %d (status %d)", sub.ID, resp.StatusCode)
 			s.DeleteSubscription(sub.Endpoint)
 		}
 		return fmt.Errorf("failed to send notification, status: %d, body: %s", resp.StatusCode, string(body))
@@ -336,7 +338,7 @@ func (s *Service) SendToAll(message string) error {
 	var successCount, failureCount int
 	var lastErr error
 	for i, sub := range subs {
-		log.Printf("Processing subscription %d/%d (endpoint: %s)", i+1, len(subs), sub.Endpoint)
+		log.Printf("Processing subscription %d/%d (ID %d)", i+1, len(subs), sub.ID)
 		sendStart := time.Now()
 
 		if err := s.SendNotification(sub, message); err != nil {
@@ -367,7 +369,9 @@ func (s *Service) SendToAll(message string) error {
 func (s *Service) ListVAPIDKeys() error {
 	log.Printf("Listing all VAPID keys in database...")
 
-	rows, err := s.db.Query("SELECT public_key, private_key FROM vapid_keys")
+	// Only the public halves are read: no private key material is ever
+	// logged, in whole or in part.
+	rows, err := s.db.Query("SELECT public_key FROM vapid_keys")
 	if err != nil {
 		return fmt.Errorf("error querying VAPID keys: %v", err)
 	}
@@ -375,14 +379,13 @@ func (s *Service) ListVAPIDKeys() error {
 
 	var count int
 	for rows.Next() {
-		var publicKey, privateKey string
-		if err := rows.Scan(&publicKey, &privateKey); err != nil {
+		var publicKey string
+		if err := rows.Scan(&publicKey); err != nil {
 			return fmt.Errorf("error scanning VAPID key row: %v", err)
 		}
 		count++
 		log.Printf("VAPID Key #%d:", count)
 		log.Printf("  Public Key:  %s", publicKey)
-		log.Printf("  Private Key: %s", privateKey[:10]+"..."+privateKey[len(privateKey)-10:]) // Only show part of private key for security
 	}
 
 	if err := rows.Err(); err != nil {
