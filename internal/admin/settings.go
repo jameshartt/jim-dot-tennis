@@ -80,8 +80,8 @@ type SettingsPageData struct {
 
 	Features       config.Features // effective feature switches
 	MyTennisEnvVar string          // env var overriding the My Tennis switch, if set
-	WrappedCode    string // Club Wrapped access code for members ("" if unavailable)
-	WrappedCodeEnv string // env var overriding the generated code, if set
+	WrappedCode    string          // Club Wrapped access code for members ("" if unavailable)
+	WrappedCodeEnv string          // env var overriding the generated code, if set
 }
 
 // HandleSettings serves GET and POST /admin/league/settings and POST .../bhplta-lookup.
