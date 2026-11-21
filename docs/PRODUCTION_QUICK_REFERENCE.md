@@ -312,9 +312,9 @@ ssh -i $SSH_KEY $SERVER "docker run --rm -v courthive-data:/data alpine tar czf 
 
 ### 10. Accounts and Setup from the Server Command Line
 
-The app's own binary has commands for listing, creating, resetting and
+The app's own binary has commands for listing, creating, recovering and
 disabling accounts, and for printing a new first-run setup code. Use them when
-nobody can sign in as an administrator. Run them inside the running container;
+nobody can sign in as an administrator (section 12 walks through that). Run them inside the running container;
 the app keeps running:
 
 ```bash
@@ -333,16 +333,21 @@ What they do and do not do:
   database, apply migrations or run the startup checks. If the database is older
   than the program (an upgraded image that has not started yet) or a migration
   stopped part-way, they refuse and say so.
-- `user create` and `user reset` print a generated temporary password once. The
-  account must choose its own password at its next sign-in (every signed-in page
-  goes to `/account/password` until it does). `user reset`, `user disable` and
-  `user sessions revoke` sign the account out everywhere.
+- `user create` and `user reset` never set or show a password. They print a
+  single-use **link** (section 12): an invite link for a new account (works for
+  48 hours), a recovery link for an existing one (works for 1 hour). The link is
+  built from the public URL (`PUBLIC_URL`, or the Public URL on the Club Settings
+  page); if none is set only the `/account/link/...` part is printed and you put
+  the app's address in front of it yourself.
+- `user reset` changes nothing by itself: the account keeps its password,
+  passkeys and sessions until the link is used. `user disable` and
+  `user sessions revoke` sign the account out everywhere at once.
 - Disabling or demoting the last active administrator is refused.
 - `setup code` only works while the app has no administrator. The new code
   replaces the one in the startup log and works once. The server's limit on
   wrong codes is not reset by it (restarting the app resets it).
 - Each command writes an audit line (time, command, account, action) to the
-  terminal it ran in. No password or code is ever included. A stored audit log
+  terminal it ran in. No password, code or link is ever included. A stored audit log
   that administrators can view comes later.
 
 The full `help` text:
@@ -365,14 +370,16 @@ Accounts
                                    sign in, and when it last signed in.
   user create <username> --role <role>
                                    Make a new account. <role> is admin, captain
-                                   or player. Prints a temporary password once;
-                                   the person chooses their own the first time
-                                   they sign in.
+                                   or player. Prints an invite link once; the
+                                   person who opens it sets up their own passkey
+                                   or password. The link works once, for 48 hours.
   user reset <username>            For someone who is locked out (even the last
-                                   administrator): gives the account a new
-                                   temporary password, printed once, signs it
-                                   out everywhere, and asks the person to choose
-                                   their own password when they next sign in.
+                                   administrator): prints a recovery link once.
+                                   Whoever opens it sets a new passkey or
+                                   password for the account and is signed in;
+                                   the account is then signed out everywhere
+                                   else. The link works once, for 1 hour. Nothing
+                                   changes for the account until it is used.
   user disable <username>          Stop an account signing in, and sign it out
                                    everywhere. Refused for the last active
                                    administrator.
@@ -391,9 +398,15 @@ First-run setup
   help                             Show this text.
 
 Good to know
-  - No command asks for, accepts or shows your own password. Where a password
-    is needed the app makes up a temporary one and shows it once; pass it on
-    privately (in person or by phone, not in a group chat).
+  - No command asks for, accepts, shows or sets a password. "user create" and
+    "user reset" print a link instead. There is no email: pass the link on
+    yourself, privately (in person, by phone or in a private message, not in a
+    group chat). Anyone who opens it first gets the account.
+  - A new link for an account cancels that account's earlier unused links.
+  - Links start with the app's public address (PUBLIC_URL, or the Public URL
+    on the Club Settings page). If none is set, only the part after the
+    address is printed; put the address people use to reach the app in front
+    of it, for example https://tennis.example.org/account/link/....
   - Anyone who can run these commands already controls the server and the
     app's database file. The commands make recovery easier; they do not give
     anyone powers they did not already have.
@@ -420,8 +433,9 @@ change takes effect at once. Consequences:
 - **Changing the domain (or moving between `www.` and the bare name) makes every
   existing passkey stop working.** Nothing is deleted, and changing it back makes
   them work again. Before changing it, make sure every administrator has a
-  password (or use `jim-dot-tennis user reset <username>` on the server
-  afterwards, section 10); afterwards each person adds a new passkey and removes
+  password; afterwards, anyone left without a way in gets a recovery link
+  (section 12; `jim-dot-tennis user reset <username>` on the server if no
+  administrator can sign in). Each person then adds a new passkey and removes
   the old one.
 - The address must be the one people actually type. Opening the site by IP
   address or by another name gives a login page without the passkey button
@@ -467,6 +481,92 @@ never applies to a live site. The Playwright containers reach the app as
 `http://app-e2e:8080`, which is not a passkey-capable address: the e2e suites
 see the plain password form unless a test sets `PUBLIC_URL` and tells the
 browser to treat that origin as secure.
+
+### 12. Inviting and Recovering Accounts (Links, No Email)
+
+**There is no email.** The app never sends anything to anyone. A new account is
+handed over, and a locked-out account is recovered, with a **single-use link**
+that an administrator (or the person who looks after the server) makes and
+passes on themselves: in person, by phone or in a private message, not in a
+group chat. Administrators never see, choose or reset anyone else's password.
+
+**Inviting someone** (users page, `/admin/league/users`): enter a username and
+role (and optionally the player record the account belongs to) and press
+"Create user and invite link". The page shows the link **once**; copy it then.
+Whoever opens it sees which account it is for, sets up a passkey (or a password
+if they cannot use one) and is signed in. Invite links work for **48 hours**.
+An account whose invite was never used shows "Invite not accepted" and a "New
+invite link" button.
+
+**Someone is locked out** (lost phone, forgotten password): press "Recovery
+link" beside their name and pass the link on. Recovery links work for **1 hour**.
+Making the link changes nothing for the account, so a mistaken click locks nobody
+out. When the link is used the person sets a new passkey or password, is signed
+in, and **every other session of the account is signed out**. On that page they
+can tick "Remove my old ways of signing in" (do this when a device was lost or
+stolen): the old passkeys and password are then deleted and only the new method
+works. Unticked, existing passkeys are kept (a new password always replaces the
+old one).
+
+**Rules that always hold**
+
+- A link works once and then never again. Opening the page does not use it up;
+  finishing does.
+- A new link for an account cancels that account's earlier unused links. Unused
+  links are listed under "Links not used yet" on the users page, where "Cancel
+  link" stops one working at once (do this if a link went to the wrong person).
+- The link itself is shown only when it is made. Only a fingerprint (hash) of it
+  is stored, so nobody can look it up later, not even in the database or a
+  backup. If it is lost, make a new one.
+- A deactivated account cannot use a link until it is activated again.
+- Whoever opens the link first gets the account. Treat it like a password until
+  it has been used.
+- Making, cancelling and using a link are written to the account audit trail
+  with who did it and for which account, never with the link.
+- Guessing at link addresses is slowed down: after 10 wrong links in 15 minutes
+  an address is refused for a while. A wrong, expired, used or cancelled link
+  all show the same "This link can't be used" page.
+- Links start with the public URL (`PUBLIC_URL`, or the Public URL on the Club
+  Settings page). Passkeys are offered on the link page only when a public URL is
+  set (section 11); otherwise the page asks for a password.
+- Link addresses contain the secret, so they must not be written to access logs.
+  The app never logs them, and the reference `deploy/Caddyfile` has no access
+  log. If you add request logging to a proxy in front of the app, leave out (or
+  redact) paths under `/account/link/`.
+
+**Every administrator is locked out.** Nobody can press "Recovery link", so make
+one on the server. This is the last resort and it needs access to the server,
+which is the point: whoever controls the server already controls the database.
+
+```bash
+# Who is there, and which accounts are administrators?
+ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis user list"
+
+# Print a recovery link for an administrator (works once, for 1 hour)
+ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis user reset <username>"
+
+# If the account was deactivated, activate it first (or the link will not work)
+ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis user enable <username>"
+
+# If no administrator account is left at all, promote one or make a new one
+ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis user role <username> admin"
+ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis user create <username> --role admin"
+```
+
+Open the printed link in a browser, set a passkey or password, and you are
+signed in as that administrator. If the app has no public URL set, the command
+prints only the `/account/link/...` part: put the address you use to reach the
+app in front of it.
+
+**Upgrading to this version (migration 034).** Passwords become optional, so
+`users.password_hash` may now be empty (NULL) for an account that signs in with
+passkeys only or has not used its invite. Existing passwords, sessions and
+passkeys are kept. One exception: an account still carrying a temporary password
+that somebody else chose (made with an earlier `user create` / `user reset`, or
+typed by an administrator, and never replaced) has that password removed; get the
+person back in with `user reset <username>`. Rolling back (`cmd/migrate-down
+-version 33`) gives accounts without a password an empty one that matches
+nothing, and discards unused links.
 
 ---
 
@@ -573,7 +673,7 @@ ssh -i $SSH_KEY $SERVER "docker compose restart courthive-server"
 ```bash
 ssh -i $SSH_KEY $SERVER "docker logs --tail 50 jim-dot-tennis | grep -i auth"
 ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ls -lh /app/data/tennis.db"
-# Locked out of every administrator account: see section 10
+# Locked out of every administrator account: see section 12
 ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis user list"
 ```
 

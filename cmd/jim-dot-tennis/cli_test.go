@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"jim-dot-tennis/internal/accounts"
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
@@ -59,15 +60,25 @@ func runCLITest(t *testing.T, args ...string) cliResult {
 	return cliResult{code: code, stdout: out.String(), stderr: errOut.String()}
 }
 
-var tempPasswordRE = regexp.MustCompile(`(?m)^    ([a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})$`)
+// A printed link: the public address (when set) and /account/link/<token>.
+var (
+	fullLinkRE = regexp.MustCompile(`(?m)^    (https://tennis\.example\.org/account/link/([A-Za-z0-9_-]{43}))$`)
+	pathLinkRE = regexp.MustCompile(`(?m)^    (/account/link/([A-Za-z0-9_-]{43}))$`)
+)
 
-func tempPassword(t *testing.T, stdout string) string {
+// printedToken returns the token of the one link in stdout, which must be a
+// full address when full is set and a bare path otherwise.
+func printedToken(t *testing.T, stdout string, full bool) string {
 	t.Helper()
-	m := tempPasswordRE.FindStringSubmatch(stdout)
-	if m == nil {
-		t.Fatalf("no temporary password in output:\n%s", stdout)
+	re := pathLinkRE
+	if full {
+		re = fullLinkRE
 	}
-	return m[1]
+	m := re.FindAllStringSubmatch(stdout, -1)
+	if len(m) != 1 {
+		t.Fatalf("want exactly one link (full address: %v) in output:\n%s", full, stdout)
+	}
+	return m[0][2]
 }
 
 func loadUser(t *testing.T, db *database.DB, username string) models.User {
@@ -81,19 +92,33 @@ func loadUser(t *testing.T, db *database.DB, username string) models.User {
 
 func TestCLIUserCommands(t *testing.T) {
 	db := cliTestDB(t)
+	t.Setenv("PUBLIC_URL", "https://tennis.example.org")
+	ctx := context.Background()
+	svc := accounts.New(db)
 
-	// create
+	// create: an account with no password and an invite link, printed once.
 	r := runCLITest(t, "user", "create", "alice", "--role", "admin")
 	if r.code != exitOK {
 		t.Fatalf("create alice: %d %s", r.code, r.stderr)
 	}
-	alicePw := tempPassword(t, r.stdout)
+	aliceInvite := printedToken(t, r.stdout, true)
 	alice := loadUser(t, db, "alice")
-	if alice.Role != models.RoleAdmin || !alice.IsActive || !alice.MustChangePassword || !auth.PasswordMatches(alice.PasswordHash, alicePw) {
+	if alice.Role != models.RoleAdmin || !alice.IsActive || alice.PasswordHash != "" {
 		t.Fatalf("alice after create: %+v", alice)
 	}
-	if !strings.Contains(r.stderr, "action=user.create") || !strings.Contains(r.stderr, `actor="cli:user create"`) || strings.Contains(r.stderr, alicePw) {
-		t.Errorf("audit record for create: %q", r.stderr)
+	if !strings.Contains(r.stdout, "48 hours") || !strings.Contains(r.stdout, "There is no email") {
+		t.Errorf("create output: %s", r.stdout)
+	}
+	for _, want := range []string{"action=user.create", "action=link.create", `actor="cli:user create"`, `target="alice"`, "kind=invite"} {
+		if !strings.Contains(r.stderr, want) {
+			t.Errorf("audit records for create lack %q: %q", want, r.stderr)
+		}
+	}
+	if strings.Contains(r.stderr, aliceInvite) {
+		t.Error("the audit record contains the link")
+	}
+	if link, err := svc.LookupLink(ctx, aliceInvite); err != nil || link.Kind != accounts.LinkInvite || link.Username != "alice" {
+		t.Fatalf("the printed invite link: %+v %v", link, err)
 	}
 	if r := runCLITest(t, "user", "create", "--role=captain", "bob"); r.code != exitOK {
 		t.Fatalf("create bob: %d %s", r.code, r.stderr)
@@ -105,7 +130,8 @@ func TestCLIUserCommands(t *testing.T) {
 	// list
 	r = runCLITest(t, "user", "list")
 	if r.code != exitOK || !strings.Contains(r.stdout, "alice") || !strings.Contains(r.stdout, "bob") ||
-		!strings.Contains(r.stdout, "1 active administrator(s)") || strings.Contains(r.stdout, "$2a$") {
+		!strings.Contains(r.stdout, "1 active administrator(s)") || !strings.Contains(r.stdout, "invite not used") ||
+		strings.Contains(r.stdout, "$2a$") || strings.Contains(r.stdout, aliceInvite) {
 		t.Fatalf("list: %+v", r)
 	}
 
@@ -120,28 +146,54 @@ func TestCLIUserCommands(t *testing.T) {
 		t.Fatal("alice disabled despite the guard")
 	}
 
-	// reset ends sessions (the server's sessions, written through its own connection)
+	// alice accepts her invite (in the browser this is the link page).
+	if _, err := svc.RedeemLink(ctx, aliceInvite, accounts.Redemption{Password: "her very own secret"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// reset: prints a recovery link and changes nothing until it is used
+	// (the server's sessions, written through its own connection, stay valid).
 	for _, id := range []string{"sess-1", "sess-2"} {
 		if _, err := db.Exec(`INSERT INTO sessions (id, user_id, role, created_at, expires_at, last_activity_at, ip, user_agent, device_info, is_valid)
 			VALUES (?, ?, 'admin', CURRENT_TIMESTAMP, datetime('now', '+1 day'), CURRENT_TIMESTAMP, '', '', '', TRUE)`, id, alice.ID); err != nil {
 			t.Fatal(err)
 		}
 	}
+	liveSessions := func() int {
+		var live int
+		if err := db.Get(&live, `SELECT COUNT(*) FROM sessions WHERE user_id = ? AND is_valid = TRUE`, alice.ID); err != nil {
+			t.Fatal(err)
+		}
+		return live
+	}
 	r = runCLITest(t, "user", "reset", "alice")
-	if r.code != exitOK || !strings.Contains(r.stdout, "signed it out of 2 session(s)") {
+	if r.code != exitOK || !strings.Contains(r.stdout, "1 hour") || !strings.Contains(r.stdout, "Nothing has changed") {
 		t.Fatalf("reset: %+v", r)
 	}
-	newPw := tempPassword(t, r.stdout)
+	recovery := printedToken(t, r.stdout, true)
 	alice = loadUser(t, db, "alice")
-	if !auth.PasswordMatches(alice.PasswordHash, newPw) || auth.PasswordMatches(alice.PasswordHash, alicePw) || !alice.MustChangePassword {
-		t.Error("reset did not replace the password with the temporary one")
+	if !auth.PasswordMatches(string(alice.PasswordHash), "her very own secret") || liveSessions() != 2 {
+		t.Error("issuing a recovery link changed the account")
 	}
-	var live int
-	if err := db.Get(&live, `SELECT COUNT(*) FROM sessions WHERE user_id = ? AND is_valid = TRUE`, alice.ID); err != nil || live != 0 {
-		t.Errorf("%d sessions still valid after reset (%v)", live, err)
-	}
-	if strings.Contains(r.stderr, newPw) || !strings.Contains(r.stderr, "action=user.reset_password") {
+	if strings.Contains(r.stderr, recovery) || !strings.Contains(r.stderr, "action=link.create") || !strings.Contains(r.stderr, "kind=recovery") ||
+		!strings.Contains(r.stderr, `actor="cli:user reset"`) {
 		t.Errorf("audit record for reset: %q", r.stderr)
+	}
+	// A second reset cancels the first link.
+	r = runCLITest(t, "user", "reset", "alice")
+	if r.code != exitOK || !strings.Contains(r.stdout, "earlier unused link") {
+		t.Fatalf("second reset: %+v", r)
+	}
+	if _, err := svc.LookupLink(ctx, recovery); err == nil {
+		t.Error("the first recovery link still works after a second one was issued")
+	}
+	recovery = printedToken(t, r.stdout, true)
+	// Using the link ends every session and sets the new password.
+	if _, err := svc.RedeemLink(ctx, recovery, accounts.Redemption{Password: "a recovered secret"}); err != nil {
+		t.Fatalf("use the printed recovery link: %v", err)
+	}
+	if liveSessions() != 0 || !auth.PasswordMatches(string(loadUser(t, db, "alice").PasswordHash), "a recovered secret") {
+		t.Error("using the recovery link did not end the sessions and set the password")
 	}
 
 	// role, disable, enable, sessions revoke
@@ -150,6 +202,9 @@ func TestCLIUserCommands(t *testing.T) {
 	}
 	if r := runCLITest(t, "user", "disable", "alice"); r.code != exitOK || loadUser(t, db, "alice").IsActive {
 		t.Fatalf("disable alice with bob admin: %+v", r)
+	}
+	if r := runCLITest(t, "user", "reset", "alice"); r.code != exitOK || !strings.Contains(r.stdout, "user enable alice") {
+		t.Fatalf("reset a disabled account: %+v", r)
 	}
 	if r := runCLITest(t, "user", "disable", "bob"); r.code != exitError {
 		t.Fatalf("disable bob, now the last active admin: %+v", r)
@@ -163,6 +218,38 @@ func TestCLIUserCommands(t *testing.T) {
 	if r := runCLITest(t, "user", "reset", "nobody"); r.code != exitError || !strings.Contains(r.stderr, "no account") {
 		t.Errorf("reset unknown user: %+v", r)
 	}
+}
+
+// Without a public URL the command line has no address to build the link
+// from: it prints the path and says how to complete it, and never guesses.
+func TestCLILinkWithoutPublicURL(t *testing.T) {
+	db := cliTestDB(t)
+	t.Setenv("PUBLIC_URL", "")
+	r := runCLITest(t, "user", "create", "alice", "--role", "admin")
+	if r.code != exitOK {
+		t.Fatalf("create: %+v", r)
+	}
+	token := printedToken(t, r.stdout, false)
+	if !strings.Contains(r.stdout, "no public address set") || !strings.Contains(r.stdout, "PUBLIC_URL") ||
+		!strings.Contains(r.stdout, "https://tennis.example.org/account/link/"+token) {
+		t.Errorf("output without a public URL:\n%s", r.stdout)
+	}
+	if strings.Contains(r.stdout, "localhost") {
+		t.Errorf("the command guessed a host:\n%s", r.stdout)
+	}
+	if _, err := accounts.New(db).LookupLink(context.Background(), token); err != nil {
+		t.Fatalf("the printed link: %v", err)
+	}
+
+	// The address stored on the Club Settings page is used when PUBLIC_URL is unset.
+	if err := repository.NewSettingsRepository(db).SetString(context.Background(), repository.SettingPublicURL, "https://tennis.example.org"); err != nil {
+		t.Fatal(err)
+	}
+	r = runCLITest(t, "user", "reset", "alice")
+	if r.code != exitOK {
+		t.Fatalf("reset: %+v", r)
+	}
+	printedToken(t, r.stdout, true)
 }
 
 func TestCLINeverTakesPasswords(t *testing.T) {

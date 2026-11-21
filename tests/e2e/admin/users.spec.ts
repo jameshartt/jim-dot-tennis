@@ -35,11 +35,12 @@ test.describe("Admin Users", () => {
   test("create user form is present", async ({ adminPage }) => {
     await adminPage.goto("/admin/league/users");
     const usernameInput = adminPage.locator("#username");
-    const passwordInput = adminPage.locator("#password");
     const roleSelect = adminPage.locator("#role");
     await expect(usernameInput).toBeVisible();
-    await expect(passwordInput).toBeVisible();
     await expect(roleSelect).toBeVisible();
+    // Administrators never choose another user's password: the form makes an
+    // invite link instead.
+    await expect(adminPage.locator("form[data-user-create] input[type=password]")).toHaveCount(0);
   });
 
   test("sessions page loads", async ({ adminPage }) => {

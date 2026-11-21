@@ -104,7 +104,7 @@ func KnownCredentialAccounts(ctx context.Context, db sqlx.QueryerContext) ([]str
 		Username     string `db:"username"`
 		PasswordHash string `db:"password_hash"`
 	}
-	if err := sqlx.SelectContext(ctx, db, &rows, `SELECT username, password_hash FROM users`); err != nil {
+	if err := sqlx.SelectContext(ctx, db, &rows, `SELECT username, password_hash FROM users WHERE COALESCE(password_hash, '') <> ''`); err != nil {
 		return nil, fmt.Errorf("check accounts for known passwords: %w", err)
 	}
 	var names []string

@@ -124,33 +124,12 @@ func requireJSON(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func (h *PasskeyHandler) setCeremonyCookie(w http.ResponseWriter, ticket string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     ceremonyCookie,
-		Value:    ticket,
-		Path:     "/",
-		MaxAge:   int(ceremonyLifetime / time.Second),
-		HttpOnly: true,
-		Secure:   h.service.config.CookieSecure,
-		SameSite: http.SameSiteStrictMode,
-	})
+	h.passkeys.setCeremonyCookie(w, ticket)
 }
 
 // takeCeremonyCookie returns the browser's ceremony ticket and clears the cookie.
 func (h *PasskeyHandler) takeCeremonyCookie(w http.ResponseWriter, r *http.Request) string {
-	http.SetCookie(w, &http.Cookie{
-		Name:     ceremonyCookie,
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   h.service.config.CookieSecure,
-		SameSite: http.SameSiteStrictMode,
-	})
-	c, err := r.Cookie(ceremonyCookie)
-	if err != nil {
-		return ""
-	}
-	return c.Value
+	return h.passkeys.takeCeremonyCookie(w, r)
 }
 
 // loginBegin starts a passkey sign-in. The optional JSON body carries a
@@ -343,8 +322,8 @@ type passkeyRow struct {
 type signInMethodsData struct {
 	Username string
 	Passkeys []passkeyRow
-	// HasPassword: the account has a password (always, until passwords
-	// become optional).
+	// HasPassword: the account has a password (an invited or recovered
+	// account may have passkeys only).
 	HasPassword bool
 	// CanRemove: the account has more than one sign-in method, so one can go.
 	CanRemove bool

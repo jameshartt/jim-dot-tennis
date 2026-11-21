@@ -119,7 +119,15 @@ func (r *webAuthnCredentialRepository) ListByUser(ctx context.Context, userID in
 }
 
 func (r *webAuthnCredentialRepository) Create(ctx context.Context, cred *models.WebAuthnCredential) error {
-	res, err := r.db.NamedExecContext(ctx, `
+	return InsertWebAuthnCredential(ctx, r.db, cred)
+}
+
+// InsertWebAuthnCredential stores a new passkey using db, which may be a
+// transaction (an account link stores the passkey in the transaction that
+// consumes the link). It sets cred.ID; ErrPasskeyExists when the credential
+// id is taken.
+func InsertWebAuthnCredential(ctx context.Context, db sqlx.ExtContext, cred *models.WebAuthnCredential) error {
+	res, err := sqlx.NamedExecContext(ctx, db, `
 		INSERT INTO webauthn_credentials (
 			user_id, credential_id, public_key, attestation_type, attestation_format, aaguid,
 			sign_count, transports, attachment, user_present, user_verified,

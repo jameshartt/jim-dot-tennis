@@ -344,13 +344,30 @@ func (p *Passkeys) BeginRegistration(r *http.Request, user *models.User, session
 // stores the new passkey for user. The ceremony is consumed whatever the
 // outcome.
 func (p *Passkeys) FinishRegistration(r *http.Request, user *models.User, sessionFP, ticket string, body io.Reader, name string) (*models.WebAuthnCredential, error) {
+	m, err := p.verifyRegistration(r, user, sessionFP, ticket, body, name)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.creds.Create(r.Context(), m); err != nil {
+		return nil, err
+	}
+	p.event(r.Context(), user, PasskeyActionAdd, fmt.Sprintf("passkey_id=%d", m.ID))
+	return m, nil
+}
+
+// verifyRegistration verifies the browser's response to BeginRegistration and
+// returns the new passkey for user without storing it. The ceremony is
+// consumed whatever the outcome. binding must be the value the ceremony was
+// begun with (the session fingerprint, or an account link's binding).
+func (p *Passkeys) verifyRegistration(r *http.Request, user *models.User, binding, ticket string, body io.Reader, name string) (*models.WebAuthnCredential, error) {
 	now := p.now()
 	c, ok := p.ceremonies.take(ticket, ceremonyRegister, now)
 	if !ok {
 		return nil, ErrPasskeyCeremony
 	}
-	// The ceremony belongs to the user and session that began it.
-	if c.userID != user.ID || c.session == "" || !hmac.Equal([]byte(c.session), []byte(sessionFP)) {
+	// The ceremony belongs to the user and the session (or account link)
+	// that began it.
+	if c.userID != user.ID || c.session == "" || !hmac.Equal([]byte(c.session), []byte(binding)) {
 		return nil, ErrPasskeyCeremony
 	}
 	wa, origin, err := p.relyingParty(r)
@@ -404,10 +421,6 @@ func (p *Passkeys) FinishRegistration(r *http.Request, user *models.User, sessio
 		Name:              PasskeyName(name, now),
 		CreatedAt:         now,
 	}
-	if err := p.creds.Create(r.Context(), m); err != nil {
-		return nil, err
-	}
-	p.event(r.Context(), user, PasskeyActionAdd, fmt.Sprintf("passkey_id=%d", m.ID))
 	return m, nil
 }
 

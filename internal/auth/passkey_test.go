@@ -1074,28 +1074,6 @@ func TestPasskeyEndpointsRefuseCrossSiteRequests(t *testing.T) {
 	}
 }
 
-func TestPasskeySignInKeepsMustChangePassword(t *testing.T) {
-	env := newPasskeyEnv(t)
-	a, cred, userID := env.enrolledUser("alice", false)
-	if _, err := env.svc.db.Exec(`UPDATE users SET must_change_password = true WHERE id = ?`, userID); err != nil {
-		t.Fatal(err)
-	}
-	// Signing in with a passkey works, but the session is held at the
-	// change-password page exactly as a password sign-in would be.
-	b := env.browser("198.51.100.1")
-	wantStatus(t, b.passkeySignIn(a, cred), http.StatusOK)
-	for _, probe := range []struct{ method, path string }{
-		{http.MethodGet, SignInMethodsPath},
-		{http.MethodPost, "/account/passkeys/begin"},
-		{http.MethodPost, "/account/passkeys/1/delete"},
-	} {
-		rec := b.do(probe.method, probe.path, "application/json", []byte("{}"))
-		if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != ChangePasswordPath {
-			t.Errorf("%s %s: status %d, Location %q; want a redirect to %s", probe.method, probe.path, rec.Code, rec.Header().Get("Location"), ChangePasswordPath)
-		}
-	}
-}
-
 func TestLoginAndSignInMethodsPages(t *testing.T) {
 	env := newPasskeyEnv(t)
 	env.addUser("alice", models.RoleCaptain)

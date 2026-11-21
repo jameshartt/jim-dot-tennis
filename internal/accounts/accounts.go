@@ -1,7 +1,9 @@
 // Copyright (c) 2025-2026 James Hartt. Licensed under the MIT License.
 
 // Package accounts is the one place account operations happen: create, list,
-// enable/disable, role change, password reset and session revocation. The
+// enable/disable, role change, invite and recovery links (links.go) and
+// session revocation. Nobody but the account's owner ever sets or sees its
+// password. The
 // admin users and sessions pages and the server command line
 // (`jim-dot-tennis user ...`) both call it, so the rules - above all "never
 // leave the instance without an active administrator" - hold whichever way an
@@ -10,7 +12,6 @@ package accounts
 
 import (
 	"context"
-	"crypto/rand"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -35,6 +36,12 @@ var (
 	ErrLastAdmin = errors.New("this is the last active administrator: make another account an active administrator first")
 	// ErrWrongPassword: the current password given to ChangeOwnPassword is wrong.
 	ErrWrongPassword = errors.New("your current password is not right")
+	// ErrNoPassword: ChangeOwnPassword on an account that has no password.
+	ErrNoPassword = errors.New("this account has no password to change")
+	// ErrPlayerNotFound: the player to link the account to does not exist.
+	ErrPlayerNotFound = errors.New("there is no player with that id to link the account to")
+	// ErrPlayerLinked: the player is already linked to another account.
+	ErrPlayerLinked = errors.New("that player is already linked to another account")
 )
 
 // InvalidUsernameError explains why a username was refused.
@@ -60,15 +67,26 @@ func ParseRole(s string) (models.Role, error) {
 // Account is an account as shown to administrators and the command line. It
 // deliberately has no password hash.
 type Account struct {
-	ID                 int64       `db:"id"`
-	Username           string      `db:"username"`
-	Role               models.Role `db:"role"`
-	PlayerID           *string     `db:"player_id"`
-	IsActive           bool        `db:"is_active"`
-	MustChangePassword bool        `db:"must_change_password"`
-	CreatedAt          time.Time   `db:"created_at"`
-	LastLoginAt        time.Time   `db:"last_login_at"`
-	ActiveSessions     int         `db:"active_sessions"` // valid, unexpired sessions
+	ID             int64       `db:"id"`
+	Username       string      `db:"username"`
+	Role           models.Role `db:"role"`
+	PlayerID       *string     `db:"player_id"`
+	IsActive       bool        `db:"is_active"`
+	CreatedAt      time.Time   `db:"created_at"`
+	LastLoginAt    time.Time   `db:"last_login_at"`
+	ActiveSessions int         `db:"active_sessions"` // valid, unexpired sessions
+	HasPassword    bool        `db:"has_password"`
+	Passkeys       int         `db:"passkeys"`
+}
+
+// SignInMethods is the number of ways the account can sign in (passkeys plus
+// a password). Zero means it is waiting for its invite to be accepted.
+func (a Account) SignInMethods() int {
+	n := a.Passkeys
+	if a.HasPassword {
+		n++
+	}
+	return n
 }
 
 // IsActiveAdmin reports whether the account is an active administrator.
@@ -86,8 +104,10 @@ func New(db *database.DB) *Service {
 }
 
 const accountColumns = `
-	u.id, u.username, u.role, u.player_id, u.is_active, u.must_change_password,
+	u.id, u.username, u.role, u.player_id, u.is_active,
 	u.created_at, u.last_login_at,
+	(COALESCE(u.password_hash, '') <> '') AS has_password,
+	(SELECT COUNT(*) FROM webauthn_credentials c WHERE c.user_id = u.id) AS passkeys,
 	(SELECT COUNT(*) FROM sessions s
 	  WHERE s.user_id = u.id AND s.is_valid = TRUE AND s.expires_at > CURRENT_TIMESTAMP) AS active_sessions`
 
@@ -136,10 +156,11 @@ func getAccount(ctx context.Context, db sqlx.QueryerContext, where string, arg a
 	return a, nil
 }
 
-// Create makes a new active account. The password must meet the password
-// policy (auth.ValidatePassword). mustChange marks it as chosen by someone
-// else, so the user is asked to replace it at their first sign-in.
-func (s *Service) Create(ctx context.Context, actor Actor, username string, role models.Role, password string, mustChange bool) (Account, error) {
+// createAccount inserts an active account with no password inside tx and
+// records it (Invite, in links.go, is the only way an account is made here:
+// its owner sets up how they sign in through the invite link). playerID links
+// the account to a player record and may be nil.
+func (s *Service) createAccount(ctx context.Context, tx *sqlx.Tx, actor Actor, username string, role models.Role, playerID *string) (Account, error) {
 	username = strings.TrimSpace(username)
 	if !usernamePattern.MatchString(username) {
 		return Account{}, &InvalidUsernameError{Username: username}
@@ -147,125 +168,60 @@ func (s *Service) Create(ctx context.Context, actor Actor, username string, role
 	if _, err := ParseRole(string(role)); err != nil {
 		return Account{}, err
 	}
-	if err := auth.ValidatePassword(password, username); err != nil {
+	now := s.now()
+	// The insert is the transaction's first statement, so it holds the write
+	// lock before the checks below read anything.
+	res, err := tx.ExecContext(ctx, `
+		INSERT INTO users (username, password_hash, role, player_id, is_active, created_at, last_login_at)
+		SELECT ?, NULL, ?, NULL, TRUE, ?, ?
+		WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = ? COLLATE NOCASE)`,
+		username, role, now, now, username)
+	if err != nil {
+		return Account{}, fmt.Errorf("create account: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return Account{}, ErrUsernameTaken
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return Account{}, fmt.Errorf("create account: %w", err)
+	}
+	detail := "role " + string(role)
+	if playerID != nil && *playerID != "" {
+		var exists, linked int
+		if err := tx.GetContext(ctx, &exists, `SELECT COUNT(*) FROM players WHERE id = ?`, *playerID); err != nil {
+			return Account{}, fmt.Errorf("check player: %w", err)
+		}
+		if exists == 0 {
+			return Account{}, ErrPlayerNotFound
+		}
+		if err := tx.GetContext(ctx, &linked, `SELECT COUNT(*) FROM users WHERE player_id = ?`, *playerID); err != nil {
+			return Account{}, fmt.Errorf("check player link: %w", err)
+		}
+		if linked > 0 {
+			return Account{}, ErrPlayerLinked
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE users SET player_id = ? WHERE id = ?`, *playerID, id); err != nil {
+			return Account{}, fmt.Errorf("link player: %w", err)
+		}
+		detail += " linked_player=yes"
+	}
+	created, err := getAccount(ctx, tx, `u.id = ?`, id)
+	if err != nil {
 		return Account{}, err
 	}
-	hash, err := auth.HashPassword(password)
-	if err != nil {
-		return Account{}, fmt.Errorf("hash password: %w", err)
-	}
-	var created Account
-	err = s.inTx(ctx, func(tx *sqlx.Tx) error {
-		var taken int
-		if err := tx.GetContext(ctx, &taken, `SELECT COUNT(*) FROM users WHERE username = ? COLLATE NOCASE`, username); err != nil {
-			return fmt.Errorf("check username: %w", err)
-		}
-		if taken > 0 {
-			return ErrUsernameTaken
-		}
-		now := s.now()
-		res, err := tx.ExecContext(ctx, `
-			INSERT INTO users (username, password_hash, role, is_active, must_change_password, created_at, last_login_at)
-			VALUES (?, ?, ?, TRUE, ?, ?, ?)`, username, hash, role, mustChange, now, now)
-		if err != nil {
-			return fmt.Errorf("create account: %w", err)
-		}
-		id, err := res.LastInsertId()
-		if err != nil {
-			return fmt.Errorf("create account: %w", err)
-		}
-		if created, err = getAccount(ctx, tx, `u.id = ?`, id); err != nil {
-			return err
-		}
-		return recordAudit(ctx, tx, Record{Time: now, Actor: actor, Action: ActionCreate,
-			TargetUserID: id, TargetUsername: username, Detail: "role " + string(role)})
-	})
-	return created, err
-}
-
-// CreateWithTemporaryPassword makes a new account with a generated password,
-// returned once for the caller to hand over; the user must replace it at
-// their first sign-in.
-func (s *Service) CreateWithTemporaryPassword(ctx context.Context, actor Actor, username string, role models.Role) (Account, string, error) {
-	temp, err := TemporaryPassword(username)
-	if err != nil {
-		return Account{}, "", err
-	}
-	a, err := s.Create(ctx, actor, username, role, temp, true)
-	if err != nil {
-		return Account{}, "", err
-	}
-	return a, temp, nil
-}
-
-// SetPassword gives account id the password an administrator typed and ends
-// all of its sessions. Unless the administrator is setting their own password
-// the user must replace it at their next sign-in.
-func (s *Service) SetPassword(ctx context.Context, actor Actor, id int64, password string) error {
-	a, err := s.Get(ctx, id)
-	if err != nil {
-		return err
-	}
-	mustChange := !(actor.Kind == ActorUser && actor.UserID == id)
-	_, err = s.setPassword(ctx, actor, a, password, mustChange, ActionSetPassword)
-	return err
-}
-
-// ResetWithTemporaryPassword gives account id a generated password (returned
-// once), marks it as one the user must replace at their next sign-in and ends
-// all of the account's sessions. It returns the number of sessions ended.
-//
-// WI-129 replaces this with a single-use recovery link.
-func (s *Service) ResetWithTemporaryPassword(ctx context.Context, actor Actor, id int64) (string, int64, error) {
-	a, err := s.Get(ctx, id)
-	if err != nil {
-		return "", 0, err
-	}
-	temp, err := TemporaryPassword(a.Username)
-	if err != nil {
-		return "", 0, err
-	}
-	ended, err := s.setPassword(ctx, actor, a, temp, true, ActionResetPassword)
-	if err != nil {
-		return "", 0, err
-	}
-	return temp, ended, nil
-}
-
-func (s *Service) setPassword(ctx context.Context, actor Actor, a Account, password string, mustChange bool, action string) (int64, error) {
-	if err := auth.ValidatePassword(password, a.Username); err != nil {
-		return 0, err
-	}
-	hash, err := auth.HashPassword(password)
-	if err != nil {
-		return 0, fmt.Errorf("hash password: %w", err)
-	}
-	var ended int64
-	err = s.inTx(ctx, func(tx *sqlx.Tx) error {
-		res, err := tx.ExecContext(ctx, `UPDATE users SET password_hash = ?, must_change_password = ? WHERE id = ?`, hash, mustChange, a.ID)
-		if err != nil {
-			return fmt.Errorf("set password: %w", err)
-		}
-		if n, _ := res.RowsAffected(); n == 0 {
-			return ErrNotFound
-		}
-		if ended, err = endSessions(ctx, tx, a.ID); err != nil {
-			return err
-		}
-		detail := fmt.Sprintf("must_change=%v sessions_ended=%d", mustChange, ended)
-		return recordAudit(ctx, tx, Record{Time: s.now(), Actor: actor, Action: action,
-			TargetUserID: a.ID, TargetUsername: a.Username, Detail: detail})
-	})
-	return ended, err
+	return created, recordAudit(ctx, tx, Record{Time: now, Actor: actor, Action: ActionCreate,
+		TargetUserID: id, TargetUsername: username, Detail: detail})
 }
 
 // ChangeOwnPassword lets user id replace their password after giving the
-// current one. It clears the must-change mark and ends all of the user's
-// sessions (the caller signs the browser in again with a fresh session).
+// current one. It ends all of the user's sessions (the caller signs the
+// browser in again with a fresh session). An account with no password gets
+// ErrNoPassword.
 func (s *Service) ChangeOwnPassword(ctx context.Context, id int64, current, newPassword string) error {
 	var u struct {
-		Username     string `db:"username"`
-		PasswordHash string `db:"password_hash"`
+		Username     string              `db:"username"`
+		PasswordHash models.PasswordHash `db:"password_hash"`
 	}
 	err := s.db.GetContext(ctx, &u, `SELECT username, password_hash FROM users WHERE id = ? AND is_active = TRUE`, id)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -274,15 +230,37 @@ func (s *Service) ChangeOwnPassword(ctx context.Context, id int64, current, newP
 	if err != nil {
 		return fmt.Errorf("look up account: %w", err)
 	}
-	if !auth.PasswordMatches(u.PasswordHash, current) {
+	if u.PasswordHash == "" {
+		return ErrNoPassword
+	}
+	if !auth.PasswordMatches(string(u.PasswordHash), current) {
 		return ErrWrongPassword
 	}
 	if current == newPassword {
 		return fmt.Errorf("%w: Choose a password different from the current one.", auth.ErrPasswordPolicy)
 	}
-	a := Account{ID: id, Username: u.Username}
-	_, err = s.setPassword(ctx, UserActor(id, u.Username), a, newPassword, false, ActionChangePassword)
-	return err
+	if err := auth.ValidatePassword(newPassword, u.Username); err != nil {
+		return err
+	}
+	hash, err := auth.HashPassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+	return s.inTx(ctx, func(tx *sqlx.Tx) error {
+		res, err := tx.ExecContext(ctx, `UPDATE users SET password_hash = ? WHERE id = ?`, hash, id)
+		if err != nil {
+			return fmt.Errorf("set password: %w", err)
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return ErrNotFound
+		}
+		ended, err := endSessions(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		return recordAudit(ctx, tx, Record{Time: s.now(), Actor: UserActor(id, u.Username), Action: ActionChangePassword,
+			TargetUserID: id, TargetUsername: u.Username, Detail: fmt.Sprintf("sessions_ended=%d", ended)})
+	})
 }
 
 // SetActive enables or disables account id. Disabling ends all of the
@@ -444,42 +422,6 @@ func endSessions(ctx context.Context, tx *sqlx.Tx, userID int64) (int64, error) 
 		return 0, fmt.Errorf("end sessions: %w", err)
 	}
 	return live, nil
-}
-
-// tempAlphabet is lower-case letters and digits without look-alikes (0/o,
-// 1/l/i), so a temporary password read off a terminal is easy to type.
-const tempAlphabet = "23456789abcdefghjkmnpqrstuvwxyz"
-
-// TemporaryPassword returns a random password for username, grouped as
-// xxxx-xxxx-xxxx-xxxx (16 symbols from 31, about 79 bits). It always meets
-// the password policy.
-func TemporaryPassword(username string) (string, error) {
-	// Bytes at or above limit are discarded so every symbol is equally likely.
-	limit := byte(256 / len(tempAlphabet) * len(tempAlphabet))
-	for {
-		symbols := make([]byte, 0, 16)
-		buf := make([]byte, 32)
-		for len(symbols) < 16 {
-			if _, err := rand.Read(buf); err != nil {
-				return "", fmt.Errorf("generate password: %w", err)
-			}
-			for _, v := range buf {
-				if v < limit && len(symbols) < 16 {
-					symbols = append(symbols, tempAlphabet[int(v)%len(tempAlphabet)])
-				}
-			}
-		}
-		var b strings.Builder
-		for i, c := range symbols {
-			if i > 0 && i%4 == 0 {
-				b.WriteByte('-')
-			}
-			b.WriteByte(c)
-		}
-		if p := b.String(); auth.ValidatePassword(p, username) == nil {
-			return p, nil
-		}
-	}
 }
 
 func (s *Service) inTx(ctx context.Context, fn func(tx *sqlx.Tx) error) error {
