@@ -433,7 +433,7 @@ password manager or an untracked operator runbook.
 **CourtHive/TMX admin:** created on the server by the operator (see `COURTHIVE_SETUP.md`). Store the email and password in your password manager.
 
 **Environment secrets** (set in the server's `.env`, never committed):
-- `WRAPPED_ACCESS_PASSWORD`: access code for Club Wrapped; each club chooses its own
+- `WRAPPED_ACCESS_PASSWORD`: optional override for the Club Wrapped access code. Leave it unset and the instance generates its own code on first start (shown on the admin Club Settings page). A placeholder such as `change-me` stops the app starting in production.
 - `COURTHIVE_JWT_SECRET`: must match `JWT_SECRET` of competition-factory-server (`.env` under `$REMOTE_PATH`)
 
 ---

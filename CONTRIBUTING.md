@@ -127,7 +127,7 @@ Set these environment variables to run jim.tennis for your club:
 | `HOME_CLUB_NAME` | Fallback | Club name for fuzzy lookup if `HOME_CLUB_ID` is not set |
 | `HOME_CLUB_LOGO_PATH` | Optional | URL path to a club logo; overrides the logo uploaded on the Club Settings page. See "Club logo" below. |
 | `BHPLTA_CLUB_CODE` | Optional | Your club's code on the BHPLTA website; overrides the code stored on the Club Settings page |
-| `WRAPPED_ACCESS_PASSWORD` | For "club wrapped" | Password that unlocks the club wrapped pages. If unset, the unlock form always rejects. |
+| `WRAPPED_ACCESS_PASSWORD` | Optional | Code that unlocks the club wrapped pages. When unset (recommended) each instance generates its own code on first start; administrators see it on the Club Settings page. A placeholder value such as `change-me` stops the app starting with `APP_ENV=production`. |
 | `MY_TENNIS_ENABLED` | Optional | `true`/`1` shows the "My Tennis" call-to-action. Off when unset. |
 | `LEAGUE_TABLES_URL` | Optional | Source page for the public fixture generator's league tables (default: the BHPLTA league tables page). |
 | `COURTHIVE_API_URL` | Optional | CourtHive API URL (default: `http://courthive-server:8383`; only relevant with tournament management). |

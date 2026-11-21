@@ -18,6 +18,7 @@ import (
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
+	"jim-dot-tennis/internal/secrets"
 	"jim-dot-tennis/internal/services"
 )
 
@@ -79,6 +80,8 @@ type SettingsPageData struct {
 
 	Features       config.Features // effective feature switches
 	MyTennisEnvVar string          // env var overriding the My Tennis switch, if set
+	WrappedCode    string // Club Wrapped access code for members ("" if unavailable)
+	WrappedCodeEnv string // env var overriding the generated code, if set
 }
 
 // HandleSettings serves GET and POST /admin/league/settings and POST .../bhplta-lookup.
@@ -144,6 +147,13 @@ func (h *SettingsHandler) pageData(r *http.Request, cs *config.ClubSettings) Set
 	d.BHPLTAClubCodeEnv, _ = cs.EnvOverride(repository.SettingBHPLTAClubCode)
 	d.PublicURLEnv, _ = cs.EnvOverride(repository.SettingPublicURL)
 	d.MyTennisEnvVar, _ = cs.EnvOverride(repository.SettingFeatureMyTennis)
+	if code, fromEnv, err := secrets.NewWrappedAccess(h.service.db).Code(r.Context()); err != nil {
+		log.Printf("Club Wrapped access code unavailable: %v", err)
+	} else if fromEnv {
+		d.WrappedCodeEnv = secrets.EnvWrappedAccess
+	} else {
+		d.WrappedCode = code
+	}
 	if d.BHPLTAClubName == "" && d.BHPLTAClubID == "" {
 		if k, ok := config.KnownBHPLTAClub(club); ok {
 			d.BHPLTAClubName, d.BHPLTAClubID, d.BHPLTAFromKnown = k.Name, strconv.Itoa(k.ID), true

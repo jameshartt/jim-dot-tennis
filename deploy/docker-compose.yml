@@ -48,7 +48,8 @@ services:
       - DB_TYPE=sqlite3
       - DB_PATH=/app/data/tennis.db
       - APP_ENV=production # marks session cookies Secure
-      - WRAPPED_ACCESS_PASSWORD=${WRAPPED_ACCESS_PASSWORD:?set WRAPPED_ACCESS_PASSWORD in deploy/.env (see .env.example)}
+      # Optional: unset means the app generates this instance's own code.
+      - WRAPPED_ACCESS_PASSWORD=${WRAPPED_ACCESS_PASSWORD:-}
       # Set HOME_CLUB_ID (preferred) or HOME_CLUB_NAME; the app refuses to start with neither.
       - HOME_CLUB_ID=${HOME_CLUB_ID:-}
       - HOME_CLUB_NAME=${HOME_CLUB_NAME:-}

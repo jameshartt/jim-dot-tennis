@@ -70,6 +70,12 @@ func (s *Service) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !allowedPushEndpoint(subReq.Endpoint) {
+		log.Printf("Rejected push subscription to an endpoint that is not a known browser push service")
+		http.Error(w, "Unsupported push service", http.StatusBadRequest)
+		return
+	}
+
 	var playerToken *string
 	if subReq.PlayerToken != "" {
 		playerToken = &subReq.PlayerToken

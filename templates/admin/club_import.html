@@ -5,18 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Club Data Import - Jim.Tennis Admin</title>
     <link rel="stylesheet" href="/static/css/main.css">
-    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
-    <script>
-        if (typeof htmx === 'undefined') {
-            console.warn('HTMX failed to load from CDN, loading fallback...');
-            var script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/htmx.org@1.9.4/dist/htmx.min.js';
-            script.onerror = function() {
-                console.error('Both HTMX CDNs failed, form will use standard submission');
-            };
-            document.head.appendChild(script);
-        }
-    </script>
+    <script src="/static/js/htmx-1.9.4.min.js"></script>
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#2c3e50">
     <style>

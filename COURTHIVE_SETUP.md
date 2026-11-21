@@ -18,7 +18,7 @@ The integration consists of:
 
 ```bash
 # Jim-dot-tennis Configuration
-WRAPPED_ACCESS_PASSWORD=<wrapped-access-password>
+# WRAPPED_ACCESS_PASSWORD is optional: unset, the app generates its own code.
 
 # CourtHive JWT Secret (must match competition-factory-server)
 COURTHIVE_JWT_SECRET=<generate-with-openssl-rand-base64-48>

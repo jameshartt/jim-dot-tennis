@@ -109,6 +109,12 @@ This has been done deliberately once:
   Databases migrated before the change keep whatever accounts they have; remove
   or re-password any you do not recognise from the admin users page. The down
   migration (dropping the three auth tables) is unchanged and still correct.
+  At every start the app logs a warning naming any account that still has a
+  password hash seeded by an old version of this migration (it compares
+  SHA-256 fingerprints of the old hashes, `internal/secrets/selfcheck.go`; it
+  never changes the account). `internal/secrets/isolation_test.go` checks that
+  a freshly migrated database has no rows in any table, and that upgrading an
+  old database leaves its accounts and sessions unchanged.
 
 ## Troubleshooting
 

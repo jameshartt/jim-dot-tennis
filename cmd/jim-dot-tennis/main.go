@@ -23,6 +23,7 @@ import (
 	"jim-dot-tennis/internal/players"
 	"jim-dot-tennis/internal/render"
 	"jim-dot-tennis/internal/repository"
+	"jim-dot-tennis/internal/secrets"
 	"jim-dot-tennis/internal/setup"
 	"jim-dot-tennis/internal/webpush"
 )
@@ -53,6 +54,12 @@ func main() {
 		log.Fatalf("Failed to load tennis players: %v", err)
 	} else if n > 0 {
 		log.Printf("Loaded %d tennis players into an empty tennis_players table", n)
+	}
+
+	// Instance secrets: refuse known placeholders in production and make sure
+	// this instance has its own generated Club Wrapped access code.
+	if err := secrets.StartupCheck(context.Background(), db); err != nil {
+		log.Fatalf("Startup self-check failed: %v", err)
 	}
 
 	// Resolve the home club (HOME_CLUB_ID, then HOME_CLUB_NAME, then the stored
