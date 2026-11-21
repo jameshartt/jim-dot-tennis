@@ -21,7 +21,10 @@ func (e *MigrationError) Error() string {
 	}
 	return what + ". The app has not started and nothing was served. To recover: " +
 		"(1) stop the app; " +
-		"(2) restore the database file from the backup you took before upgrading (a half-finished migration cannot be safely repeated or skipped); " +
+		"(2) put the database back as it was before the upgrade, from the backup the app made just before running migrations " +
+		"(jim-dot-tennis-pre-migration-<date>.tar.gz in the backups folder, normally backups/ next to the database): " +
+		"run \"jim-dot-tennis restore <that file>\" with the previous version of the app, in a one-off container while the app is stopped " +
+		"(a half-finished migration cannot be safely repeated or skipped; the operations guide's backups section has the steps); " +
 		"(3) start the previous version of the app; " +
 		"(4) report this message to whoever maintains the app before trying the upgrade again"
 }

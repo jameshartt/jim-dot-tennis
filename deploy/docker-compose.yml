@@ -58,6 +58,11 @@ services:
       - HOME_CLUB_LOGO_PATH=${HOME_CLUB_LOGO_PATH:-}
       - LEAGUE_TABLES_URL=${LEAGUE_TABLES_URL:-}
       - MY_TENNIS_ENABLED=${MY_TENNIS_ENABLED:-}
+      # Backups are made by the app itself into /app/data/backups (daily, plus
+      # one before every upgrade; see docs/PRODUCTION_QUICK_REFERENCE.md section 9).
+      - BACKUP_INTERVAL=${BACKUP_INTERVAL:-}
+      - BACKUP_KEEP=${BACKUP_KEEP:-}
+      - BACKUP_DIR=${BACKUP_DIR:-}
     networks:
       - tennis-network
     healthcheck:
@@ -170,35 +175,6 @@ services:
     networks:
       - tennis-network
 
-  # Backup service for jim-dot-tennis database
-  backup:
-    image: alpine:latest
-    container_name: jim-dot-tennis-backup
-    restart: unless-stopped
-    volumes:
-      - tennis-data:/data:ro
-      - tennis-backups:/backups
-    depends_on:
-      - app
-    environment:
-      - BACKUP_INTERVAL=86400
-      - BACKUP_RETENTION=30
-    command: >
-      sh -c '
-        apk add --no-cache sqlite tzdata &&
-        while true; do
-          DATE=$$(date +%Y-%m-%d-%H%M%S) &&
-          echo "Creating backup at $${DATE}" &&
-          mkdir -p /backups &&
-          sqlite3 /data/tennis.db ".backup /backups/tennis-$${DATE}.db" &&
-          echo "Backup completed" &&
-          find /backups -name "tennis-*.db" -type f -mtime +$${BACKUP_RETENTION} -delete &&
-          sleep $${BACKUP_INTERVAL};
-        done
-      '
-    networks:
-      - tennis-network
-
 networks:
   tennis-network:
     driver: bridge
@@ -206,8 +182,6 @@ networks:
 volumes:
   tennis-data:
     name: jim-dot-tennis-data
-  tennis-backups:
-    name: jim-dot-tennis-backups
   redis-data:
     name: courthive-redis-data
   courthive-data:

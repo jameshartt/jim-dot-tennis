@@ -46,7 +46,8 @@ make run             # Start containers
 make stop            # Stop containers
 make logs            # View all logs
 make app-logs        # View app logs only
-make backup          # Create manual backup
+make backup          # Make a backup now (jim-dot-tennis backup in the app container)
+make export-backup   # Copy the newest backup out to ./exported-backups
 ```
 
 ### Go Unit Tests (in Docker)
@@ -157,6 +158,7 @@ The codebase follows a clean layered architecture:
 - `secrets/`: Per-instance secrets (generated Club Wrapped code) and the startup self-check; `outbound/` holds only a test that fails on any URL host not in its allowlist (keep `docs/outbound_connections.md` in step)
 - `normalize/`: Centralised apostrophe/Unicode normalisation utilities
 - `database/`: Database connection and migration handling
+- `backup/`: Backup and restore (`jim-dot-tennis backup`, `jim-dot-tennis restore <file>`, the scheduled and pre-migration backups, the data-folder lock); see "Backups" below
 - `models/`: Data structures (Player, Team, Fixture, etc.)
 - `repository/`: Data access layer (one per entity)
 - `auth/`: Authentication service, middleware, and handlers
@@ -369,9 +371,14 @@ Club names extracted from team names (e.g., "Dyke A" → Club: "Dyke").
 - Migrations are numbered sequentially: `001_`, `002_`, etc.
 - Always create both `.up.sql` and `.down.sql` files
 - Migrations run automatically on app startup; a migration that fails stops the server (`migrateOrStop` in main.go), it is not a warning
-- A failed or dirty migration stops startup with a `database.MigrationError` that names the migration and lists the recovery steps (stop, restore the pre-upgrade database backup, start the previous version, report). The version is never forced, in any mode; `MIGRATE_ALLOW_DIRTY_FORCE` no longer exists
+- A failed or dirty migration stops startup with a `database.MigrationError` that names the migration and lists the recovery steps (stop, restore the pre-migration backup with `jim-dot-tennis restore` using the previous version, start the previous version, report). The version is never forced, in any mode; `MIGRATE_ALLOW_DIRTY_FORCE` no longer exists
 - `/healthz` (`internal/health`) is 200 only when the database answers and `schema_migrations` is clean and at the latest migration the build ships; the Dockerfile HEALTHCHECK and the compose files call it
+- Before migrations change an existing database, `backupThenMigrate` (main.go) takes a pre-migration backup (`backup.BeforeMigrations`: not for an empty database, not when the schema is current, not over a dirty one); if it cannot be made, startup stops without migrating
 - Version, commit and build date come from `internal/version`, set by `-ldflags -X` (Dockerfile build args `VERSION`, `COMMIT`, `BUILD_DATE`); shown in the admin footers (`appVersion` template func), at public `/version` (version only, no commit) and by `jim-dot-tennis version` (all three)
+
+### Backups
+
+`internal/backup` (operator steps: `docs/PRODUCTION_QUICK_REFERENCE.md` section 9). An archive is `jim-dot-tennis-backup-<UTC time>.tar.gz` (pre-migration ones `jim-dot-tennis-pre-migration-...`): `manifest.json` first (format, app version and commit, schema version, created_at, kind, SHA-256 and size of every file), then `database/tennis.db` (made with `VACUUM INTO`, never by copying the live file) and `files/branding/<logo>`. Archives are written under a `.tmp-` name, read back and verified, then renamed, 0600 in a 0700 folder (`BACKUP_DIR`, default `backups/` next to the database; never served: `/static/` is the embedded tree and `/branding/` serves only the current logo name). The server holds an flock on `<data dir>/.jim-dot-tennis.lock` for its lifetime (taken in main.go before the database opens; a second server or a server during a restore refuses to start). `Restore` takes the same lock (refuses with `ErrServerRunning` while it is held), treats the archive as untrusted (only the three entry shapes above, regular files only, size limits, checksums), refuses a newer schema (`ErrNewerBackup`), migrates an older one, ends every session and cancels unused links in the restored database, records `backup.restore` in its audit log, then swaps it in with one rename after keeping the old database aside (`tennis.db.replaced-<time>`, hard link or copy, with its `-wal` moved beside it) and removing the old `-shm`. Scheduled backups run in the server (`backup.Service.Start`, stopped with the cleanup on shutdown; `BACKUP_INTERVAL` default 24h or `off`, `BACKUP_KEEP` default 14, never below 1; pre-migration backups are not counted, and on a successful start all but the newest are removed). Admin page `GET /admin/league/backups` (administrators); the download is `POST /account/backup` (administrator, needs the current password or a passkey confirmation, because the passkey proof cookie is limited to `/account/`; audited as `backup.download`; the archive is a temporary one, not kept).
 
 ## Key Files
 

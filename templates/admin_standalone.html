@@ -503,6 +503,11 @@
                                 <span class="action-link-icon">&#128220;</span> Account Audit Log
                             </a>
                             {{end}}
+                            {{if canUse $u "/admin/league/backups"}}
+                            <a href="/admin/league/backups" class="action-link" data-testid="nav-backups">
+                                <span class="action-link-icon">&#128190;</span> Backups
+                            </a>
+                            {{end}}
                             {{if canUse $u "/admin/league/settings"}}
                             <a href="/admin/league/settings" class="action-link" data-testid="nav-settings">
                                 <span class="action-link-icon">&#9881;</span> Club Settings

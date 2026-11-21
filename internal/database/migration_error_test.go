@@ -39,7 +39,7 @@ func TestFailedAndDirtyMigrationNameTheMigration(t *testing.T) {
 	if !errors.As(err, &me) || me.Version != 2 || me.Dirty {
 		t.Fatalf("first run: want a MigrationError for 002, got %v", err)
 	}
-	for _, want := range []string{"migration 002 failed", "restore the database file", "stop the app"} {
+	for _, want := range []string{"migration 002 failed", "jim-dot-tennis restore", "pre-migration", "stop the app"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("message %q missing %q", err.Error(), want)
 		}

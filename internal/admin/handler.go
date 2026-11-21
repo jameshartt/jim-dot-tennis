@@ -9,6 +9,7 @@ import (
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
+	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/webpush"
 )
 
@@ -39,6 +40,7 @@ type Handler struct {
 	planningLink      *PlanningLinkHandler
 	captainNotes      *CaptainNotesHandler
 	settings          *SettingsHandler
+	backups           *BackupsHandler
 }
 
 // New creates a new admin handler
@@ -74,6 +76,7 @@ func New(db *database.DB, templateDir string, courthiveAPIURL string, homeClub c
 		planningLink:      NewPlanningLinkHandler(service, templateDir),
 		captainNotes:      NewCaptainNotesHandler(service, templateDir),
 		settings:          NewSettingsHandler(service, templateDir),
+		backups:           &BackupsHandler{accounts: service.accounts, templateDir: templateDir},
 	}
 }
 
@@ -180,6 +183,13 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	// Club settings (admin role, declared in roles.go and checked again in the handler)
 	adminMux.HandleFunc(settingsPath, h.settings.HandleSettings)
 	adminMux.HandleFunc(settingsPath+"/", h.settings.HandleSettings)
+
+	// Backups page (administrators). The download itself is under /account/
+	// (backups.go says why) and needs an administrator too.
+	adminMux.HandleFunc(backupsPath, h.backups.HandleBackups)
+	mux.Handle("POST "+BackupDownloadPath, authMiddleware.RequireAuth(
+		authMiddleware.RequireRole(models.RoleAdmin)(http.HandlerFunc(h.backups.HandleDownload)),
+	))
 
 	// Register admin routes with authentication middleware. Captains and
 	// administrators may enter; adminMux then checks each route's role.
