@@ -9,11 +9,11 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"text/tabwriter"
 	"time"
 
+	jimdottennis "jim-dot-tennis"
 	"jim-dot-tennis/internal/accounts"
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
@@ -301,15 +301,10 @@ func openCLIDatabase(ctx context.Context) (*database.DB, error) {
 		return nil, err
 	}
 
-	root, err := getProjectRoot()
+	latest, err := database.LatestMigration(jimdottennis.Migrations())
 	if err != nil {
 		db.Close()
-		return nil, err
-	}
-	latest, err := database.LatestMigration(filepath.Join(root, "migrations"))
-	if err != nil {
-		db.Close()
-		return nil, fmt.Errorf("cannot check the database version (%v). Run this command from the app's folder (/app in the container)", err)
+		return nil, fmt.Errorf("cannot check the database version: %v", err)
 	}
 	st, err := db.ReadSchemaStatus(ctx)
 	if err != nil {

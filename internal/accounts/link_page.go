@@ -303,7 +303,7 @@ func (p *LinkPage) signIn(w http.ResponseWriter, r *http.Request, userID int64) 
 func (p *LinkPage) render(w http.ResponseWriter, status int, data linkPageData) {
 	tmpl, err := p.templates.Get("accept_link", func() (*template.Template, error) {
 		funcMap := template.FuncMap{"currentYear": func() int { return time.Now().Year() }}
-		return template.New("").Funcs(funcMap).ParseFiles(
+		return render.ParseFiles(template.New("").Funcs(funcMap),
 			filepath.Join(p.templateDir, "layout.html"),
 			filepath.Join(p.templateDir, "account", "accept_link.html"),
 		)

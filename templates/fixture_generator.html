@@ -8,7 +8,7 @@
     <meta name="description" content="Turn last season's final tables into next season's fixtures: promotion, relegation and an 18-week fixture list in one go.">
     <meta name="theme-color" content="#0b2a1e">
     <link rel="icon" type="image/svg+xml" href="/static/icon-192.svg">
-    <link rel="stylesheet" href="/static/fixture-generator/app.css">
+    <link rel="stylesheet" href="{{asset "/static/fixture-generator/app.css"}}">
 </head>
 <body>
     <a class="skip" href="#stage">Skip to content</a>
@@ -61,7 +61,7 @@
     <noscript><p class="noscript">The fixture generator needs JavaScript switched on.</p></noscript>
 
     <script id="fg-config" type="application/json">{{.Config}}</script>
-    <script type="module" src="/static/fixture-generator/app.js"></script>
+    <script type="module" src="{{asset "/static/fixture-generator/app.js"}}"></script>
 </body>
 </html>
 {{end}}

@@ -8,12 +8,13 @@ import (
 	"log"
 	"os"
 
+	jimdottennis "jim-dot-tennis"
 	"jim-dot-tennis/internal/database"
 )
 
 func main() {
 	// Define command line flags
-	migrationsPath := flag.String("path", "./migrations", "Path to migration files")
+	migrationsPath := flag.String("path", "", "Directory of migration files to use instead of the ones built into this program (development)")
 	dbType := flag.String("db", "", "Database type (only sqlite3 is supported), defaults to env DB_TYPE")
 	dbPath := flag.String("db-path", "", "Database file path, defaults to env DB_PATH")
 	flag.Parse()
@@ -37,7 +38,11 @@ func main() {
 	defer db.Close()
 
 	// Run migrations
-	if err := db.ExecuteMigrations(*migrationsPath); err != nil {
+	migrations, label := jimdottennis.Migrations(), "migrations built into this program"
+	if *migrationsPath != "" {
+		migrations, label = os.DirFS(*migrationsPath), *migrationsPath
+	}
+	if err := db.ExecuteMigrationsFS(migrations, label); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 

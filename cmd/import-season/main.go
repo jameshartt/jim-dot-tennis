@@ -20,6 +20,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	jimdottennis "jim-dot-tennis"
 	"jim-dot-tennis/internal/bhplta"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/services"
@@ -40,7 +41,7 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer db.Close()
-	if err := db.ExecuteMigrations("./migrations"); err != nil {
+	if err := db.ExecuteMigrationsFS(jimdottennis.Migrations(), "migrations built into this program"); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 

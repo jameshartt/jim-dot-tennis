@@ -64,5 +64,5 @@
 {{end}}
 
 {{define "scripts"}}
-{{if .PasskeyOffer}}<script src="/static/passkey.js"></script>{{end}}
+{{if .PasskeyOffer}}<script src="{{asset "/static/passkey.js"}}"></script>{{end}}
 {{end}}

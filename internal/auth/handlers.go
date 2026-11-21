@@ -61,7 +61,7 @@ func (h *Handler) renderLogin(w http.ResponseWriter, r *http.Request, data login
 				return time.Now().Year()
 			},
 		}
-		return template.New("").Funcs(funcMap).ParseFiles(
+		return render.ParseFiles(template.New("").Funcs(funcMap),
 			filepath.Join(h.templateDir, "layout.html"),
 			filepath.Join(h.templateDir, "login.html"),
 		)

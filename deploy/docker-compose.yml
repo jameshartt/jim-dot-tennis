@@ -16,7 +16,7 @@
 #   <parent>/
 #     jim-dot-tennis/              this repository (checkout or rsync target)
 #       deploy/                    this file, Caddyfile, .env
-#       templates/  static/        bind-mounted into the app container
+#       templates/  static/        built into the app image (not mounted)
 #     competition-factory-server/  CourtHive API server source (built here)
 #     TMX/dist/                    pre-built TMX frontend, served at /tournaments
 #     courthive-public/dist/       pre-built public viewer, served at /public
@@ -41,8 +41,6 @@ services:
     restart: unless-stopped
     volumes:
       - tennis-data:/app/data
-      - ../templates:/app/templates
-      - ../static:/app/static
     environment:
       - PORT=8080
       - DB_TYPE=sqlite3

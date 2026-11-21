@@ -10,6 +10,11 @@ Each migration consists of two files:
 
 Migrations are run in numerical order based on the version number prefix.
 
+The `.sql` files are built into every binary (`embed.go` at the repository
+root, read through golang-migrate's `iofs` source), so the server and the tools
+below never look for this directory at run time: a new migration needs a
+rebuild.
+
 ## Running Migrations
 
 ### Using the Migration Tools
@@ -49,12 +54,12 @@ The tool will migrate down to the specified version, running all down migrations
 ### Command Line Flags
 
 #### Migration Tool (cmd/migrate/main.go)
-- `-path`: Path to migration files (default: "./migrations")
+- `-path`: Directory of migration files to use instead of the built-in ones (development; default: built in)
 - `-db`: Database type (only sqlite3 is supported; anything else is rejected)
 - `-db-path`: Database file path (SQLite only)
 
 #### Migrate Down Tool (cmd/migrate-down/main.go)
-- `-path`: Path to migration files (default: "./migrations")
+- `-path`: Directory of migration files to use instead of the built-in ones (development; default: built in)
 - `-db-path`: Database file path (default: "./tennis.db")
 - `-version`: Target migration version to migrate down to (**required** — no default)
 - `-yes`: Skip the interactive confirmation prompt (for non-interactive use)
