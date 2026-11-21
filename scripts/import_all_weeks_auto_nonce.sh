@@ -10,9 +10,9 @@ START_WEEK=1
 END_WEEK=18
 DELAY_SECONDS=2
 CLEAR_EXISTING=""
-CLUB_CODE="resident-beard-font"
-CLUB_ID=10
-CLUB_NAME="St+Anns"
+CLUB_CODE="${CLUB_CODE:-}"
+CLUB_ID="${CLUB_ID:-}"
+CLUB_NAME="${CLUB_NAME:-}"
 YEAR=2025
 DB_PATH="/app/data/tennis.db"
 
@@ -86,9 +86,9 @@ while [[ $# -gt 0 ]]; do
       echo "  --start-week=N      Start from week N (default: 1)"
       echo "  --end-week=N        End at week N (default: 18)"
       echo "  --delay=N           Delay N seconds between requests (default: 2)"
-      echo "  --club-code=CODE    Club code for BHPLTA (default: resident-beard-font)"
-      echo "  --club-id=ID        Club ID (default: 10)"
-      echo "  --club-name=NAME    Club name (default: St+Anns)"
+      echo "  --club-code=CODE    Club code for BHPLTA (or set CLUB_CODE)"
+      echo "  --club-id=ID        Club ID (or set CLUB_ID)"
+      echo "  --club-name=NAME    Club name (or set CLUB_NAME)"
       echo "  --year=YEAR         Year for import (default: 2025)"
       echo "  --db=PATH           Database path (default: /app/data/tennis.db)"
       echo "  -h, --help          Show this help message"
@@ -106,6 +106,12 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# Club details are required (no defaults): flags or CLUB_CODE / CLUB_ID / CLUB_NAME env vars
+if [ -z "$CLUB_CODE" ] || [ -z "$CLUB_ID" ] || [ -z "$CLUB_NAME" ]; then
+  echo -e "${RED}❌ Error: --club-code, --club-id and --club-name (or CLUB_CODE, CLUB_ID, CLUB_NAME) are required${NC}"
+  exit 1
+fi
 
 # Validate week range
 if [ "$START_WEEK" -lt 1 ] || [ "$START_WEEK" -gt 18 ] || [ "$END_WEEK" -lt 1 ] || [ "$END_WEEK" -gt 18 ] || [ "$START_WEEK" -gt "$END_WEEK" ]; then

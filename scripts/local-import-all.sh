@@ -122,11 +122,11 @@ for week in $(seq $START_WEEK $END_WEEK); do
   if go run cmd/import-matchcards/main.go \
     -db="$DB_PATH" \
     -nonce="$TENNIS_NONCE" \
-    -club-code="resident-beard-font" \
+    -club-code="${CLUB_CODE:?set CLUB_CODE (your BHPLTA club code)}" \
     -week=$week \
     -year=2025 \
-    -club-id=10 \
-    -club-name="St+Anns" \
+    -club-id="${CLUB_ID:?set CLUB_ID (your club database id)}" \
+    -club-name="${CLUB_NAME:?set CLUB_NAME (URL-encoded, e.g. My+Club)}" \
     $VERBOSE \
     $DRY_RUN \
     $CLEAR_EXISTING; then

@@ -12,6 +12,7 @@ Usage:
 """
 
 import argparse
+import os
 import re
 import sqlite3
 import uuid
@@ -20,7 +21,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 
 
-CLUB_ID = 7  # St Ann's
+CLUB_ID = int(os.environ["CLUB_ID"])  # database id of your club (required)
 
 # Known name corrections: (excel_first, excel_last) -> (db_first, db_last) to match existing record
 # These map the NEW (Excel) name to the OLD (DB) name so we can find the existing record to update

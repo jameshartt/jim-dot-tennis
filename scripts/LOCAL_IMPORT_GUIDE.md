@@ -43,11 +43,11 @@ ls -la ./tennis.db
 go run cmd/import-matchcards/main.go \
   -db="./tennis.db" \
   -nonce="$TENNIS_NONCE" \
-  -club-code="resident-beard-font" \
+  -club-code="${CLUB_CODE:?set CLUB_CODE (your BHPLTA club code)}" \
   -week=1 \
   -year=2025 \
-  -club-id=10 \
-  -club-name="St+Anns" \
+  -club-id="${CLUB_ID:?set CLUB_ID (your club database id)}" \
+  -club-name="${CLUB_NAME:?set CLUB_NAME (URL-encoded, e.g. My+Club)}" \
   -verbose
 ```
 
@@ -56,11 +56,11 @@ go run cmd/import-matchcards/main.go \
 go run cmd/import-matchcards/main.go \
   -db="./tennis.db" \
   -nonce="$TENNIS_NONCE" \
-  -club-code="resident-beard-font" \
+  -club-code="${CLUB_CODE:?set CLUB_CODE (your BHPLTA club code)}" \
   -week=1 \
   -year=2025 \
-  -club-id=10 \
-  -club-name="St+Anns" \
+  -club-id="${CLUB_ID:?set CLUB_ID (your club database id)}" \
+  -club-name="${CLUB_NAME:?set CLUB_NAME (URL-encoded, e.g. My+Club)}" \
   -verbose \
   -dry-run
 ```
@@ -70,11 +70,11 @@ go run cmd/import-matchcards/main.go \
 go run cmd/import-matchcards/main.go \
   -db="./tennis.db" \
   -nonce="$TENNIS_NONCE" \
-  -club-code="resident-beard-font" \
+  -club-code="${CLUB_CODE:?set CLUB_CODE (your BHPLTA club code)}" \
   -week=1 \
   -year=2025 \
-  -club-id=10 \
-  -club-name="St+Anns" \
+  -club-id="${CLUB_ID:?set CLUB_ID (your club database id)}" \
+  -club-name="${CLUB_NAME:?set CLUB_NAME (URL-encoded, e.g. My+Club)}" \
   -verbose \
   -clear-existing
 ```
@@ -120,11 +120,11 @@ go run cmd/import-matchcards/main.go \
 |------|-------------|---------|
 | `-db` | Database file path | Required |
 | `-nonce` | BHPLTA authentication nonce | Required |
-| `-club-code` | Club code | "resident-beard-font" |
+| `-club-code` | Club code | (env CLUB_CODE) |
 | `-week` | Week number (1-18) | Required |
 | `-year` | Season year | 2025 |
-| `-club-id` | Club ID | 10 |
-| `-club-name` | Club name | "St+Anns" |
+| `-club-id` | Club ID | (env CLUB_ID) |
+| `-club-name` | Club name | (env CLUB_NAME) |
 | `-verbose` | Enable verbose output | false |
 | `-dry-run` | Test mode (no database changes) | false |
 | `-clear-existing` | Clear existing matchups first | false |
@@ -191,7 +191,7 @@ export TENNIS_NONCE="your-nonce-here"
 
 ### Derby match issues
 - Use `--clear-existing` flag to ensure clean import
-- Check that both teams are St. Ann's teams in the database
+- Check that both teams belong to your home club in the database
 
 ## Performance Tips
 

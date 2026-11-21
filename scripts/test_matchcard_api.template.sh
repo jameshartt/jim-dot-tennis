@@ -11,8 +11,8 @@ CLUB_CODE="YOUR_CLUB_CODE_HERE"
 # Configuration
 WEEK=1
 YEAR=2025
-CLUB_ID=10
-CLUB_NAME="St+Anns"
+CLUB_ID="${CLUB_ID:-}"
+CLUB_NAME="${CLUB_NAME:-}"
 
 echo "🏆 Testing Match Card API Connection"
 echo "==============================================="
