@@ -63,7 +63,7 @@ func (s *Service) GetFilteredPlayersWithAvailability(query string, activeFilter 
 		if query != "" {
 			players = filterPlayersByQuery(players, query)
 		}
-	} else if activeFilter == "home_played" || activeFilter == "stanns_played" {
+	} else if activeFilter == "home_played" {
 		// Get active season
 		activeSeason, seasonErr := s.seasonRepository.FindActive(ctx)
 		if seasonErr != nil {

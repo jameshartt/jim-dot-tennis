@@ -6,7 +6,6 @@
     <title>Player Management - Jim.Tennis Admin</title>
     <link rel="stylesheet" href="/static/css/main.css">
     <script src="https://unpkg.com/htmx.org@1.9.4"></script>
-    <link rel="icon" type="image/png" href="/static/img/favicon.png">
     <style>
         .admin-header {
             background: var(--primary-color);
@@ -344,7 +343,7 @@
                     <option value="active" {{if eq .ActiveFilter "active"}}selected{{end}}>Active players</option>
                     <option value="all" {{if eq .ActiveFilter "all"}}selected{{end}}>All players</option>
                     <option value="inactive" {{if eq .ActiveFilter "inactive"}}selected{{end}}>Inactive players</option>
-                    <option value="home_played" {{if or (eq .ActiveFilter "home_played") (eq .ActiveFilter "stanns_played")}}selected{{end}}>Played for {{.HomeClubName}} this season</option>
+                    <option value="home_played" {{if eq .ActiveFilter "home_played"}}selected{{end}}>Played for {{.HomeClubName}} this season</option>
                 </select>
             </div>
             <div>

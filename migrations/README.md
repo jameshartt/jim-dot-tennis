@@ -92,7 +92,7 @@ To create a new migration:
   long time — now fixed.)
 - **Never reuse version 026.** It was assigned during Sprint 017 (`lineup_drafts`)
   but never committed, leaving a permanent gap in the sequence (…025, 027, 028…).
-  The next available version is **031**. Do not backfill 026.
+  The next available version is **032**. Do not backfill 026.
 
 ## Troubleshooting
 

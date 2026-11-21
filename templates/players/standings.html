@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>League Standings - Jim.Tennis</title>
     <script src="https://unpkg.com/htmx.org@1.9.4"></script>
-    <link rel="icon" type="image/png" href="/static/img/favicon.png">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -156,7 +155,7 @@
         <div class="header-card">
             <div class="brand-logo">🎾</div>
             <h1>League Standings</h1>
-            <div class="subtitle">Brighton & Hove Parks Tennis League</div>
+            <div class="subtitle">{{if .ActiveSeason}}{{.ActiveSeason.Name}}{{else}}Parks Tennis League{{end}}</div>
         </div>
 
         <div class="controls-bar">

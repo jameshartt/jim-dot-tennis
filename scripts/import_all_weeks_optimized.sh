@@ -95,11 +95,11 @@ for week in $(seq $START_WEEK $END_WEEK); do
   if import-matchcards \
     -db="/app/data/tennis.db" \
     -nonce="$TENNIS_NONCE" \
-    -club-code="resident-beard-font" \
+    -club-code="${CLUB_CODE:?set CLUB_CODE (your BHPLTA club code)}" \
     -week=$week \
     -year=2025 \
-    -club-id=10 \
-    -club-name="St+Anns" \
+    -club-id="${CLUB_ID:?set CLUB_ID (your club database id)}" \
+    -club-name="${CLUB_NAME:?set CLUB_NAME (URL-encoded, e.g. My+Club)}" \
     -verbose $DRY_RUN $CLEAR_EXISTING 2>&1 | tee "week_${week}_import.log"; then
     
     echo "✅ Week $week completed successfully"
