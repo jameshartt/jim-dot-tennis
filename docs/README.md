@@ -73,6 +73,7 @@ Static analysis and formatting are run via Docker-based Go tooling (see `Makefil
 Browser-based end-to-end tests use Playwright running inside Docker (no local Node.js required):
 
 - `make test-e2e` - Run the full E2E test suite
+- `make test-e2e-auth` - Passkey-enabled suite (virtual authenticator, links, roles of sign-in); `make test-e2e-all` runs main + auth + fresh
 - `make test-e2e-grep FILTER="login"` - Run tests matching a pattern
 - `make test-e2e-failed` - Re-run only previously failed tests
 - `make test-e2e-report` - Open the HTML test report

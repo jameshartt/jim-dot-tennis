@@ -3,7 +3,7 @@
 	vet fmt fmt-fix imports imports-fix lint deadcode tidy check test test-js \
 	test-e2e test-e2e-bootstrap test-e2e-safe test-e2e-safe-keep test-e2e-restore \
 	test-e2e-headed test-e2e-grep test-e2e-failed \
-	test-e2e-report test-e2e-results test-e2e-clean test-e2e-multiclub test-e2e-fresh
+	test-e2e-report test-e2e-results test-e2e-clean test-e2e-multiclub test-e2e-fresh test-e2e-auth test-e2e-all
 
 # Docker compose command
 DOCKER_COMPOSE = docker compose
@@ -242,6 +242,19 @@ test-e2e: test-e2e-bootstrap
 # stack. See scripts/test-e2e-fresh.sh and tests/e2e/README.md.
 test-e2e-fresh:
 	@./scripts/test-e2e-fresh.sh
+
+# Passkey-enabled suite (Playwright "auth" project): passkeys via a Chromium
+# virtual authenticator, invite/recovery links, password fallback, "require
+# passkeys for administrators" and the `user reset` CLI. The browser reaches the
+# e2e app as http://localhost:8080 (secure context). Needs no WORKERS; optional
+# extra Playwright args via ARGS="-g recovery". See scripts/test-e2e-auth.sh.
+test-e2e-auth:
+	@./scripts/test-e2e-auth.sh $(ARGS)
+
+# Everything: main suite, passkey-enabled suite, fresh-install suite. Runs all
+# three even if one fails and exits non-zero if any did.
+test-e2e-all:
+	@rc=0; $(MAKE) test-e2e || rc=1; $(MAKE) test-e2e-auth || rc=1; $(MAKE) test-e2e-fresh || rc=1; exit $$rc
 
 # Run E2E tests with prod-DB snapshot/restore (usage: make test-e2e-safe [WORKERS=4])
 # Wraps `make test-e2e` so the local dev database (often a prod pull) is

@@ -90,6 +90,38 @@ Specs (one serial flow, one worker, no retries):
 
 Not covered: the off-season fixtures variant (`fixtures/bhplta/off-season`).
 
+## Passkey-enabled suite (`make test-e2e-auth`)
+
+The `auth` Playwright project covers the sign-in system: passkeys via a Chromium
+virtual authenticator (CDP, `helpers/webauthn.ts`), invite and recovery links,
+the password fallback, "require passkeys for administrators", the
+`jim-dot-tennis user reset` CLI and the admin users page / audit log. Its specs
+are listed in `AUTH_SPECS` in `playwright.config.ts` (the `chromium` project
+ignores them): `passkeys`, `account-links`, `admin-passkeys`, `cli-reset`,
+`admin/users`. `roles.spec.ts` (captain vs administrator, password sign-in) runs
+in the main project.
+
+Why a separate project: the main suite reaches the app as `http://app-e2e:8080`,
+which is not a secure context, so the login page there is password-only. The
+`e2e-auth` compose service shares `app-e2e`'s network namespace, so the browser
+reaches the same app as `http://localhost:8080`. Chromium treats that as secure
+and, with `DEV_MODE`, the app accepts exactly that origin for passkeys. No
+application change is involved.
+
+`scripts/test-e2e-auth.sh` (one worker): builds, recreates `app-e2e` (clears the
+in-memory sign-in throttling; the volume is kept), seeds, then runs
+`jim-dot-tennis user create` and `user reset` inside the app container and passes
+the printed link to `cli-reset.spec.ts` through `E2E_CLI_RESET_LINK` and
+`E2E_CLI_USER` (the Playwright container cannot reach Docker). Afterwards it runs
+`admin-passkeys off` and stops `app-e2e`. `make test-e2e-all` runs the main,
+auth and fresh-install suites.
+
+Notes: tests make users with unique names (`uniqueUsername`); link expiry is
+simulated by editing `account_links.expires_at` with `sql()` (helpers/accounts.ts,
+the runner shares the e2e volume); the "require passkeys" spec parks other
+administrators in the database and restores everything in `finally`/`afterAll`.
+Keep deliberate failed logins few (5 per user and 30 per address per 15 minutes).
+
 ## Viewing Results
 
 ### HTML Report

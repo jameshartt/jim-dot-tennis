@@ -101,6 +101,34 @@ services:
     # Default: seed database and run chromium project tests (excludes multi-club)
     command: sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --project=chromium"
 
+  # Passkey-enabled run of the same app instance (`make test-e2e-auth`).
+  # WebAuthn needs a secure context, and Chromium only treats http://localhost
+  # as one. This runner shares app-e2e's network namespace, so the browser
+  # reaches the app as http://localhost:8080; with DEV_MODE the app accepts
+  # exactly that origin for passkeys (no PUBLIC_URL, no app change). The main
+  # `e2e` service keeps reaching it as http://app-e2e:8080, password-only.
+  # Run it through scripts/test-e2e-auth.sh, which seeds, recreates the app
+  # (clears in-memory throttling) and runs the `user reset` CLI inside the
+  # app container to hand the printed link to the specs.
+  e2e-auth:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    profiles: ["test"]
+    network_mode: "service:app-e2e"
+    depends_on:
+      app-e2e:
+        condition: service_healthy
+    volumes:
+      - e2e-data:/data
+      - ./tests/e2e/test-results:/app/tests/test-results
+      - ./tests/e2e/playwright-report:/app/tests/playwright-report
+    environment:
+      - PLAYWRIGHT_BASE_URL=http://localhost:8080
+      - E2E_CLI_USER=${E2E_CLI_USER:-}
+      - E2E_CLI_RESET_LINK=${E2E_CLI_RESET_LINK:-}
+    command: sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --project=auth"
+
   # --- Fresh-install suite (`make test-e2e-fresh`, profile "fresh") -----------
   # Two instances on EMPTY volumes: no seed.sql, no HOME_CLUB_* variables, so
   # they start in setup mode and print a setup code to their log. The runner

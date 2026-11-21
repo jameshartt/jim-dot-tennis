@@ -21,6 +21,22 @@ VALUES (
 );
 
 -- ============================================================
+-- Captain user: testcaptain / testpassword123 (same hash as testadmin)
+-- High id so accounts that specs create (autoincrement) never collide with it.
+-- Used by roles.spec.ts; has no player link and no passkeys.
+-- ============================================================
+INSERT OR REPLACE INTO users (id, username, password_hash, role, is_active, created_at, last_login_at)
+VALUES (
+  900,
+  'testcaptain',
+  '$2b$12$l1qlpyQB/eSK2rr5RY3FV.fn1WJVWQmBh1G.0s/WC6TnrQOVj0DRK',
+  'captain',
+  1,
+  '2025-01-01 00:00:00',
+  '2025-01-01 00:00:00'
+);
+
+-- ============================================================
 -- Season
 -- ============================================================
 INSERT OR REPLACE INTO seasons (id, name, year, start_date, end_date, is_active)

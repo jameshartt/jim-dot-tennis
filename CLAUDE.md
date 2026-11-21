@@ -72,6 +72,8 @@ make test-e2e-failed               # Re-run only previously failed tests
 make test-e2e-report               # Open HTML test report
 make test-e2e-results              # Formatted test summary (Claude-friendly)
 make test-e2e-multiclub            # Run multi-club verification tests
+make test-e2e-auth                 # Passkey-enabled suite (project `auth`): virtual authenticator, invite/recovery links, password fallback, require-passkeys setting, `user reset` CLI, admin users page; browser reaches the app as http://localhost:8080 (ARGS="-g text" filters)
+make test-e2e-all                  # test-e2e + test-e2e-auth + test-e2e-fresh, all run, non-zero if any failed
 make test-e2e-fresh                # Fresh-install suite: EMPTY volumes, setup flow, saved BHPLTA pages (own compose project)
 make test-e2e-clean                # Tear down E2E containers, delete the E2E volume and artifacts
 
@@ -86,6 +88,19 @@ make test-e2e-clean                # Tear down E2E containers, delete the E2E vo
 # - tests/e2e/responsive.spec.ts     Mobile (375×812) and tablet (768×1024) viewport tests
 # - tests/e2e/smoke.spec.ts Smoke tests validating the full stack
 # - tests/e2e/auth.spec.ts  Authentication flow tests (login, logout, rate limit)
+# - tests/e2e/roles.spec.ts  Captain vs administrator (seeded `testcaptain` / testpassword123, id 900)
+# - Passkey-enabled project `auth` (passkeys.spec.ts, account-links.spec.ts, admin-passkeys.spec.ts,
+#   cli-reset.spec.ts, admin/users.spec.ts; list is AUTH_SPECS in playwright.config.ts; ignored by `chromium`):
+#   WebAuthn needs a secure context and Chromium only treats http://localhost as one, so the `e2e-auth`
+#   compose service shares app-e2e's network namespace and the browser uses http://localhost:8080 (the app accepts
+#   exactly that origin for passkeys under DEV_MODE; no app change). Run through scripts/test-e2e-auth.sh:
+#   recreates app-e2e (clears in-memory throttling), seeds, runs `jim-dot-tennis user create/reset` inside the app
+#   container and passes the printed link in E2E_CLI_RESET_LINK / E2E_CLI_USER (Playwright has no Docker
+#   access), runs one worker, then `admin-passkeys off` and stops app-e2e. Virtual authenticator helper:
+#   helpers/webauthn.ts (CDP, Chromium only); account/link helpers and DB access (`sql()`, for expiring links) in helpers/accounts.ts
+# - Where passkeys work the login page folds the password form into details[data-passkey-fallback], and a
+#   password sign-in of an account without a passkey detours via /account/signin-methods?prompt=1:
+#   use helpers/auth.ts (openPasswordForm, continueAfterPasswordSignIn, loginAsAdmin, loginAsCaptain)
 # - tests/e2e/scripts/parse-results.mjs  JSON results → Claude-friendly summary
 # - tests/e2e/global-setup.ts  Shared auth session via storageState (skipped when FRESH_INSTALL is set)
 # - tests/e2e/fresh-install*.spec.ts  `fresh-install` project (only with `make test-e2e-fresh`; excluded from `make test-e2e`)
