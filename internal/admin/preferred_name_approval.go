@@ -85,7 +85,7 @@ func (s *Service) HandlePreferredNameApprovals(w http.ResponseWriter, r *http.Re
 	}
 
 	// Execute template using admin's parseTemplate function
-	tmpl, err := parseTemplate("templates", "admin/preferred_name_approvals.html")
+	tmpl, err := parseTemplate(s.templateDir, "admin/preferred_name_approvals.html")
 	if err != nil {
 		log.Printf("Error parsing preferred name approvals template: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -270,7 +270,7 @@ func (s *Service) HandlePreferredNameHistory(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Execute template using admin's parseTemplate function
-	tmpl, err := parseTemplate("templates", "admin/preferred_name_history.html")
+	tmpl, err := parseTemplate(s.templateDir, "admin/preferred_name_history.html")
 	if err != nil {
 		log.Printf("Error parsing preferred name history template: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)

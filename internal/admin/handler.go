@@ -44,6 +44,7 @@ type Handler struct {
 // New creates a new admin handler
 func New(db *database.DB, templateDir string, courthiveAPIURL string, homeClub config.HomeClubSource, bhpltaClubCode string, pushService ...*webpush.Service) *Handler {
 	service := NewService(db, courthiveAPIURL, homeClub, bhpltaClubCode, pushService...)
+	service.templateDir = templateDir
 
 	var ps *webpush.Service
 	if len(pushService) > 0 {
