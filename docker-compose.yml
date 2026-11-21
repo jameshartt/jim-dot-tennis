@@ -56,6 +56,7 @@ services:
       - HOME_CLUB_NAME=${HOME_CLUB_NAME:-}
       - BHPLTA_CLUB_CODE=${BHPLTA_CLUB_CODE:-}
       - MY_TENNIS_ENABLED=${MY_TENNIS_ENABLED:-}
+      - BHPLTA_BASE_URL=${BHPLTA_BASE_URL:-}
     # The E2E suite reaches this service as http://app-e2e:8080. Do not give it
     # a shared alias such as "webapp": a dev `app` container on the same network
     # could answer to it too and the tests would hit the wrong database.

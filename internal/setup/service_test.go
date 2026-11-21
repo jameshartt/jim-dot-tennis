@@ -503,8 +503,12 @@ func TestSetupPagesFlow(t *testing.T) {
 	if st, _, _ := browser.do("POST", ClubPath, url.Values{"club": {"not-a-club"}}); st != http.StatusUnprocessableEntity {
 		t.Fatalf("unknown club: %d", st)
 	}
-	if st, loc, _ := browser.do("POST", ClubPath, url.Values{"club": {"st-anns"}}); st != http.StatusSeeOther || loc != DonePath {
+	if st, loc, _ := browser.do("POST", ClubPath, url.Values{"club": {"st-anns"}}); st != http.StatusSeeOther || loc != ClubPath+"?working=1" {
 		t.Fatalf("choose club: %d %q", st, loc)
+	}
+	waitForClubJob(t, s)
+	if st, loc, _ := browser.do("GET", ClubPath+"?working=1", nil); st != http.StatusSeeOther || loc != DonePath {
+		t.Fatalf("waiting page after the club step: %d %q", st, loc)
 	}
 	if st, _, body := browser.do("GET", DonePath, nil); st != http.StatusOK || !strings.Contains(body, "St Ann&#39;s Tennis") {
 		t.Fatalf("done page: %d", st)
@@ -553,10 +557,25 @@ func TestNeedsClubWithExistingAdmin(t *testing.T) {
 	if st, loc, _ := browser.do("GET", Path, nil); st != http.StatusSeeOther || loc != ClubPath {
 		t.Fatalf("signed in: %d %q, want club step", st, loc)
 	}
-	if st, loc, _ := browser.do("POST", ClubPath, url.Values{"club": {"queens-park"}}); st != http.StatusSeeOther || loc != DonePath {
+	if st, loc, _ := browser.do("POST", ClubPath, url.Values{"club": {"queens-park"}}); st != http.StatusSeeOther || loc != ClubPath+"?working=1" {
 		t.Fatalf("choose club: %d %q", st, loc)
 	}
+	waitForClubJob(t, s)
 	if s.state.Status(ctx) != StatusReady {
 		t.Fatal("not ready after choosing the club")
 	}
+}
+
+// waitForClubJob waits for the background club step to finish.
+func waitForClubJob(t *testing.T, s *Service) ClubJob {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if job, ok := s.ClubJob(); ok && !job.Running {
+			return job
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("club step did not finish")
+	return ClubJob{}
 }

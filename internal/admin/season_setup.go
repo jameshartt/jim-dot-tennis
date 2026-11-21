@@ -380,6 +380,10 @@ func (h *SeasonSetupHandler) handleSeasonCopyGet(w http.ResponseWriter, r *http.
 		"PreviousYear": season.Year - 1,
 		"FileError":    r.URL.Query().Get("file_error"),
 	}
+	data["HasPreviousSeason"] = true
+	if previous, err := h.service.seasonRepository.FindByYear(r.Context(), season.Year-1); err == nil {
+		data["HasPreviousSeason"] = len(previous) > 0
+	}
 
 	tmpl, err := parseTemplate(h.templateDir, "admin/season_copy.html")
 	if err != nil {

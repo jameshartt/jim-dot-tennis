@@ -147,6 +147,7 @@ The codebase follows a clean layered architecture:
 - `webpush/`: Push notification service
 - `fixturegen/`: Public fixture generator page (`/fixture-generator`) and its league-tables feed
 - `fixturefile/`: Reader/validator for the shareable season fixture file (`jim.tennis/fixtures`)
+- `bhplta/`: Season bootstrap from the BHPLTA website: `Source.Fetch` (network, no DB) then `Import` in a caller-owned transaction; `Bootstrapper.Run` does both
 
 **static/fixture-generator/**: The fixture generator itself, which runs in the browser. `engine.js` holds the promotion/relegation rules, the scheduler and the file format (no DOM, tested by `tests/fixture-generator`); `app.js`/`app.css` are the interface. See `docs/fixture_generator.md`.
 
@@ -242,7 +243,7 @@ Each major handler (Admin, Players) delegates to domain-specific sub-handlers:
 
 ### Configuration
 
-**Home Club:** resolved in the order `HOME_CLUB_ID` env, `HOME_CLUB_NAME` env, then the `home_club_id` row in `app_settings` (written by first-run setup). With none of them the server still starts, in setup mode: `internal/setup` gates every request except `/static/`, `/healthz` and `/setup...` to the setup page. The setup flow (`/setup` code, `/setup/admin`, `/setup/club`, `/setup/done`) is protected by a one-time code printed to the log at startup (only its hash is stored); code entry and administrator creation are 404 once any administrator exists. The club step calls `setup.HomeClubProvisioner`. No migration seeds user accounts. An env value matching none of the clubs in a non-empty clubs table is fatal at startup (lists the available clubs). The home club is held in a live `config.HomeClubHolder`, never a startup-frozen value.
+**Home Club:** resolved in the order `HOME_CLUB_ID` env, `HOME_CLUB_NAME` env, then the `home_club_id` row in `app_settings` (written by first-run setup). With none of them the server still starts, in setup mode: `internal/setup` gates every request except `/static/`, `/branding/`, `/healthz` and `/setup...` to the setup page. The setup flow (`/setup` code, `/setup/admin`, `/setup/club`, `/setup/done`) is protected by a one-time code printed to the log at startup (only its hash is stored); code entry and administrator creation are 404 once any administrator exists. The club step calls `setup.HomeClubProvisioner`; the server uses `setup.NewBHPLTAProvisioner`, which runs in the background (the page polls) and imports the league, all clubs (with venue details), and the current season's weeks, divisions, teams and fixtures from BHPLTA via `internal/bhplta` in one transaction with the completion settings. The same import is the admin "Start a new season from BHPLTA" action (`/admin/league/seasons/from-bhplta`) and `cmd/import-season`. No migration seeds user accounts. An env value matching none of the clubs in a non-empty clubs table is fatal at startup (lists the available clubs). The home club is held in a live `config.HomeClubHolder`, never a startup-frozen value.
 - `HOME_CLUB_ID`: Database ID of the home club (preferred)
 - `HOME_CLUB_NAME`: Club name for fuzzy lookup (fallback if `HOME_CLUB_ID` is not set)
 - `HOME_CLUB_LOGO_PATH`: Optional URL path to a club logo image; overrides the logo uploaded on the settings page. Unset (or empty) means the uploaded logo, or no logo.
@@ -255,6 +256,7 @@ Each major handler (Admin, Players) delegates to domain-specific sub-handlers:
 - `WRAPPED_ACCESS_PASSWORD`: Password for the club wrapped unlock form (if unset the form always rejects)
 - `MY_TENNIS_ENABLED`: `true`/`1` shows the My Tennis call-to-action (off when unset)
 - `LEAGUE_TABLES_URL`: Optional source page for the fixture generator's league tables (default: BHPLTA league tables page)
+- `BHPLTA_BASE_URL`: Testing only; site root the BHPLTA season import reads the fixtures and club pages from (default `https://www.bhplta.co.uk`). Saved pages for tests are in `tests/e2e/fixtures/bhplta/`
 - `COURTHIVE_API_URL`: Optional CourtHive API URL (default: `http://courthive-server:8383`)
 
 **Database:**

@@ -79,6 +79,28 @@ type Service struct {
 	// mu serialises the state-changing steps so a double submit or two
 	// browsers racing cannot both redeem a code or both create an administrator.
 	mu sync.Mutex
+
+	// jobMu guards job, the club step running in the background.
+	jobMu sync.Mutex
+	job   *ClubJob
+}
+
+// clubJobTimeout bounds a background club step (reading BHPLTA included).
+const clubJobTimeout = 3 * time.Minute
+
+// ClubJob is the club step running (or finished) in the background: reading
+// BHPLTA takes longer than a page request should.
+type ClubJob struct {
+	Slug     string
+	ClubName string
+	Running  bool
+	Step     int    // pages read so far (progress)
+	Total    int    // pages to read
+	What     string // what is being read now
+	Started  time.Time
+	Finished time.Time
+	Result   *ProvisionResult // on success
+	Err      error            // on failure
 }
 
 // NewService returns the setup flow over state. provisioner builds the home
@@ -349,6 +371,68 @@ func (s *Service) ChooseClub(ctx context.Context, slug string) (*ProvisionResult
 		return nil, err
 	}
 	return res, nil
+}
+
+// ErrClubJobRunning: the club step is already running.
+var ErrClubJobRunning = errors.New("setup: the club is already being set up")
+
+// StartChooseClub runs ChooseClub for slug in the background, so the page can
+// show progress while BHPLTA is read. It checks what it can up front
+// (ErrUnavailable, ErrUnknownClub, ErrClubJobRunning); later failures are
+// reported in ClubJob.
+func (s *Service) StartChooseClub(ctx context.Context, slug string) error {
+	if s.state.Status(ctx) != StatusNeedsClub {
+		return ErrUnavailable
+	}
+	var choice *ClubChoice
+	for _, c := range s.Clubs() {
+		if c.Slug == slug {
+			choice = &c
+			break
+		}
+	}
+	if choice == nil {
+		return ErrUnknownClub
+	}
+
+	s.jobMu.Lock()
+	if s.job != nil && s.job.Running {
+		s.jobMu.Unlock()
+		return ErrClubJobRunning
+	}
+	job := &ClubJob{Slug: slug, ClubName: choice.DisplayName, Running: true, Started: s.now()}
+	s.job = job
+	s.jobMu.Unlock()
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), clubJobTimeout)
+		defer cancel()
+		ctx = WithProgress(ctx, func(step, total int, what string) {
+			s.jobMu.Lock()
+			job.Step, job.Total, job.What = step, total, what
+			s.jobMu.Unlock()
+		})
+		res, err := s.ChooseClub(ctx, slug)
+		if err != nil {
+			log.Printf("setup: choose club %q: %v", slug, err)
+		} else {
+			log.Printf("setup: home club set to %q (club ID %d, created %v); setup complete", res.ClubName, res.ClubID, res.CreatedClub)
+		}
+		s.jobMu.Lock()
+		job.Running, job.Finished, job.Result, job.Err = false, s.now(), res, err
+		s.jobMu.Unlock()
+	}()
+	return nil
+}
+
+// ClubJob returns a copy of the latest background club step, if any.
+func (s *Service) ClubJob() (ClubJob, bool) {
+	s.jobMu.Lock()
+	defer s.jobMu.Unlock()
+	if s.job == nil {
+		return ClubJob{}, false
+	}
+	return *s.job, true
 }
 
 // RecentlyCompleted reports whether setup was completed within the last

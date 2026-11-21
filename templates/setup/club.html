@@ -4,6 +4,7 @@
 
 {{define "head"}}
 <title>Set up: choose your club - Jim.Tennis</title>
+{{if .Working}}<meta http-equiv="refresh" content="2;url=/setup/club?working=1">{{end}}
 {{template "setup-head" .}}
 {{end}}
 
@@ -15,8 +16,17 @@
 <div class="setup-container">
     <div class="setup-card" data-setup-status="{{.Status}}" data-setup-step="club">
         {{template "setup-steps" .}}
+        {{if .Working}}
+        <h1>Setting up {{.ClubName}}</h1>
+        <div class="alert alert-info" role="status" aria-live="polite" data-setup-working>
+            <p><strong>Fetching your league from the BHPLTA website.</strong> This usually takes under a minute; this page updates by itself.</p>
+            <p class="setup-help" data-setup-progress>{{.ProgressText}}</p>
+        </div>
+        <noscript><p><a href="/setup/club?working=1">Check again</a></p></noscript>
+        {{else}}
         <h1>Choose your club</h1>
         <p>Pick the club this app is for. It becomes the home club: its teams, players and fixtures are the ones the app looks after.</p>
+        <p class="setup-help">The app then reads the league's divisions, clubs, teams and fixtures from the BHPLTA website, which takes up to a minute.</p>
         {{template "setup-error" .}}
         <form method="POST" action="/setup/club">
             <fieldset class="setup-clubs" aria-describedby="club-help">
@@ -29,9 +39,10 @@
                 {{end}}
             </fieldset>
             <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Use this club</button>
+                <button type="submit" class="btn btn-primary">{{if .Retry}}Try again{{else}}Use this club{{end}}</button>
             </div>
         </form>
+        {{end}}
         <details class="setup-details">
             <summary>My club isn't listed</summary>
             <p>Jim.Tennis currently supports BHPLTA clubs only. If your club has joined the league recently, a newer version of the app will list it.</p>

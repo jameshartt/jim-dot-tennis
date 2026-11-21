@@ -11,6 +11,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"jim-dot-tennis/internal/bhplta"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/normalize"
 	"jim-dot-tennis/internal/services"
@@ -31,6 +32,37 @@ type ProvisionResult struct {
 	ClubID      uint
 	ClubName    string
 	CreatedClub bool // false when an existing clubs row was reused
+	// Import is what the BHPLTA bootstrap created (nil for the interim
+	// provisioner).
+	Import *bhplta.Summary
+}
+
+// ProvisionError is a provisioning failure with a message for the person
+// setting up (naming what failed). Nothing was written.
+type ProvisionError struct {
+	Message string
+	Err     error
+}
+
+func (e *ProvisionError) Error() string { return e.Message + ": " + e.Err.Error() }
+func (e *ProvisionError) Unwrap() error { return e.Err }
+
+// ProgressFunc receives progress messages from a slow provisioner.
+type ProgressFunc func(step, total int, what string)
+
+type progressKey struct{}
+
+// WithProgress returns ctx carrying fn, for the provisioner to report how far
+// it has got.
+func WithProgress(ctx context.Context, fn ProgressFunc) context.Context {
+	return context.WithValue(ctx, progressKey{}, fn)
+}
+
+func progressFrom(ctx context.Context) ProgressFunc {
+	if fn, ok := ctx.Value(progressKey{}).(ProgressFunc); ok && fn != nil {
+		return fn
+	}
+	return func(int, int, string) {}
 }
 
 // HomeClubProvisioner is the seam between the "choose your club" step and
@@ -43,9 +75,10 @@ type ProvisionResult struct {
 // transaction open across network calls. Calls are serialised by the setup
 // service. The setup service activates the home club after it returns.
 //
-// The default, NewClubRowProvisioner, only creates or finds the clubs row.
-// The BHPLTA bootstrap (WI-118) replaces it with the full league, division,
-// club, team, week and fixture import.
+// NewBHPLTAProvisioner (the one the server uses) imports the league,
+// divisions, clubs, teams, weeks and fixtures from BHPLTA. The default for
+// NewService(state, nil), NewClubRowProvisioner, only creates or finds the
+// clubs row.
 type HomeClubProvisioner interface {
 	ProvisionHomeClub(ctx context.Context, choice ClubChoice, complete CompleteFunc) (*ProvisionResult, error)
 }

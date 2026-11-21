@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Start a new season from BHPLTA - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        .admin-header { background: var(--primary-color); color: white; padding: 1rem 0; margin-bottom: 2rem; }
+        .breadcrumb { font-size: 0.9rem; margin-bottom: 0.5rem; }
+        .breadcrumb a { color: #ffffff80; text-decoration: none; }
+        .breadcrumb a:hover { color: white; }
+        .admin-content { padding: 0 1rem; }
+        .form-section { background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .form-section h2 { margin: 0 0 1rem 0; color: var(--primary-color); font-size: 1.25rem; }
+        .form-section p, .form-section li { line-height: 1.5; }
+        .form-section ul { margin: 0.5rem 0 1rem 1.25rem; }
+        .form-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1.5rem; }
+        .btn { padding: 0.6rem 1.5rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.95rem; text-decoration: none; display: inline-block; }
+        .btn-primary { background: var(--primary-color); color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn[disabled] { opacity: 0.6; cursor: wait; }
+        .error-box { background: #fdecea; border-left: 4px solid #d93025; padding: 1rem; margin-bottom: 1.5rem; border-radius: 0 4px 4px 0; color: #7a1c14; }
+        .success-box { background: #d4edda; border-left: 4px solid #28a745; padding: 1rem; margin-bottom: 1.5rem; border-radius: 0 4px 4px 0; color: #155724; }
+        .info-box { background: #e7f3fe; border-left: 4px solid #2196F3; padding: 1rem; margin-top: 1rem; border-radius: 0 4px 4px 0; color: #1a5276; }
+        .working { display: none; margin-top: 1rem; color: #1a5276; }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin/league">Admin Dashboard</a> &gt;
+                <a href="/admin/league/seasons">Seasons</a> &gt;
+                From BHPLTA
+            </div>
+            <h1>Start a new season from BHPLTA</h1>
+        </div>
+    </header>
+
+    <main class="admin-content">
+        <div class="container">
+            {{if .Error}}
+            <div class="error-box" role="alert" data-bhplta-error>
+                <strong>Nothing was imported.</strong> {{.Error}}
+                {{if .ExistingSeasonID}}<p><a href="/admin/league/seasons/setup?id={{.ExistingSeasonID}}">Open that season</a></p>{{end}}
+            </div>
+            {{end}}
+
+            {{with .Summary}}
+            <div class="success-box" role="status" data-bhplta-summary>
+                {{if .SeasonID}}
+                <strong>{{.SeasonName}} was created from BHPLTA.</strong>
+                {{else}}
+                <strong>No season was created.</strong>
+                {{end}}
+            </div>
+            <div class="form-section">
+                <h2>What was imported</h2>
+                <ul>
+                    <li>League: {{.LeagueName}}{{if .LeagueCreated}} (new){{end}}</li>
+                    {{if .SeasonID}}
+                    <li>Season: {{.SeasonName}}{{if .SeasonActivated}} (now the active season){{end}}</li>
+                    <li data-count="divisions">{{.Divisions}} divisions</li>
+                    <li data-count="teams">{{.Teams}} teams</li>
+                    <li data-count="weeks">{{.Weeks}} weeks</li>
+                    <li data-count="fixtures">{{.Fixtures}} fixtures</li>
+                    {{end}}
+                    <li data-count="clubs">{{.ClubsCreated}} clubs added, {{.ClubsMatched}} already here{{if .ClubsUpdated}} ({{.ClubsUpdated}} given missing venue details){{end}}</li>
+                </ul>
+                {{range .Notes}}<p class="info-box">{{.}}</p>{{end}}
+                {{if .Unmatched}}
+                <h2>Could not be matched</h2>
+                <ul data-bhplta-unmatched>{{range .Unmatched}}<li>{{.}}</li>{{end}}</ul>
+                {{end}}
+                <div class="form-actions">
+                    {{if .SeasonID}}<a class="btn btn-primary" href="/admin/league/seasons/setup?id={{.SeasonID}}">Set up {{.SeasonName}}</a>{{end}}
+                    <a class="btn btn-secondary" href="/admin/league/seasons">Back to seasons</a>
+                </div>
+            </div>
+            {{else}}
+            <div class="form-section">
+                <h2>Use the fixtures on the BHPLTA website</h2>
+                <p>This reads the Parks League fixtures page and the club pages on the BHPLTA website and creates, in one go:</p>
+                <ul>
+                    <li>the season the fixtures belong to, with its weeks,</li>
+                    <li>its divisions and every team in them,</li>
+                    <li>all the fixtures,</li>
+                    <li>any club this site does not know yet, with its venue details. Clubs already here are reused, never duplicated.</li>
+                </ul>
+                <p>Use it when there is no previous season here to copy. If a previous season exists, copying it from the season's setup page also carries players and captains over.</p>
+                <div class="info-box">
+                    BHPLTA only lists <em>upcoming</em> fixtures: run this before the season starts to get every week. If anything fails, nothing is saved and you can try again.
+                </div>
+                <form method="POST" action="/admin/league/seasons/from-bhplta" id="bhplta-form">
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="bhplta-submit">{{if .Error}}Try again{{else}}Start a new season from BHPLTA{{end}}</button>
+                        <a class="btn btn-secondary" href="/admin/league/seasons">Cancel</a>
+                    </div>
+                    <p class="working" id="bhplta-working" role="status">Reading the BHPLTA website. This can take up to half a minute...</p>
+                </form>
+            </div>
+            {{end}}
+        </div>
+    </main>
+    <script>
+        (function () {
+            var form = document.getElementById('bhplta-form');
+            if (!form) return;
+            form.addEventListener('submit', function () {
+                document.getElementById('bhplta-submit').disabled = true;
+                document.getElementById('bhplta-working').style.display = 'block';
+            });
+        })();
+    </script>
+</body>
+</html>

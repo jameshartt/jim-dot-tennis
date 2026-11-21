@@ -154,6 +154,8 @@ func TestGateRoutesToSetupUntilComplete(t *testing.T) {
 		{"/setup", true},
 		{"/setup/admin", true},
 		{"/static/css/main.css", true},
+		{"/branding/logo-0123abcd.png", true},
+		{"/brandingx", false},
 	}
 	for _, c := range cases {
 		reached = false

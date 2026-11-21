@@ -14,6 +14,7 @@ import (
 
 	"jim-dot-tennis/internal/admin"
 	"jim-dot-tennis/internal/auth"
+	"jim-dot-tennis/internal/bhplta"
 	"jim-dot-tennis/internal/branding"
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
@@ -62,7 +63,8 @@ func main() {
 		log.Fatalf("Home club configuration error: %v", err)
 	}
 	setupState := setup.NewState(db, homeClub)
-	setupService := setup.NewService(setupState, nil)
+	// The club step imports the league, clubs and current season from BHPLTA.
+	setupService := setup.NewService(setupState, setup.NewBHPLTAProvisioner(bhplta.NewBootstrapper(db)))
 	if code, err := setupService.IssueCode(context.Background()); err != nil {
 		log.Printf("Warning: could not issue a setup code: %v", err)
 	} else if code != "" {

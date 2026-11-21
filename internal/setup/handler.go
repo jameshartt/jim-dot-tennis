@@ -4,6 +4,7 @@ package setup
 
 import (
 	"errors"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"jim-dot-tennis/internal/auth"
+	"jim-dot-tennis/internal/bhplta"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/render"
 )
@@ -31,6 +33,9 @@ const (
 	HealthPath = "/healthz"
 	// staticPrefix serves CSS, JS, images and the service worker.
 	staticPrefix = "/static/"
+	// brandingPrefix serves the uploaded club logo (internal/branding), so it
+	// can show on the setup pages.
+	brandingPrefix = "/branding/"
 	// loginPath / logoutPath stay reachable once an administrator exists, so
 	// that administrator can sign in to finish the club step.
 	loginPath  = "/login"
@@ -43,13 +48,14 @@ const (
 const ticketCookie = "setup_ticket"
 
 // AllowedDuringSetup reports whether path is served normally while the
-// instance needs setup: static assets, the health endpoint, and /setup with
-// anything below it.
+// instance needs setup: static assets, the uploaded logo, the health
+// endpoint, and /setup with anything below it.
 func AllowedDuringSetup(path string) bool {
 	return path == HealthPath ||
 		path == Path ||
 		strings.HasPrefix(path, Path+"/") ||
-		strings.HasPrefix(path, staticPrefix)
+		strings.HasPrefix(path, staticPrefix) ||
+		strings.HasPrefix(path, brandingPrefix)
 }
 
 // Gate routes every request to the setup entry page while the instance needs
@@ -126,7 +132,17 @@ type pageData struct {
 	ClubName     string
 	CreatedClub  bool
 	DashboardURL string
+	// Club step running in the background (reading BHPLTA).
+	Working      bool
+	ProgressText string
+	Retry        bool // the last attempt failed; the form retries it
+	// Import is what the BHPLTA bootstrap created (done page).
+	Import *bhplta.Summary
 }
+
+// workingQuery marks the club page while it waits for the background club
+// step; once setup completes it hands over to the done page.
+const workingQuery = "working"
 
 func allowMethods(w http.ResponseWriter, r *http.Request, methods ...string) bool {
 	for _, m := range methods {
@@ -326,6 +342,14 @@ func (h *Handler) club(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	switch h.svc.State().Status(ctx) {
 	case StatusReady:
+		// The page waiting for the background club step hands over to the
+		// done page; otherwise the step is gone.
+		if r.Method != http.MethodPost && r.URL.Query().Get(workingQuery) != "" && h.svc.RecentlyCompleted(ctx) {
+			if _, ok := h.signedInAdmin(r); ok {
+				http.Redirect(w, r, DonePath, http.StatusSeeOther)
+				return
+			}
+		}
 		http.NotFound(w, r)
 		return
 	case StatusNeedsSetup:
@@ -347,6 +371,18 @@ func (h *Handler) club(w http.ResponseWriter, r *http.Request) {
 
 	data := pageData{Step: 3, Status: StatusNeedsClub.String(), Clubs: h.svc.Clubs()}
 	if r.Method != http.MethodPost {
+		if job, ok := h.svc.ClubJob(); ok {
+			data.Selected = job.Slug
+			switch {
+			case job.Running:
+				data.Working = true
+				data.ClubName = job.ClubName
+				data.ProgressText = progressText(job)
+			case job.Err != nil:
+				data.Retry = true
+				data.Error = clubErrorMessage(job.Err)
+			}
+		}
 		h.render(w, http.StatusOK, "club", data)
 		return
 	}
@@ -355,11 +391,10 @@ func (h *Handler) club(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Selected = r.PostForm.Get("club")
-	res, err := h.svc.ChooseClub(ctx, data.Selected)
+	err := h.svc.StartChooseClub(ctx, data.Selected)
 	switch {
-	case err == nil:
-		log.Printf("setup: home club set to %q (club ID %d, created %v); setup complete", res.ClubName, res.ClubID, res.CreatedClub)
-		http.Redirect(w, r, DonePath, http.StatusSeeOther)
+	case err == nil, errors.Is(err, ErrClubJobRunning):
+		http.Redirect(w, r, ClubPath+"?"+workingQuery+"=1", http.StatusSeeOther)
 	case errors.Is(err, ErrUnavailable):
 		http.NotFound(w, r)
 	case errors.Is(err, ErrUnknownClub):
@@ -370,6 +405,23 @@ func (h *Handler) club(w http.ResponseWriter, r *http.Request) {
 		data.Error = "Something went wrong setting up your club. Nothing was changed; please try again."
 		h.render(w, http.StatusInternalServerError, "club", data)
 	}
+}
+
+// progressText describes how far the background club step has got.
+func progressText(job ClubJob) string {
+	if job.Total == 0 || job.What == "" {
+		return "Starting..."
+	}
+	return fmt.Sprintf("Reading %s from the BHPLTA website (%d of %d pages)...", job.What, job.Step, job.Total)
+}
+
+// clubErrorMessage explains a failed club step.
+func clubErrorMessage(err error) string {
+	var pe *ProvisionError
+	if errors.As(err, &pe) {
+		return pe.Message + " Nothing was changed, so you can try again."
+	}
+	return "Something went wrong setting up your club. Nothing was changed; please try again."
 }
 
 // done is the confirmation page, shown to a signed-in administrator shortly
@@ -391,6 +443,9 @@ func (h *Handler) done(w http.ResponseWriter, r *http.Request) {
 	data := pageData{Status: StatusReady.String(), DashboardURL: dashboardPath}
 	if club != nil {
 		data.ClubName = club.Name
+	}
+	if job, ok := h.svc.ClubJob(); ok && job.Result != nil {
+		data.Import = job.Result.Import
 	}
 	h.render(w, http.StatusOK, "done", data)
 }

@@ -187,7 +187,10 @@
         <div class="container">
             <div class="action-bar">
                 <h2>Seasons</h2>
-                <button onclick="showCreateSeasonModal()" class="btn-add">➕ Create Season</button>
+                <div>
+                    <a href="/admin/league/seasons/from-bhplta" class="btn-add" style="text-decoration: none;">Start a new season from BHPLTA</a>
+                    <button onclick="showCreateSeasonModal()" class="btn-add">➕ Create Season</button>
+                </div>
             </div>
 
             {{if .Success}}
@@ -272,7 +275,7 @@
             {{else}}
             <div class="no-seasons">
                 <h3>No Seasons Found</h3>
-                <p>Create your first season to get started.</p>
+                <p>The quickest start is to <a href="/admin/league/seasons/from-bhplta">start a new season from BHPLTA</a>: it brings in the divisions, teams and fixtures from the BHPLTA website. Or create an empty season and fill it in yourself.</p>
             </div>
             {{end}}
         </div>

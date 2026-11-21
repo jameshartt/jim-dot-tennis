@@ -5,7 +5,7 @@
 //
 // An instance needs setup while no home club is in effect (neither
 // HOME_CLUB_ID / HOME_CLUB_NAME nor the stored home_club_id setting resolves to
-// a club). While it does, Gate sends every request except static assets, the
+// a club). While it does, Gate sends every request except static assets, the uploaded logo, the
 // health endpoint and /setup... to the setup entry page.
 //
 // The setup flow (WI-117) completes setup by writing the completion settings

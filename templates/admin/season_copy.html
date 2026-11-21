@@ -243,6 +243,13 @@
                 </div>
             </div>
 
+            {{if not .HasPreviousSeason}}
+            <div class="info-box" style="margin: 0 0 1.5rem 0;" data-no-previous-season>
+                <strong>There is no {{.PreviousYear}} season here to copy.</strong>
+                Use the BHPLTA fixtures URL below, load a fixture file, or <a href="/admin/league/seasons/from-bhplta">start a new season from BHPLTA</a> (which also creates the clubs this site does not know yet).
+            </div>
+            {{end}}
+
             {{if .FileError}}
             <div class="error-box" role="alert">
                 <strong>The fixture file was not loaded.</strong> {{.FileError}}
