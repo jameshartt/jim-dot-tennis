@@ -136,6 +136,7 @@ The codebase follows a clean layered architecture:
 **internal/**: Core application logic
 - `config/`: Home club resolution and the live `HomeClubHolder`, `AppConfig` snapshot for CLI tools, context helpers, and middleware for injecting the home club into request context
 - `setup/`: First-run "needs setup" state, the setup gate middleware and the setup pages
+- `secrets/`: Per-instance secrets (generated Club Wrapped code) and the startup self-check; `outbound/` holds only a test that fails on any URL host not in its allowlist (keep `docs/outbound_connections.md` in step)
 - `normalize/`: Centralised apostrophe/Unicode normalisation utilities
 - `database/`: Database connection and migration handling
 - `models/`: Data structures (Player, Team, Fixture, etc.)
@@ -252,7 +253,7 @@ Each major handler (Admin, Players) delegates to domain-specific sub-handlers:
 **Club settings page** (`/admin/league/settings`, admin role only): display name, logo, primary/secondary colours, BHPLTA club code/name/id and public URL, stored in `app_settings` and held live in `config.ClubSettings` (`HomeClubHolder.ClubSettings()`); changes apply without a restart. A non-empty env variable above always wins over the stored value and the page says so. Uploaded logos (PNG/JPEG/WebP, sniffed by content, max 2 MB, no SVG) are stored in `branding/` next to the SQLite database (`DB_PATH`'s directory, i.e. the data volume) and served only at `/branding/<content-hash name>`. `internal/branding` also serves `/static/manifest.json`, `/api/manifest` and `/static/service-worker.js` with the stored name, logo and colours. BHPLTA's club name and id are not published: the page can look them up from the club code, `config.KnownBHPLTAClub` covers clubs whose values are known, and `config.PrefillClubSettings` stores them during setup.
 
 **Features:**
-- `WRAPPED_ACCESS_PASSWORD`: Password for the club wrapped unlock form (if unset the form always rejects)
+- `WRAPPED_ACCESS_PASSWORD`: Optional override for the Club Wrapped access code. Unset (the default) means a code generated with crypto/rand on first start and stored in `app_settings` (`wrapped_access_code`), shown to admins on the Club Settings page (`internal/secrets`). The grant cookie is derived from the code, so it is per instance.
 - `MY_TENNIS_ENABLED`: `true`/`1` shows the My Tennis call-to-action (off when unset)
 - `LEAGUE_TABLES_URL`: Optional source page for the fixture generator's league tables (default: BHPLTA league tables page)
 - `COURTHIVE_API_URL`: Optional CourtHive API URL (default: `http://courthive-server:8383`)
@@ -263,7 +264,7 @@ Each major handler (Admin, Players) delegates to domain-specific sub-handlers:
 
 **Application:**
 - `PORT`: HTTP server port (default: "8080")
-- `APP_ENV`: Set to "production" to enforce secure cookies (the reference compose sets it)
+- `APP_ENV`: Set to "production" to enforce secure cookies (the reference compose sets it). In production the startup self-check (`secrets.StartupCheck`) refuses to start if a secret variable holds a known placeholder such as `change-me`. It also warns (in every mode) about accounts whose password hash is one seeded by old migrations or the e2e seed.
 - `TEMPLATE_RELOAD`: Development only; `true` re-parses templates on every request (root `docker-compose.yml` defaults it to true)
 - `MIGRATE_ALLOW_DIRTY_FORCE`: Development only; `true` auto-forces a dirty migration version at startup. Never set in production.
 

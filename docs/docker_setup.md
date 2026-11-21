@@ -227,7 +227,8 @@ BHPLTA_CLUB_CODE=what-three-words
 PORT=8080
 DB_TYPE=sqlite3
 DB_PATH=./tennis.db
-WRAPPED_ACCESS_PASSWORD=example
+# Optional: WRAPPED_ACCESS_PASSWORD=<a code of your own>. Leave it out and the app
+# generates a code for this instance (shown on the admin Club Settings page).
 ```
 
 Docker Compose can reference variables using `${VAR}` syntax. The `docker-compose.yml` is set up to read `HOME_CLUB_ID`, `BHPLTA_CLUB_CODE`, and `WRAPPED_ACCESS_PASSWORD` from your environment so you don't commit secrets.
@@ -237,6 +238,5 @@ Alternatively, you can export variables for a session:
 ```
 export HOME_CLUB_ID=10
 export BHPLTA_CLUB_CODE="what-three-words"
-export WRAPPED_ACCESS_PASSWORD="your-password"
 ./scripts/run.sh
 ```

@@ -14,6 +14,7 @@ import (
 
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/secrets"
 )
 
 // AvailabilityHandler handles player availability requests
@@ -428,18 +429,24 @@ func (h *AvailabilityHandler) handleWrappedPasswordAuth(w http.ResponseWriter, r
 		return
 	}
 
-	// Read password from environment variable; if unset, use a sensible default.
-	// Intentionally low-friction deterrent, not robust security.
-	expected := os.Getenv("WRAPPED_ACCESS_PASSWORD")
-	if expected == "" {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+	// The code is per instance: WRAPPED_ACCESS_PASSWORD, else the code generated
+	// for this instance (shown on the admin Club Settings page). A deterrent
+	// shared with members, not robust security.
+	access := secrets.NewWrappedAccess(h.service.db)
+	ok, err := access.Check(r.Context(), req.Password)
+	var grant string
+	if err == nil && ok {
+		grant, err = access.CookieValue(r.Context())
+	}
+	if err != nil {
+		logAndError(w, "Club Wrapped access code unavailable", err, http.StatusInternalServerError)
 		return
 	}
-	if strings.TrimSpace(req.Password) == expected {
+	if ok {
 		// Set short-lived access cookie (15 minutes)
 		http.SetCookie(w, &http.Cookie{
-			Name:     "wrapped_access",
-			Value:    "granted",
+			Name:     secrets.WrappedCookieName,
+			Value:    grant,
 			Path:     "/",
 			HttpOnly: true,
 			MaxAge:   15 * 60,

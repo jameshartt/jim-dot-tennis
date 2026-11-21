@@ -162,6 +162,19 @@
                     <button type="submit" class="btn btn-secondary" id="bhplta-lookup" {{if and (not .BHPLTAClubCode) (not .BHPLTAClubCodeEnv)}}disabled title="Save a club code first"{{end}}>Look up from BHPLTA</button>
                 </form>
             </section>
+
+            <section class="content-section" id="wrapped-code" style="margin-top: 1.5rem;">
+                <h2>Club Wrapped access code</h2>
+                <p class="section-intro">Members type this code to open Club Wrapped from their availability page. Share it with your members however you like.</p>
+                {{if .WrappedCodeEnv}}
+                <span class="env-note">Set by the <code>{{.WrappedCodeEnv}}</code> environment variable, which takes precedence over the code generated for this instance.</span>
+                {{else if .WrappedCode}}
+                <p><code id="wrapped-access-code" style="font-size: 1.2rem; letter-spacing: 0.08em;">{{.WrappedCode}}</code></p>
+                <span class="hint">Generated at random for this instance when it first started. Set <code>WRAPPED_ACCESS_PASSWORD</code> to use a code of your own instead.</span>
+                {{else}}
+                <span class="hint">The code is not available right now; see the server log.</span>
+                {{end}}
+            </section>
         </div>
     </main>
 </body>
