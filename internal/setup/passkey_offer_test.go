@@ -20,8 +20,13 @@ func TestGateAllowsPasskeyPagesOnlyOnceAnAdministratorExists(t *testing.T) {
 	s, db := newTestState(t)
 	reached := false
 	gated := s.Gate(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { reached = true }))
+	// Invite and recovery links are among them: with an administrator who is
+	// locked out before the club step, `user reset` on the server must work.
+	// With no administrator at all, a link (for a captain account, say) is
+	// not a way around setup.
 	paths := []string{"/login/passkey/begin", "/login/passkey/finish", auth.SignInMethodsPath,
-		auth.PasskeysPathPrefix + "begin", auth.PasskeysPathPrefix + "3/delete"}
+		auth.PasskeysPathPrefix + "begin", auth.PasskeysPathPrefix + "3/delete",
+		auth.AccountLinkPathPrefix + "some-token", auth.AccountLinkPathPrefix + "some-token/passkey/begin"}
 
 	// Needs setup: no administrator yet, so none of them are reachable.
 	for _, path := range paths {

@@ -90,12 +90,17 @@ func (s *State) Gate(next http.Handler) http.Handler {
 // exists but no club has been chosen: signing in and out (by password or
 // passkey), and the administrator's own sign-in methods page and passkey
 // endpoints, so the first administrator can add a passkey before the club
-// step. Everything under /account/ here still needs a signed-in session.
+// step; and invite and recovery links, so an administrator who is locked out
+// before the club step can be let back in with `jim-dot-tennis user reset`.
+// The /account/ pages still need a signed-in session, and a link has to have
+// been issued by an administrator or on the server. While no administrator
+// exists, links stay behind the gate like everything else.
 func allowedWithAdmin(path string) bool {
 	return path == loginPath || path == logoutPath ||
 		strings.HasPrefix(path, passkeyLoginPrefix) ||
 		path == auth.SignInMethodsPath ||
-		strings.HasPrefix(path, auth.PasskeysPathPrefix)
+		strings.HasPrefix(path, auth.PasskeysPathPrefix) ||
+		strings.HasPrefix(path, auth.AccountLinkPathPrefix)
 }
 
 // Sessions is what the setup pages need from sign-in (auth.Service

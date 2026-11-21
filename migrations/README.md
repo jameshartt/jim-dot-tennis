@@ -94,6 +94,33 @@ To create a new migration:
   but never committed, leaving a permanent gap in the sequence (…025, 027, 028…).
   The next available version is **032**. Do not backfill 026.
 
+### Changing a column of a table that other tables reference
+
+Foreign keys are enforced on every connection (`_foreign_keys=on`) and each
+migration file runs inside a transaction, where `PRAGMA foreign_keys = OFF` has
+no effect. The usual SQLite recipe "create a new table, copy the rows, drop the
+old table, rename" is therefore **destructive** for a table that others point at
+with `ON DELETE CASCADE`: `DROP TABLE users` deletes every session, passkey and
+captain note along with it.
+
+Change the column in place instead, as migration 034 does for
+`users.password_hash` (NOT NULL to nullable):
+
+```sql
+ALTER TABLE users ADD COLUMN password_hash_optional TEXT;
+UPDATE users SET password_hash_optional = password_hash;
+ALTER TABLE users DROP COLUMN password_hash;
+ALTER TABLE users RENAME COLUMN password_hash_optional TO password_hash;
+```
+
+No row of the table is deleted, so nothing cascades, and rowids, indexes and
+the other columns are untouched (the changed column moves to the end of the
+table; always name columns in `INSERT`). `DROP COLUMN` refuses a column that
+is indexed, part of a key or used in a trigger, view or CHECK. Write a test
+that migrates a populated database through the real driver and compares the
+referencing tables before and after, like
+`internal/database/migration_034_test.go`.
+
 ### Edited migrations
 
 golang-migrate records only the version number of each applied migration, not

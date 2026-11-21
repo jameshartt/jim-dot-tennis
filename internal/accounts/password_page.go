@@ -16,9 +16,9 @@ import (
 	"jim-dot-tennis/internal/render"
 )
 
-// PasswordPage serves auth.ChangePasswordPath, where a signed-in user
-// chooses a new password. Users whose password was set by someone else are
-// sent here by auth.Middleware.RequireAuth until they do.
+// PasswordPage serves auth.ChangePasswordPath, where a signed-in user who
+// has a password chooses a new one (linked from the sign-in methods page).
+// Nobody is forced here: passwords are only ever chosen by their owner.
 type PasswordPage struct {
 	accounts    *Service
 	auth        *auth.Service
@@ -39,7 +39,6 @@ func (p *PasswordPage) RegisterRoutes(mux *http.ServeMux) {
 
 type passwordPageData struct {
 	Username    string
-	MustChange  bool
 	Error       string
 	MinPassword int
 }
@@ -53,7 +52,12 @@ func (p *PasswordPage) serve(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login?redirect="+url.QueryEscape(auth.ChangePasswordPath), http.StatusSeeOther)
 		return
 	}
-	data := passwordPageData{Username: user.Username, MustChange: user.MustChangePassword, MinPassword: auth.MinPasswordLength}
+	if user.PasswordHash == "" {
+		// Nothing to change: the account signs in with passkeys.
+		http.Redirect(w, r, auth.SignInMethodsPath, http.StatusSeeOther)
+		return
+	}
+	data := passwordPageData{Username: user.Username, MinPassword: auth.MinPasswordLength}
 	switch r.Method {
 	case http.MethodGet, http.MethodHead:
 		p.render(w, http.StatusOK, data)
@@ -68,6 +72,9 @@ func (p *PasswordPage) serve(w http.ResponseWriter, r *http.Request) {
 		err := p.accounts.ChangeOwnPassword(r.Context(), user.ID, current, next)
 		switch {
 		case err == nil:
+		case errors.Is(err, ErrNoPassword):
+			http.Redirect(w, r, auth.SignInMethodsPath, http.StatusSeeOther)
+			return
 		case errors.Is(err, ErrWrongPassword):
 			data.Error = "Your current password is not right."
 			p.render(w, http.StatusUnprocessableEntity, data)

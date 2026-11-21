@@ -17,7 +17,7 @@ func CrossOriginGuard(next http.Handler) http.Handler {
 	protection := http.NewCrossOriginProtection()
 	protection.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Blocked cross-origin %s %s (Origin %q, Sec-Fetch-Site %q)",
-			r.Method, r.URL.Path, r.Header.Get("Origin"), r.Header.Get("Sec-Fetch-Site"))
+			r.Method, RedactPath(r.URL.Path), r.Header.Get("Origin"), r.Header.Get("Sec-Fetch-Site"))
 		http.Error(w, "Cross-origin request blocked", http.StatusForbidden)
 	}))
 	return protection.Handler(next)

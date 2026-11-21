@@ -1,0 +1,125 @@
+{{define "account/accept_link.html"}}
+{{template "layout" .}}
+{{end}}
+
+{{define "head"}}
+<title>{{if or .Invalid .Throttled}}Link not available{{else if .IsInvite}}Set up your account{{else}}Get back into your account{{end}} - Jim.Tennis</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<style>
+    [hidden] { display: none !important; }
+    .link-container { display: flex; justify-content: center; padding: 1.5rem 0; }
+    .link-card { background: #fff; padding: 1.75rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100%; max-width: 560px; }
+    .link-card h1 { color: var(--primary-color); margin-bottom: 0.75rem; font-size: 1.6rem; }
+    .link-card h2 { font-size: 1.15rem; margin: 1.5rem 0 0.6rem; }
+    .link-card p { margin-bottom: 0.8rem; line-height: 1.5; }
+    .link-help { font-size: 0.9rem; color: #555; }
+    .link-who { border: 1px solid var(--border-color); border-radius: 6px; padding: 0.85rem; margin-bottom: 1rem; }
+    .link-who dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 0.9rem; }
+    .link-who dt { color: #555; }
+    .link-who dd { margin: 0; font-weight: 600; }
+    .link-choice { border: 1px solid #f0c36d; background: #fffaf0; border-radius: 6px; padding: 0.85rem; margin: 1rem 0; }
+    .link-choice label { display: flex; gap: 0.6rem; align-items: flex-start; font-weight: 600; }
+    .link-choice input { margin-top: 0.25rem; width: auto; }
+    .link-choice p { margin: 0.5rem 0 0; font-size: 0.9rem; }
+    .link-passkey { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-end; }
+    .link-passkey .form-group { margin: 0; flex: 1 1 14rem; }
+    details.link-password { margin-top: 1.5rem; }
+    details.link-password summary { cursor: pointer; font-weight: 600; margin-bottom: 0.75rem; }
+</style>
+{{end}}
+
+{{define "user-controls"}}{{end}}
+
+{{define "content"}}
+<div class="link-container">
+{{if .Throttled}}
+    <div class="link-card" data-page="account-link-throttled">
+        <h1>Too many attempts</h1>
+        <p role="alert">Too many attempts from your connection. Wait a few minutes and open your link again.</p>
+    </div>
+{{else if .Invalid}}
+    <div class="link-card" data-page="account-link-invalid">
+        <h1>This link can't be used</h1>
+        <p role="alert">It may be mistyped, out of date, already used or cancelled. Links work once and only for a limited time.</p>
+        <p>Ask a club administrator for a new one. If you have already set up a way to sign in, <a href="/login">sign in</a>.</p>
+    </div>
+{{else}}
+    <div class="link-card" data-page="account-link" data-link-kind="{{if .IsInvite}}invite{{else}}recovery{{end}}">
+        {{if .IsInvite}}
+        <h1>Set up your account</h1>
+        <p>You have been invited to use this club's Jim.Tennis site. Choose how you will sign in and your account is ready.</p>
+        {{else}}
+        <h1>Get back into your account</h1>
+        <p>This link lets you set a new way to sign in to your account.</p>
+        {{end}}
+
+        <div class="link-who">
+            <dl>
+                <dt>Account</dt><dd data-link-username>{{.Username}}</dd>
+                <dt>Role</dt><dd data-link-role>{{.Role}}</dd>
+                <dt>Link works until</dt><dd data-link-expires>{{.ExpiresAt.Local.Format "Mon 2 Jan 2006, 15:04"}}</dd>
+            </dl>
+        </div>
+        <p class="link-help">Nothing has changed yet. The link works once: when you finish below you are signed in{{if not .IsInvite}}, every device that was signed in to this account is signed out,{{end}} and the link stops working. If this is not your account, close this page.</p>
+
+        {{if .Error}}<div class="alert alert-danger" role="alert" data-link-error>{{.Error}}</div>{{end}}
+        <div class="alert alert-danger" role="alert" id="passkey-status" data-passkey-status hidden></div>
+
+        <form method="POST" action="{{.Path}}" data-link-form>
+            {{if not .IsInvite}}
+            <div class="link-choice" data-link-remove-choice>
+                <label for="remove_other_methods">
+                    <input type="checkbox" id="remove_other_methods" name="remove_other_methods" value="1"{{if .RemoveChecked}} checked{{end}}>
+                    <span>Remove my old ways of signing in</span>
+                </label>
+                <p>This account has {{if eq .ExistingPasskeys 0}}no passkeys{{else if eq .ExistingPasskeys 1}}1 passkey{{else}}{{.ExistingPasskeys}} passkeys{{end}} and {{if .HasPassword}}a password{{else}}no password{{end}}.
+                Tick this if a phone or computer was lost or stolen, or if someone else may know how to get in: the old passkeys and password are removed and only what you set up now will work.
+                Leave it unticked to keep your passkeys (a new password always replaces the old password).</p>
+            </div>
+            {{end}}
+
+            {{if .PasskeysAvailable}}
+            <section data-passkey-ui hidden aria-labelledby="link-passkey-heading">
+                <h2 id="link-passkey-heading">Use a passkey (recommended)</h2>
+                <p class="link-help">A passkey signs you in with your fingerprint, face or screen lock. It is kept by your phone, computer or password manager, and there is nothing to remember.</p>
+                <div class="link-passkey">
+                    <div class="form-group">
+                        <label for="link-passkey-name">Name for this passkey (optional)</label>
+                        <input type="text" id="link-passkey-name" maxlength="{{.MaxNameLength}}" placeholder="For example: My phone" autocomplete="off">
+                    </div>
+                    <button type="button" class="btn btn-primary" id="link-passkey-button"
+                            data-passkey-link="{{.Path}}" data-passkey-name="#link-passkey-name"
+                            data-link-remove="#remove_other_methods">Create a passkey and sign in</button>
+                </div>
+            </section>
+            <p class="link-help" data-passkey-unsupported hidden>This browser can't use passkeys, so set a password below.</p>
+            {{end}}
+
+            <details class="link-password" data-passkey-fallback{{if or (not .PasskeysAvailable) .Error}} open{{end}}>
+                <summary>{{if .PasskeysAvailable}}Use a password instead{{else}}Choose a password{{end}}</summary>
+                <input type="text" name="username" value="{{.Username}}" autocomplete="username" hidden>
+                <div class="form-group">
+                    <label for="new_password">Password</label>
+                    <input type="password" id="new_password" name="new_password" minlength="{{.MinPassword}}" maxlength="72"
+                           autocomplete="new-password" aria-describedby="new-password-help">
+                    <p id="new-password-help" class="link-help">At least {{.MinPassword}} characters. A few unrelated words strung together is easy to remember and hard to guess.</p>
+                </div>
+                <div class="form-group">
+                    <label for="new_password_confirm">Type the password again</label>
+                    <input type="password" id="new_password_confirm" name="new_password_confirm" minlength="{{.MinPassword}}" maxlength="72"
+                           autocomplete="new-password">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn {{if .PasskeysAvailable}}btn-secondary{{else}}btn-primary{{end}}" id="link-password-submit">Save this password and sign in</button>
+                </div>
+            </details>
+        </form>
+    </div>
+{{end}}
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script src="/static/passkey.js"></script>
+{{end}}

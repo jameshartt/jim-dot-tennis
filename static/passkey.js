@@ -13,6 +13,12 @@
 //       data-next="/path"           where to go afterwards (default: reload)
 //   [data-passkey-setup]        button (first-run setup): submit its form with
 //                               the hidden field named by data-field set to "passkey"
+//   [data-passkey-link="/account/link/..."]
+//                               button (invite or recovery link page): create a
+//                               passkey for the link's account and sign in
+//       data-passkey-name="#id"     input holding the name for the new passkey
+//       data-link-remove="#id"      checkbox: also remove the old sign-in methods
+//   details[data-passkey-fallback]  opened when this browser cannot use passkeys
 (function () {
     'use strict';
 
@@ -232,6 +238,32 @@
         });
     }
 
+    // An invite or recovery link: the link's own address (which carries its
+    // secret) is the base of the two endpoints. It is only ever sent to this
+    // site, in the request path, exactly as when the page was opened.
+    function linkPasskey(button) {
+        var base = button.getAttribute('data-passkey-link');
+        var name = inputValue(button.getAttribute('data-passkey-name'));
+        var removeSelector = button.getAttribute('data-link-remove');
+        var removeBox = removeSelector ? document.querySelector(removeSelector) : null;
+        setStatus('');
+        busy(button, true);
+        postJSON(base + '/passkey/begin').then(function (options) {
+            return navigator.credentials.create(decodeCreationOptions(options));
+        }).then(function (cred) {
+            var url = base + '/passkey/finish?name=' + encodeURIComponent(name);
+            if (removeBox && removeBox.checked) {
+                url += '&remove=1';
+            }
+            return postJSON(url, encodeCredential(cred));
+        }).then(function (result) {
+            window.location.replace(result.redirect || '/');
+        }).catch(function (err) {
+            busy(button, false);
+            setStatus(describeError(err, true));
+        });
+    }
+
     function setupWithPasskey(button) {
         var form = button.form;
         var field = form && form.elements[button.getAttribute('data-field')];
@@ -255,8 +287,12 @@
         each('[data-passkey-ui]', function (el) { el.hidden = !ok; });
         each('[data-passkey-unsupported]', function (el) { el.hidden = ok; });
         if (!ok) {
+            each('details[data-passkey-fallback]', function (el) { el.open = true; });
             return;
         }
+        each('[data-passkey-link]', function (button) {
+            button.addEventListener('click', function () { linkPasskey(button); });
+        });
         each('[data-passkey-signin]', function (button) {
             button.addEventListener('click', function () { signIn(button); });
         });

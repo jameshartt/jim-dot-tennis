@@ -40,14 +40,16 @@ Accounts
                                    sign in, and when it last signed in.
   user create <username> --role <role>
                                    Make a new account. <role> is admin, captain
-                                   or player. Prints a temporary password once;
-                                   the person chooses their own the first time
-                                   they sign in.
+                                   or player. Prints an invite link once; the
+                                   person who opens it sets up their own passkey
+                                   or password. The link works once, for 48 hours.
   user reset <username>            For someone who is locked out (even the last
-                                   administrator): gives the account a new
-                                   temporary password, printed once, signs it
-                                   out everywhere, and asks the person to choose
-                                   their own password when they next sign in.
+                                   administrator): prints a recovery link once.
+                                   Whoever opens it sets a new passkey or
+                                   password for the account and is signed in;
+                                   the account is then signed out everywhere
+                                   else. The link works once, for 1 hour. Nothing
+                                   changes for the account until it is used.
   user disable <username>          Stop an account signing in, and sign it out
                                    everywhere. Refused for the last active
                                    administrator.
@@ -66,9 +68,15 @@ First-run setup
   help                             Show this text.
 
 Good to know
-  - No command asks for, accepts or shows your own password. Where a password
-    is needed the app makes up a temporary one and shows it once; pass it on
-    privately (in person or by phone, not in a group chat).
+  - No command asks for, accepts, shows or sets a password. "user create" and
+    "user reset" print a link instead. There is no email: pass the link on
+    yourself, privately (in person, by phone or in a private message, not in a
+    group chat). Anyone who opens it first gets the account.
+  - A new link for an account cancels that account's earlier unused links.
+  - Links start with the app's public address (PUBLIC_URL, or the Public URL
+    on the Club Settings page). If none is set, only the part after the
+    address is printed; put the address people use to reach the app in front
+    of it, for example https://tennis.example.org/account/link/....
   - Anyone who can run these commands already controls the server and the
     app's database file. The commands make recovery easier; they do not give
     anyone powers they did not already have.
@@ -166,7 +174,7 @@ func parseCommand(args []string) (command, error) {
 		default:
 			if strings.Contains(strings.ToLower(name), "pass") {
 				return command{}, fmt.Errorf("%w: passwords are never given on the command line. "+
-					"\"user create\" and \"user reset\" make up a temporary password and show it once", errUsage)
+					"\"user create\" and \"user reset\" print a link; the person who opens it chooses how they sign in", errUsage)
 			}
 			return command{}, fmt.Errorf("%w: unknown option %q", errUsage, a)
 		}
@@ -309,9 +317,9 @@ func (cmd command) run(ctx context.Context, c cliOut, db *database.DB) error {
 	case "user list":
 		return userList(ctx, c, svc)
 	case "user create":
-		return userCreate(ctx, c, svc, actor, cmd.args[0], cmd.role)
+		return userCreate(ctx, c, db, svc, actor, cmd.args[0], cmd.role)
 	case "user reset":
-		return userReset(ctx, c, svc, actor, cmd.args[0])
+		return userReset(ctx, c, db, svc, actor, cmd.args[0])
 	case "user disable", "user enable":
 		return userSetActive(ctx, c, svc, actor, cmd.args[0], cmd.name == "user enable")
 	case "user role":
@@ -350,8 +358,8 @@ func userList(ctx context.Context, c cliOut, svc *accounts.Service) error {
 			last = "never"
 		}
 		note := ""
-		if a.MustChangePassword {
-			note = "must choose a new password"
+		if a.SignInMethods() == 0 {
+			note = "no way to sign in yet (invite not used)"
 		}
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d device(s)\t%s\n", a.Username, a.Role, status, last, a.ActiveSessions, note)
 	}
@@ -366,41 +374,82 @@ func userList(ctx context.Context, c cliOut, svc *accounts.Service) error {
 	return nil
 }
 
-func userCreate(ctx context.Context, c cliOut, svc *accounts.Service, actor accounts.Actor, username, roleName string) error {
+func userCreate(ctx context.Context, c cliOut, db *database.DB, svc *accounts.Service, actor accounts.Actor, username, roleName string) error {
 	role, err := accounts.ParseRole(roleName)
 	if err != nil {
 		return err
 	}
-	a, temp, err := svc.CreateWithTemporaryPassword(ctx, actor, username, role)
+	a, link, err := svc.Invite(ctx, actor, username, role, nil)
 	if err != nil {
 		return err
 	}
-	c.printf("Created the account %q (%s).\n\n", a.Username, a.Role)
-	printTemporaryPassword(c, a.Username, temp)
+	c.printf("Created the account %q (%s). It has no password or passkey yet.\n\n", a.Username, a.Role)
+	printLink(ctx, c, db, link)
+	c.printf("Give it to the person who will use %q. When they open it they set up their own\n"+
+		"passkey or password and are signed in.\n", a.Username)
 	return nil
 }
 
-func userReset(ctx context.Context, c cliOut, svc *accounts.Service, actor accounts.Actor, username string) error {
+func userReset(ctx context.Context, c cliOut, db *database.DB, svc *accounts.Service, actor accounts.Actor, username string) error {
 	a, err := svc.Find(ctx, username)
 	if err != nil {
 		return err
 	}
-	temp, ended, err := svc.ResetWithTemporaryPassword(ctx, actor, a.ID)
+	link, err := svc.IssueLink(ctx, actor, a.ID, accounts.LinkRecovery)
 	if err != nil {
 		return err
 	}
-	c.printf("Reset the password of %q (%s) and signed it out of %d session(s).\n\n", a.Username, a.Role, ended)
-	printTemporaryPassword(c, a.Username, temp)
+	c.printf("Made a recovery link for %q (%s). Nothing has changed for the account yet.\n\n", a.Username, a.Role)
+	printLink(ctx, c, db, link)
+	c.printf("Give it to the person who uses %q. When they open it they set a new passkey or\n"+
+		"password and are signed in, and the account is signed out everywhere else.\n"+
+		"On that page they can also choose to remove the account's old passkeys and password.\n", a.Username)
 	if !a.IsActive {
-		c.printf("\nThis account is disabled, so it cannot sign in yet. To let it, run:\n    jim-dot-tennis user enable %s\n", a.Username)
+		c.printf("\nThis account is disabled, so the link will not work yet. To let it, run:\n    jim-dot-tennis user enable %s\n", a.Username)
 	}
 	return nil
 }
 
-func printTemporaryPassword(c cliOut, username, temp string) {
-	c.printf("Temporary password (shown only this once):\n\n    %s\n\n", temp)
-	c.printf("Give it to the person who uses %q privately. When they sign in with it\n"+
-		"they will be asked to choose their own password straight away.\n", username)
+// printLink prints a link that was just made, once. With a public URL
+// configured it is the full address; without one only the path is printed,
+// with how to complete it (a command has no request to take a host from, and
+// guessing one could send the person somewhere else).
+func printLink(ctx context.Context, c cliOut, db *database.DB, link accounts.IssuedLink) {
+	kind, lifetime := "Recovery", "1 hour"
+	if link.Kind == accounts.LinkInvite {
+		kind, lifetime = "Invite", "48 hours"
+	}
+	base, err := publicBaseURL(ctx, db)
+	switch {
+	case base != "":
+		c.printf("%s link (shown only this once):\n\n    %s%s\n\n", kind, base, link.Path())
+	default:
+		c.printf("%s link (shown only this once). This app has no public address set, so this is\n"+
+			"only the end of the link:\n\n    %s\n\n", kind, link.Path())
+		c.printf("Put the address people use to reach the app in front of it, for example\n"+
+			"    https://tennis.example.org%s\n"+
+			"To have the whole link printed next time, set PUBLIC_URL in the app's environment\n"+
+			"(or the Public URL on the Club Settings page).\n", link.Path())
+		if err != nil {
+			c.printf("(The public address that is set could not be used: %v)\n", err)
+		}
+		c.printf("\n")
+	}
+	c.printf("It works once and stops working after %s (%s).\n", lifetime, link.ExpiresAt.Local().Format("2 Jan 2006 15:04"))
+	if link.Superseded > 0 {
+		c.printf("An earlier unused link for this account was cancelled.\n")
+	}
+	c.printf("There is no email: pass it on yourself, privately. Whoever opens it first gets the account.\n")
+}
+
+// publicBaseURL is the app's configured public address (PUBLIC_URL, else the
+// one stored on the settings page), or "" when none is set or it is invalid.
+func publicBaseURL(ctx context.Context, db *database.DB) (string, error) {
+	p, ok, err := config.NewClubSettings(ctx, repository.NewSettingsRepository(db)).ResolvePublicURL()
+	if err != nil || !ok {
+		return "", err
+	}
+	return p.Base, nil
 }
 
 func userSetActive(ctx context.Context, c cliOut, svc *accounts.Service, actor accounts.Actor, username string, active bool) error {

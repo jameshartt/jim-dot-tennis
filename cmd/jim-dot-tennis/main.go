@@ -191,6 +191,8 @@ func main() {
 	// Auth routes
 	authHandler.RegisterRoutes(mux)
 	accounts.NewPasswordPage(accounts.New(db), authService, templateDir, "/admin/league").RegisterRoutes(mux)
+	// Invite and recovery links (no session needed: the link is the authorisation)
+	accounts.NewLinkPage(accounts.New(db), authService, passkeys, templateDir, "/admin/league").RegisterRoutes(mux)
 
 	// Admin routes (protected)
 	adminHandler.RegisterRoutes(mux, authMiddleware)
@@ -224,7 +226,7 @@ func main() {
 	tournamentRepo := repository.NewTournamentRepository(db)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
-			log.Printf("Not found: %s", r.URL.Path)
+			log.Printf("Not found: %s", auth.RedactPath(r.URL.Path))
 			http.NotFound(w, r)
 			return
 		}

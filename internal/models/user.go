@@ -3,8 +3,38 @@
 package models
 
 import (
+	"database/sql/driver"
+	"fmt"
 	"time"
 )
+
+// PasswordHash is a bcrypt password hash, or "" for an account that has no
+// password (it signs in with passkeys, or has not accepted its invite yet).
+// "No password" is stored as NULL.
+type PasswordHash string
+
+// Scan reads the column; NULL becomes "".
+func (h *PasswordHash) Scan(src any) error {
+	switch v := src.(type) {
+	case nil:
+		*h = ""
+	case string:
+		*h = PasswordHash(v)
+	case []byte:
+		*h = PasswordHash(v)
+	default:
+		return fmt.Errorf("password hash: unexpected column type %T", src)
+	}
+	return nil
+}
+
+// Value stores "" as NULL.
+func (h PasswordHash) Value() (driver.Value, error) {
+	if h == "" {
+		return nil, nil
+	}
+	return string(h), nil
+}
 
 // Role represents user access levels
 type Role string
@@ -17,17 +47,17 @@ const (
 
 // User represents an authenticated user
 type User struct {
-	ID           int64     `db:"id"`
-	Username     string    `db:"username"`
-	PasswordHash string    `db:"password_hash"`
-	Role         Role      `db:"role"`
-	PlayerID     *string   `db:"player_id"`
-	IsActive     bool      `db:"is_active"`
-	CreatedAt    time.Time `db:"created_at"`
-	LastLoginAt  time.Time `db:"last_login_at"`
-	// MustChangePassword is set when the password was chosen by someone else
-	// (a temporary password from the server command line, or one an
-	// administrator typed). Signed-in pages send the user to choose their own.
+	ID           int64        `db:"id"`
+	Username     string       `db:"username"`
+	PasswordHash PasswordHash `db:"password_hash"` // "" when the account has no password
+	Role         Role         `db:"role"`
+	PlayerID     *string      `db:"player_id"`
+	IsActive     bool         `db:"is_active"`
+	CreatedAt    time.Time    `db:"created_at"`
+	LastLoginAt  time.Time    `db:"last_login_at"`
+	// MustChangePassword mirrors a retired column (migration 032, cleared by
+	// 034) so that SELECT * still scans. It is always false and nothing reads
+	// it: nobody sets a password for someone else any more.
 	MustChangePassword bool `db:"must_change_password"`
 }
 

@@ -53,13 +53,42 @@ var cli = CLIActor("test")
 
 const goodPassword = "correct horse battery"
 
+// mustCreate makes an account the way a person gets one: invited, then the
+// invite link used to set goodPassword.
 func mustCreate(t *testing.T, s *Service, username string, role models.Role) Account {
 	t.Helper()
-	a, err := s.Create(context.Background(), cli, username, role, goodPassword, false)
+	ctx := context.Background()
+	_, link, err := s.Invite(ctx, cli, username, role, nil)
 	if err != nil {
-		t.Fatalf("create %s: %v", username, err)
+		t.Fatalf("invite %s: %v", username, err)
+	}
+	if _, err := s.RedeemLink(ctx, link.Token, Redemption{Password: goodPassword}); err != nil {
+		t.Fatalf("accept invite for %s: %v", username, err)
+	}
+	a, err := s.Get(ctx, link.UserID)
+	if err != nil {
+		t.Fatal(err)
 	}
 	return a
+}
+
+// captureLog collects everything written to the log (audit records included)
+// until the test ends.
+func captureLog(t *testing.T) *bytes.Buffer {
+	t.Helper()
+	var logs bytes.Buffer
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	return &logs
+}
+
+func passwordHash(t *testing.T, db *database.DB, userID int64) string {
+	t.Helper()
+	var u models.User
+	if err := db.Get(&u, `SELECT * FROM users WHERE id = ?`, userID); err != nil {
+		t.Fatal(err)
+	}
+	return string(u.PasswordHash)
 }
 
 // addSession inserts a valid session for userID.
@@ -143,102 +172,13 @@ func TestDisableEndsSessions(t *testing.T) {
 	}
 }
 
-func TestResetWithTemporaryPassword(t *testing.T) {
-	ctx := context.Background()
+// TestChangeOwnPasswordPage: a signed-in user with a password changes it at
+// /account/password; nobody is sent there by force any more.
+func TestChangeOwnPasswordPage(t *testing.T) {
 	s, db := newTestService(t)
 	a := mustCreate(t, s, "alice", models.RoleAdmin)
-	other := mustCreate(t, s, "bob", models.RoleCaptain)
-	addSession(t, db, "a1", a.ID)
-	addSession(t, db, "a2", a.ID)
-	addSession(t, db, "b1", other.ID)
-
-	var logs bytes.Buffer
-	log.SetOutput(&logs)
-	t.Cleanup(func() { log.SetOutput(os.Stderr) })
-
-	temp, ended, err := s.ResetWithTemporaryPassword(ctx, cli, a.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ended != 2 {
-		t.Errorf("ended %d sessions, want 2", ended)
-	}
-	if n := validSessions(t, db, a.ID); n != 0 {
-		t.Errorf("%d of alice's sessions still valid", n)
-	}
-	if n := validSessions(t, db, other.ID); n != 1 {
-		t.Errorf("bob's session was ended too")
-	}
-	var u models.User
-	if err := db.Get(&u, `SELECT * FROM users WHERE id = ?`, a.ID); err != nil {
-		t.Fatal(err)
-	}
-	if !u.MustChangePassword {
-		t.Error("must_change_password not set after reset")
-	}
-	if !auth.PasswordMatches(u.PasswordHash, temp) || auth.PasswordMatches(u.PasswordHash, goodPassword) {
-		t.Error("stored hash does not match the temporary password only")
-	}
-	out := logs.String()
-	if !strings.Contains(out, "action=user.reset_password") || !strings.Contains(out, `target="alice"`) || !strings.Contains(out, `actor="cli:test"`) {
-		t.Errorf("audit line missing fields: %q", out)
-	}
-	if strings.Contains(out, temp) {
-		t.Error("audit line contains the temporary password")
-	}
-}
-
-func TestCreateRules(t *testing.T) {
-	ctx := context.Background()
-	s, _ := newTestService(t)
-	mustCreate(t, s, "Alice", models.RoleAdmin)
-	if _, err := s.Create(ctx, cli, "alice", models.RolePlayer, goodPassword, false); !errors.Is(err, ErrUsernameTaken) {
-		t.Errorf("case-insensitive duplicate: err %v", err)
-	}
-	var bad *InvalidUsernameError
-	if _, err := s.Create(ctx, cli, "no spaces", models.RolePlayer, goodPassword, false); !errors.As(err, &bad) {
-		t.Errorf("bad username: err %v", err)
-	}
-	if _, err := s.Create(ctx, cli, "pat", models.RolePlayer, "short", false); !errors.Is(err, auth.ErrPasswordPolicy) {
-		t.Errorf("weak password: err %v", err)
-	}
-	if _, err := s.Create(ctx, cli, "pat", models.Role("owner"), goodPassword, false); !errors.Is(err, ErrInvalidRole) {
-		t.Errorf("bad role: err %v", err)
-	}
-	a, temp, err := s.CreateWithTemporaryPassword(ctx, cli, "pat", models.RoleCaptain)
-	if err != nil || !a.MustChangePassword || a.Role != models.RoleCaptain || !a.IsActive || temp == "" {
-		t.Fatalf("create with temporary password: %+v %v", a, err)
-	}
-	if found, err := s.Find(ctx, "PAT"); err != nil || found.ID != a.ID {
-		t.Errorf("find ignoring case: %+v %v", found, err)
-	}
-}
-
-func TestTemporaryPasswordMeetsPolicy(t *testing.T) {
-	seen := map[string]bool{}
-	for i := 0; i < 50; i++ {
-		p, err := TemporaryPassword("abcd")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := auth.ValidatePassword(p, "abcd"); err != nil {
-			t.Fatalf("%q: %v", p, err)
-		}
-		if len(p) != 19 || seen[p] {
-			t.Fatalf("unexpected password %q", p)
-		}
-		seen[p] = true
-	}
-}
-
-// TestMustChangePasswordFlow: a reset account is sent to the change-password
-// page on every signed-in page until it chooses its own password.
-func TestMustChangePasswordFlow(t *testing.T) {
-	ctx := context.Background()
-	s, db := newTestService(t)
-	a := mustCreate(t, s, "alice", models.RoleAdmin)
-	temp, _, err := s.ResetWithTemporaryPassword(ctx, cli, a.ID)
-	if err != nil {
+	// A leftover must-change mark (retired by migration 034) is ignored.
+	if _, err := db.Exec(`UPDATE users SET must_change_password = TRUE WHERE id = ?`, a.ID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -259,8 +199,8 @@ func TestMustChangePasswordFlow(t *testing.T) {
 	protected := mw.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusTeapot) }))
 	rec = httptest.NewRecorder()
 	protected.ServeHTTP(rec, withCookies(httptest.NewRequest(http.MethodGet, "/admin/league/dashboard", nil)))
-	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != auth.ChangePasswordPath {
-		t.Fatalf("protected page: %d %q, want redirect to %s", rec.Code, rec.Header().Get("Location"), auth.ChangePasswordPath)
+	if rec.Code != http.StatusTeapot {
+		t.Fatalf("protected page: %d %q, want it served (no forced password change)", rec.Code, rec.Header().Get("Location"))
 	}
 
 	page := NewPasswordPage(s, authService, repoDir(t, "templates"), "/admin/league")
@@ -269,7 +209,7 @@ func TestMustChangePasswordFlow(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	mux.ServeHTTP(rec, withCookies(httptest.NewRequest(http.MethodGet, auth.ChangePasswordPath, nil)))
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "someone else gave you") {
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Current password") {
 		t.Fatalf("GET page: %d", rec.Code)
 	}
 
@@ -284,19 +224,18 @@ func TestMustChangePasswordFlow(t *testing.T) {
 	if rec := post("wrong password", "a brand new secret", "a brand new secret"); rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("wrong current password: %d", rec.Code)
 	}
-	if rec := post(temp, temp, temp); rec.Code != http.StatusUnprocessableEntity {
+	if rec := post(goodPassword, goodPassword, goodPassword); rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("same password again: %d", rec.Code)
 	}
-	rec = post(temp, "a brand new secret", "a brand new secret")
+	if rec := post(goodPassword, "short", "short"); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("weak password: %d", rec.Code)
+	}
+	rec = post(goodPassword, "a brand new secret", "a brand new secret")
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/admin/league" {
 		t.Fatalf("change password: %d %q", rec.Code, rec.Header().Get("Location"))
 	}
-	var u models.User
-	if err := db.Get(&u, `SELECT * FROM users WHERE id = ?`, a.ID); err != nil {
-		t.Fatal(err)
-	}
-	if u.MustChangePassword || !auth.PasswordMatches(u.PasswordHash, "a brand new secret") {
-		t.Fatal("password not changed or must-change still set")
+	if !auth.PasswordMatches(passwordHash(t, db, a.ID), "a brand new secret") {
+		t.Fatal("password not changed")
 	}
 
 	// The old session was ended; the new cookie gets through.
@@ -310,5 +249,14 @@ func TestMustChangePasswordFlow(t *testing.T) {
 	protected.ServeHTTP(rec2, withCookies(httptest.NewRequest(http.MethodGet, "/admin/league/dashboard", nil)))
 	if rec2.Code != http.StatusTeapot {
 		t.Fatalf("new session after password change: %d %q", rec2.Code, rec2.Header().Get("Location"))
+	}
+
+	// An account with no password has nothing to change here.
+	_, link, err := s.Invite(context.Background(), cli, "keyonly", models.RoleCaptain, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ChangeOwnPassword(context.Background(), link.UserID, "", "a brand new secret"); !errors.Is(err, ErrNoPassword) {
+		t.Fatalf("change password of a passwordless account: %v, want ErrNoPassword", err)
 	}
 }

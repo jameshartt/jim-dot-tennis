@@ -116,7 +116,13 @@ func (s *Service) Login(username, password string, r *http.Request) (*models.Ses
 	}
 	log.Printf("User found: %s (ID: %d, Role: %s)", user.Username, user.ID, user.Role)
 
-	// Verify password
+	// Verify password. An account with no password (passkeys only, or an
+	// invite not yet accepted) can never sign in this way.
+	if user.PasswordHash == "" {
+		log.Printf("Password sign-in refused for user %s: the account has no password", username)
+		s.recordLoginAttempt(username, r, false)
+		return nil, ErrInvalidCredentials
+	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		log.Printf("Password verification failed for user %s: %v", username, err)
 		s.recordLoginAttempt(username, r, false)
@@ -210,7 +216,8 @@ func (s *Service) createSession(user *models.User, r *http.Request) (*models.Ses
 
 // StartSession signs the active user userID in on this browser without a
 // password check (the caller has just proven who they are, for example by
-// creating the account in first-run setup). Any session the request already
+// creating the account in first-run setup or by using an invite or recovery
+// link). It goes through completeLogin like every other sign-in. Any session the request already
 // carries is invalidated first, so a session ID planted before sign-in is
 // never promoted (session fixation); the new session always has a fresh ID.
 func (s *Service) StartSession(w http.ResponseWriter, r *http.Request, userID int64) error {
@@ -223,7 +230,7 @@ func (s *Service) StartSession(w http.ResponseWriter, r *http.Request, userID in
 	if err := s.db.Get(&user, `SELECT * FROM users WHERE id = ? AND is_active = true`, userID); err != nil {
 		return fmt.Errorf("start session: load user %d: %w", userID, err)
 	}
-	session, err := s.createSession(&user, r)
+	session, err := s.completeLogin(&user, r)
 	if err != nil {
 		return err
 	}

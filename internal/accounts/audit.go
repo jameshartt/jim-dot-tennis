@@ -15,8 +15,6 @@ import (
 // Action names recorded in the audit trail.
 const (
 	ActionCreate          = "user.create"
-	ActionResetPassword   = "user.reset_password"  // temporary password issued (CLI)
-	ActionSetPassword     = "user.set_password"    // password typed by an administrator
 	ActionChangePassword  = "user.change_password" // the user chose their own password
 	ActionDisable         = "user.disable"         // account deactivated
 	ActionEnable          = "user.enable"          // account reactivated
@@ -25,6 +23,9 @@ const (
 	ActionRevokeSession   = "session.revoke"       // one session ended
 	ActionCleanupSessions = "sessions.cleanup"     // expired sessions marked invalid
 	ActionSetupCode       = "setup.code_issue"     // a new first-run setup code was issued
+	ActionLinkCreate      = "link.create"          // an invite or recovery link was issued
+	ActionLinkRevoke      = "link.revoke"          // an unused link was cancelled
+	ActionLinkUse         = "link.use"             // a link was used: a sign-in method was set
 )
 
 // ActorKind says where an audited action came from.
