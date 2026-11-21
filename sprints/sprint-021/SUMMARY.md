@@ -4,9 +4,9 @@
 
 **Goal**: Replace username-and-password-only login with passkeys as the default, keep passwords as an optional fallback for people who cannot use a passkey, give administrators and server operators a safe way to invite and recover accounts without email, and make the captain role grant real, limited access.
 
-**Duration**: dates TBD
+**Duration**: 2026-11-21
 
-**Status**: Planned
+**Status**: Completed
 
 **Programme**: Part of the club-readiness programme (Sprints 019-024). Agreed constraints: BHPLTA clubs only; each club hosts its own instance; the original author has no access to any other club's instance; passkeys by default with passwords as an optional fallback; a real captain role; SQLite only; CourtHive bundled as an opt-in so clubs can run their own championships.
 
@@ -78,3 +78,64 @@ Each work item's JSON carries a `recommended_model` with the reason. In short:
 - Email or SMS delivery
 - Changing the player token-link model
 - Single sign-on across jim-dot-tennis and CourtHive (considered in Sprint 023)
+
+## Outcome (2026-11-21)
+
+All nine work items completed and merged on `sprint-021/authentication`.
+
+- `make check` passes. `make test-e2e-all`: main suite 221 passed, 1 failed (pre-existing `workflows/match-results.spec.ts:46`); passkey suite (`make test-e2e-auth`, Chromium virtual authenticator) 11 passed; fresh install 13 passed.
+- Migrations added: 032 (`users.must_change_password`, retired again by 034 - column kept, unused), 033 (`webauthn_user_handles`, `webauthn_credentials`), 034 (`account_links`; `users.password_hash` nullable, swapped in place without rebuilding `users`), 035 (`sessions` keyed by token hash; `account_audit_log`). Next free: 036.
+- Dependency added: `github.com/go-webauthn/webauthn` v0.18.2.
+- Added beyond the plan: `make test-e2e-auth` and `make test-e2e-all`; "Sign out everywhere else"; scheduled cleanup of sessions, login attempts and links; `admin-passkeys status|on|off` and `user role` on the command line; `docs/roles.md`; a failed migration now stops startup.
+
+### Changes of behaviour for an existing deployment
+
+- `PUBLIC_URL=https://<domain>` is required when `APP_ENV=production`; the app refuses to start without it. Passkeys bind to that address. For jim.tennis the host must stay `jim.tennis` so calendar subscriptions keep their event ids.
+- Everyone is signed out once (migration 035 deletes existing sessions).
+- Logout is POST-only. Cookies are Secure unless `DEV_MODE=true` (which production refuses).
+- Administrators no longer set passwords: creating a user gives an invite link; recovery is a link from the users page or `jim-dot-tennis user reset <name>` on the server.
+- New and changed passwords need 12 characters and must not be on the common list; existing passwords keep working.
+- Adding or removing a sign-in method needs the current password or an existing passkey, and signs the account out on other devices.
+- Captain accounts now have real access (see `docs/roles.md`); `player`-role accounts can sign in but reach nothing except their own sign-in methods.
+
+### Decisions taken during the sprint
+
+- Passkey sign-in is discoverable-only; the username-first path was removed (review finding F8, Jim's decision).
+- Administrators need a passkey with user verification (PIN or biometric); other accounts keep "preferred" (F7).
+- These captain-uncertain actions default to administrator-only: assigning team captains, editing opponents' clubs and teams, toggling a team active, divisions review, Season Wrapped admin, tournaments, club-data import.
+- The planning dashboard keeps "All Teams" as its default view, with a "My Teams" shortcut.
+
+## Security Review Record (WI-134)
+
+An independent review by a session that wrote none of the code, given the code and the threat model (internet stranger, player-link holder, captain, holder of an old database copy, malicious web page, the software's author). No high-severity finding. Fixes are in commits `6b2b4d5`, `4d61028`, `a9b9152`, each with a regression test.
+
+| Id | Severity | Finding | Outcome |
+|----|----------|---------|---------|
+| F1 | Medium | Password throttle was check-then-record; parallel guesses bypassed it | Fixed (6b2b4d5): check, compare and record under a per-address lock; bcrypt limited to 2 at a time |
+| F2 | Medium | A session alone could add a passkey, pass re-authentication with it and take the account over | Fixed (6b2b4d5): proof of ownership to add or remove any sign-in method; new passkeys cannot mint a proof for 10 minutes; other sessions ended |
+| F3 | Low | Unbounded username and User-Agent stored per failed sign-in | Fixed (6b2b4d5, 4d61028): truncation and request body limits |
+| F4 | Low | Sign-in timing revealed whether a username exists | Fixed (6b2b4d5): dummy compare |
+| F5 | Low | Last-administrator guard counted administrators who cannot sign in | Fixed (6b2b4d5) |
+| F6 | Low | Last-method guard counted clone-blocked passkeys | Fixed (6b2b4d5) |
+| F7 | Low | Passkeys accepted without user verification | Fixed for administrators (6b2b4d5); accepted for other accounts for compatibility with PIN-less security keys |
+| F8 | Low | Username-first passkey path leaked whether an account has passkeys | Fixed (6b2b4d5): path removed |
+| F9 | Low | Session cookie is forwarded to the bundled CourtHive server (same origin) | Accepted for now; resolved by single sign-on with jim-dot-tennis as the identity source (Sprint 023, WI-152) |
+| F10 | Low | Some credential changes did not end sessions | Fixed (6b2b4d5) |
+| F11 | Low | A stranger could block an unclaimed instance from being claimed | Fixed (4d61028) |
+| F12 | Low | Player tokens and VAPID key material in logs | Fixed (4d61028) |
+| I1, I2, I5, I7, I8 | Info | Framing headers in the app; throttle key; migrations fatal; referrer policy; planning-link checks and cache headers | Fixed |
+| I3 | Info | In development only, passkey availability follows the Host header | Accepted: not reachable in production |
+| I4 | Info | Existing `captain` accounts gain access on upgrade | Accepted: the live site has administrators only |
+| I6 | Info | In-memory limiters can be pressured from many IPv6 /64s | Accepted: denial of passkey sign-in only, costly to mount |
+
+Checks recorded as done: origin and relying-party validation, challenge single use, username enumeration, lockout abuse, last-sign-in-method guards, link token handling in logs and referrers, role check coverage, setup endpoint closure, cross-site request protection, secrets at rest, migrations 032-035, outbound connections, the WebAuthn dependency.
+
+Not checked: the live deployment (whether IPv6 clients share one address behind Docker's proxy); physical authenticators and browsers other than Playwright's Chromium; whether CourtHive needs or logs cookies; vulnerability databases for the new dependency.
+
+Known leftovers:
+
+- The regression tests were not run against the pre-fix code; the pre-fix behaviour rests on the reviewer's demonstrations.
+- `RecordUse` stores the WebAuthn library's user-verified flag, which may not reflect the current assertion (the F7 checks read the parsed response instead).
+- Before a club is chosen in first-run setup, the first administrator can add a passkey but the password and sign-out-elsewhere forms are gated until setup finishes.
+- Anonymous HTMX requests follow the login redirect into the fragment; captain notes have no author check; `/static/` allows directory listing.
+- The production compose file on the server needs `PUBLIC_URL` before this is deployed.

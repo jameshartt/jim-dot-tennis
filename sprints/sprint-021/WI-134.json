@@ -9,7 +9,7 @@
   "dependencies": [
     "WI-133"
   ],
-  "status": "not_started",
+  "status": "completed",
   "recommended_model": {
     "name": "Fable 5.2",
     "id": "claude-fable-5-2",

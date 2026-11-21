@@ -13,7 +13,7 @@
     "WI-131",
     "WI-132"
   ],
-  "status": "not_started",
+  "status": "completed",
   "recommended_model": {
     "name": "Sonnet 5.5",
     "id": "claude-sonnet-5-5",

@@ -10,7 +10,7 @@
     "WI-127",
     "WI-128"
   ],
-  "status": "not_started",
+  "status": "completed",
   "recommended_model": {
     "name": "Fable 5.2",
     "id": "claude-fable-5-2",

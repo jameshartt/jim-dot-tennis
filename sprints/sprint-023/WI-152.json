@@ -1,0 +1,54 @@
+{
+  "id": "WI-152",
+  "title": "Single sign-on: jim-dot-tennis as the identity source for CourtHive",
+  "description": "One sign-in for both systems. A person signed in to jim-dot-tennis who is allowed to run tournaments opens tournament management without a second login: jim-dot-tennis mints a short-lived CourtHive token for them, CourtHive trusts tokens signed by this instance only, and CourtHive's own login is switched off in the bundle. Passkeys, recovery links, the account audit log and role changes then cover tournaments too. Decided by Jim on 2026-11-21 (jim-dot-tennis is the identity source). This also resolves security review finding F9 from Sprint 021: today the jim-dot-tennis session cookie is forwarded to the CourtHive server because both share an origin; after this work the proxy strips that cookie on the CourtHive routes and CourtHive receives only its own scoped token.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-142",
+    "WI-144",
+    "WI-145"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Fable 5.2",
+    "id": "claude-fable-5-2",
+    "rationale": "Cross-system trust design where a mistake gives one system's users control of the other; touches a codebase we do not own."
+  },
+  "acceptance_criteria": [
+    "A signed-in administrator opens tournament management and is already signed in there; signing out of jim-dot-tennis ends tournament access within the token lifetime",
+    "Which jim-dot-tennis roles may run tournaments is a declared rule in the role table (administrator by default; captains only if Jim decides so), mapped to a CourtHive role",
+    "CourtHive accepts only tokens signed with this instance's own key, generated per instance at install; no shared or default key exists and the author holds none",
+    "Tokens are short-lived, audience-bound to this instance's CourtHive and carry no jim-dot-tennis session material",
+    "CourtHive's own username-and-password login is disabled or unreachable in the bundle; its provisioning account from WI-145 is not usable from the internet",
+    "The proxy no longer forwards the jim-dot-tennis session cookie to CourtHive routes",
+    "Disabling or demoting a jim-dot-tennis account removes tournament access; this is covered by a test",
+    "Public tournament pages stay public and need no sign-in",
+    "The change to the CourtHive forks is as small as possible and recorded in the fork maintenance notes"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "deploy/Caddyfile",
+      "internal/admin/roles.go",
+      "internal/auth/",
+      "../competition-factory-server (token verification, login switch)",
+      "../TMX (token acquisition instead of the login form)"
+    ],
+    "notes": [
+      "WI-142 decides the mechanism in its design note: either CourtHive verifies a jim-dot-tennis-signed JWT with a per-instance key, or jim-dot-tennis signs with the CourtHive JWT secret generated in WI-144; prefer asymmetric signing so CourtHive holds no key that can mint tokens.",
+      "Past lesson: browser copies of CourtHive tokens truncate; mint and deliver tokens server-side, never by copy and paste.",
+      "The no-tournament-mutations-after-draws rule for the live Parks Cup data still applies to any testing against real tournaments.",
+      "If this proves too large for the sprint, it splits cleanly into its own sprint after 023; the bundle works without it using CourtHive's own login."
+    ]
+  },
+  "testing_requirements": [
+    "Unit tests for token minting and verification (expiry, audience, wrong key, disabled account)",
+    "E2E in WI-147: sign in once, reach tournament management"
+  ],
+  "context": {
+    "user_story": "As a club administrator, I want one login for league and tournaments.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

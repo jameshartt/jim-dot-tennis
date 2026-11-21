@@ -16,6 +16,7 @@
 2. One opt-in switch that brings up the tournament stack on the club's own server
 3. Per-instance provisioning: the club's own provider, administrator and secrets
 4. Upgrades and backups that include the tournament data
+5. One sign-in: jim-dot-tennis is the identity source for tournament management (decided 2026-11-21; resolves Sprint 021 review finding F9)
 
 ## Work Items Summary
 
@@ -26,7 +27,8 @@
 | WI-144 | Opt-in tournament stack in the packaged deployment | High | M | Opus 5.5 | WI-142, WI-143 |
 | WI-145 | Provision the club's tournament provider and administrator automatically | High | M | Opus 5.5 | WI-144 |
 | WI-146 | Tournament data in backups; unattended CourtHive upgrades | High | M | Opus 5.5 | WI-144 |
-| WI-147 | E2E smoke for the bundled stack | Medium | M | Sonnet 5.5 | WI-145, WI-146 |
+| WI-147 | E2E smoke for the bundled stack | Medium | M | Sonnet 5.5 | WI-145, WI-146, WI-152 |
+| WI-152 | Single sign-on: jim-dot-tennis as the identity source for CourtHive | High | L | Fable 5.2 | WI-142, WI-144, WI-145 |
 
 ## Recommended Models
 
@@ -38,6 +40,7 @@ Each work item's JSON carries a `recommended_model` with the reason. In short:
 - **WI-145** - Opus 5.5: Cross-system provisioning with idempotency and credential handling.
 - **WI-146** - Opus 5.5: Data-safety work across two databases with ordering constraints learned the hard way.
 - **WI-147** - Sonnet 5.5: Test authoring over a defined happy path.
+- **WI-152** - Fable 5.2: Cross-system trust design where a mistake gives one system's users control of the other; touches a codebase we do not own.
 
 ## Execution Strategy
 
@@ -52,7 +55,10 @@ Each work item's JSON carries a `recommended_model` with the reason. In short:
 - **WI-145** - Provision the club's tournament provider and administrator automatically
 - **WI-146** - Tournament data in backups; unattended CourtHive upgrades
 
-### Phase 4: Prove it
+### Phase 4: One sign-in
+- **WI-152** - Single sign-on: jim-dot-tennis as the identity source for CourtHive (may split into its own sprint if it proves too large; the bundle works without it)
+
+### Phase 5: Prove it
 - **WI-147** - E2E smoke for the bundled stack
 
 ## Key Design Decisions

@@ -12,7 +12,8 @@
       "Published, club-neutral images of the three CourtHive components",
       "One opt-in switch that brings up the tournament stack on the club's own server",
       "Per-instance provisioning: the club's own provider, administrator and secrets",
-      "Upgrades and backups that include the tournament data"
+      "Upgrades and backups that include the tournament data",
+      "One sign-in: jim-dot-tennis is the identity source for tournament management"
     ],
     "work_items": [
       "WI-142",
@@ -20,7 +21,8 @@
       "WI-144",
       "WI-145",
       "WI-146",
-      "WI-147"
+      "WI-147",
+      "WI-152"
     ]
   }
 }
