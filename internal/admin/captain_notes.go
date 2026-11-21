@@ -1,9 +1,9 @@
 // Copyright (c) 2025-2026 James Hartt. Licensed under the MIT License.
 //
-// Captain notes are an ADMIN-SESSION-ONLY surface.
+// Captain notes are a SIGNED-IN-SESSION-ONLY surface (captains and admins).
 //
 // This handler is registered under /admin/league/* which is wrapped by
-// authMiddleware.RequireAuth + RequireRole("admin") in handler.go. It MUST
+// authMiddleware.RequireAuth and the captain role (roles.go) in handler.go. It MUST
 // NEVER be mounted on any token-authenticated route (/my-availability/{token},
 // /my-profile/{token}, etc.) — the stored notes contain sensitive planning
 // context ('no-nos') that players must not read back about themselves.

@@ -145,8 +145,8 @@
             .new-user-form {
                 grid-template-columns: 1fr;
             }
-            .user-table th:nth-child(5),
-            .user-table td:nth-child(5) {
+            .user-table th:nth-child(6),
+            .user-table td:nth-child(6) {
                 display: none;
             }
         }
@@ -220,6 +220,7 @@
                     <button type="submit" class="btn btn-primary" id="create-user-submit">Create user and invite link</button>
                 </form>
                 <p class="form-help">You do not choose a password. Creating the user gives you an invite link to pass on; the person who opens it sets up their own passkey or password.</p>
+                <p class="form-help" data-role-help>A <strong>captain</strong> runs every team: planning, availability, selection, fixtures and rescheduling, results, players and standings. An <strong>admin</strong> can do all of that and also manage users, sessions, club settings, seasons, imports and backups. Players do not need an account: they use their own availability link. Link a captain to their player record so their own teams are marked on the planning dashboard.</p>
             </div>
 
             <div class="content-section">
@@ -230,6 +231,7 @@
                             <tr>
                                 <th>Username</th>
                                 <th>Role</th>
+                                <th>Linked player</th>
                                 <th>Status</th>
                                 <th>Signs in with</th>
                                 <th>Last Login</th>
@@ -245,10 +247,26 @@
                                 </td>
                                 <td>
                                     <form method="POST" action="/admin/league/users/{{.ID}}/role" class="inline-form">
-                                        <select name="role" class="inline-select" onchange="this.form.submit()">
-                                            <option value="admin" {{if eq (lower .Role) "admin"}}selected{{end}}>admin</option>
-                                            <option value="captain" {{if eq (lower .Role) "captain"}}selected{{end}}>captain</option>
-                                            <option value="player" {{if eq (lower .Role) "player"}}selected{{end}}>player</option>
+                                        <select name="role" class="inline-select" data-user-role-select onchange="this.form.submit()">
+                                            {{$current := lower .Role}}
+                                            {{if not (has $.Roles $current)}}
+                                            {{/* A retired role (player, from before WI-132): the account reaches nothing until it is made a captain or admin. */}}
+                                            <option value="" selected disabled>{{$current}} (no access)</option>
+                                            {{end}}
+                                            {{range $.Roles}}
+                                            <option value="{{.}}" {{if eq . $current}}selected{{end}}>{{.}}</option>
+                                            {{end}}
+                                        </select>
+                                    </form>
+                                </td>
+                                <td>
+                                    <form method="POST" action="/admin/league/users/{{.ID}}/player" class="inline-form" data-user-player-form>
+                                        <select name="player_id" class="inline-select" data-user-player-select aria-label="Linked player for {{.Username}}" onchange="this.form.submit()">
+                                            <option value="">None</option>
+                                            {{if .PlayerID}}{{$pid := deref .PlayerID}}<option value="{{$pid}}" selected>{{index $.PlayerNames $pid}}</option>{{end}}
+                                            {{range $.Players}}
+                                            <option value="{{.ID}}">{{.Name}}</option>
+                                            {{end}}
                                         </select>
                                     </form>
                                 </td>

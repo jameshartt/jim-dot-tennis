@@ -320,7 +320,7 @@
                     <img src="/static/icon-192.svg" alt="Jim.Tennis Logo">
                 </a>
                 <div class="user-controls">
-                    <span class="user-info">Logged in as: {{.User.Username}}</span>
+                    <span class="user-info">Logged in as: {{.User.Username}} <span class="user-role" data-testid="user-role" data-role="{{.User.Role}}">({{if .User.IsAdmin}}administrator{{else}}captain{{end}})</span></span>
                     <a href="{{.SignInMethodsPath}}" class="btn btn-sm" data-testid="signin-methods-link">Sign-in methods</a>
                     <a href="/logout" class="btn btn-sm btn-danger">Logout</a>
                 </div>
@@ -331,7 +331,7 @@
     <main>
         <div class="container">
             <div class="admin-container">
-                <h1 data-testid="dashboard-title">Admin Dashboard</h1>
+                <h1 data-testid="dashboard-title">{{if .User.IsAdmin}}Admin Dashboard{{else}}Captain Dashboard{{end}}</h1>
 
                 {{if .PasskeyWarnings}}
                 <div class="alert alert-danger" role="alert" data-testid="passkey-warning-banner">
@@ -395,27 +395,40 @@
                     </a>
                 </div>
 
-                <div class="action-categories">
+                {{/* Navigation is gated by role from the route table (internal/admin/roles.go)
+                     through canUse; the server enforces the same table. */}}
+                {{$u := .User}}
+                <div class="action-categories" data-testid="dashboard-nav">
                     <div class="action-category">
                         <h3>League Management</h3>
                         <div class="action-list">
-                            <a href="/admin/league/players" class="action-link">
+                            {{if canUse $u "/admin/league/players"}}
+                            <a href="/admin/league/players" class="action-link" data-testid="nav-players">
                                 <span class="action-link-icon">&#128101;</span> Manage Players
                             </a>
-                            <a href="/admin/league/teams" class="action-link">
+                            {{end}}
+                            {{if canUse $u "/admin/league/teams"}}
+                            <a href="/admin/league/teams" class="action-link" data-testid="nav-teams">
                                 <span class="action-link-icon">&#127942;</span> Manage Teams
                             </a>
-                            <a href="/admin/league/fixtures" class="action-link">
+                            {{end}}
+                            {{if canUse $u "/admin/league/fixtures"}}
+                            <a href="/admin/league/fixtures" class="action-link" data-testid="nav-fixtures">
                                 <span class="action-link-icon">&#128197;</span> Manage Fixtures
                             </a>
-                            <a href="/admin/league/clubs" class="action-link">
-                                <span class="action-link-icon">&#127959;</span> Manage Clubs
+                            {{end}}
+                            {{if canUse $u "/admin/league/clubs"}}
+                            <a href="/admin/league/clubs" class="action-link" data-testid="nav-clubs">
+                                <span class="action-link-icon">&#127959;</span> {{if canUse $u "POST /admin/league/clubs"}}Manage Clubs{{else}}Clubs{{end}}
                             </a>
-                            <a href="/admin/league/seasons" class="action-link">
+                            {{end}}
+                            {{if canUse $u "/admin/league/seasons"}}
+                            <a href="/admin/league/seasons" class="action-link" data-testid="nav-seasons">
                                 <span class="action-link-icon">&#9728;</span> Manage Seasons
                             </a>
-                            {{if .Features.Tournaments}}
-                            <a href="/admin/league/tournaments" class="action-link">
+                            {{end}}
+                            {{if and .Features.Tournaments (canUse $u "/admin/league/tournaments")}}
+                            <a href="/admin/league/tournaments" class="action-link" data-testid="nav-tournaments">
                                 <span class="action-link-icon">&#127941;</span> Manage Tournaments
                             </a>
                             {{end}}
@@ -425,52 +438,72 @@
                     <div class="action-category">
                         <h3>Results &amp; Standings</h3>
                         <div class="action-list">
-                            <a href="/admin/league/match-card-import" class="action-link">
+                            {{if canUse $u "/admin/league/match-card-import"}}
+                            <a href="/admin/league/match-card-import" class="action-link" data-testid="nav-match-card-import">
                                 <span class="action-link-icon">&#127934;</span> Match Card Import
                             </a>
-                            <a href="/admin/league/points-table" class="action-link">
+                            {{end}}
+                            {{if canUse $u "/admin/league/points-table"}}
+                            <a href="/admin/league/points-table" class="action-link" data-testid="nav-points-table">
                                 <span class="action-link-icon">&#128202;</span> Points Table
                             </a>
-                            <a href="/admin/league/selection-overview" class="action-link">
+                            {{end}}
+                            {{if canUse $u "/admin/league/selection-overview"}}
+                            <a href="/admin/league/selection-overview" class="action-link" data-testid="nav-selection-overview">
                                 <span class="action-link-icon">&#128203;</span> Selection Overview
                             </a>
-                            <a href="/admin/league/planning" class="action-link">
+                            {{end}}
+                            {{if canUse $u "/admin/league/planning"}}
+                            <a href="/admin/league/planning" class="action-link" data-testid="nav-planning">
                                 <span class="action-link-icon">&#128467;</span> Captain Planning
                             </a>
+                            {{end}}
                         </div>
                     </div>
 
                     <div class="action-category">
                         <h3>Season Tools</h3>
                         <div class="action-list">
-                            {{if .Features.ClubWrapped}}
-                            <a href="/admin/league/wrapped" class="action-link">
+                            {{if and .Features.ClubWrapped (canUse $u "/admin/league/wrapped")}}
+                            <a href="/admin/league/wrapped" class="action-link" data-testid="nav-wrapped">
                                 <span class="action-link-icon">&#10024;</span> Season Wrapped
                             </a>
                             {{end}}
-                            <a href="/admin/league/preferred-names" class="action-link">
+                            {{if canUse $u "/admin/league/preferred-names"}}
+                            <a href="/admin/league/preferred-names" class="action-link" data-testid="nav-preferred-names">
                                 <span class="action-link-icon">&#128221;</span> Preferred Name Approvals
                             </a>
-                            <a href="/admin/league/club-data-import" class="action-link">
+                            {{end}}
+                            {{if canUse $u "/admin/league/club-data-import"}}
+                            <a href="/admin/league/club-data-import" class="action-link" data-testid="nav-club-data-import">
                                 <span class="action-link-icon">&#128229;</span> Club Data Import
                             </a>
+                            {{end}}
                         </div>
                     </div>
 
-                    <div class="action-category">
+                    {{if or (canUse $u "/admin/league/users") (canUse $u "/admin/league/sessions") (canUse $u "/admin/league/settings")}}
+                    <div class="action-category" data-testid="nav-system">
                         <h3>System</h3>
                         <div class="action-list">
-                            <a href="/admin/league/users" class="action-link">
+                            {{if canUse $u "/admin/league/users"}}
+                            <a href="/admin/league/users" class="action-link" data-testid="nav-users">
                                 <span class="action-link-icon">&#128100;</span> Manage Users
                             </a>
-                            <a href="/admin/league/sessions" class="action-link">
+                            {{end}}
+                            {{if canUse $u "/admin/league/sessions"}}
+                            <a href="/admin/league/sessions" class="action-link" data-testid="nav-sessions">
                                 <span class="action-link-icon">&#128274;</span> View Sessions
                             </a>
-                            <a href="/admin/league/settings" class="action-link">
+                            {{end}}
+                            {{if canUse $u "/admin/league/settings"}}
+                            <a href="/admin/league/settings" class="action-link" data-testid="nav-settings">
                                 <span class="action-link-icon">&#9881;</span> Club Settings
                             </a>
+                            {{end}}
                         </div>
                     </div>
+                    {{end}}
                 </div>
 
                 <div class="login-attempts-section">

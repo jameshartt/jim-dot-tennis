@@ -728,7 +728,7 @@
             <div class="captains-section">
                 <div class="section-header">
                     <h2>Team Captains</h2>
-                    <button class="btn-add" onclick="showAddCaptainModal()">Add Captain</button>
+                    {{if canUse .User (printf "POST /admin/league/teams/%d/add-captain" .TeamDetail.ID)}}<button class="btn-add" data-testid="add-captain-button" onclick="showAddCaptainModal()">Add Captain</button>{{end}}
                 </div>
                 
                 {{if .TeamDetail.Captains}}
@@ -751,6 +751,7 @@
                             </td>
                             <td>
                                 <div class="action-buttons">
+                                    {{if canUse $.User (printf "POST /admin/league/teams/%d/remove-captain" $.TeamDetail.ID)}}
                                     <div class="remove-captain-container">
                                         <button class="btn-sm btn-danger remove-captain-btn" 
                                                 data-player-id="{{.PlayerID}}"
@@ -765,6 +766,7 @@
                                             <button class="btn-sm btn-secondary cancel-remove-btn">Cancel</button>
                                         </div>
                                     </div>
+                                    {{end}}
                                 </div>
                             </td>
                         </tr>

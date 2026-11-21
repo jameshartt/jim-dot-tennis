@@ -140,11 +140,11 @@ func TestInviteRules(t *testing.T) {
 	users := func() int { return countRows(t, db, `SELECT COUNT(*) FROM users`) }
 	before := users()
 
-	if _, _, err := s.Invite(ctx, cli, "alice", models.RolePlayer, nil); !errors.Is(err, ErrUsernameTaken) {
+	if _, _, err := s.Invite(ctx, cli, "alice", models.RoleCaptain, nil); !errors.Is(err, ErrUsernameTaken) {
 		t.Errorf("case-insensitive duplicate: err %v", err)
 	}
 	var bad *InvalidUsernameError
-	if _, _, err := s.Invite(ctx, cli, "no spaces", models.RolePlayer, nil); !errors.As(err, &bad) {
+	if _, _, err := s.Invite(ctx, cli, "no spaces", models.RoleCaptain, nil); !errors.As(err, &bad) {
 		t.Errorf("bad username: err %v", err)
 	}
 	if _, _, err := s.Invite(ctx, cli, "pat", models.Role("owner"), nil); !errors.Is(err, ErrInvalidRole) {

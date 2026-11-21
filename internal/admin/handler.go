@@ -77,8 +77,9 @@ func New(db *database.DB, templateDir string, courthiveAPIURL string, homeClub c
 
 // RegisterRoutes registers all admin routes with the given mux
 func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middleware) {
-	// Create admin mux for all admin routes
-	adminMux := http.NewServeMux()
+	// Create admin mux for all admin routes. Every pattern must have a role
+	// declared in adminRouteRoles (roles.go); the mux enforces it per request.
+	adminMux := newGuardedMux()
 
 	// Dashboard route with full path
 	adminMux.HandleFunc("/admin/league/dashboard", h.dashboard.HandleDashboard)
@@ -167,20 +168,21 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/league/preferred-names/approve/", h.service.HandleApprovePreferredName)
 	adminMux.HandleFunc("/admin/league/preferred-names/reject/", h.service.HandleRejectPreferredName)
 
-	// Club settings (admin role only, checked again in the handler)
+	// Club settings (admin role, declared in roles.go and checked again in the handler)
 	adminMux.HandleFunc(settingsPath, h.settings.HandleSettings)
 	adminMux.HandleFunc(settingsPath+"/", h.settings.HandleSettings)
 
-	// Register admin routes with authentication middleware
-	mux.Handle("/admin/league", authMiddleware.RequireAuth(
-		authMiddleware.RequireRole("admin")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Register admin routes with authentication middleware. Captains and
+	// administrators may enter; adminMux then checks each route's role.
+	mux.Handle(adminRootPath, authMiddleware.RequireAuth(
+		authMiddleware.RequireRole(signedInRoles...)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Redirect /admin/league to /admin/league/dashboard
 			log.Printf("Redirecting to /admin/league/dashboard")
 			http.Redirect(w, r, "/admin/league/dashboard", http.StatusFound)
 		})),
 	))
 	mux.Handle("/admin/league/", authMiddleware.RequireAuth(
-		authMiddleware.RequireRole("admin")(adminMux),
+		authMiddleware.RequireRole(signedInRoles...)(adminMux),
 	))
 }
 

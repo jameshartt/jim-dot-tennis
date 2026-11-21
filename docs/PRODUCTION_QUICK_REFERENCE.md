@@ -369,10 +369,11 @@ Accounts
   user list                        Show every account: its role, whether it can
                                    sign in, and when it last signed in.
   user create <username> --role <role>
-                                   Make a new account. <role> is admin, captain
-                                   or player. Prints an invite link once; the
-                                   person who opens it sets up their own passkey
-                                   or password. The link works once, for 48 hours.
+                                   Make a new account. <role> is admin (runs the
+                                   instance) or captain (runs every team).
+                                   Prints an invite link once; the person who
+                                   opens it sets up their own passkey or
+                                   password. The link works once, for 48 hours.
   user reset <username>            For someone who is locked out (even the last
                                    administrator): prints a recovery link once.
                                    Whoever opens it sets a new passkey or

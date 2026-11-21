@@ -323,7 +323,7 @@
                                                value="{{if .DefaultClubID}}{{.DefaultClubID}}{{end}}" min="1" required>
                                         {{if or (not .DefaultClubName) (not .DefaultClubID)}}
                                         <small class="form-text text-muted">
-                                            Set your club's BHPLTA name and id once in <a href="/admin/league/settings">Club settings</a> and they will be filled in here.
+                                            {{if canUse $.User "/admin/league/settings"}}Set your club's BHPLTA name and id once in <a href="/admin/league/settings">Club settings</a> and they will be filled in here.{{else}}An administrator can set the club's BHPLTA name and id in Club settings so they are filled in here.{{end}}
                                         </small>
                                         {{end}}
                                     </div>

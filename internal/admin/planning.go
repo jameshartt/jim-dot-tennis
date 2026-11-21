@@ -243,10 +243,15 @@ type PlanningDashboardView struct {
 	ResolvedScope   *ResolvedScope
 	TeamOptions     []TeamOption
 	SelectedTeamIDs []uint
-	IsAllTeams      bool
-	Matrix          *PlanningMatrix
-	Summary         *AvailabilitySummary
-	QueryString     string
+	// MyTeamIDs are the active teams the user's linked player captains this
+	// season (users.player_id, set by the user or by an administrator on the
+	// users page); the "My Teams" shortcut selects exactly these.
+	MyTeamIDs   []uint
+	IsMyTeams   bool
+	IsAllTeams  bool
+	Matrix      *PlanningMatrix
+	Summary     *AvailabilitySummary
+	QueryString string
 }
 
 // TeamOption is a single team checkbox row (all active home-club teams in
@@ -339,6 +344,16 @@ func (h *PlanningHandler) buildDashboardView(ctx context.Context, r *http.Reques
 		})
 	}
 	sort.Slice(teamOpts, func(i, j int) bool { return teamOpts[i].TeamName < teamOpts[j].TeamName })
+	var myTeamIDs []uint
+	for _, o := range teamOpts {
+		if o.IsMine {
+			myTeamIDs = append(myTeamIDs, o.TeamID)
+		}
+	}
+	isMyTeams := len(myTeamIDs) > 0 && len(myTeamIDs) == len(selectedSet)
+	for _, id := range myTeamIDs {
+		isMyTeams = isMyTeams && selectedSet[id]
+	}
 
 	var linked *models.Player
 	if user.PlayerID != nil {
@@ -382,6 +397,8 @@ func (h *PlanningHandler) buildDashboardView(ctx context.Context, r *http.Reques
 		ResolvedScope:   resolved,
 		TeamOptions:     teamOpts,
 		SelectedTeamIDs: selectedTeamIDs,
+		MyTeamIDs:       myTeamIDs,
+		IsMyTeams:       isMyTeams,
 		IsAllTeams:      len(selectedTeamIDs) == 0,
 		Matrix:          matrix,
 		Summary:         summary,

@@ -135,7 +135,7 @@ func TestLastActiveAdministratorGuard(t *testing.T) {
 		t.Fatalf("disable alice with only a disabled second admin: err %v, want ErrLastAdmin", err)
 	}
 	// Demoting a disabled administrator is fine.
-	if _, err := s.SetRole(ctx, cli, bob.ID, models.RolePlayer); err != nil {
+	if _, err := s.SetRole(ctx, cli, bob.ID, models.RoleCaptain); err != nil {
 		t.Fatalf("demote disabled bob: %v", err)
 	}
 
@@ -162,7 +162,7 @@ func TestDisableEndsSessions(t *testing.T) {
 	ctx := context.Background()
 	s, db := newTestService(t)
 	mustCreate(t, s, "alice", models.RoleAdmin)
-	p := mustCreate(t, s, "pat", models.RolePlayer)
+	p := mustCreate(t, s, "pat", models.RoleCaptain)
 	addSession(t, db, "s1", p.ID)
 	if _, err := s.SetActive(ctx, cli, p.ID, false); err != nil {
 		t.Fatal(err)
