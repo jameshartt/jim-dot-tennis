@@ -6,7 +6,7 @@ import { chromium, FullConfig } from "@playwright/test";
  */
 async function globalSetup(config: FullConfig) {
   const baseURL =
-    config.projects[0].use.baseURL || "http://webapp:8080";
+    config.projects[0].use.baseURL || "http://app-e2e:8080";
 
   const browser = await chromium.launch();
   const context = await browser.newContext({ baseURL });

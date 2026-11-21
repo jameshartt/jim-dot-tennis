@@ -55,12 +55,11 @@ services:
       - HOME_CLUB_NAME=${HOME_CLUB_NAME:-}
       - BHPLTA_CLUB_CODE=${BHPLTA_CLUB_CODE:-}
       - MY_TENNIS_ENABLED=${MY_TENNIS_ENABLED:-}
-    networks:
-      default:
-        # "app" is an HSTS-preloaded TLD (.app) — Chromium unconditionally
-        # upgrades http://app:* to HTTPS. Use "webapp" alias for E2E tests.
-        aliases:
-          - webapp
+    # The E2E suite reaches this service as http://app-e2e:8080. Do not give it
+    # a shared alias such as "webapp": a dev `app` container on the same network
+    # could answer to it too and the tests would hit the wrong database.
+    # (A bare "app" hostname is unusable: .app is an HSTS-preloaded TLD and
+    # Chromium upgrades http://app:* to HTTPS.)
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
       interval: 10s
@@ -94,7 +93,7 @@ services:
       - ./tests/e2e/test-results:/app/tests/test-results
       - ./tests/e2e/playwright-report:/app/tests/playwright-report
     environment:
-      - PLAYWRIGHT_BASE_URL=http://webapp:8080
+      - PLAYWRIGHT_BASE_URL=http://app-e2e:8080
     # Default: seed database and run chromium project tests (excludes multi-club)
     command: sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --project=chromium"
 
