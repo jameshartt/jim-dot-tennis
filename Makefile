@@ -177,11 +177,19 @@ imports-fix:
 	@echo "Fixing imports..."
 	@$(DOCKER_GO) sh -c "go install golang.org/x/tools/cmd/goimports@latest && goimports -w -local jim-dot-tennis $(GO_SRC_PATHS)"
 
+# golangci-lint version: the single source of truth for `make lint` and CI
+# (.github/workflows/ci.yml calls `make lint`). Bump it here by hand.
+GOLANGCI_LINT_VERSION = v2.15.0
+
+# Optional: LINT_CACHE_DIR=/some/dir keeps the Go module and build caches between
+# runs (CI sets it and caches the directory).
+LINT_CACHE_MOUNT = $(if $(LINT_CACHE_DIR),-v $(LINT_CACHE_DIR)/go:/go -v $(LINT_CACHE_DIR)/build:/root/.cache)
+
 # Run golangci-lint (comprehensive linting)
 lint:
-	@echo "Running golangci-lint..."
-	@docker run --rm -v $$(pwd):/app -w /app -e GOFLAGS=-buildvcs=false $(GO_IMAGE) sh -c \
-		"apk add --no-cache gcc musl-dev sqlite-dev build-base git > /dev/null 2>&1 && CGO_ENABLED=1 go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && golangci-lint run ./..."
+	@echo "Running golangci-lint $(GOLANGCI_LINT_VERSION)..."
+	@docker run --rm -v $$(pwd):/app -w /app -e GOFLAGS=-buildvcs=false $(LINT_CACHE_MOUNT) $(GO_IMAGE) sh -c \
+		"apk add --no-cache gcc musl-dev sqlite-dev build-base git > /dev/null 2>&1 && CGO_ENABLED=1 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) && golangci-lint run ./..."
 
 # Run dead code detection
 deadcode:

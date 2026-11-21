@@ -1,0 +1,30 @@
+name: Cache the Playwright base image
+description: >
+  Restores the Playwright base image named in Dockerfile.e2e from the Actions
+  cache (docker load), or pulls it and saves it. The key is the FROM line, so a
+  Playwright version bump refreshes the cache.
+runs:
+  using: composite
+  steps:
+    - name: Work out the image
+      id: img
+      shell: bash
+      run: |
+        image="$(sed -n 's/^FROM[[:space:]]\+\([^[:space:]]\+\).*/\1/p' Dockerfile.e2e | head -n1)"
+        echo "image=${image}" >> "$GITHUB_OUTPUT"
+    - name: Restore image tarball
+      id: cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/playwright-image.tar
+        key: playwright-image-${{ steps.img.outputs.image }}
+    - name: Load cached image
+      if: steps.cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: docker load -i "${{ runner.temp }}/playwright-image.tar"
+    - name: Pull and save image
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        docker pull "${{ steps.img.outputs.image }}"
+        docker save -o "${{ runner.temp }}/playwright-image.tar" "${{ steps.img.outputs.image }}"
