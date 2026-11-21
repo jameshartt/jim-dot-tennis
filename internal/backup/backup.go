@@ -3,7 +3,9 @@
 package backup
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -18,6 +20,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"jim-dot-tennis/internal/branding"
@@ -38,6 +41,15 @@ const (
 	// staleTempAge is when a leftover temporary file (from a crash or a
 	// power cut mid-backup) is removed.
 	staleTempAge = 24 * time.Hour
+	// staleDownloadAge is when a download copy that was not removed after
+	// it was sent (the server stopped mid-download) is removed. Sending one
+	// takes at most 15 minutes (admin.downloadWriteTime).
+	staleDownloadAge = time.Hour
+	// futureSkew is how far ahead of this machine's clock an archive's name
+	// may be dated before the name is not believed (a file copied in from a
+	// machine with a wrong clock, or a hand-made name). Such an archive is
+	// never taken as the newest backup and is the first to be pruned.
+	futureSkew = 5 * time.Minute
 )
 
 // Archive is a finished backup in the backups folder.
@@ -72,7 +84,7 @@ func Create(ctx context.Context, db *database.DB, cfg Config, kind string) (Resu
 		return Result{}, err
 	}
 	if kind == KindManual || kind == KindScheduled {
-		if _, err := Prune(cfg); err != nil {
+		if _, err := prune(cfg, res.Path, time.Now()); err != nil {
 			log.Printf("Backup made, but removing old backups failed: %v", err)
 		}
 	}
@@ -192,12 +204,9 @@ func build(ctx context.Context, db *database.DB, cfg Config, kind, dir string) (
 	case KindDownload:
 		prefix = downloadPrefix
 	}
-	final, err := freeName(dir, prefix+now.Format(nameTimeLayout))
+	final, err := publish(tmpName, dir, prefix+now.Format(nameTimeLayout))
 	if err != nil {
 		return Result{}, err
-	}
-	if err := os.Rename(tmpName, final); err != nil {
-		return Result{}, fmt.Errorf("finish the backup: %w", err)
 	}
 	keep = true
 	syncDir(dir)
@@ -348,18 +357,42 @@ func VerifyFile(path string) (Manifest, error) {
 	return readArchive(f, nil, nil)
 }
 
-// freeName returns dir/base.tar.gz, or base-2, base-3... if that is taken
-// (two backups in the same second).
-func freeName(dir, base string) (string, error) {
+// publish gives the finished file tmp its final name, dir/base.tar.gz, or
+// base-2, base-3... if that is taken (two backups or downloads finishing in
+// the same second), and returns it. It never replaces an existing file: the
+// name is taken with a hard link, which fails if the name exists, so two
+// processes can never end up with (or send, or delete) the same file. Where
+// the folder cannot hold hard links, the name is reserved by creating it
+// exclusively and the file is then renamed over its own reservation.
+func publish(tmp, dir, base string) (string, error) {
 	for i := 1; i < 100; i++ {
 		name := base
 		if i > 1 {
 			name = fmt.Sprintf("%s-%d", base, i)
 		}
 		p := filepath.Join(dir, name+archiveExtension)
-		if _, err := os.Lstat(p); errors.Is(err, fs.ErrNotExist) {
+		err := os.Link(tmp, p)
+		if err == nil {
+			_ = os.Remove(tmp)
 			return p, nil
 		}
+		if errors.Is(err, fs.ErrExist) {
+			continue
+		}
+		// No hard links here: reserve the name, then rename onto it.
+		reserved, rerr := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+		if errors.Is(rerr, fs.ErrExist) {
+			continue
+		}
+		if rerr != nil {
+			return "", fmt.Errorf("finish the backup: %w", rerr)
+		}
+		reserved.Close()
+		if err := os.Rename(tmp, p); err != nil {
+			os.Remove(p)
+			return "", fmt.Errorf("finish the backup: %w", err)
+		}
+		return p, nil
 	}
 	return "", fmt.Errorf("too many backups named %s", base)
 }
@@ -412,6 +445,72 @@ func List(dir string) ([]Archive, error) {
 	return out, nil
 }
 
+// InFuture reports whether a's name dates it more than a few minutes after
+// now. Such a name is not believed (see futureSkew).
+func (a Archive) InFuture(now time.Time) bool {
+	return a.CreatedAt.After(now.Add(futureSkew))
+}
+
+// noticed remembers which archives were already reported as ignored, so the
+// log says so once per file, not on every hourly check or page view.
+var noticed sync.Map
+
+func noticeOnce(a Archive, why string) {
+	if _, seen := noticed.LoadOrStore(a.Path+"\x00"+why, true); !seen {
+		log.Printf("Backups: %s %s, so it is not counted as the latest backup", a.Name, why)
+	}
+}
+
+// Newest returns the newest backup in dir that can be believed: its name is
+// not dated in the future, and it opens as an archive whose manifest can be
+// read (only the first entry is read, so this is cheap; VerifyFile reads the
+// whole file). Pre-migration backups count only with includePreMigration.
+// The bool is false when there is none.
+func Newest(dir string, now time.Time, includePreMigration bool) (Archive, bool, error) {
+	list, err := List(dir)
+	if err != nil {
+		return Archive{}, false, err
+	}
+	for _, a := range list {
+		if a.PreMigration && !includePreMigration {
+			continue
+		}
+		if a.InFuture(now) {
+			noticeOnce(a, "is dated in the future ("+a.CreatedAt.Format(time.RFC3339)+")")
+			continue
+		}
+		if _, err := ReadManifest(a.Path); err != nil {
+			noticeOnce(a, "cannot be read as a backup")
+			continue
+		}
+		return a, true, nil
+	}
+	return Archive{}, false, nil
+}
+
+// ReadManifest reads and checks only the manifest of the archive at path.
+func ReadManifest(path string) (Manifest, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return Manifest{}, err
+	}
+	defer f.Close()
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return Manifest{}, badArchive("it is not a gzip file (%v)", err)
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	hdr, err := tr.Next()
+	if err != nil {
+		return Manifest{}, badArchive("it is damaged or empty (%v)", err)
+	}
+	if hdr.Typeflag != tar.TypeReg || hdr.Name != manifestName || hdr.Size < 0 || hdr.Size > maxManifestBytes {
+		return Manifest{}, badArchive("the first entry is not the manifest")
+	}
+	return decodeManifest(tr)
+}
+
 // parseArchiveName recognises a finished archive's name and its time.
 func parseArchiveName(name string) (Archive, bool) {
 	rest, ok := strings.CutSuffix(name, archiveExtension)
@@ -454,25 +553,39 @@ func isCounterSuffix(s string) bool {
 	return true
 }
 
-// Prune removes the oldest regular backups beyond cfg.Keep (never fewer than
-// one is kept, so it cannot remove the only good backup) and temporary files
-// left behind by a crash more than a day ago. Pre-migration backups are not
-// counted or removed here (see KeepLatestPreMigration). It returns the
-// names it removed.
-func Prune(cfg Config) ([]string, error) {
+// prune removes the oldest regular backups beyond cfg.Keep (never fewer than
+// one is kept, so it cannot remove the only good backup), stale temporary
+// files and download copies (removeStaleTemps). It never removes protect (the
+// archive the caller has just written and verified, which counts as one of
+// those kept). Archives whose names are dated in the future count as the
+// oldest, so they are the first to go. Pre-migration backups are not counted
+// or removed here (see KeepLatestPreMigration). It returns the names it
+// removed.
+func prune(cfg Config, protect string, now time.Time) ([]string, error) {
 	keep := max(cfg.Keep, 1)
 	list, err := List(cfg.Dir)
 	if err != nil {
 		return nil, err
 	}
-	var removed []string
-	n := 0
+	// Newest first, then the future-dated ones (whose names are not
+	// believed), so those are the first to go.
+	var ordered, future []Archive
+	kept := 0
 	for _, a := range list {
-		if a.PreMigration {
-			continue
+		switch {
+		case a.PreMigration:
+		case protect != "" && a.Path == protect:
+			kept++
+		case a.InFuture(now):
+			future = append(future, a)
+		default:
+			ordered = append(ordered, a)
 		}
-		n++
-		if n <= keep {
+	}
+	var removed []string
+	for _, a := range append(ordered, future...) {
+		if kept < keep {
+			kept++
 			continue
 		}
 		if err := os.Remove(a.Path); err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -480,27 +593,49 @@ func Prune(cfg Config) ([]string, error) {
 		}
 		removed = append(removed, a.Name)
 	}
-	removeStaleTemps(cfg.Dir)
+	removeStaleTemps(cfg.Dir, now, staleTempAge, staleDownloadAge)
 	return removed, nil
 }
 
-// removeStaleTemps removes temporary files and folders older than
-// staleTempAge (a backup in progress is never that old).
-func removeStaleTemps(dir string) {
+// removeStaleTemps removes temporary files and folders older than tmpAge (a
+// backup in progress is never that old) and download copies older than
+// downloadAge. It returns how many it removed.
+func removeStaleTemps(dir string, now time.Time, tmpAge, downloadAge time.Duration) int {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return
+		return 0
 	}
+	n := 0
 	for _, e := range entries {
-		if !strings.HasPrefix(e.Name(), tmpPrefix) && !strings.HasPrefix(e.Name(), downloadPrefix) {
+		age := tmpAge
+		switch {
+		case strings.HasPrefix(e.Name(), tmpPrefix):
+		case strings.HasPrefix(e.Name(), downloadPrefix):
+			age = downloadAge
+		default:
 			continue
 		}
 		info, err := e.Info()
-		if err != nil || time.Since(info.ModTime()) < staleTempAge {
+		if err != nil || now.Sub(info.ModTime()) < age {
 			continue
 		}
-		_ = os.RemoveAll(filepath.Join(dir, e.Name()))
+		if os.RemoveAll(filepath.Join(dir, e.Name())) == nil {
+			n++
+		}
 	}
+	return n
+}
+
+// CleanUpAtStart is called by the server once it holds the data folder's
+// lock, before anything else uses the folder. It removes what an earlier
+// process left behind when it was stopped or crashed: restore staging
+// folders (each a full copy of the database; no restore can be running
+// while the server holds the lock), download copies (only the server makes
+// them, and it has only just started) and temporary backup files more than
+// a day old (a `jim-dot-tennis backup` run alongside may be writing a newer
+// one). It returns how many it removed.
+func CleanUpAtStart(cfg Config) int {
+	return sweepRestoreStaging(cfg.DataDir()) + removeStaleTemps(cfg.Dir, time.Now(), staleTempAge, 0)
 }
 
 // KeepLatestPreMigration is called once the server has started successfully:

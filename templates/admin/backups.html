@@ -157,14 +157,14 @@
                 <form method="POST" action="{{.DownloadPath}}" class="download-form" data-testid="backup-download-form">
                     {{if .Confirmed}}
                     <p data-testid="backup-confirmed">You confirmed it's you with a passkey. Download within 5 minutes.</p>
-                    {{else if .HasPassword}}
+                    {{else if and .HasPassword (not .PasskeyOnly)}}
                     <label for="current_password">Your current password</label>
                     <input type="password" id="current_password" name="current_password" autocomplete="current-password">
                     {{end}}
                     <button type="submit" class="btn btn-primary" data-testid="backup-download">Download backup</button>
                 </form>
                 {{if not .Confirmed}}
-                <p data-passkey-ui hidden>{{if .HasPassword}}Or confirm it's you with a passkey first:{{else}}First confirm it's you with a passkey:{{end}}
+                <p data-passkey-ui hidden>{{if and .HasPassword (not .PasskeyOnly)}}Or confirm it's you with a passkey first:{{else}}First confirm it's you with a passkey:{{end}}
                     <button type="button" class="btn btn-sm" data-passkey-reauth data-reauth-for="backup">Confirm with a passkey</button></p>
                 {{end}}
             </div>

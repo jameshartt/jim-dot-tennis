@@ -8,7 +8,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"strings"
+	"syscall"
 
 	jimdottennis "jim-dot-tennis"
 	"jim-dot-tennis/internal/backup"
@@ -53,6 +56,12 @@ func runBackup(ctx context.Context, c cliOut, stderr io.Writer) int {
 	return exitOK
 }
 
+// restoreContext is parent, cancelled on SIGINT or SIGTERM. While it is in
+// use those signals do not end the process.
+func restoreContext(parent context.Context) (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
+}
+
 // runRestore is `jim-dot-tennis restore <file>`.
 func runRestore(ctx context.Context, c cliOut, stderr io.Writer, archive string) int {
 	cfg, err := backup.FromEnv()
@@ -64,17 +73,29 @@ func runRestore(ctx context.Context, c cliOut, stderr io.Writer, archive string)
 		fmt.Fprintln(stderr, err)
 		return exitError
 	}
+	// Ctrl-C (or the container being stopped) cancels the restore instead of
+	// killing it, so its staging copy is removed; once the swap has started
+	// Restore ignores the cancellation and finishes, so the data folder is
+	// never left half restored.
+	ctx, stop := restoreContext(ctx)
+	defer stop()
 	c.printf("Checking %s and restoring it into %s ...\n", archive, cfg.DataDir())
 	res, err := backup.Restore(ctx, cfg, archive, jimdottennis.Migrations())
 	if err != nil {
 		switch {
-		case errors.Is(err, backup.ErrServerRunning), errors.Is(err, backup.ErrNewerBackup):
+		case errors.Is(err, backup.ErrUndoFailed):
+			fmt.Fprintf(stderr, "Not restored: %v.\nSome of the current files may have been moved: see \"If a restore stops part-way\" in the backups section of the operations guide before starting the app.\n", err)
+		case errors.Is(err, backup.ErrServerRunning), errors.Is(err, backup.ErrNewerBackup),
+			strings.Contains(err.Error(), "Nothing was changed"), strings.Contains(err.Error(), "before anything was changed"):
 			// The message already says nothing was changed.
 			fmt.Fprintf(stderr, "Not restored: %v.\n", err)
 		default:
 			fmt.Fprintf(stderr, "Not restored: %v.\nThe current database and files were not changed.\n", err)
 		}
 		return exitError
+	}
+	for _, w := range res.Warnings {
+		fmt.Fprintf(stderr, "Warning (the restore itself is done): %s\n", w)
 	}
 	m := res.Manifest
 	c.printf("\nRestored the backup made %s (%s backup, app version %s).\n",

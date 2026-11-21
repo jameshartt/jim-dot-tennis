@@ -23,15 +23,20 @@ import (
 
 // fakeProver stands in for auth.Passkeys.ProveOwnership.
 type fakeProver struct {
-	result string
-	err    error
-	calls  int
+	result    string
+	err       error
+	calls     int
+	available bool   // passkeys work on the address
+	password  string // the password the last call was given
 }
 
-func (f *fakeProver) ProveOwnership(_ http.ResponseWriter, _ *http.Request, _ *models.User, _ string) (string, error) {
+func (f *fakeProver) ProveOwnership(_ http.ResponseWriter, _ *http.Request, _ *models.User, password string) (string, error) {
 	f.calls++
+	f.password = password
 	return f.result, f.err
 }
+
+func (f *fakeProver) Available(*http.Request) bool { return f.available }
 
 func TestBackupsPageAndDownload(t *testing.T) {
 	e := newUsersTestEnv(t, "")
@@ -72,7 +77,8 @@ func TestBackupsPageAndDownload(t *testing.T) {
 	}
 
 	// A recent backup: its time and no warning; an old one: a warning.
-	if _, err := backup.Create(context.Background(), e.env.db, cfg, backup.KindManual); err != nil {
+	made, err := backup.Create(context.Background(), e.env.db, cfg, backup.KindManual)
+	if err != nil {
 		t.Fatal(err)
 	}
 	body := serve(http.MethodGet, backupsPath, models.RoleAdmin, nil).Body.String()
@@ -80,17 +86,21 @@ func TestBackupsPageAndDownload(t *testing.T) {
 		t.Errorf("page with a fresh backup:\n%s", body)
 	}
 	old := filepath.Join(cfg.Dir, "jim-dot-tennis-backup-20200101T000000Z.tar.gz")
-	os.WriteFile(old, []byte("x"), 0o600)
-	list, _ := backup.List(cfg.Dir)
-	for _, a := range list {
-		if a.Path != old {
-			os.Remove(a.Path)
-		}
+	if err := os.Rename(made.Path, old); err != nil {
+		t.Fatal(err)
 	}
 	body = serve(http.MethodGet, backupsPath, models.RoleAdmin, nil).Body.String()
 	if !strings.Contains(body, "backups may have stopped working") {
 		t.Errorf("no warning for a stale backup:\n%s", body)
 	}
+	// A file named as if made in the future does not hide the warning.
+	future := filepath.Join(cfg.Dir, "jim-dot-tennis-backup-20990101T000000Z.tar.gz")
+	os.WriteFile(future, []byte("x"), 0o600)
+	body = serve(http.MethodGet, backupsPath, models.RoleAdmin, nil).Body.String()
+	if !strings.Contains(body, "backups may have stopped working") {
+		t.Errorf("a future-dated file name hid the stale warning:\n%s", body)
+	}
+	os.Remove(future)
 
 	// Download: refused without proof, with a wrong password, for a captain.
 	prover.err = auth.ErrProofRequired
@@ -153,5 +163,59 @@ func TestBackupDownloadRouteNeedsAdmin(t *testing.T) {
 	// An administrator reaches the handler (no backup service in this test env).
 	if rec := m.do(http.MethodPost, BackupDownloadPath, models.RoleAdmin); rec.Code != http.StatusServiceUnavailable {
 		t.Errorf("admin: %d", rec.Code)
+	}
+}
+
+// While "Require passkeys for administrators" is on (and passkeys work), the
+// download takes only the passkey confirmation: the page has no password
+// field and a password sent anyway is refused without being checked.
+func TestBackupDownloadNeedsPasskeyWhenRequired(t *testing.T) {
+	e := newUsersTestEnv(t, "")
+	dir := t.TempDir()
+	cfg := backup.Config{DBPath: filepath.Join(dir, "tennis.db"), Dir: filepath.Join(dir, "backups"), Keep: 3, Interval: 24 * time.Hour}
+	prover := &fakeProver{available: true, result: auth.ProofPassword}
+	h := &BackupsHandler{backups: backup.NewService(e.env.db, cfg), prover: prover, accounts: e.svc, templateDir: findTemplatesPathAdmin(t)}
+	serve := func(method string, form url.Values) *httptest.ResponseRecorder {
+		t.Helper()
+		var req *http.Request
+		if form != nil {
+			req = httptest.NewRequest(method, BackupDownloadPath, strings.NewReader(form.Encode()))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		} else {
+			req = httptest.NewRequest(method, backupsPath, nil)
+		}
+		ctx := config.WithBranding(req.Context(), e.env.holder.Branding())
+		ctx = context.WithValue(ctx, auth.UserContextKey, models.User{ID: e.admin.ID, Username: e.admin.Username, Role: models.RoleAdmin})
+		rec := httptest.NewRecorder()
+		if method == http.MethodPost {
+			h.HandleDownload(rec, req.WithContext(ctx))
+		} else {
+			h.HandleBackups(rec, req.WithContext(ctx))
+		}
+		return rec
+	}
+	if _, err := e.env.db.Exec(`INSERT INTO app_settings (key, value) VALUES ('require_admin_passkeys', 'true')`); err != nil {
+		t.Fatal(err)
+	}
+
+	if body := serve(http.MethodGet, nil).Body.String(); strings.Contains(body, `name="current_password"`) {
+		t.Error("the page offers a password while passkeys are required for administrators")
+	}
+	rec := serve(http.MethodPost, url.Values{"current_password": {"right"}})
+	if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "error=passkey-required") || prover.calls != 0 {
+		t.Errorf("password while passkeys are required: %d %s (prover calls %d)", rec.Code, rec.Header().Get("Location"), prover.calls)
+	}
+	prover.result = auth.ProofPasskey
+	if rec := serve(http.MethodPost, url.Values{}); rec.Code != http.StatusOK || prover.password != "" {
+		t.Errorf("passkey confirmation: %d (password passed %q)", rec.Code, prover.password)
+	}
+
+	// Where passkeys do not work on the address, the password is accepted.
+	prover.available, prover.result = false, auth.ProofPassword
+	if body := serve(http.MethodGet, nil).Body.String(); !strings.Contains(body, `name="current_password"`) {
+		t.Error("no password field where passkeys are unavailable")
+	}
+	if rec := serve(http.MethodPost, url.Values{"current_password": {"right"}}); rec.Code != http.StatusOK || prover.password != "right" {
+		t.Errorf("password where passkeys are unavailable: %d", rec.Code)
 	}
 }

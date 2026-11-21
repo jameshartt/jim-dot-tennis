@@ -73,6 +73,11 @@ func main() {
 		log.Fatalf("Cannot start: %v", err)
 	}
 	defer dataLock.Release()
+	// What an earlier process left when it was stopped or crashed: restore
+	// staging copies, download copies, old temporary backup files.
+	if n := backup.CleanUpAtStart(backupConfig); n > 0 {
+		log.Printf("Removed %d leftover temporary backup or restore file(s)", n)
+	}
 
 	// Initialize database
 	db, err := setupDatabase()

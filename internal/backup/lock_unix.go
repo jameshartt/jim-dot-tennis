@@ -14,6 +14,10 @@ import (
 // lockFileName is the file in the data directory the server holds a lock on.
 const lockFileName = ".jim-dot-tennis.lock"
 
+// restoreLockFileName is the file a restore holds an exclusive lock on, and
+// the account and backup commands a shared one (see AcquireRestoreLock).
+const restoreLockFileName = ".jim-dot-tennis.restore.lock"
+
 // Lock is an exclusive operating-system lock (flock) on the data directory's
 // lock file. The server holds one for as long as it runs; restore takes one
 // for as long as it works. The kernel releases it when the process ends, by
@@ -31,13 +35,39 @@ var ErrLocked = errors.New("the data directory is in use by another process")
 // AcquireLock takes the lock without waiting: ErrLocked if another process
 // holds it.
 func AcquireLock(path string) (*Lock, error) {
+	return acquire(path, syscall.LOCK_EX)
+}
+
+// AcquireRestoreLock takes the restore lock (Config.RestoreLockPath) for a
+// restore, exclusively, without waiting: ErrLocked if a command or another
+// restore holds it.
+//
+// Why a second lock: the server holds the main lock for its whole life, and
+// the account commands (`user ...`, `admin-passkeys`, `setup code`) and
+// `backup` are meant to run alongside it, so they cannot take the main lock.
+// They take this one shared instead (AcquireCommandLock), which any number
+// of them, and the server, can hold at once; a restore takes it exclusively,
+// so a command refuses while a restore runs (rather than writing to a
+// database that is about to be replaced), and a restore refuses while a
+// command is still working.
+func AcquireRestoreLock(path string) (*Lock, error) {
+	return acquire(path, syscall.LOCK_EX)
+}
+
+// AcquireCommandLock takes the restore lock shared, without waiting:
+// ErrLocked while a restore holds it.
+func AcquireCommandLock(path string) (*Lock, error) {
+	return acquire(path, syscall.LOCK_SH)
+}
+
+func acquire(path string, how int) (*Lock, error) {
 	// Read-only and world-readable (it is empty): a lock file created by a
 	// restore run as root can still be opened by the app's own user.
 	f, err := os.OpenFile(path, os.O_RDONLY|os.O_CREATE, 0o644)
 	if err != nil {
 		return nil, fmt.Errorf("open the lock file %s: %w", path, err)
 	}
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	if err := syscall.Flock(int(f.Fd()), how|syscall.LOCK_NB); err != nil {
 		f.Close()
 		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
 			return nil, ErrLocked
@@ -69,6 +99,17 @@ func matchOwner(ref string, paths ...string) error {
 		}
 	}
 	return nil
+}
+
+// freeSpace is the space available to this user on the file system holding
+// dir; ok is false when it cannot be told.
+func freeSpace(dir string) (bytes uint64, ok bool) {
+	var st syscall.Statfs_t
+	if err := syscall.Statfs(dir, &st); err != nil {
+		return 0, false
+	}
+	// The field types differ between platforms; Bsize is never negative.
+	return uint64(st.Bavail) * uint64(st.Bsize), true
 }
 
 // Release gives the lock up. The file stays: removing it would let two

@@ -70,6 +70,10 @@ func (c Config) UploadsDir() string { return filepath.Join(c.DataDir(), uploadsD
 // LockPath is the file the server holds a lock on while it runs.
 func (c Config) LockPath() string { return filepath.Join(c.DataDir(), lockFileName) }
 
+// RestoreLockPath is the file a restore locks exclusively and the account
+// and backup commands lock shared (AcquireRestoreLock).
+func (c Config) RestoreLockPath() string { return filepath.Join(c.DataDir(), restoreLockFileName) }
+
 // StaleAfter is how old the newest backup may get before the backups page
 // warns: two missed scheduled runs, or a week when there is no schedule.
 func (c Config) StaleAfter() time.Duration {
