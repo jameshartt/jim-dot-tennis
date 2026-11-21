@@ -149,7 +149,7 @@ Listed newest first.
 Sprints 019-024 form the **club-readiness programme**: making the app installable and usable by other BHPLTA clubs with no prior familiarity. Agreed constraints: BHPLTA only; each club hosts its own instance; the original author has no access to other clubs' instances; passkeys by default with passwords as an optional fallback; a real captain role; SQLite only; CourtHive bundled as an opt-in. Each work item carries a `recommended_model`. Suggested order: 019 → 020 → 021 → 022 → 023 → 024 (022 may run alongside 020/021, except its CI e2e job wants 020's fresh-install suite).
 
 ### Sprint 019: Public Repo Cleanup & SQLite-Only
-- **Status**: Planned
+- **Status**: Completed (2026-11-21)
 - **Work Items**: 4 (WI-112 to WI-115)
 - **Goal**: No live credentials or author-server details in tracked files; the real reference deployment in git; AGPL scraper isolated; Postgres path removed
 - **Directory**: `sprint-019/`

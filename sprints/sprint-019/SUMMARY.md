@@ -4,9 +4,9 @@
 
 **Goal**: Make the public repository safe and honest to hand to another club: no live credentials or author-specific server details in tracked files, the real reference deployment in git, no AGPL dependency in the shipped module, and SQLite declared (and coded) as the only supported database.
 
-**Duration**: dates TBD
+**Duration**: 2026-11-20 to 2026-11-21
 
-**Status**: Planned
+**Status**: Completed
 
 **Programme**: Part of the club-readiness programme (Sprints 019-024). Agreed constraints: BHPLTA clubs only; each club hosts its own instance; the original author has no access to any other club's instance; passkeys by default with passwords as an optional fallback; a real captain role; SQLite only; CourtHive bundled as an opt-in so clubs can run their own championships.
 
