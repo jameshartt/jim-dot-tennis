@@ -376,12 +376,12 @@ func TestDashboardNavigationByRole(t *testing.T) {
 			t.Errorf("captain dashboard shows %s", id)
 		}
 	}
-	for _, href := range []string{`href="/admin/league/users"`, `href="/admin/league/sessions"`, `href="/admin/league/settings"`, `href="/admin/league/seasons"`} {
+	for _, href := range []string{`href="/admin/league/users"`, `href="/admin/league/sessions"`, `href="/admin/league/settings"`, `href="/admin/league/seasons"`, `href="/admin/league/audit-log"`} {
 		if strings.Contains(captainPage, href) {
 			t.Errorf("captain dashboard links %s", href)
 		}
 	}
-	if !strings.Contains(captainPage, "Captain Dashboard") || !strings.Contains(captainPage, `href="/logout"`) {
+	if !strings.Contains(captainPage, "Captain Dashboard") || !strings.Contains(captainPage, `action="/logout"`) {
 		t.Error("captain dashboard: title or logout link missing")
 	}
 

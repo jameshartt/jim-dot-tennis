@@ -46,8 +46,12 @@ test.describe("Admin Dashboard", () => {
 
   test("logout button is visible", async ({ adminPage }) => {
     await adminPage.goto("/admin/league/dashboard");
-    const logoutBtn = adminPage.locator('a[href="/logout"]');
+    // Logout is a POST form (GET /logout is refused), never a link.
+    const logoutBtn = adminPage.locator(
+      'form[action="/logout"][method="POST"] [data-testid="logout-button"]',
+    );
     await expect(logoutBtn).toBeVisible();
+    await expect(adminPage.locator('a[href="/logout"]')).toHaveCount(0);
   });
 
   test("stat values show correct seeded counts", async ({ adminPage }) => {

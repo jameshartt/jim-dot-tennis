@@ -46,7 +46,4 @@ issues:
       text: ".*"
     - linters:
         - errcheck
-      text: "InvalidateSession"
-    - linters:
-        - errcheck
       text: "DeleteSubscription"

@@ -47,6 +47,7 @@ var adminRouteRoles = map[string]routeAccess{
 	"/admin/league/users/":    adminRoute,
 	"/admin/league/sessions":  adminRoute,
 	"/admin/league/sessions/": adminRoute,
+	"/admin/league/audit-log": adminRoute,
 
 	// Teams: captains see every team and add players to a roster; creating
 	// teams and assigning team captains is administration.

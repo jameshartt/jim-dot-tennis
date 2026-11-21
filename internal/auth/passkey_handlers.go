@@ -168,7 +168,7 @@ func (h *PasskeyHandler) loginFinish(w http.ResponseWriter, r *http.Request) {
 		writePasskeyFailure(w, err)
 		return
 	}
-	session, err := h.service.completeLogin(user, r)
+	session, err := h.service.completeLogin(user, r, SignInPasskey)
 	if err != nil {
 		writePasskeyFailure(w, err)
 		return
@@ -377,7 +377,7 @@ func (h *PasskeyHandler) signInMethods(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	data := signInMethodsData{
 		Username:          user.Username,
-		HasPassword:       user.PasswordHash != "",
+		HasPassword:       methods > len(creds), // the context user carries no hash; methods = passkeys + password
 		CanRemove:         methods > 1,
 		PasskeysAvailable: h.passkeys.Available(r),
 		AtLimit:           len(creds) >= MaxPasskeysPerUser,

@@ -26,6 +26,7 @@ const (
 	ActionLinkCreate      = "link.create"          // an invite or recovery link was issued
 	ActionLinkRevoke      = "link.revoke"          // an unused link was cancelled
 	ActionLinkUse         = "link.use"             // a link was used: a sign-in method was set
+	ActionSignIn          = "user.sign_in"         // an administrator signed in (detail: method, address)
 )
 
 // ActorKind says where an audited action came from.
@@ -78,15 +79,96 @@ type Record struct {
 }
 
 // recordAudit is the single place an account action is recorded. It is called
-// inside the transaction that made the change (db is that *sqlx.Tx), so a
-// later audit table (WI-131) can be written atomically with the change it
-// describes and a failed write can abort it.
-//
-// Today it writes one structured log line. For a command run on the server
-// that line goes to the operator's terminal (stderr), not to the server log.
-func recordAudit(_ context.Context, _ sqlx.ExtContext, rec Record) error {
+// inside the transaction that made the change (db is that *sqlx.Tx) and
+// inserts one row into account_audit_log (migration 035) on it, so the entry
+// is committed with the change it describes, and a failed insert fails the
+// transaction and so the change. It also writes the entry as one log line
+// (for a command run on the server that line goes to the operator's terminal,
+// stderr). Neither ever holds a secret: see Record.
+func recordAudit(ctx context.Context, db sqlx.ExtContext, rec Record) error {
+	if rec.Time.IsZero() {
+		rec.Time = time.Now()
+	}
+	var actorUserID, targetUserID any
+	if rec.Actor.Kind == ActorUser {
+		actorUserID = rec.Actor.UserID
+	}
+	if rec.TargetUserID != 0 {
+		targetUserID = rec.TargetUserID
+	}
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO account_audit_log
+			(created_at, actor_kind, actor_user_id, actor, action, target_user_id, target_username, detail)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		rec.Time, rec.Actor.kind(), actorUserID, rec.Actor.name(), rec.Action,
+		targetUserID, rec.TargetUsername, rec.Detail); err != nil {
+		return fmt.Errorf("record %s in the audit log: %w", rec.Action, err)
+	}
 	log.Print(formatRecord(rec))
 	return nil
+}
+
+// kind is the actor_kind column value.
+func (a Actor) kind() string {
+	switch a.Kind {
+	case ActorCLI, ActorUser:
+		return string(a.Kind)
+	default:
+		return "system"
+	}
+}
+
+// name is the actor column value: the username, or the command line command.
+func (a Actor) name() string {
+	switch a.Kind {
+	case ActorCLI:
+		return a.Command
+	case ActorUser:
+		return a.Username
+	default:
+		return ""
+	}
+}
+
+// RecordSignIn records that userID (username) signed in with method from
+// address. The server records administrators' sign-ins only (see
+// auth.Service.SetSignInAudit).
+func (s *Service) RecordSignIn(ctx context.Context, userID int64, username, method, address string) error {
+	return recordAudit(ctx, s.db, Record{Time: s.now(), Actor: UserActor(userID, username), Action: ActionSignIn,
+		TargetUserID: userID, TargetUsername: username, Detail: "method " + method + " from " + address})
+}
+
+// AuditEntry is one row of the account audit log as the admin page shows it.
+type AuditEntry struct {
+	ID             int64     `db:"id"`
+	CreatedAt      time.Time `db:"created_at"`
+	ActorKind      string    `db:"actor_kind"`
+	ActorUserID    *int64    `db:"actor_user_id"`
+	Actor          string    `db:"actor"`
+	Action         string    `db:"action"`
+	TargetUserID   *int64    `db:"target_user_id"`
+	TargetUsername string    `db:"target_username"`
+	Detail         string    `db:"detail"`
+}
+
+// AuditPage returns up to limit audit entries, newest first, skipping the
+// newest offset, and the total number of entries. Entries are read-only:
+// there is no way to change or delete one through the service (the table
+// refuses UPDATE and DELETE too).
+func (s *Service) AuditPage(ctx context.Context, limit, offset int) ([]AuditEntry, int, error) {
+	var total int
+	if err := s.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM account_audit_log`); err != nil {
+		return nil, 0, fmt.Errorf("count audit entries: %w", err)
+	}
+	var out []AuditEntry
+	if err := s.db.SelectContext(ctx, &out, `
+		SELECT id, created_at, actor_kind, actor_user_id, actor, action, target_user_id, target_username, detail
+		FROM account_audit_log
+		ORDER BY id DESC
+		LIMIT ? OFFSET ?`, limit, offset); err != nil {
+		return nil, 0, fmt.Errorf("list audit entries: %w", err)
+	}
+	return out, total, nil
 }
 
 // formatRecord renders rec as a single key=value log line.

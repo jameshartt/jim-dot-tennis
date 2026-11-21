@@ -334,13 +334,14 @@ func TestPasskeyEnrolAndDiscoverableSignIn(t *testing.T) {
 	fresh := env.browser("198.51.100.2")
 	fresh.passwordSignIn("alice")
 	var passkeySession, passwordSession models.Session
-	if err := env.svc.db.Get(&passkeySession, `SELECT * FROM sessions WHERE id = ?`, phone.cookies["session_token"]); err != nil {
+	if err := env.svc.db.Get(&passkeySession, `SELECT * FROM sessions WHERE token_hash = ?`, HashSessionToken(phone.cookies["session_token"])); err != nil {
 		t.Fatal(err)
 	}
-	if err := env.svc.db.Get(&passwordSession, `SELECT * FROM sessions WHERE id = ?`, fresh.cookies["session_token"]); err != nil {
+	if err := env.svc.db.Get(&passwordSession, `SELECT * FROM sessions WHERE token_hash = ?`, HashSessionToken(fresh.cookies["session_token"])); err != nil {
 		t.Fatal(err)
 	}
-	if passkeySession.IP != passwordSession.IP || passkeySession.DeviceInfo != passwordSession.DeviceInfo || len(passkeySession.ID) != len(passwordSession.ID) {
+	if passkeySession.IP != passwordSession.IP || passkeySession.DeviceInfo != passwordSession.DeviceInfo ||
+		len(phone.cookies["session_token"]) != len(fresh.cookies["session_token"]) {
 		t.Errorf("passkey session %+v differs in shape from password session %+v", passkeySession, passwordSession)
 	}
 	if passkeySession.UserID != userID || passkeySession.Role != passwordSession.Role || !passkeySession.IsValid {
@@ -349,7 +350,7 @@ func TestPasskeyEnrolAndDiscoverableSignIn(t *testing.T) {
 	if got, want := passkeySession.ExpiresAt.Sub(passkeySession.CreatedAt), passwordSession.ExpiresAt.Sub(passwordSession.CreatedAt); got != want {
 		t.Errorf("passkey session lifetime %v, password session lifetime %v", got, want)
 	}
-	if _, err := env.svc.ValidateSession(passkeySession.ID, httptest.NewRequest("GET", "/", nil)); err != nil {
+	if _, err := env.svc.ValidateSession(phone.cookies["session_token"], httptest.NewRequest("GET", "/", nil)); err != nil {
 		t.Errorf("passkey session does not validate: %v", err)
 	}
 

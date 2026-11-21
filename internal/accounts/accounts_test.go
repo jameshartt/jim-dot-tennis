@@ -91,11 +91,12 @@ func passwordHash(t *testing.T, db *database.DB, userID int64) string {
 	return string(u.PasswordHash)
 }
 
-// addSession inserts a valid session for userID.
-func addSession(t *testing.T, db *database.DB, id string, userID int64) {
+// addSession inserts a valid session for userID whose cookie token is token
+// (only its hash is stored, as the server does).
+func addSession(t *testing.T, db *database.DB, token string, userID int64) {
 	t.Helper()
-	_, err := db.Exec(`INSERT INTO sessions (id, user_id, role, created_at, expires_at, last_activity_at, ip, user_agent, device_info, is_valid)
-		VALUES (?, ?, 'admin', CURRENT_TIMESTAMP, datetime('now', '+1 day'), CURRENT_TIMESTAMP, '', '', '', TRUE)`, id, userID)
+	_, err := db.Exec(`INSERT INTO sessions (token_hash, user_id, role, created_at, expires_at, last_activity_at, ip, user_agent, device_info, is_valid)
+		VALUES (?, ?, 'admin', CURRENT_TIMESTAMP, datetime('now', '+1 day'), CURRENT_TIMESTAMP, '', '', '', TRUE)`, auth.HashSessionToken(token), userID)
 	if err != nil {
 		t.Fatal(err)
 	}

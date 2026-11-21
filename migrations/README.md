@@ -92,7 +92,10 @@ To create a new migration:
   long time — now fixed.)
 - **Never reuse version 026.** It was assigned during Sprint 017 (`lineup_drafts`)
   but never committed, leaving a permanent gap in the sequence (…025, 027, 028…).
-  The next available version is **032**. Do not backfill 026.
+  The next available version is **036**. Do not backfill 026.
+- **035 replaced the `sessions` table** (raw token as key to a numeric id plus
+  `token_hash`). That was safe only because no table references `sessions`;
+  `internal/database/migration_035_test.go` fails if one ever does.
 
 ### Changing a column of a table that other tables reference
 

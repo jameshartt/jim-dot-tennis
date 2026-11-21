@@ -88,7 +88,7 @@ func accounts(t *testing.T, db *database.DB) ([]accountRow, []map[string]any) {
 		CAST(created_at AS TEXT) AS created_at, CAST(last_login_at AS TEXT) AS last_login_at FROM users ORDER BY id`); err != nil {
 		t.Fatal(err)
 	}
-	rows, err := db.Queryx(`SELECT id, user_id, role, CAST(expires_at AS TEXT) AS expires_at, ip, is_valid FROM sessions ORDER BY id`)
+	rows, err := db.Queryx(`SELECT user_id, role, CAST(expires_at AS TEXT) AS expires_at, ip, is_valid FROM sessions ORDER BY id`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +106,8 @@ func accounts(t *testing.T, db *database.DB) ([]accountRow, []map[string]any) {
 
 // An install created by an earlier version (here: stopped at migration 004,
 // with accounts, a session and push keys) upgrades to the current schema and
-// passes the startup self-check without any account or session changing.
+// passes the startup self-check without any account changing. Its sessions
+// are ended once, by migration 035 (sessions stored hashed from then on).
 func TestUpgradeKeepsExistingAccounts(t *testing.T) {
 	db, err := database.New(database.Config{Driver: "sqlite3", FilePath: filepath.Join(t.TempDir(), "old.db")})
 	if err != nil {
@@ -134,6 +135,9 @@ func TestUpgradeKeepsExistingAccounts(t *testing.T) {
 		VALUES ('sess-1', 1, 'admin', '2099-01-01 00:00:00', '192.0.2.1', 'ua', 'dev', TRUE)`)
 	db.MustExec(`INSERT INTO vapid_keys (id, public_key, private_key) VALUES (1, 'pub', 'priv')`)
 	usersBefore, sessionsBefore := accounts(t, db)
+	if len(sessionsBefore) != 1 {
+		t.Fatalf("sessions before upgrade: %v", sessionsBefore)
+	}
 
 	if err := db.ExecuteMigrations(migrations); err != nil {
 		t.Fatal(err)
@@ -148,8 +152,11 @@ func TestUpgradeKeepsExistingAccounts(t *testing.T) {
 	if !reflect.DeepEqual(usersBefore, usersAfter) {
 		t.Fatalf("accounts changed by upgrade:\nbefore %+v\nafter  %+v", usersBefore, usersAfter)
 	}
-	if !reflect.DeepEqual(sessionsBefore, sessionsAfter) {
-		t.Fatalf("sessions changed by upgrade:\nbefore %v\nafter  %v", sessionsBefore, sessionsAfter)
+	// Migration 035 signs everyone out once: sessions used to be stored by
+	// their raw token, and are deleted rather than converted (see the
+	// migration). Accounts are untouched.
+	if len(sessionsAfter) != 0 {
+		t.Fatalf("sessions after upgrade: %v, want none (migration 035 signs everyone out once)", sessionsAfter)
 	}
 	var pub, priv string
 	if err := db.QueryRow(`SELECT public_key, private_key FROM vapid_keys WHERE id = 1`).Scan(&pub, &priv); err != nil || pub != "pub" || priv != "priv" {

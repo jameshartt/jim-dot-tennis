@@ -24,6 +24,7 @@ type Handler struct {
 	teams             *TeamsHandler
 	users             *UsersHandler
 	sessions          *SessionsHandler
+	auditLog          *AuditLogHandler
 	matchCardImport   *MatchCardImportationHandler
 	points            *PointsHandler
 	clubWrapped       *ClubWrappedHandler
@@ -58,6 +59,7 @@ func New(db *database.DB, templateDir string, courthiveAPIURL string, homeClub c
 		teams:             NewTeamsHandler(service, templateDir),
 		users:             NewUsersHandler(service, templateDir),
 		sessions:          NewSessionsHandler(service, templateDir),
+		auditLog:          NewAuditLogHandler(service, templateDir),
 		matchCardImport:   NewMatchCardImportationHandler(service, templateDir),
 		points:            NewPointsHandler(service, templateDir),
 		clubWrapped:       NewClubWrappedHandler(service, templateDir),
@@ -96,6 +98,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/league/users/", h.users.HandleUsers)
 	adminMux.HandleFunc("/admin/league/sessions", h.sessions.HandleSessions)
 	adminMux.HandleFunc("/admin/league/sessions/", h.sessions.HandleSessions)
+	adminMux.HandleFunc(auditLogPath, h.auditLog.HandleAuditLog) // administrators only (also checked in the handler)
 	adminMux.HandleFunc("/admin/league/teams", h.teams.HandleTeams)
 	adminMux.HandleFunc("/admin/league/teams/", h.teams.HandleTeams)
 	adminMux.HandleFunc("/admin/league/teams/away", h.teams.HandleAwayTeams)

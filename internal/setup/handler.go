@@ -268,7 +268,7 @@ func (h *Handler) code(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return
 	}
-	ticket, err := h.svc.RedeemCode(ctx, r.PostForm.Get("code"), auth.ClientIP(r))
+	ticket, err := h.svc.RedeemCode(ctx, r.PostForm.Get("code"), auth.ThrottleKey(r))
 	if err == nil {
 		h.setTicket(w, ticket)
 		http.Redirect(w, r, AdminPath, http.StatusSeeOther)

@@ -117,6 +117,15 @@ func TestCLIUserCommands(t *testing.T) {
 	if strings.Contains(r.stderr, aliceInvite) {
 		t.Error("the audit record contains the link")
 	}
+	// The command line's actions are in the account audit log table too.
+	var cliRows []string
+	if err := db.Select(&cliRows, `SELECT action || ' ' || target_username FROM account_audit_log
+		WHERE actor_kind = 'cli' AND actor = 'user create' AND actor_user_id IS NULL ORDER BY id`); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(cliRows, ",") != "user.create alice,link.create alice" {
+		t.Errorf("audit log rows for create: %q", cliRows)
+	}
 	if link, err := svc.LookupLink(ctx, aliceInvite); err != nil || link.Kind != accounts.LinkInvite || link.Username != "alice" {
 		t.Fatalf("the printed invite link: %+v %v", link, err)
 	}
@@ -154,8 +163,8 @@ func TestCLIUserCommands(t *testing.T) {
 	// reset: prints a recovery link and changes nothing until it is used
 	// (the server's sessions, written through its own connection, stay valid).
 	for _, id := range []string{"sess-1", "sess-2"} {
-		if _, err := db.Exec(`INSERT INTO sessions (id, user_id, role, created_at, expires_at, last_activity_at, ip, user_agent, device_info, is_valid)
-			VALUES (?, ?, 'admin', CURRENT_TIMESTAMP, datetime('now', '+1 day'), CURRENT_TIMESTAMP, '', '', '', TRUE)`, id, alice.ID); err != nil {
+		if _, err := db.Exec(`INSERT INTO sessions (token_hash, user_id, role, created_at, expires_at, last_activity_at, ip, user_agent, device_info, is_valid)
+			VALUES (?, ?, 'admin', CURRENT_TIMESTAMP, datetime('now', '+1 day'), CURRENT_TIMESTAMP, '', '', '', TRUE)`, auth.HashSessionToken(id), alice.ID); err != nil {
 			t.Fatal(err)
 		}
 	}

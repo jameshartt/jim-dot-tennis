@@ -145,7 +145,7 @@ The codebase follows a clean layered architecture:
 - `repository/`: Data access layer (one per entity)
 - `auth/`: Authentication service, middleware, and handlers
 - `accounts/`: The one account service (invite, list, enable/disable, role, invite and recovery links in `links.go`, session revocation, last-active-administrator guard, audit seam `recordAudit`), used by the admin users/sessions pages and the server command line `jim-dot-tennis user ... | setup code` (`cmd/jim-dot-tennis/cli.go`; help text reproduced in `docs/PRODUCTION_QUICK_REFERENCE.md` section 10, kept in step by a test). Also the link page `/account/link/{token}` (`link_page.go`) and `/account/password` (a user changing their own password)
-- `admin/`: Admin interface handlers (dashboard, players, fixtures, teams, users, sessions, match card import, points, club wrapped)
+- `admin/`: Admin interface handlers (dashboard, players, fixtures, teams, users, sessions, account audit log, match card import, points, club wrapped)
 - `players/`: Player-facing handlers (availability management)
 - `services/`: Business logic (match card parsing, player matching, nonce extraction)
 - `webpush/`: Push notification service
@@ -188,7 +188,8 @@ The codebase follows a clean layered architecture:
 - `player_availability`: Player availability tracking
 - `fixture_players`: Player assignments to fixtures
 - `tennis_players`: External player database from BHPLTA
-- `users`, `sessions`: Authentication
+- `users`, `sessions`, `login_attempts`: Authentication (`sessions` holds token hashes only)
+- `account_audit_log`: Append-only record of account actions
 - `push_subscriptions`, `vapid_keys`: Push notifications
 
 ### Repository Pattern
@@ -206,7 +207,9 @@ Key repositories: `SeasonRepository`, `WeekRepository`, `LeagueRepository`, `Div
 
 1. **Session-based (Admin)**: Cookie-based authentication with role-based access control
    - Login at `/login` → redirects to `/admin/league/dashboard`. Two ways in, one session: a passkey (the login page leads with it) or username and password. Both end in `auth.Service.completeLogin` → `createSession`, so the sessions are identical
-   - Sessions stored in database with expiry (7 days default)
+   - Sessions stored in database with expiry (7 days sliding, 30 days absolute). The cookie carries a random token; only its SHA-256 is stored (`sessions.token_hash`, `auth.HashSessionToken`, migration 035, which signed everyone out once), and `sessions.id` is a non-secret number used on the admin sessions page (`/admin/league/sessions/{id}/invalidate`). `RequireAuth` puts the user (with `PasswordHash` always emptied: read the hash from the database where it is needed), the role and the session id (`auth.SessionIDFromContext`) in the request context, and logs nothing per request
+   - Logout is `POST /logout` only (GET is 405); every logout control is a `<form method="POST" action="/logout">` with `data-testid="logout-button"`
+   - Scheduled cleanup (`internal/auth/cleanup.go`, started by `serve` in main.go a minute after start, hourly, stopped on SIGINT/SIGTERM): deletes dead sessions, login attempts older than 90 days, and used/revoked/expired links older than 30 days; never the audit log
    - Middleware: `auth.Middleware.RequireAuth()` + `RequireRole(admin, captain)` on the `/admin/league` mount, then a per-route role check
    - Protected routes: `/admin/league/*`
 
@@ -221,7 +224,9 @@ Key repositories: `SeasonRepository`, `WeekRepository`, `LeagueRepository`, `Div
    - Middleware: `auth.Middleware.RequireFantasyTokenAuth()`
    - No session, passwordless access for specific players
 
-**Rate Limiting:** Password login attempts tracked per username and address (5 attempts per 15 minutes). Passkey attempts are throttled per client address only, in memory (`internal/auth/passkey_ceremony.go`), and are never recorded against a username, so they cannot lock a named user out.
+**Rate Limiting:** Password sign-in (`internal/auth/throttle.go`, from `login_attempts` over 15 minutes): 5 failures per username and address, and 30 failures per address across all usernames (`MaxLoginFailuresPerAddress`, password spraying); a throttled attempt is refused without being recorded, so it does not extend the block. Passkey attempts are throttled per client address only, in memory (`internal/auth/passkey_ceremony.go`), and are never recorded against a username, so they cannot lock a named user out; the per-address password count leaves them out. All throttles key on `auth.ThrottleKey(r)` (the client address, an IPv6 one reduced to its /64), which is also what `login_attempts.ip` stores. The client address comes only from `clientIP` (`internal/auth/clientip.go`): the rightmost `X-Forwarded-For` entry when the peer is private/loopback (Caddy), else the peer. That is safe only while the app port is reachable solely through the proxy (never publish 8080 in production).
+
+**Account audit log** (migration 035, `account_audit_log`): `accounts.recordAudit` inserts one row in the transaction that made the change (a failed insert fails the change); rows hold actor (user or CLI command), action, target account and a short non-secret detail, never passwords, tokens, hashes or session ids; no foreign keys (history outlives accounts); triggers refuse UPDATE and DELETE; retention is keep. Administrators' sign-ins are recorded through `auth.Service.SetSignInAudit` (wired in main.go to `accounts.Service.RecordSignIn`). Read-only page `GET /admin/league/audit-log` (`internal/admin/audit_log.go`, `templates/admin/audit_log.html`, administrators only, 50 per page, newest first).
 
 **Passkeys (WebAuthn)** (`internal/auth/passkey*.go`, `internal/repository/webauthn_credential.go`, `static/passkey.js`, `github.com/go-webauthn/webauthn`; operator notes in `docs/PRODUCTION_QUICK_REFERENCE.md` section 11):
 - Tables (migration 033): `webauthn_credentials` (one row per passkey; `credential_id` unique across users) and `webauthn_user_handles` (a random 32-byte handle per user, created on first enrolment; discoverable sign-in resolves the account from it, never from a username or numeric id).
