@@ -1,0 +1,53 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      go-modules:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directories: ["/", "/.github/actions/*"]
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  # Dockerfile, Dockerfile.e2e (the Playwright image) and Dockerfile.import.
+  # The Playwright image tag and the @playwright/test version in
+  # tests/e2e/package.json must stay equal: merge both Playwright PRs together
+  # (they are separate groups because Dependabot cannot group across
+  # ecosystems). See CONTRIBUTING.md.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      docker-base-images:
+        patterns: ["*"]
+        exclude-patterns: ["mcr.microsoft.com/playwright*"]
+      playwright-image:
+        patterns: ["mcr.microsoft.com/playwright*"]
+
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      compose-images:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /tests/e2e
+    schedule:
+      interval: weekly
+    groups:
+      playwright-npm:
+        patterns: ["@playwright/*", "@axe-core/*"]
+      e2e-other:
+        patterns: ["*"]
+        exclude-patterns: ["@playwright/*", "@axe-core/*"]
