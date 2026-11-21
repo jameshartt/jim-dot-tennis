@@ -43,36 +43,24 @@ test.describe("Match Results - Page Structure", () => {
 });
 
 test.describe("Match Results - Validation", () => {
-  // KNOWN FAILURE (WI-139): fails in the full main-suite run on main but passes
-  // when this spec (or this test alone) runs against a freshly seeded database,
-  // so some earlier spec leaves fixture 1 / matchup 1 in a state that skips the
-  // score validation (likely conceded/retired or completed). The handler's
-  // validation itself is correct (5-5 -> "at least one side must reach 6 games").
-  // Needs a full-suite investigation; remove the fixme once the polluting spec
-  // is found.
-  test.fixme("invalid scores show error messages on fixture 1", async ({
+  test("invalid scores show error messages on fixture 1", async ({
     adminPage,
   }) => {
     await adminPage.goto("/admin/league/fixtures/1/results");
     await adminPage.waitForLoadState("networkidle");
 
+    // Fixture 1 may have been rescheduled by an earlier spec (fixture-management
+    // "edit form saves changes"): rescheduling deliberately clears the fixture's
+    // matchups, and the results page then creates fresh ones with new ids. So do
+    // not hard-code matchup ids: use whichever matchup card comes first.
+    const card = adminPage.locator(".matchup-card").first();
+    await expect(card).toBeVisible();
+
     // Enter invalid score (5-5 is not a valid tennis set score)
-    await adminPage.fill(
-      'input[name="matchup_1_home_set1"]',
-      "5",
-    );
-    await adminPage.fill(
-      'input[name="matchup_1_away_set1"]',
-      "5",
-    );
-    await adminPage.fill(
-      'input[name="matchup_1_home_set2"]',
-      "6",
-    );
-    await adminPage.fill(
-      'input[name="matchup_1_away_set2"]',
-      "4",
-    );
+    await card.locator('input[name$="_home_set1"]').fill("5");
+    await card.locator('input[name$="_away_set1"]').fill("5");
+    await card.locator('input[name$="_home_set2"]').fill("6");
+    await card.locator('input[name$="_away_set2"]').fill("4");
 
     // Submit
     await adminPage.click(".btn-submit");

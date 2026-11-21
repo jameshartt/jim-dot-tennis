@@ -14,6 +14,7 @@ const AUTH_SPECS = [
   "**/account-links.spec.ts",
   "**/admin-passkeys.spec.ts",
   "**/cli-reset.spec.ts",
+  "**/backups-passkey.spec.ts",
 ];
 
 export default defineConfig({
