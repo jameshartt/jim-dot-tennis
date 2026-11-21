@@ -22,4 +22,10 @@ const (
 	SettingBHPLTAClubID = "bhplta_club_id"
 	// SettingPublicURL is the instance's public base URL (scheme and host, no trailing slash).
 	SettingPublicURL = "public_url"
+
+	// Feature switches (WI-122), stored as "true" or "false". Effective values
+	// and defaults are resolved by config.ClubSettings.
+	SettingFeatureTournaments = "feature_tournaments"
+	SettingFeatureClubWrapped = "feature_club_wrapped"
+	SettingFeatureMyTennis    = "feature_my_tennis"
 )

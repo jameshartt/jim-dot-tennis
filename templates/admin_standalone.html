@@ -405,9 +405,11 @@
                             <a href="/admin/league/seasons" class="action-link">
                                 <span class="action-link-icon">&#9728;</span> Manage Seasons
                             </a>
+                            {{if .Features.Tournaments}}
                             <a href="/admin/league/tournaments" class="action-link">
                                 <span class="action-link-icon">&#127941;</span> Manage Tournaments
                             </a>
+                            {{end}}
                         </div>
                     </div>
 
@@ -432,9 +434,11 @@
                     <div class="action-category">
                         <h3>Season Tools</h3>
                         <div class="action-list">
+                            {{if .Features.ClubWrapped}}
                             <a href="/admin/league/wrapped" class="action-link">
                                 <span class="action-link-icon">&#10024;</span> Season Wrapped
                             </a>
+                            {{end}}
                             <a href="/admin/league/preferred-names" class="action-link">
                                 <span class="action-link-icon">&#128221;</span> Preferred Name Approvals
                             </a>

@@ -68,6 +68,7 @@ func (h *DashboardHandler) HandleDashboard(w http.ResponseWriter, r *http.Reques
 		"Stats":              dashboardData.Stats,
 		"LoginAttempts":      dashboardData.LoginAttempts,
 		"AwaitingReschedule": awaitingReschedule,
+		"Features":           h.service.clubSettings.Features(),
 	}
 
 	// Execute the template

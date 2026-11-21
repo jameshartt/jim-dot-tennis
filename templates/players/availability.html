@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/static/css/main.css">
     <!-- PWA — dynamic manifest so Add to Home Screen opens this player's page -->
     <link rel="manifest" href="/api/manifest?start=/my-availability/{{.AuthToken}}">
-    <meta name="theme-color" content="#006400">
+    <meta name="theme-color" content="{{if .ThemeColour}}{{.ThemeColour}}{{else}}#006400{{end}}">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="My Tennis">
@@ -1674,6 +1674,7 @@
     </div>
     
     <!-- Wrapped Password Modal -->
+    {{if .ClubWrappedEnabled}}
     <div id="wrappedModal" class="injury-modal" style="display: none;">
         <div class="modal-overlay" onclick="hideWrappedModal()"></div>
         <div class="modal-content">
@@ -1695,6 +1696,7 @@
             </div>
         </div>
     </div>
+    {{end}}
 
     <!-- Exception Modal -->
     <div id="exceptionModal" class="injury-modal" style="display: none;">

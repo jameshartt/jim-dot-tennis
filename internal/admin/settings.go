@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -75,6 +76,9 @@ type SettingsPageData struct {
 
 	PublicURL    string
 	PublicURLEnv string
+
+	Features       config.Features // effective feature switches
+	MyTennisEnvVar string          // env var overriding the My Tennis switch, if set
 }
 
 // HandleSettings serves GET and POST /admin/league/settings and POST .../bhplta-lookup.
@@ -131,6 +135,7 @@ func (h *SettingsHandler) pageData(r *http.Request, cs *config.ClubSettings) Set
 		BHPLTAClubName:  cs.Stored(repository.SettingBHPLTAClubName),
 		BHPLTAClubID:    cs.Stored(repository.SettingBHPLTAClubID),
 		PublicURL:       cs.PublicURL(),
+		Features:        cs.Features(),
 	}
 	if club != nil {
 		d.ClubName = club.Name
@@ -138,6 +143,7 @@ func (h *SettingsHandler) pageData(r *http.Request, cs *config.ClubSettings) Set
 	d.LogoEnv, _ = cs.EnvOverride(repository.SettingClubLogoFile)
 	d.BHPLTAClubCodeEnv, _ = cs.EnvOverride(repository.SettingBHPLTAClubCode)
 	d.PublicURLEnv, _ = cs.EnvOverride(repository.SettingPublicURL)
+	d.MyTennisEnvVar, _ = cs.EnvOverride(repository.SettingFeatureMyTennis)
 	if d.BHPLTAClubName == "" && d.BHPLTAClubID == "" {
 		if k, ok := config.KnownBHPLTAClub(club); ok {
 			d.BHPLTAClubName, d.BHPLTAClubID, d.BHPLTAFromKnown = k.Name, strconv.Itoa(k.ID), true
@@ -259,7 +265,21 @@ func (h *SettingsHandler) parseForm(r *http.Request, cs *config.ClubSettings) (m
 			return nil, nil, err
 		}
 	}
-	// Feature switches (WI-122) are parsed here, alongside the fields above.
+	// Feature switches: each is a hidden "off" input followed by a checkbox
+	// "on", so a form that omits a switch leaves it as it is. A switch set by
+	// the environment is not submitted and is left alone.
+	for _, f := range []struct{ field, key string }{
+		{"feature_tournaments", repository.SettingFeatureTournaments},
+		{"feature_club_wrapped", repository.SettingFeatureClubWrapped},
+		{"feature_my_tennis", repository.SettingFeatureMyTennis},
+	} {
+		if _, env := cs.EnvOverride(f.key); env {
+			continue
+		}
+		if vals, present := r.Form[f.field]; present && len(vals) > 0 {
+			values[f.key] = strconv.FormatBool(slices.Contains(vals, "on"))
+		}
+	}
 
 	logo, err := readLogo(r)
 	if err != nil {
