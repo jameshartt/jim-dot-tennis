@@ -20,6 +20,10 @@ const (
 	SettingHomeClubID = "home_club_id"
 	// SettingSetupCompletedAt records when first-run setup was completed (RFC 3339, UTC).
 	SettingSetupCompletedAt = "setup_completed_at"
+	// SettingDemoData is "true" while the instance is running on the fictional
+	// demo data loaded from the setup club step (internal/setup/demo.go).
+	// Clearing demo data only ever deletes while it is set.
+	SettingDemoData = "demo_data_loaded"
 )
 
 // SettingsRepository provides typed access to the app_settings key/value table.

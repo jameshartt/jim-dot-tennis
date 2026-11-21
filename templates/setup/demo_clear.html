@@ -1,0 +1,29 @@
+{{define "setup/demo_clear.html"}}
+{{template "layout" .}}
+{{end}}
+
+{{define "head"}}
+<title>Clear demo data - Jim.Tennis</title>
+{{template "setup-head" .}}
+{{end}}
+
+{{define "user-controls"}}
+<a href="/admin/league/dashboard" class="btn btn-sm">Dashboard</a>
+{{end}}
+
+{{define "content"}}
+<div class="setup-container">
+    <div class="setup-card" data-setup-step="demo-clear">
+        <h1>Clear demo data?</h1>
+        {{template "setup-error" .}}
+        <p>This removes the demo club, league, players, availability, selections and results, along with anything you added while looking around. Your administrator login is kept.</p>
+        <p>You will then be taken back to choosing your club.</p>
+        <form method="POST" action="/setup/demo/clear">
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Clear demo data</button>
+            </div>
+        </form>
+        <p><a href="/admin/league/dashboard">Keep exploring</a></p>
+    </div>
+</div>
+{{end}}

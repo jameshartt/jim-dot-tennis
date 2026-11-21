@@ -42,6 +42,16 @@
                 <button type="submit" class="btn btn-primary">{{if .Retry}}Try again{{else}}Use this club{{end}}</button>
             </div>
         </form>
+        {{if .DemoOffered}}
+        <hr>
+        <h2 class="setup-subhead">Just looking?</h2>
+        <p class="setup-help">Explore with a fictional club, players and results first. Nothing real is stored, a "Demo data" banner shows on every page, and you can clear it all later and come back here to choose your club.</p>
+        <form method="POST" action="/setup/demo" data-setup-demo>
+            <div class="form-actions">
+                <button type="submit" class="btn">Explore with demo data</button>
+            </div>
+        </form>
+        {{end}}
         {{end}}
         <details class="setup-details">
             <summary>My club isn't listed</summary>

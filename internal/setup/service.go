@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -83,6 +84,9 @@ type Service struct {
 	// jobMu guards job, the club step running in the background.
 	jobMu sync.Mutex
 	job   *ClubJob
+
+	// demoActive mirrors the demo data flag in app_settings (see demo.go).
+	demoActive atomic.Bool
 }
 
 // clubJobTimeout bounds a background club step (reading BHPLTA included).
@@ -110,13 +114,15 @@ func NewService(state *State, provisioner HomeClubProvisioner) *Service {
 	if provisioner == nil {
 		provisioner = NewClubRowProvisioner(state.db)
 	}
-	return &Service{
+	s := &Service{
 		state:       state,
 		db:          state.db,
 		provisioner: provisioner,
 		throttle:    newCodeThrottle(),
 		now:         time.Now,
 	}
+	s.loadDemoFlag(context.Background())
+	return s
 }
 
 // State returns the setup state the service drives.

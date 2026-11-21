@@ -115,6 +115,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc(AdminPath, h.admin)
 	mux.HandleFunc(ClubPath, h.club)
 	mux.HandleFunc(DonePath, h.done)
+	mux.HandleFunc(DemoPath, h.demo)
+	mux.HandleFunc(DemoClearPath, h.demoClear)
 }
 
 // pageData is what every setup template renders.
@@ -138,6 +140,8 @@ type pageData struct {
 	Retry        bool // the last attempt failed; the form retries it
 	// Import is what the BHPLTA bootstrap created (done page).
 	Import *bhplta.Summary
+	// DemoOffered: the club step offers "Explore with demo data".
+	DemoOffered bool
 }
 
 // workingQuery marks the club page while it waits for the background club
@@ -369,7 +373,7 @@ func (h *Handler) club(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := pageData{Step: 3, Status: StatusNeedsClub.String(), Clubs: h.svc.Clubs()}
+	data := pageData{Step: 3, Status: StatusNeedsClub.String(), Clubs: h.svc.Clubs(), DemoOffered: true}
 	if r.Method != http.MethodPost {
 		if job, ok := h.svc.ClubJob(); ok {
 			data.Selected = job.Slug
