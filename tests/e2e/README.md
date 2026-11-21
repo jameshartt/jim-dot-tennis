@@ -43,7 +43,52 @@ make test-e2e-failed
 
 # Tear down test containers and clean artefacts
 make test-e2e-clean
+
+# Fresh-install suite (empty databases, setup flow; see below)
+make test-e2e-fresh
 ```
+
+## Fresh-install suite (`make test-e2e-fresh`)
+
+The `fresh-install` Playwright project proves a new club can get from nothing to
+a working instance. It is separate from `make test-e2e`, which never runs it
+(`fresh-install*.spec.ts` is ignored by the `chromium` project, and the project
+only exists when `FRESH_INSTALL` is set).
+
+`scripts/test-e2e-fresh.sh` starts, under a unique compose project name:
+
+- `app-fresh` and `app-fresh-demo`: app instances on brand-new empty volumes
+  (no `seed.sql`, no `HOME_CLUB_*`), so they start in setup mode and print a
+  setup code to their log. `BHPLTA_BASE_URL` points at `http://fresh-fixtures:9099`.
+- `e2e-fresh`: the Playwright runner. Its network alias is `fresh-fixtures` and
+  it serves `fixtures/bhplta/` (the saved BHPLTA pages) itself via
+  `helpers/fresh-install.ts` `FixtureServer`, so the real BHPLTA site is never
+  contacted. The server can be stopped and started, which the failure/retry test uses.
+
+How the suite gets the setup code: after the apps are healthy the script saves
+each app's `docker compose logs` into a temporary directory mounted read-only
+into the runner (`FRESH_LOG_DIR`); `readSetupCode()` reads the code from there.
+The directory is deleted at the end; nothing is committed. The runner also
+mounts the volumes, so specs check the database with `sqlite3` (`sqlite()` helper).
+
+Volumes, containers and the network are removed when the run ends, pass or fail,
+so each run starts from nothing and the regular e2e volume is never touched.
+
+Specs (one serial flow, one worker, no retries):
+
+- `fresh-install.spec.ts`: empty instance gates everything to `/setup`; wrong
+  code rejected; code from the log accepted; password-policy rejection; first
+  administrator created; club step fails with the fixture server down and shows
+  "Try again"; retry succeeds from the saved pages and the done page counts
+  (4 divisions, 41 teams, 18 weeks, 228 fixtures, 12 clubs) match the database;
+  dashboard; settings change takes effect; player link generation works (and
+  `tennis_players` was seeded); every `/setup...` route is 404 afterwards; the
+  administrator is the only row in `users` (and no passkey/credential rows).
+- `fresh-install-demo.spec.ts`: on a second empty instance, load demo data,
+  see the `#demo-banner`, clear it and land back at club selection with only
+  the administrator left.
+
+Not covered: the off-season fixtures variant (`fixtures/bhplta/off-season`).
 
 ## Viewing Results
 
@@ -100,7 +145,8 @@ tests/e2e/
 │   ├── auth.ts               # loginAsAdmin(), loginWith()
 │   ├── htmx.ts               # waitForHtmxSettle(), waitForHtmxRequest()
 │   ├── navigation.ts         # goToDashboard(), goToFixtures(), etc.
-│   └── assertions.ts         # expectTitleContains(), expectTableRowCount(), etc.
+│   ├── assertions.ts         # expectTitleContains(), expectTableRowCount(), etc.
+│   └── fresh-install.ts      # setup-code reader, sqlite(), FixtureServer (fresh-install only)
 ├── admin/                    # Admin page specs
 │   ├── dashboard.spec.ts
 │   ├── navigation.spec.ts
@@ -121,6 +167,8 @@ tests/e2e/
 │   ├── team-selection.spec.ts
 │   ├── match-results.spec.ts
 │   └── fixture-management.spec.ts
+├── fresh-install.spec.ts     # Fresh-install suite (make test-e2e-fresh only)
+├── fresh-install-demo.spec.ts
 ├── scripts/
 │   └── parse-results.mjs     # JSON results → human-readable summary
 ├── smoke.spec.ts             # Smoke tests (full stack validation)

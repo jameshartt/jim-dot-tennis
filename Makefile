@@ -3,7 +3,7 @@
 	vet fmt fmt-fix imports imports-fix lint deadcode tidy check test test-js \
 	test-e2e test-e2e-bootstrap test-e2e-safe test-e2e-safe-keep test-e2e-restore \
 	test-e2e-headed test-e2e-grep test-e2e-failed \
-	test-e2e-report test-e2e-results test-e2e-clean test-e2e-multiclub
+	test-e2e-report test-e2e-results test-e2e-clean test-e2e-multiclub test-e2e-fresh
 
 # Docker compose command
 DOCKER_COMPOSE = docker compose
@@ -236,6 +236,13 @@ test-e2e: test-e2e-bootstrap
 
 # NOTE: E2E now has its own data volume, so this no longer protects anything the
 # suite would otherwise touch; kept for now, candidate for retirement.
+# Run the fresh-install suite: empty database volumes, no seed, no HOME_CLUB_*,
+# saved BHPLTA pages instead of the live site. Own compose project, unique
+# volumes (removed afterwards); never touches the regular e2e volume or the dev
+# stack. See scripts/test-e2e-fresh.sh and tests/e2e/README.md.
+test-e2e-fresh:
+	@./scripts/test-e2e-fresh.sh
+
 # Run E2E tests with prod-DB snapshot/restore (usage: make test-e2e-safe [WORKERS=4])
 # Wraps `make test-e2e` so the local dev database (often a prod pull) is
 # preserved across the test run. See scripts/test-e2e-safe.sh for full options

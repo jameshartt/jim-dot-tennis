@@ -380,7 +380,11 @@ func (h *Handler) club(w http.ResponseWriter, r *http.Request) {
 		if job, ok := h.svc.ClubJob(); ok {
 			data.Selected = job.Slug
 			switch {
-			case job.Running:
+			case job.Running, job.Err == nil && job.Result != nil:
+				// A job that has just finished successfully while the status
+				// above still read needs-club (this request raced the
+				// completion): keep waiting; the next refresh hands over to
+				// the done page.
 				data.Working = true
 				data.ClubName = job.ClubName
 				data.ProgressText = progressText(job)
@@ -472,7 +476,11 @@ func (h *Handler) render(w http.ResponseWriter, status int, page string, data pa
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Referrer-Policy", "no-referrer")
+	// same-origin, not no-referrer: with no-referrer a browser sends "Origin:
+	// null" on form posts, and on plain http to a LAN address (no Sec-Fetch-Site
+	// header there) the cross-origin guard would then refuse the setup forms.
+	// Nothing is sent to other sites either way.
+	w.Header().Set("Referrer-Policy", "same-origin")
 	rec := &statusWriter{ResponseWriter: w, status: status}
 	if err := render.Execute(rec, tmpl, "setup/"+page+".html", data); err != nil {
 		log.Printf("setup: render %s: %v", page, err)

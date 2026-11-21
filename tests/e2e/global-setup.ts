@@ -5,6 +5,9 @@ import { chromium, FullConfig } from "@playwright/test";
  * so all test workers can reuse the session without hitting rate limits.
  */
 async function globalSetup(config: FullConfig) {
+  // The fresh-install run has no seeded admin: it creates its own.
+  if (process.env.FRESH_INSTALL) return;
+
   const baseURL =
     config.projects[0].use.baseURL || "http://app-e2e:8080";
 

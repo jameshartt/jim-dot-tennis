@@ -72,10 +72,11 @@ make test-e2e-failed               # Re-run only previously failed tests
 make test-e2e-report               # Open HTML test report
 make test-e2e-results              # Formatted test summary (Claude-friendly)
 make test-e2e-multiclub            # Run multi-club verification tests
+make test-e2e-fresh                # Fresh-install suite: EMPTY volumes, setup flow, saved BHPLTA pages (own compose project)
 make test-e2e-clean                # Tear down E2E containers, delete the E2E volume and artifacts
 
 # Test infrastructure:
-# - tests/e2e/              Playwright project root (146 tests across 19 spec files)
+# - tests/e2e/              Playwright project root (213 tests across 30 spec files)
 # - tests/e2e/helpers/      Reusable helpers (auth, htmx, navigation, assertions)
 # - tests/e2e/fixtures/     Seed data (seed.sql) and test fixtures (test-fixtures.ts)
 # - tests/e2e/admin/        Admin page specs (dashboard, navigation, CRUD, points, wrapped)
@@ -86,7 +87,8 @@ make test-e2e-clean                # Tear down E2E containers, delete the E2E vo
 # - tests/e2e/smoke.spec.ts Smoke tests validating the full stack
 # - tests/e2e/auth.spec.ts  Authentication flow tests (login, logout, rate limit)
 # - tests/e2e/scripts/parse-results.mjs  JSON results → Claude-friendly summary
-# - tests/e2e/global-setup.ts  Shared auth session via storageState
+# - tests/e2e/global-setup.ts  Shared auth session via storageState (skipped when FRESH_INSTALL is set)
+# - tests/e2e/fresh-install*.spec.ts  `fresh-install` project (only with `make test-e2e-fresh`; excluded from `make test-e2e`)
 # - Dockerfile.e2e          Playwright container (includes sqlite3 for seeding)
 # - E2E runs against its own `app-e2e` service and `jim-dot-tennis-e2e-data` volume (never the dev/prod
 #   data volume or the port-8080 app); `make test-e2e-bootstrap` prepares a fresh volume automatically
@@ -154,7 +156,7 @@ The codebase follows a clean layered architecture:
 
 **migrations/**: SQL migration files (up/down pairs)
 
-**tests/e2e/**: Playwright E2E browser tests (146 tests across 19 spec files)
+**tests/e2e/**: Playwright E2E browser tests (213 tests across 30 spec files)
 - `helpers/`: Reusable test helpers (auth, htmx, navigation, assertions)
 - `fixtures/`: SQL seed data and Playwright test fixtures
 - `admin/`, `players/`: Page-level spec files

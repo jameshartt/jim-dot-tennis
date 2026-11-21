@@ -24,6 +24,9 @@ var allowedHosts = map[string]string{
 	"courthive-server":       "contacted: CourtHive API inside the instance's own Docker network",
 	"app":                    "internal: the app's own Docker service name (health checks, local stack)",
 	"app-e2e":                "internal: the end-to-end test app's Docker service name",
+	"app-fresh":              "internal: the fresh-install end-to-end app's Docker service name (make test-e2e-fresh only)",
+	"app-fresh-demo":         "internal: the fresh-install demo-data end-to-end app's Docker service name (make test-e2e-fresh only)",
+	"fresh-fixtures":         "internal: where the fresh-install test run serves the saved BHPLTA pages (BHPLTA_BASE_URL override; make test-e2e-fresh only)",
 	"www.tennisabstract.com": "contacted only by the developer utility cmd/collect_tennis_data, never by the server",
 
 	// Loaded by visitors' browsers when a page is shown.
