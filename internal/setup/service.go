@@ -53,8 +53,6 @@ var (
 	ErrNoActiveCode = errors.New("setup: no active setup code")
 	// ErrTicketInvalid: the browser has not redeemed the current code.
 	ErrTicketInvalid = errors.New("setup: setup code not entered in this browser")
-	// ErrAccountsExist: user accounts already exist, so this is not a fresh install.
-	ErrAccountsExist = errors.New("setup: user accounts already exist")
 	// ErrUnknownClub: the chosen club is not a known BHPLTA club.
 	ErrUnknownClub = errors.New("setup: unknown club")
 )
@@ -122,15 +120,15 @@ func NewService(state *State, provisioner HomeClubProvisioner) *Service {
 // State returns the setup state the service drives.
 func (s *Service) State() *State { return s.state }
 
-// IssueCode generates a new setup code if the instance needs setup (no home
-// club, no administrator), replacing any earlier code and invalidating any
+// IssueCode generates a new setup code if the instance has no administrator
+// (with or without a home club), replacing any earlier code and invalidating any
 // browser that redeemed one. It returns the code for the caller to show once
 // (the startup log); only its hash is stored. It returns "" when no code is
 // needed.
 func (s *Service) IssueCode(ctx context.Context) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.state.Status(ctx) != StatusNeedsSetup {
+	if !s.state.Status(ctx).NeedsFirstAdmin() {
 		return "", nil
 	}
 	code, err := newSetupCode()
@@ -165,7 +163,7 @@ func LogCode(code string) {
 	log.Printf("\n"+
 		"==================================================\n"+
 		"  SETUP CODE: %s\n"+
-		"  This app has not been set up yet. Open it in a\n"+
+		"  This app has no administrator yet. Open it in a\n"+
 		"  browser and enter this code to create the first\n"+
 		"  administrator. It works once; restarting the app\n"+
 		"  prints a new code and cancels this one.\n"+
@@ -178,7 +176,7 @@ func LogCode(code string) {
 func (s *Service) RedeemCode(ctx context.Context, code, client string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.state.Status(ctx) != StatusNeedsSetup {
+	if !s.state.Status(ctx).NeedsFirstAdmin() {
 		return "", ErrUnavailable
 	}
 	now := s.now()
@@ -230,7 +228,7 @@ func (s *Service) CodeWasRedeemed(ctx context.Context) bool {
 // TicketValid reports whether ticket is the live ticket from the current
 // code and the instance still needs its first administrator.
 func (s *Service) TicketValid(ctx context.Context, ticket string) bool {
-	if ticket == "" || s.state.Status(ctx) != StatusNeedsSetup {
+	if ticket == "" || !s.state.Status(ctx).NeedsFirstAdmin() {
 		return false
 	}
 	ok, err := ticketValid(ctx, s.db, ticket, s.now())
@@ -258,12 +256,15 @@ var usernamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._@-]{2,63}$`)
 
 // CreateAdmin creates the first administrator for the browser holding
 // ticket. The account and the settings recording it are written in one
-// transaction, which also retires the ticket; it fails if any user account
-// already exists, so the new account is the only one.
+// transaction, which also retires the ticket; it fails with ErrUnavailable if
+// an administrator already exists. Existing captain or player accounts are
+// left as they are (an imported or restored database may have them); holding
+// the setup code from the server log is what proves the right to administer
+// the instance, and those accounts gain nothing from it.
 func (s *Service) CreateAdmin(ctx context.Context, ticket, username, password string) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.state.Status(ctx) != StatusNeedsSetup {
+	if !s.state.Status(ctx).NeedsFirstAdmin() {
 		return 0, ErrUnavailable
 	}
 	if ok, err := ticketValid(ctx, s.db, ticket, s.now()); err != nil {
@@ -286,19 +287,25 @@ func (s *Service) CreateAdmin(ctx context.Context, ticket, username, password st
 
 	var userID int64
 	err = s.inTx(ctx, func(tx *sqlx.Tx) error {
-		// Re-check inside the transaction: the ticket is still the live one
-		// and there are no accounts at all.
+		// Re-check inside the transaction: the ticket is still the live one,
+		// there is still no administrator and the username is free.
 		if ok, err := ticketValid(ctx, tx, ticket, s.now()); err != nil {
 			return err
 		} else if !ok {
 			return ErrTicketInvalid
 		}
-		var users int
-		if err := tx.GetContext(ctx, &users, `SELECT COUNT(*) FROM users`); err != nil {
-			return fmt.Errorf("setup: count users: %w", err)
+		var admins, taken int
+		if err := tx.GetContext(ctx, &admins, `SELECT COUNT(*) FROM users WHERE role = 'admin'`); err != nil {
+			return fmt.Errorf("setup: count administrators: %w", err)
 		}
-		if users > 0 {
-			return ErrAccountsExist
+		if admins > 0 {
+			return ErrUnavailable
+		}
+		if err := tx.GetContext(ctx, &taken, `SELECT COUNT(*) FROM users WHERE username = ? COLLATE NOCASE`, username); err != nil {
+			return fmt.Errorf("setup: check username: %w", err)
+		}
+		if taken > 0 {
+			return &InputError{Field: "username", Message: "That username is already used by another account here. Choose a different one."}
 		}
 		now := s.now()
 		res, err := tx.ExecContext(ctx, `

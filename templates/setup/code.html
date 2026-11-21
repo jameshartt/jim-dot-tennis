@@ -14,7 +14,11 @@
     <div class="setup-card" data-setup-status="{{.Status}}" data-setup-step="code">
         {{template "setup-steps" .}}
         <h1>Welcome to Jim.Tennis</h1>
+        {{if eq .Status "needs-admin"}}
+        <p>This app is running but has no administrator account yet. Enter the setup code to create your own login.</p>
+        {{else}}
         <p>This app is running but has not been set up yet. Setting up takes a few minutes: you will create your own login and choose your club.</p>
+        {{end}}
         {{template "setup-error" .}}
         {{if and .CodeUsed (not .Error)}}
         <div class="alert alert-warning">
