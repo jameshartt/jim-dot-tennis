@@ -1,0 +1,49 @@
+{
+  "id": "WI-112",
+  "title": "Scrub credentials and author-server details from tracked files",
+  "description": "docs/PRODUCTION_QUICK_REFERENCE.md (around lines 425-438) holds the plaintext CourtHive/TMX admin email and password, the Club Wrapped access password, the admin username, the server IP and the SSH key path. COURTHIVE_SETUP.md holds an older real password. The repository is public. Jim rotates the CourtHive admin password on the server first (his action, not the agent's); this work item then removes every credential and author-specific server detail from tracked files, replacing them with placeholders and a pointer to where the operator keeps the real values. docker-compose.courthive.yml's hardcoded database username and password is removed or parameterised here too. This closes item #1 of docs/TECH_DEBT_AUDIT_2026-07.md.",
+  "type": "security",
+  "priority": "high",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "completed",
+  "recommended_model": {
+    "name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5",
+    "rationale": "Mechanical, well-specified edits across a known list of files."
+  },
+  "acceptance_criteria": [
+    "Jim has confirmed the CourtHive admin password was rotated before this item is marked complete",
+    "No plaintext password, access code or secret remains in any tracked file (verified by grepping tracked files for the old values without printing them)",
+    "The production server IP, the SSH key path and /opt paths are replaced by variables or placeholders in docs and in scripts/deploy-app.sh, scripts/deploy-digitalocean.sh, scripts/download-database.sh and scripts/import-tennis-players.sh; the scripts read SERVER / SSH_KEY / REMOTE_PATH from the environment or an untracked file and fail with a clear message when unset",
+    "docker-compose.courthive.yml contains no hardcoded database username or password",
+    "docs/TECH_DEBT_AUDIT_2026-07.md item #1 is marked done with the date",
+    "Git history is not rewritten"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "docs/PRODUCTION_QUICK_REFERENCE.md",
+      "COURTHIVE_SETUP.md",
+      "docker-compose.courthive.yml",
+      "scripts/deploy-app.sh",
+      "scripts/deploy-digitalocean.sh",
+      "scripts/download-database.sh",
+      "scripts/import-tennis-players.sh",
+      "docs/TECH_DEBT_AUDIT_2026-07.md"
+    ],
+    "notes": [
+      "Never echo a secret value into a log, commit message or work-item file while doing this.",
+      "The Wrapped access password was accepted as decorative in the audit; remove the value from the doc anyway, since other clubs will set their own.",
+      "The author's own deploy scripts must keep working for jim.tennis via an untracked scripts/.deploy.env (add to .gitignore)."
+    ]
+  },
+  "testing_requirements": [
+    "Run each modified script with the variables unset and confirm it exits non-zero with a helpful message",
+    "git grep for the old default database password and the server IP returns nothing in tracked files"
+  ],
+  "context": {
+    "user_story": "As a club evaluating the project, I want the public repository to contain no live credentials so that I can trust it.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

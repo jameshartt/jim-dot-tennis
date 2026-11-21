@@ -1,0 +1,56 @@
+{
+  "id": "WI-117",
+  "title": "First-run setup: one-time code, first administrator, choose your club",
+  "description": "The setup flow shown while the instance needs setup. Step 1: enter the one-time setup code, generated at startup, stored hashed, and printed once to the server log. Step 2: create the first administrator (username, display name, password meeting the policy; passkey enrolment is added by WI-128). Step 3: choose the club from the BHPLTA club list (internal/services/club_scraper.go KnownClubSlugs), which hands over to the BHPLTA bootstrap in WI-118. Step 4: confirm and land on the dashboard. The flow must be resumable if the browser is closed, must become permanently unreachable once an administrator exists, and must be plain enough for someone who has never run a server.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-116"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "Security-relevant flow (instance claiming) with real UX judgement; larger than a mechanical task but with a clear specification."
+  },
+  "acceptance_criteria": [
+    "The setup code is random (crypto/rand), shown only in the server log, stored hashed, single use, and regenerated on restart while setup is incomplete",
+    "Setup endpoints return 404 once any administrator exists; this is enforced server-side, not by hiding links",
+    "Wrong setup codes are throttled",
+    "The first administrator is created inside a transaction with the settings that mark setup complete",
+    "Closing the browser mid-flow and returning resumes at the right step",
+    "Every step has plain-language help text and works on a phone",
+    "No account other than the one the user just created exists at the end"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "internal/setup/handler.go",
+      "internal/setup/service.go",
+      "templates/setup/*.html"
+    ],
+    "files_to_modify": [
+      "cmd/jim-dot-tennis/main.go (route registration)",
+      "internal/auth (reuse user creation and hashing)"
+    ],
+    "routes_to_add": [
+      "GET/POST /setup",
+      "GET/POST /setup/admin",
+      "GET/POST /setup/club",
+      "GET /setup/done"
+    ],
+    "notes": [
+      "CrossOriginGuard already wraps the server; setup POSTs get the same protection.",
+      "Use bcrypt at an explicit cost (the admin UI currently uses DefaultCost 10 while seeds use 12) - pick one constant and share it."
+    ]
+  },
+  "testing_requirements": [
+    "Playwright spec driving the whole flow on an empty database (lands in WI-125)",
+    "Unit tests: code verification, throttle, post-setup 404"
+  ],
+  "context": {
+    "user_story": "As a club volunteer, I want to be walked through creating my own login and picking my club so that I own the instance from the first minute.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

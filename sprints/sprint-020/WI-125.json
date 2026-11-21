@@ -1,0 +1,53 @@
+{
+  "id": "WI-125",
+  "title": "E2E: fresh-install suite",
+  "description": "A Playwright project that starts from an empty database and proves the sprint's promise end to end, using saved BHPLTA pages rather than the live site. This suite becomes a required CI job in Sprint 022.",
+  "type": "testing",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-116",
+    "WI-117",
+    "WI-118",
+    "WI-119",
+    "WI-120",
+    "WI-121",
+    "WI-122",
+    "WI-123"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5",
+    "rationale": "Test authoring against a specified flow."
+  },
+  "acceptance_criteria": [
+    "New Playwright project 'fresh-install' runs against an empty volume",
+    "Covers: setup code gate, administrator creation, club selection, BHPLTA bootstrap from saved pages, settings change, player link generation, dashboard reachable",
+    "Asserts setup is unreachable afterwards and that no account exists other than the created administrator",
+    "make test-e2e-fresh target added; existing suites still pass"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "tests/e2e/fresh-install.spec.ts",
+      "tests/e2e/fixtures/bhplta/*.html"
+    ],
+    "files_to_modify": [
+      "tests/e2e/playwright.config.ts",
+      "Makefile",
+      "tests/e2e/README.md",
+      "CLAUDE.md (test counts are stale: 28 spec files today)"
+    ],
+    "notes": [
+      "The scraper needs a base-URL override so tests can point it at a local fixture server."
+    ]
+  },
+  "testing_requirements": [
+    "The suite itself, run twice in a row to prove it is repeatable"
+  ],
+  "context": {
+    "user_story": "As the maintainer, I want an automated proof that a new club can get from nothing to working.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

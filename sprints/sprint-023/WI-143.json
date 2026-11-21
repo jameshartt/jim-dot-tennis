@@ -1,0 +1,47 @@
+{
+  "id": "WI-143",
+  "title": "Publish club-neutral images of the three CourtHive components",
+  "description": "Implement the configuration approach from WI-142 in the forks and publish versioned images: the tournament server, and the two static front ends (TMX and the public pages) either as small web-server images or as content images mounted by Caddy. Add CI to each fork that builds from the jim-tennis-deploy branch, runs that project's existing checks, and publishes to GitHub Container Registry with a version that records the upstream version it is based on. Remove every jim.tennis-specific value from the built output.",
+  "type": "infrastructure",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-142"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "Build and configuration changes across three TypeScript projects with known past pitfalls."
+  },
+  "acceptance_criteria": [
+    "Three published images, each usable under any hostname without rebuilding",
+    "No built file contains jim.tennis, the author's server address, or any secret",
+    "Image tags encode the upstream version and the fork revision",
+    "Each fork's CI builds and publishes on tag, after its tests pass",
+    "The pnpm link-override hazard is handled in CI (build fails clearly if link: entries are present)",
+    "Attribution and licence files required by WI-142 are inside each image"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "../TMX (build config, src/platform/web.ts, .env.production handling)",
+      "../courthive-public (build config)",
+      "../competition-factory-server (Dockerfile, compose command uses node build/src/main.js)"
+    ],
+    "files_to_create": [
+      "CI workflows and Dockerfiles in each fork"
+    ],
+    "notes": [
+      "Work happens in three other repositories on their jim-tennis-deploy branches; keep changes minimal so future rebases onto upstream stay cheap, and offer generally useful changes upstream.",
+      "Pushing workflow files needs the `workflow` token scope."
+    ]
+  },
+  "testing_requirements": [
+    "Run all three images locally under two hostnames and complete a sign-in and a tournament page load on each"
+  ],
+  "context": {
+    "user_story": "As a club, I want the tournament software as ready-made images so that I never build it.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

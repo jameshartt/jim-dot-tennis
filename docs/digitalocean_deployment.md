@@ -25,13 +25,13 @@ Edit the configuration section at the top of `scripts/deploy-digitalocean.sh`:
 DROPLET_IP=""              # Your droplet's IP address
 SSH_USER="root"            # SSH user (usually root for initial setup)
 SSH_KEY_PATH=""            # Path to your SSH private key (leave empty for default)
-DEPLOY_DIR="/opt/jim-dot-tennis" # Deployment directory on the server
+DEPLOY_DIR="$REMOTE_PATH" # Deployment directory on the server
 APP_DOMAIN=""              # Optional: your domain if you have one
 ```
 
 Make sure to set at least the `DROPLET_IP` value. The `SSH_KEY_PATH` can be left empty if your SSH key is in the default location.
 
-You'll also need a `.env` file on the server (at `/opt/jim-dot-tennis/.env`) with the home club configuration:
+You'll also need a `.env` file on the server (at `$REMOTE_PATH/.env`) with the home club configuration:
 
 ```bash
 # Home club configuration (required)
@@ -82,13 +82,15 @@ The production deployment comprises multiple services orchestrated via Docker Co
 | **jim-dot-tennis** (app) | Go 1.25 web application serving the league management UI | `docker-compose.yml` |
 | **backup** | Alpine-based container performing daily SQLite backups with 30-day retention | `docker-compose.yml` |
 | **import** | On-demand tools container for match card and club data imports | `docker-compose.yml` (tools profile) |
-| **competition-factory-server** | CourtHive API server (Node.js) for tournament management | `docker-compose.courthive.yml` |
-| **TMX frontend** | Static tournament management UI served via Caddy | `docker-compose.courthive.yml` |
-| **courthive-public** | Public-facing CourtHive UI served via Caddy | `docker-compose.courthive.yml` |
-| **Redis** | In-memory data store used by the CourtHive server (`redis:7-alpine`) | `docker-compose.courthive.yml` |
-| **Caddy** | Reverse proxy handling SSL termination and routing for all services (`caddy:2-alpine`) | `docker-compose.courthive.yml` |
+| **competition-factory-server** | CourtHive API server (Node.js) for tournament management | `deploy/docker-compose.yml` |
+| **TMX frontend** | Static tournament management UI served via Caddy | `deploy/docker-compose.yml` |
+| **courthive-public** | Public-facing CourtHive UI served via Caddy | `deploy/docker-compose.yml` |
+| **Redis** | In-memory data store used by the CourtHive server (`redis:7-alpine`) | `deploy/docker-compose.yml` |
+| **Caddy** | Reverse proxy handling SSL termination and routing for all services (`caddy:2-alpine`) | `deploy/docker-compose.yml` |
 
-The base `docker-compose.yml` runs jim-dot-tennis standalone. The full CourtHive stack uses `docker-compose.courthive.yml`, which includes all of the above services on a shared `tennis-network` bridge network.
+The root `docker-compose.yml` is for local development and E2E only. The production stack is defined by the reference deployment in `deploy/docker-compose.yml` (with `deploy/Caddyfile` and `deploy/.env.example`), which includes all of the above services on a shared `tennis-network` bridge network.
+
+> **Server-side commands in this document** still say `docker compose -f docker-compose.courthive.yml`, which is the file name the running server uses today. The repository no longer has a file of that name; the reference is `deploy/docker-compose.yml`. Reconciling the server with it is tracked as WI-141 (Sprint 021).
 
 ### CourtHive Stack Management
 
@@ -158,19 +160,19 @@ HTTPS is automatically configured if you provide a domain name in the deployment
 ### Viewing Logs
 
 ```bash
-ssh user@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose logs -f"
+ssh user@your-droplet-ip "cd $REMOTE_PATH && docker-compose logs -f"
 ```
 
 ### Stopping the Application
 
 ```bash
-ssh user@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose down"
+ssh user@your-droplet-ip "cd $REMOTE_PATH && docker-compose down"
 ```
 
 ### Restarting the Application
 
 ```bash
-ssh user@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose restart"
+ssh user@your-droplet-ip "cd $REMOTE_PATH && docker-compose restart"
 ```
 
 ### Updating the Application
@@ -188,7 +190,7 @@ The script will detect the existing installation and update only the necessary f
 The deployment includes an automatic backup system that:
 
 1. Creates daily backups within Docker
-2. Exports backups to `/opt/jim-dot-tennis/external-backups`
+2. Exports backups to `$REMOTE_PATH/external-backups`
 3. Runs a cron job daily at 3 AM
 
 ### Manual Backup
@@ -196,20 +198,20 @@ The deployment includes an automatic backup system that:
 To manually trigger a backup:
 
 ```bash
-ssh user@your-droplet-ip "cd /opt/jim-dot-tennis && docker exec jim-dot-tennis-backup sh -c 'sqlite3 /data/tennis.db \".backup /backups/tennis-\$(date +%Y-%m-%d-%H%M%S)-manual.db\"'"
+ssh user@your-droplet-ip "cd $REMOTE_PATH && docker exec jim-dot-tennis-backup sh -c 'sqlite3 /data/tennis.db \".backup /backups/tennis-\$(date +%Y-%m-%d-%H%M%S)-manual.db\"'"
 ```
 
 ### Restoring from Backup
 
 ```bash
 # Stop the application
-ssh user@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose down"
+ssh user@your-droplet-ip "cd $REMOTE_PATH && docker-compose down"
 
 # Restore the database from backup
-ssh user@your-droplet-ip "cp /opt/jim-dot-tennis/external-backups/tennis-backup-file.db /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db"
+ssh user@your-droplet-ip "cp $REMOTE_PATH/external-backups/tennis-backup-file.db /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db"
 
 # Start the application
-ssh user@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose up -d"
+ssh user@your-droplet-ip "cd $REMOTE_PATH && docker-compose up -d"
 ```
 
 ## Upgrading Go Version
@@ -240,14 +242,14 @@ This documents the successful upgrade from Go 1.18 to Go 1.24.1 that was complet
 **Commands Used:**
 ```bash
 # 1. Force rebuild after Dockerfile changes
-ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker-compose down && docker-compose build --no-cache app && docker-compose up -d"
+ssh $SERVER "cd $REMOTE_PATH && docker-compose down && docker-compose build --no-cache app && docker-compose up -d"
 
 # 2. When build conflicts occurred, removed duplicate files
-ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && rm -f ./internal/repository/*_repository.go"
+ssh $SERVER "cd $REMOTE_PATH && rm -f ./internal/repository/*_repository.go"
 
 # 3. Verified successful deployment
-ssh root@144.126.228.64 "cd /opt/jim-dot-tennis && docker-compose ps"
-ssh root@144.126.228.64 "docker images | grep jim-dot-tennis"
+ssh $SERVER "cd $REMOTE_PATH && docker-compose ps"
+ssh $SERVER "docker images | grep jim-dot-tennis"
 ```
 
 **Result:** Successfully upgraded to Go 1.24.1 with application running healthy at https://jim.tennis
@@ -290,17 +292,17 @@ RUN CGO_ENABLED=1 GOOS=linux CGO_CFLAGS="-D_LARGEFILE64_SOURCE" go build -a -ldf
 
 ```bash
 # Connect to server and force rebuild
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose down && docker-compose build --no-cache app && docker-compose up -d"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose down && docker-compose build --no-cache app && docker-compose up -d"
 ```
 
 ### Step 4: Verify Upgrade
 
 ```bash
 # Check container status
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose ps"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose ps"
 
 # Check application logs
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose logs app | tail -10"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose logs app | tail -10"
 
 # Verify new image was built
 ssh root@your-droplet-ip "docker images | grep jim-dot-tennis"
@@ -342,13 +344,13 @@ Tools that need to compile code with SQLite (vet, deadcode, lint, tidy) run with
 
 ```bash
 # Check running containers and their status
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose ps"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose ps"
 
 # View real-time application logs
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose logs -f app"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose logs -f app"
 
 # Check last 50 log lines
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose logs --tail=50 app"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose logs --tail=50 app"
 
 # Test application health endpoint (if available)
 ssh root@your-droplet-ip "curl -f http://localhost:8080/ || echo 'App not responding'"
@@ -367,23 +369,23 @@ ssh root@your-droplet-ip "docker image prune -f"
 ssh root@your-droplet-ip "docker system df"
 
 # Force rebuild specific service
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose build --no-cache app"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose build --no-cache app"
 
 # Restart specific service
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose restart app"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose restart app"
 ```
 
 ### File System Management
 
 ```bash
 # Check deployment directory contents
-ssh root@your-droplet-ip "ls -la /opt/jim-dot-tennis"
+ssh root@your-droplet-ip "ls -la $REMOTE_PATH"
 
 # Check for duplicate or conflicting files
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && find . -name '*_repository.go' -type f"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && find . -name '*_repository.go' -type f"
 
 # Remove duplicate files (if build conflicts occur)
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && rm -f ./internal/repository/*_repository.go"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && rm -f ./internal/repository/*_repository.go"
 
 # Check disk usage
 ssh root@your-droplet-ip "df -h"
@@ -409,13 +411,13 @@ ssh root@your-droplet-ip "docker exec jim-dot-tennis sqlite3 /app/data/tennis.db
 
 ```bash
 # Check Caddy configuration
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && cat Caddyfile"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && cat Caddyfile"
 
 # View Caddy logs
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose logs caddy"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose logs caddy"
 
 # Force SSL certificate renewal
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose exec caddy caddy reload --config /etc/caddy/Caddyfile"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose exec caddy caddy reload --config /etc/caddy/Caddyfile"
 ```
 
 ## Troubleshooting
@@ -435,13 +437,13 @@ If you encounter duplicate declaration errors during build:
 
 ```bash
 # Check for duplicate repository files
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && find . -name '*_repository.go' -type f"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && find . -name '*_repository.go' -type f"
 
 # Remove duplicate files
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && rm -f ./internal/repository/*_repository.go"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && rm -f ./internal/repository/*_repository.go"
 
 # Force clean rebuild
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose down && docker-compose build --no-cache app"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose down && docker-compose build --no-cache app"
 ```
 
 ### Docker Compose Errors
@@ -450,22 +452,22 @@ If Docker Compose fails to start the application:
 
 1. Check the application logs for specific errors:
    ```bash
-   ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose logs"
+   ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose logs"
    ```
 
 2. Verify that all required files were transferred correctly:
    ```bash
-   ssh root@your-droplet-ip "ls -la /opt/jim-dot-tennis"
+   ssh root@your-droplet-ip "ls -la $REMOTE_PATH"
    ```
 
 3. Check if containers are running:
    ```bash
-   ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose ps"
+   ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose ps"
    ```
 
 4. Force restart all services:
    ```bash
-   ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose down && docker-compose up -d"
+   ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose down && docker-compose up -d"
    ```
 
 ### SQLite/CGO Build Issues
@@ -488,12 +490,12 @@ If the application is not responding:
 
 1. Check if the container is running:
    ```bash
-   ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose ps"
+   ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose ps"
    ```
 
 2. Check application logs:
    ```bash
-   ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose logs app"
+   ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose logs app"
    ```
 
 3. Check if port 8080 is accessible:
@@ -531,19 +533,19 @@ If pages fail with errors like `no such column: latitude`, the database schema i
 **Fix:**
 ```bash
 # 1. Rsync migrations to the server
-rsync -avz --delete -e "ssh -i ~/.ssh/digital_ocean_ssh" \
-  ~/Development/Tennis/jim-dot-tennis/migrations/ root@144.126.228.64:/opt/jim-dot-tennis/migrations/
+rsync -avz --delete -e "ssh -i $SSH_KEY" \
+  ~/Development/Tennis/jim-dot-tennis/migrations/ $SERVER:$REMOTE_PATH/migrations/
 
 # 2. Rebuild the Go app image to pick up new migrations
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose -f docker-compose.courthive.yml build app"
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose -f docker-compose.courthive.yml build app"
 
 # 3. Restart the app (migrations run automatically on startup)
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose -f docker-compose.courthive.yml up -d app"
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose -f docker-compose.courthive.yml up -d app"
 
 # 4. Verify migration version
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "sqlite3 /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db 'SELECT version, dirty FROM schema_migrations;'"
 ```
 
@@ -596,7 +598,7 @@ If the application is running slowly:
 
 3. Check application-specific logs for errors:
    ```bash
-   ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose logs app | grep -i error"
+   ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose logs app | grep -i error"
    ```
 
 ## Quick Reference Commands
@@ -605,36 +607,36 @@ If the application is running slowly:
 
 ```bash
 # Quick status check
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose ps && docker images | grep jim-dot-tennis"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose ps && docker images | grep jim-dot-tennis"
 
 # View current logs
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose logs -f app"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose logs -f app"
 
 # Quick restart
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose restart app"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose restart app"
 
 # Full restart (stops and starts all services)
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose down && docker-compose up -d"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose down && docker-compose up -d"
 
 # Force rebuild and deploy
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose down && docker-compose build --no-cache app && docker-compose up -d"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose down && docker-compose build --no-cache app && docker-compose up -d"
 ```
 
 ### Emergency Commands
 
 ```bash
 # If app won't start due to build conflicts
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && rm -f ./internal/repository/*_repository.go && docker-compose build --no-cache app"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && rm -f ./internal/repository/*_repository.go && docker-compose build --no-cache app"
 
 # If running out of disk space
 ssh root@your-droplet-ip "docker system prune -af"
 
 # If need to restore from backup (replace backup-file.db with actual backup)
-ssh root@your-droplet-ip "cd /opt/jim-dot-tennis && docker-compose down && cp external-backups/backup-file.db /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db && docker-compose up -d"
+ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose down && cp external-backups/backup-file.db /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db && docker-compose up -d"
 ```
 
 ### Health Check URLs
 
 - **Application**: https://jim.tennis
-- **Direct IP**: http://144.126.228.64:8080 (if HTTPS fails)
+- **Direct IP**: http://<server-ip>:8080 (if HTTPS fails)
 - **Local on server**: `curl http://localhost:8080/`

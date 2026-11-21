@@ -19,7 +19,7 @@
     "CLAUDE.md updated: Architecture section — home/away logic description uses 'home club' not 'St Ann's', no references to FindByNameLike pattern or GetStAnnsTeams methods",
     "CONTRIBUTING.md Club Adaptation Guide significantly revised: documents how HOME_CLUB_ID makes deployment straightforward, lists the env vars to configure, acknowledges remaining manual steps (CSS colours, BHPLTA club code), updates the 'known pain points' section to reflect that apostrophe normalization is now centralised",
     "CONTRIBUTING.md removes references to old method names (GetStAnnsTeams, IsStAnnsClub, FindByNameLike) from the adaptation guide",
-    "COURTHIVE_SETUP.md: example password 'welovestanns' replaced with generic placeholder",
+    "COURTHIVE_SETUP.md: example password '<wrapped-access-password>' replaced with generic placeholder",
     "docs/README.md updated: description no longer says 'internal tool for St Ann's'",
     "docs/project_overview.md updated: description no longer says 'internal tool for St Ann's'",
     "docs/digitalocean_deployment.md updated: new env vars documented in the deployment steps",

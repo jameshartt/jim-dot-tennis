@@ -1,0 +1,40 @@
+{
+  "id": "WI-122",
+  "title": "Feature switches and a home page that fits the club",
+  "description": "The public home page is a tournament landing page whose links only work when the CourtHive stack is running, and admin navigation links to tournaments in five templates. Add stored feature switches (tournaments, Club Wrapped, My Tennis), editable on the settings page, replacing MY_TENNIS_ENABLED as the primary control (env stays as an override). With tournaments off, the home page becomes a club page (name, logo, links to standings and sign-in) and tournament navigation disappears. With tournaments on (the default once the CourtHive bundle from Sprint 023 is enabled) today's behaviour is kept.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [
+    "WI-116"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5",
+    "rationale": "Template and routing conditionals driven by a settings lookup."
+  },
+  "acceptance_criteria": [
+    "Three switches exist in settings and take effect without a restart",
+    "With tournaments off, no page links to /tournaments or /public and the home page shows club-centred content",
+    "With My Tennis or Club Wrapped off, their entry points and routes are hidden and return 404",
+    "Existing deployments keep their current behaviour after upgrade (defaults derived from current env values)"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "templates/index.html",
+      "templates/admin/admin_standalone.html and the other four templates with tournament nav",
+      "internal/players/availability.go:146-149",
+      "internal/admin/handler.go",
+      "cmd/jim-dot-tennis/main.go:177-180"
+    ]
+  },
+  "testing_requirements": [
+    "e2e: toggle each switch and assert navigation and route behaviour"
+  ],
+  "context": {
+    "user_story": "As a club that is not running tournaments yet, I want a home page without dead links.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

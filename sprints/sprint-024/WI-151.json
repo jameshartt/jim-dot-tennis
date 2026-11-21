@@ -1,0 +1,41 @@
+{
+  "id": "WI-151",
+  "title": "Cold install test, fixes, and version 1.0.0",
+  "description": "The final check. A fresh session with no project context and only the published documentation and release installs the product on a clean virtual machine: installs, completes setup for a BHPLTA club, invites a captain, generates a player link, makes and restores a backup, switches tournaments on, and performs an upgrade from the previous pre-release. Every point where it hesitates, guesses or fails is logged. A second session with full context fixes the docs or the product for each one, and the test is repeated until it passes without intervention. Then cut 1.0.0. Using a less capable model with no context is deliberate: it stands in for a newcomer and will not paper over gaps with background knowledge.",
+  "type": "testing",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-148",
+    "WI-149",
+    "WI-150"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5",
+    "rationale": "The tester should resemble a newcomer; fixes found may be routed to a stronger model as needed."
+  },
+  "acceptance_criteria": [
+    "A clean-machine install following only the published docs completes every listed task without help",
+    "Every stumble from each run is recorded with the fix made (doc or product)",
+    "The final run needed no intervention",
+    "Jim has reviewed the final run log and agreed to release",
+    "v1.0.0 is tagged and published with complete upgrade notes",
+    "sprints/INDEX.md and the sprint files are marked completed"
+  ],
+  "technical_notes": {
+    "notes": [
+      "Give the testing session only the README link and the release page - not this repository's working tree, CLAUDE.md or sprint files.",
+      "Use a throwaway VM or container with a self-signed or local certificate arrangement described in the install guide's 'trying it locally' section."
+    ]
+  },
+  "testing_requirements": [
+    "The cold install itself, repeated until clean"
+  ],
+  "context": {
+    "user_story": "As a new club, I want proof that the instructions work for someone who has never seen the project.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

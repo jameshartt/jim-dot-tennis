@@ -20,15 +20,18 @@
 #   -s, --skip-build  Rsync only. Useful if you want to inspect changes
 #                     on the server before triggering a rebuild.
 #   -h, --help        Show this help.
+#
+# Compose/Caddy: this script does NOT sync docker-compose or Caddyfile (see the
+# note above the FILES list). Update those on the server by hand when needed.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
-SSH_KEY="${SSH_KEY:-$HOME/.ssh/digital_ocean_ssh}"
-SERVER="${SERVER:-root@144.126.228.64}"
-REMOTE_PATH="${REMOTE_PATH:-/opt/jim-dot-tennis}"
+# SERVER, SSH_KEY, REMOTE_PATH come from the environment or scripts/.deploy.env
+# (see scripts/.deploy.env.example); exits with a message if unset.
+. "$REPO_ROOT/scripts/lib-deploy-env.sh"
 APP_CONTAINER="jim-dot-tennis"
 
 GREEN='\033[0;32m'
@@ -81,8 +84,11 @@ done
 # Root-level build inputs. Without these, a Dockerfile/.dockerignore change
 # never reaches the server and the rebuild silently uses the old build recipe;
 # a go.mod/go.sum change (new dependency) breaks the server build outright.
-# (Compose files are deliberately NOT synced — prod compose has diverged from
-# the repo, so overwriting it would resurrect the wrong stack.)
+# Compose files and the Caddyfile are deliberately NOT synced by this script,
+# and neither is deploy/. The reference deployment (deploy/docker-compose.yml,
+# deploy/Caddyfile, deploy/.env.example) lives in git, but changing the running
+# stack is a manual, deliberate step; this script only ships app source and the
+# build inputs below, then rebuilds and restarts the app service.
 FILES=(go.mod go.sum Dockerfile Dockerfile.import .dockerignore)
 
 for file in "${FILES[@]}"; do

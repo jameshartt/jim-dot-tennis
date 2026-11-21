@@ -1,7 +1,7 @@
 .PHONY: build run stop clean backup logs restart build-local run-local local \
 	build-tmx courthive courthive-up courthive-down courthive-restart courthive-logs \
 	vet fmt fmt-fix imports imports-fix lint deadcode tidy check test test-js \
-	test-e2e test-e2e-safe test-e2e-safe-keep test-e2e-restore \
+	test-e2e test-e2e-bootstrap test-e2e-safe test-e2e-safe-keep test-e2e-restore \
 	test-e2e-headed test-e2e-grep test-e2e-failed \
 	test-e2e-report test-e2e-results test-e2e-clean test-e2e-multiclub
 
@@ -212,16 +212,34 @@ check: vet fmt lint deadcode test test-js
 # E2E Testing (Playwright in Docker - no local Node.js required)
 # ============================================================
 
+# E2E runs use a dedicated app instance (`app-e2e`) and a dedicated data volume
+# (jim-dot-tennis-e2e-data); they never touch the dev/prod `jim-dot-tennis-data`
+# volume or the `jim-dot-tennis` container on port 8080.
+#
+# One-off bootstrap for a fresh E2E volume. The app refuses to start with zero
+# clubs, and the clubs are only seeded once the app is healthy, so: (1) run the
+# app once to apply migrations, (2) insert a placeholder home club that
+# seed.sql then replaces. Idempotent; a no-op on an already-bootstrapped volume.
+test-e2e-bootstrap: export HOME_CLUB_ID=1
+test-e2e-bootstrap:
+	$(DOCKER_COMPOSE) --profile test build app-e2e e2e
+	$(DOCKER_COMPOSE) --profile test run --rm --no-deps app-e2e \
+		sh -c 'timeout 8 ./jim-dot-tennis >/dev/null 2>&1; exit 0'
+	$(DOCKER_COMPOSE) --profile test run --rm --no-deps e2e \
+		sh -c "sqlite3 /data/tennis.db \"INSERT OR IGNORE INTO clubs (id, name, address, website, phone_number, created_at, updated_at) VALUES (1, 'Bootstrap', '', '', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);\""
+
 # Run the full E2E test suite (usage: make test-e2e [WORKERS=4])
 # Sets MY_TENNIS_ENABLED=1 so the My Tennis CTA is visible in tests regardless
 # of local dev env defaults.
 test-e2e: export MY_TENNIS_ENABLED=1
 test-e2e: export HOME_CLUB_ID=1
-test-e2e:
+test-e2e: test-e2e-bootstrap
 	@echo "Running E2E tests..."
 	$(DOCKER_COMPOSE) --profile test build e2e
 	$(DOCKER_COMPOSE) --profile test run --rm $(if $(WORKERS),-e WORKERS=$(WORKERS)) e2e
 
+# NOTE: E2E now has its own data volume, so this no longer protects anything the
+# suite would otherwise touch; kept for now, candidate for retirement.
 # Run E2E tests with prod-DB snapshot/restore (usage: make test-e2e-safe [WORKERS=4])
 # Wraps `make test-e2e` so the local dev database (often a prod pull) is
 # preserved across the test run. See scripts/test-e2e-safe.sh for full options
@@ -242,7 +260,7 @@ test-e2e-restore:
 # Run E2E tests with visible browser (usage: make test-e2e-headed [WORKERS=1])
 test-e2e-headed: export MY_TENNIS_ENABLED=1
 test-e2e-headed: export HOME_CLUB_ID=1
-test-e2e-headed:
+test-e2e-headed: test-e2e-bootstrap
 	@echo "Running E2E tests (headed, workers=$(or $(WORKERS),1))..."
 	xhost +local:docker 2>/dev/null || true
 	$(DOCKER_COMPOSE) --profile test build e2e
@@ -256,7 +274,7 @@ test-e2e-headed:
 # Run E2E tests matching a grep pattern (usage: make test-e2e-grep FILTER="login" [WORKERS=4])
 test-e2e-grep: export MY_TENNIS_ENABLED=1
 test-e2e-grep: export HOME_CLUB_ID=1
-test-e2e-grep:
+test-e2e-grep: test-e2e-bootstrap
 	@echo "Running E2E tests matching: $(FILTER)..."
 	$(DOCKER_COMPOSE) --profile test build e2e
 	$(DOCKER_COMPOSE) --profile test run --rm $(if $(WORKERS),-e WORKERS=$(WORKERS)) e2e \
@@ -264,7 +282,7 @@ test-e2e-grep:
 
 # Re-run only previously failed tests
 test-e2e-failed: export HOME_CLUB_ID=1
-test-e2e-failed:
+test-e2e-failed: test-e2e-bootstrap
 	@echo "Re-running failed E2E tests..."
 	$(DOCKER_COMPOSE) --profile test run --rm e2e \
 		sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --project=chromium --last-failed"
@@ -288,21 +306,17 @@ test-e2e-results:
 		echo "No test results found. Run make test-e2e first."; \
 	fi
 
-# Tear down test containers and clean up volumes.
-# NOTE: the e2e service shares the `jim-dot-tennis-data` volume, so `down -v`
-# also deletes the local/prod database. Guarded like `clean` (FORCE=1 to skip).
-# For a snapshot-protected run, use `make test-e2e-safe` instead.
+# Tear down E2E containers and delete the dedicated E2E data volume.
+# Safe: only jim-dot-tennis-e2e-data is removed; the dev/prod
+# jim-dot-tennis-data volume is not touched.
 test-e2e-clean:
 	@echo "Cleaning up E2E test environment..."
-	@echo "WARNING: 'down -v' also removes the shared jim-dot-tennis-data volume (your local/prod DB)."
-	@if [ "$(FORCE)" != "1" ]; then \
-		printf "Type 'delete' to confirm: " && read ans && [ "$$ans" = "delete" ] || { echo "Aborted."; exit 1; }; \
-	fi
-	$(DOCKER_COMPOSE) --profile test down -v
+	$(DOCKER_COMPOSE) --profile test rm -sf e2e app-e2e
+	-docker volume rm $${E2E_DATA_VOLUME:-jim-dot-tennis-e2e-data}
 	rm -rf tests/e2e/test-results tests/e2e/playwright-report
 
 # Run multi-club E2E tests (HOME_CLUB_ID=2, Hove Park as home club)
-test-e2e-multiclub:
+test-e2e-multiclub: test-e2e-bootstrap
 	@echo "Running multi-club E2E tests (Hove Park as home)..."
 	$(DOCKER_COMPOSE) -f docker-compose.yml -f docker-compose.multiclub-test.yml --profile test build e2e
 	$(DOCKER_COMPOSE) -f docker-compose.yml -f docker-compose.multiclub-test.yml --profile test run --rm $(if $(WORKERS),-e WORKERS=$(WORKERS)) e2e
@@ -311,8 +325,10 @@ test-e2e-multiclub:
 # CourtHive
 # ============================================================
 
-# CourtHive compose file
-COURTHIVE_COMPOSE = $(DOCKER_COMPOSE) -f docker-compose.courthive.yml
+# CourtHive compose file: the reference deployment. Needs deploy/.env (copy
+# deploy/.env.example; DOMAIN=localhost for local use) and sibling checkouts of
+# competition-factory-server, TMX and courthive-public (see the file header).
+COURTHIVE_COMPOSE = $(DOCKER_COMPOSE) -f deploy/docker-compose.yml
 
 # TMX source directory (relative to this project)
 TMX_DIR = ../TMX

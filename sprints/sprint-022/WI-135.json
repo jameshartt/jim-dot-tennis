@@ -1,0 +1,51 @@
+{
+  "id": "WI-135",
+  "title": "Embed templates, static files and migrations in the binary",
+  "description": "The app finds migrations/, templates/ and static/ relative to the current working directory (main.go:28-33, 226-240) and the compose file bind-mounts templates and static over the image copies. Embed all three with go:embed so the binary is self-contained, keeping a development mode that reads from disk for live editing (the existing TEMPLATE_RELOAD behaviour). golang-migrate reads migrations through its iofs source. Uploaded club logos (WI-119) live on the data volume, outside the embedded tree. Also vendor htmx into static/ (it is loaded from unpkg in 30 places and jsdelivr in 2) so an instance has no third-party script dependency.",
+  "type": "refactor",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "Changes how every template and asset is located; moderate blast radius."
+  },
+  "acceptance_criteria": [
+    "The binary runs from any directory with only a data directory beside it",
+    "Development mode still picks up template and static edits without a rebuild",
+    "Migrations run from the embedded source; cmd/migrate and cmd/migrate-down become subcommands of the main binary or use the same embedded source",
+    "No page loads script or style from a third-party host",
+    "The production compose file no longer bind-mounts templates or static",
+    "Static assets are served with sensible cache headers and a version-based cache-buster"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "cmd/jim-dot-tennis/main.go",
+      "internal/render/render.go",
+      "internal/database/database.go (96-163)",
+      "internal/auth/handlers.go (41-62 template loading)",
+      "Dockerfile",
+      "docker-compose.yml",
+      "templates/**/*.html (htmx src)"
+    ],
+    "files_to_create": [
+      "embed.go at module root (or assets package)",
+      "static/vendor/htmx.min.js"
+    ],
+    "notes": [
+      "go:embed cannot reach parent directories - the embedding file must sit at or above templates/, static/ and migrations/.",
+      "Keep htmx at the version in use (1.9.4) unless an upgrade is tested."
+    ]
+  },
+  "testing_requirements": [
+    "Run the binary from an empty temp directory in a scratch container",
+    "Full e2e"
+  ],
+  "context": {
+    "user_story": "As a club operator, I want one file (or one image) to run, with nothing else to keep in sync.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

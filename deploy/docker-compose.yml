@@ -1,0 +1,221 @@
+# Reference production deployment for jim.tennis (jim-dot-tennis + CourtHive).
+#
+# This is the stack production actually runs, with every secret and the domain
+# expressed as a variable. Run it from this directory:
+#
+#   cd deploy
+#   cp .env.example .env        # then fill in every value
+#   docker compose up -d --build
+#
+# Compose reads deploy/.env automatically (it sits next to this file).
+# Required variables use ${VAR:?message}: a missing value stops compose with a
+# clear error instead of silently starting with an empty secret.
+#
+# Expected directory layout (paths below are relative to this file):
+#
+#   <parent>/
+#     jim-dot-tennis/              this repository (checkout or rsync target)
+#       deploy/                    this file, Caddyfile, .env
+#       templates/  static/        bind-mounted into the app container
+#     competition-factory-server/  CourtHive API server source (built here)
+#     TMX/dist/                    pre-built TMX frontend, served at /tournaments
+#     courthive-public/dist/       pre-built public viewer, served at /public
+#
+# NOTE: scripts/deploy-app.sh does NOT sync this file or the Caddyfile to the
+# server; changing the running stack is always a deliberate, manual step.
+#
+# Named volumes below carry fixed `name:` values. Do not rename them: a new name
+# means a new, empty volume and the existing data is orphaned.
+
+# Fixed project name so network/container labels do not depend on the directory
+# this file lives in (production's project is named after its checkout directory).
+name: jim-dot-tennis
+
+services:
+  # Existing jim-dot-tennis app
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: jim-dot-tennis
+    restart: unless-stopped
+    volumes:
+      - tennis-data:/app/data
+      - ../templates:/app/templates
+      - ../static:/app/static
+    environment:
+      - PORT=8080
+      - DB_TYPE=sqlite3
+      - DB_PATH=/app/data/tennis.db
+      - APP_ENV=production # marks session cookies Secure
+      - WRAPPED_ACCESS_PASSWORD=${WRAPPED_ACCESS_PASSWORD:?set WRAPPED_ACCESS_PASSWORD in deploy/.env (see .env.example)}
+      # Set HOME_CLUB_ID (preferred) or HOME_CLUB_NAME; the app refuses to start with neither.
+      - HOME_CLUB_ID=${HOME_CLUB_ID:-}
+      - HOME_CLUB_NAME=${HOME_CLUB_NAME:-}
+      - BHPLTA_CLUB_CODE=${BHPLTA_CLUB_CODE:-}
+      # Optional; empty means the app's built-in default / feature off.
+      - HOME_CLUB_LOGO_PATH=${HOME_CLUB_LOGO_PATH:-}
+      - LEAGUE_TABLES_URL=${LEAGUE_TABLES_URL:-}
+      - MY_TENNIS_ENABLED=${MY_TENNIS_ENABLED:-}
+    networks:
+      - tennis-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis for CourtHive
+  redis:
+    image: redis:7-alpine
+    container_name: courthive-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - tennis-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Postgres for CourtHive
+  postgres:
+    image: postgres:18-alpine
+    container_name: courthive-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: courthive
+      POSTGRES_PASSWORD: ${COURTHIVE_PG_PASSWORD:?set COURTHIVE_PG_PASSWORD in deploy/.env (openssl rand -hex 24)}
+      POSTGRES_DB: courthive
+    volumes:
+      - courthive-pg-data:/var/lib/postgresql
+    networks:
+      - tennis-network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U courthive']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # CourtHive API Server
+  courthive-server:
+    build:
+      context: ../../competition-factory-server
+      dockerfile: Dockerfile
+    container_name: courthive-server
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - courthive-data:/app/data
+      - courthive-cache:/app/cache
+    environment:
+      - NODE_ENV=production
+      - APP_NAME=Competition Factory Server
+      - APP_MODE=production
+      - APP_PORT=8383
+      - STORAGE_PROVIDER=postgres
+      - JWT_SECRET=${COURTHIVE_JWT_SECRET:?set COURTHIVE_JWT_SECRET in deploy/.env (openssl rand -hex 32)}
+      - JWT_VALIDITY=2h
+      - TRACKER_CACHE=/app/cache
+      - REDIS_URL=redis://redis:6379
+      - REDIS_TTL=28800000
+      - REDIS_HOST=redis
+      - REDIS_USERNAME=
+      - REDIS_PASSWORD=
+      - REDIS_PORT=6379
+      - PG_HOST=postgres
+      - PG_PORT=5432
+      - PG_USER=courthive
+      - PG_PASSWORD=${COURTHIVE_PG_PASSWORD:?set COURTHIVE_PG_PASSWORD in deploy/.env (openssl rand -hex 24)}
+      - PG_DATABASE=courthive
+    networks:
+      - tennis-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8383/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Caddy reverse proxy with SSL
+  caddy:
+    image: caddy:2-alpine
+    # Production's docker-compose.override.yml renames this container; the name
+    # below is what actually runs there.
+    container_name: jim-dot-tennis-caddy
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+      courthive-server:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ../../TMX/dist:/srv/tournaments
+      - ../../courthive-public/dist:/srv/public
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      - DOMAIN=${DOMAIN:?set DOMAIN in deploy/.env (the public hostname, e.g. tennis.example.org)}
+    networks:
+      - tennis-network
+
+  # Backup service for jim-dot-tennis database
+  backup:
+    image: alpine:latest
+    container_name: jim-dot-tennis-backup
+    restart: unless-stopped
+    volumes:
+      - tennis-data:/data:ro
+      - tennis-backups:/backups
+    depends_on:
+      - app
+    environment:
+      - BACKUP_INTERVAL=86400
+      - BACKUP_RETENTION=30
+    command: >
+      sh -c '
+        apk add --no-cache sqlite tzdata &&
+        while true; do
+          DATE=$$(date +%Y-%m-%d-%H%M%S) &&
+          echo "Creating backup at $${DATE}" &&
+          mkdir -p /backups &&
+          sqlite3 /data/tennis.db ".backup /backups/tennis-$${DATE}.db" &&
+          echo "Backup completed" &&
+          find /backups -name "tennis-*.db" -type f -mtime +$${BACKUP_RETENTION} -delete &&
+          sleep $${BACKUP_INTERVAL};
+        done
+      '
+    networks:
+      - tennis-network
+
+networks:
+  tennis-network:
+    driver: bridge
+
+volumes:
+  tennis-data:
+    name: jim-dot-tennis-data
+  tennis-backups:
+    name: jim-dot-tennis-backups
+  redis-data:
+    name: courthive-redis-data
+  courthive-data:
+    name: courthive-data
+  courthive-cache:
+    name: courthive-cache
+  caddy-data:
+    name: caddy-data
+  caddy-config:
+    name: caddy-config
+  courthive-pg-data:
+    name: courthive-pg-data

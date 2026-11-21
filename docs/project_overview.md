@@ -34,7 +34,7 @@ Jim.Tennis is a club-agnostic league management system for the Brighton and Hove
 ## Technical Stack
 
 - **Go 1.25** (server-side application)
-- **SQLite** (default) or **PostgreSQL**
+- **SQLite** (the only supported database)
 - **Server-side rendered HTML templates** with **HTMX**
 - **Progressive Web App (PWA)** with push notification support
 - **Docker** for production deployment and Go tooling

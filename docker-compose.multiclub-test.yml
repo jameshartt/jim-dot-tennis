@@ -4,7 +4,7 @@
 # This override changes the app's HOME_CLUB_ID to 2 (Hove Park Tennis Club)
 # and runs only the multi-club.spec.ts test file.
 services:
-  app:
+  app-e2e:
     environment:
       - HOME_CLUB_ID=2
       - HOME_CLUB_NAME=Hove Park

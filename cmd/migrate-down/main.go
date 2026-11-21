@@ -35,6 +35,11 @@ func main() {
 		os.Exit(2)
 	}
 
+	// SQLite is the only supported database.
+	if err := database.RequireSQLite(os.Getenv("DB_TYPE")); err != nil {
+		log.Fatalf("%v", err)
+	}
+
 	// Get database configuration
 	config := database.Config{
 		Driver:   "sqlite3",

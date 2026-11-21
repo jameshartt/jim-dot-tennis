@@ -32,15 +32,15 @@ The application will be available at http://localhost:8080
 2. **Import Container** - On-demand container for running import utilities (profile: `tools`)
 3. **Backup Container** - Automatically backs up the SQLite database using `alpine:latest`
 
-### CourtHive Stack (`docker-compose.courthive.yml`)
+### CourtHive Stack (`deploy/docker-compose.yml`)
 
-The CourtHive compose file extends the deployment with additional services for tournament management:
+The reference deployment (`deploy/docker-compose.yml`, `deploy/Caddyfile`, `deploy/.env.example`) is the stack production runs. It extends the deployment with additional services for tournament management:
 
 1. **jim-dot-tennis app** - The core Go application
 2. **competition-factory-server** - CourtHive API server (NestJS)
 3. **TMX Frontend** - Tournament management interface (served via Caddy from pre-built static files)
 4. **courthive-public** - Public-facing CourtHive site (served via Caddy)
-5. **Redis** - `redis:7-alpine` for CourtHive caching and session storage
+5. **Redis** and **Postgres** - `redis:7-alpine` and `postgres:18-alpine` for CourtHive
 6. **Caddy** - `caddy:2-alpine` reverse proxy with automatic SSL
 7. **Backup** - Database backup service
 

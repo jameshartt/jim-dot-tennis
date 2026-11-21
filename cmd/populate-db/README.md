@@ -37,7 +37,7 @@ go build -o bin/populate-db cmd/populate-db/main.go
 
 - `-csv-dir`: Directory containing CSV files (default: "pdf_output")
 - `-db-path`: Path to SQLite database file (default: "./tennis.db")
-- `-db-type`: Database type - sqlite3 or postgres (default: "sqlite3")
+- `-db-type`: Database type - only sqlite3 is supported (default: "sqlite3")
 - `-dry-run`: Print what would be done without making changes
 - `-verbose`: Enable verbose logging
 
@@ -168,7 +168,7 @@ The script intelligently parses team names to extract club information:
 ## Database Requirements
 
 - Requires database migrations to be run first
-- Compatible with SQLite (default) and PostgreSQL
+- SQLite only
 - Creates all necessary foreign key relationships
 - Includes proper indexing for performance
 

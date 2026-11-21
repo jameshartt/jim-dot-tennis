@@ -1,0 +1,42 @@
+{
+  "id": "WI-150",
+  "title": "Clear out stale documentation; README for a prospective club",
+  "description": "Most of docs/ is planning history or the author's runbooks, and several files are wrong (Docker Compose v1 commands, S3 backup claims, LevelDB-era steps, Go-first getting started, stale test counts). Move history to docs/archive/ with a one-line index, delete what is simply wrong and superseded, and rewrite README.md for a prospective club: what it is, who it is for (BHPLTA clubs), what you get including club championships, a screenshot or two from demo data, and 'Install' pointing at the new guide. Update CONTRIBUTING.md's club adaptation section, CLAUDE.md, docs/README.md and the sprints index. Remove the duplicate import scripts in scripts/ that the app now replaces.",
+  "type": "documentation",
+  "priority": "medium",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5",
+    "rationale": "Editorial clean-up with a clear target state."
+  },
+  "acceptance_criteria": [
+    "docs/ top level contains only current, accurate documents; history is under docs/archive/",
+    "README.md opens with what a club gets and how to install, in under two screens",
+    "No tracked document contradicts shipped behaviour on install, database, backups or sign-in",
+    "CLAUDE.md reflects embedded assets, SQLite-only, the CLI subcommands, roles and the test suites as they are",
+    "scripts/ contains only scripts that are still used, each with a header comment",
+    "Root-level PROFILE_IMPLEMENTATION.md and COURTHIVE_SETUP.md are archived or removed"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "README.md",
+      "CONTRIBUTING.md",
+      "CLAUDE.md",
+      "docs/README.md",
+      "docs/*",
+      "scripts/*",
+      "sprints/INDEX.md"
+    ]
+  },
+  "testing_requirements": [
+    "Link check across all Markdown files"
+  ],
+  "context": {
+    "user_story": "As someone deciding whether to adopt this, I want the front page to tell me what it is and how to start.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

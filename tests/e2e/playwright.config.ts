@@ -12,7 +12,7 @@ export default defineConfig({
   globalSetup: "./global-setup.ts",
 
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://webapp:8080",
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://app-e2e:8080",
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },

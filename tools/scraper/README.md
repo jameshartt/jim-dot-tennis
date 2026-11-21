@@ -1,4 +1,11 @@
-# Tennis League Data Scraper
+# Tennis League Data Scraper (standalone module)
+
+> **Licence note.** This directory is its own Go module (`jim-dot-tennis/tools/scraper`) and is deliberately
+> excluded from the main `jim-dot-tennis` module. It links [MuPDF](https://mupdf.com) through
+> `github.com/gen2brain/go-fitz`, which is **AGPL-3.0**. It is a one-off 2025 fixture-PDF extractor and is
+> **not part of any released binary or Docker image**. Do not import it, or go-fitz, from the main module.
+> Build it from this directory: `cd tools/scraper && go build -o scraper .` (needs glibc: it builds in the Debian `golang:1.26` image; the musl/alpine image fails to link the prebuilt MuPDF libraries).
+
 
 This tool scrapes tennis league data from the Brighton and Hove Parks Lawn Tennis Association website and imports it into the database. It currently supports importing fixtures, teams, and clubs. Results and standings table support will be added in future updates.
 
@@ -8,7 +15,7 @@ This tool scrapes tennis league data from the Brighton and Hove Parks Lawn Tenni
 
 ```bash
 # Build the scraper
-go build -o bin/scraper cmd/scraper/main.go
+go build -o bin/scraper .
 
 # Run the scraper with default settings
 ./bin/scraper

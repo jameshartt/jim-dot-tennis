@@ -1,0 +1,41 @@
+{
+  "id": "WI-124",
+  "title": "Optional demo data for exploring before going live",
+  "description": "A new club should be able to look around before committing its own data. Offer 'Explore with demo data' during setup: a fictional club in a fictional division set with invented players, availability, selections and a few results, clearly bannered as a demo, and removable in one action that returns the instance to the setup step with the administrator account kept.",
+  "type": "feature",
+  "priority": "low",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [
+    "WI-117",
+    "WI-118"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5",
+    "rationale": "Seed data and a guarded load/clear action."
+  },
+  "acceptance_criteria": [
+    "Setup offers real setup or demo data; demo data uses obviously fictional names",
+    "Every page shows a 'Demo data' banner while it is loaded",
+    "'Clear demo data' removes all of it in one transaction and returns to club selection, keeping the administrator",
+    "Demo data can never be loaded into an instance that already has real data"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "internal/setup/demo.go",
+      "internal/setup/demo_data.sql (embedded)"
+    ],
+    "notes": [
+      "Reuse the shape of tests/e2e/fixtures/seed.sql but with invented names - never real members."
+    ]
+  },
+  "testing_requirements": [
+    "e2e: load demo, browse, clear, land back on club selection"
+  ],
+  "context": {
+    "user_story": "As a prospective club, I want to try the app with sample data so that I can decide whether it suits us.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

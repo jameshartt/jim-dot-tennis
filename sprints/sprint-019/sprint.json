@@ -1,0 +1,24 @@
+{
+  "sprint": {
+    "id": "sprint-019",
+    "name": "Public Repo Cleanup & SQLite-Only",
+    "goal": "Make the public repository safe and honest to hand to another club: no live credentials or author-specific server details in tracked files, the real reference deployment in git, no AGPL dependency in the shipped module, and SQLite declared (and coded) as the only supported database.",
+    "start_date": "2026-11-20",
+    "end_date": "2026-11-21",
+    "type": "numbered",
+    "status": "completed",
+    "programme": "club-readiness (sprints 019-024)",
+    "focus_areas": [
+      "Remove credentials and author-server details from tracked docs",
+      "Bring the real production compose file and Caddyfile into git as the reference deployment",
+      "Keep the AGPL MuPDF dependency out of anything a club receives",
+      "SQLite is the only supported database - remove the untested Postgres path"
+    ],
+    "work_items": [
+      "WI-112",
+      "WI-113",
+      "WI-114",
+      "WI-115"
+    ]
+  }
+}

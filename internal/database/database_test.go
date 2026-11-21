@@ -4,6 +4,7 @@ package database
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -38,5 +39,22 @@ func TestNewSQLiteAppliesPragmas(t *testing.T) {
 	}
 	if busyTimeout != 5000 {
 		t.Errorf("busy_timeout = %d, want 5000", busyTimeout)
+	}
+}
+
+func TestRequireSQLite(t *testing.T) {
+	for _, ok := range []string{"", "sqlite3"} {
+		if err := RequireSQLite(ok); err != nil {
+			t.Errorf("RequireSQLite(%q) = %v, want nil", ok, err)
+		}
+	}
+	for _, bad := range []string{"postgres", "mysql", "SQLITE3"} {
+		err := RequireSQLite(bad)
+		if err == nil || !strings.Contains(err.Error(), "only SQLite is supported") {
+			t.Errorf("RequireSQLite(%q) = %v, want 'only SQLite is supported' error", bad, err)
+		}
+	}
+	if _, err := New(Config{Driver: "postgres"}); err == nil {
+		t.Error("New with postgres driver should fail")
 	}
 }

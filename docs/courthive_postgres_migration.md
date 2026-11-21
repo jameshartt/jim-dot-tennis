@@ -35,7 +35,7 @@ Migrating now (while the data is small) is the cheap moment.
 | Disk | 19 GB / 49 GB used (40%) — 30 GB free |
 | LevelDB data size | **1.9 MB** total in `/app/data` (unchanged from 2026-05-10 capture) |
 | Affected service | `courthive-server` container only (jim-dot-tennis Go app unaffected) |
-| Compose file | `/opt/jim-dot-tennis/docker-compose.courthive.yml` (NOT the base `docker-compose.yml`) |
+| Compose file | `$REMOTE_PATH/docker-compose.courthive.yml` (NOT the base `docker-compose.yml`) |
 | Compose build context | `../competition-factory-server` (sibling dir, rsync target) |
 | Make helpers | `make courthive-up`, `courthive-down`, `courthive-restart`, `courthive-logs` |
 
@@ -76,7 +76,7 @@ This matters for the cutover: stopping `courthive-server` also kills net-level-s
 1. **Server resize 1 GB → 2 GB before adding Postgres.** **Done.** The droplet has been on 2 GB for some time — re-confirmed 2026-05-18: 1.9 GB RAM, 49 GB disk, ~1.3 GB available. Phase 2a is a no-op.
 2. **Upstream feature scope after migration.** **Decided: Postgres only.** Do NOT enable the new admin-client, audit-worker, sanctioning, or provisioner modules. Smallest surface change, lowest risk, fastest to ship. Re-evaluate later if any are useful for the parks-league use case.
 3. **Cutover timing.** **Decided: weekday evening, 22:00 BST**, no live tournament in flight. ~30-45 min total downtime including buffer. Specific date to be set when Phase 0 + Phase 1 are signed off.
-4. **JWT_SECRET stability.** **Decided: keep current value unchanged.** Existing user sessions survive the migration — users won't have to re-log-in. The secret is already in `/opt/jim-dot-tennis/.env` as `COURTHIVE_JWT_SECRET` (mapped to `JWT_SECRET` inside the container).
+4. **JWT_SECRET stability.** **Decided: keep current value unchanged.** Existing user sessions survive the migration — users won't have to re-log-in. The secret is already in `$REMOTE_PATH/.env` as `COURTHIVE_JWT_SECRET` (mapped to `JWT_SECRET` inside the container).
 
 ---
 
@@ -89,7 +89,7 @@ Goal: catch any data-shape or service-startup issues with a real copy of prod da
 ```bash
 # 1. Pull prod LevelDB data to a local scratch dir
 mkdir -p /tmp/courthive-leveldb-snapshot
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker run --rm -v courthive-data:/data alpine tar czf - -C /data ." \
   > /tmp/courthive-leveldb-snapshot/data.tar.gz
 
@@ -112,7 +112,7 @@ pnpm watch  # first startup applies schema migrations
 #    along with the LevelDB storage path). Use the bundled binary directly,
 #    and start it from the snapshot parent dir (Phase 0 gotcha #3):
 cd /tmp/courthive-leveldb-poc    # parent of ./data/ with the extracted snapshot
-DB_HOST=localhost DB_PORT=3838 DB_USER=admin DB_PASS=adminpass \
+DB_HOST=localhost DB_PORT=3838 DB_USER=<courthive-db-user> DB_PASS=<courthive-db-password> \
   /path/to/competition-factory-server/node_modules/.bin/net-level-server \
   > /tmp/net-level-server.log 2>&1 &
 
@@ -201,7 +201,7 @@ The droplet has been on 2 GB / 49 GB for some time (re-confirmed 2026-05-18). No
 Belt-and-braces backup before any production change. The DigitalOcean snapshot is one layer; this is the other.
 
 ```bash
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker run --rm -v courthive-data:/data alpine tar czf - -C /data ." \
   > ~/backups/courthive-leveldb-$(date +%Y%m%d-%H%M%S).tar.gz
 ```
@@ -210,7 +210,7 @@ Keep this tarball on local disk *and* off-machine (e.g. drop a copy in Dropbox/i
 
 ### 2c. Update production compose file
 
-Edit `/opt/jim-dot-tennis/docker-compose.courthive.yml`:
+Edit `$REMOTE_PATH/docker-compose.courthive.yml`:
 
 1. **Add a `postgres` service** mirroring upstream (with the mount-path fix from Gotcha #2):
 
@@ -247,7 +247,7 @@ Edit `/opt/jim-dot-tennis/docker-compose.courthive.yml`:
 
 ### 2d. Update `.env` on prod
 
-Add to `/opt/jim-dot-tennis/.env`:
+Add to `$REMOTE_PATH/.env`:
 ```
 COURTHIVE_PG_PASSWORD=<generated strong password, 32+ chars>
 ```
@@ -263,8 +263,8 @@ Per Section 4 in `PRODUCTION_QUICK_REFERENCE.md`:
 ```bash
 cd ~/Development/Tennis/competition-factory-server
 rsync -avz --exclude='node_modules' --exclude='dist' --exclude='.git' --exclude='build' \
-  -e "ssh -i ~/.ssh/digital_ocean_ssh" \
-  ./ root@144.126.228.64:/opt/competition-factory-server/
+  -e "ssh -i $SSH_KEY" \
+  ./ $SERVER:$REMOTE_PATH/competition-factory-server/
 ```
 
 Don't restart courthive-server yet — just have the rsync'd source ready for the cutover.
@@ -290,9 +290,9 @@ Take a panel snapshot immediately before Phase 3. This is the cheapest rollback 
 
 ```bash
 # Step 1: Final snapshot of prod LevelDB (after announcing maintenance)
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose -f docker-compose.courthive.yml stop courthive-server"
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose -f docker-compose.courthive.yml stop courthive-server"
+ssh -i $SSH_KEY $SERVER \
   "docker run --rm -v courthive-data:/data alpine tar czf - -C /data ." \
   > /tmp/courthive-leveldb-final-$(date +%Y%m%d-%H%M%S).tar.gz
 
@@ -313,43 +313,43 @@ pg_dump -h localhost -U courthive -d courthive \
   > /tmp/courthive-data-only-$(date +%Y%m%d-%H%M%S).sql
 
 # Step 4: Push the dump to prod
-scp -i ~/.ssh/digital_ocean_ssh /tmp/courthive-data-only-*.sql \
-  root@144.126.228.64:/tmp/
+scp -i $SSH_KEY /tmp/courthive-data-only-*.sql \
+  $SERVER:/tmp/
 
 # Step 5: On prod — bring up Postgres
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose -f docker-compose.courthive.yml up -d postgres"
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose -f docker-compose.courthive.yml up -d postgres"
 # wait for healthy:
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "docker compose -f /opt/jim-dot-tennis/docker-compose.courthive.yml ps postgres"
+ssh -i $SSH_KEY $SERVER \
+  "docker compose -f $REMOTE_PATH/docker-compose.courthive.yml ps postgres"
 
 # Step 6: On prod — build the new (Postgres-aware) courthive-server image
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose -f docker-compose.courthive.yml build courthive-server"
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose -f docker-compose.courthive.yml build courthive-server"
 
 # Step 7: On prod — start courthive-server briefly so migration-runner applies schemas 001-022
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose -f docker-compose.courthive.yml up -d courthive-server && sleep 20"
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose -f docker-compose.courthive.yml up -d courthive-server && sleep 20"
+ssh -i $SSH_KEY $SERVER \
   "docker logs --tail 80 courthive-server | grep -iE '(migration|schema|applied)'"
 # Expect to see migrations 001 through 022 applied. Then stop the server so the restore
 # doesn't race with any startup writes:
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose -f docker-compose.courthive.yml stop courthive-server"
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose -f docker-compose.courthive.yml stop courthive-server"
 
 # Step 8: On prod — restore the data-only dump into the now-schema'd Postgres
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker exec -i courthive-postgres psql -U courthive -d courthive" \
   < /tmp/courthive-data-only-*.sql   # OR copy the file in first and use < inside the ssh
 
 # (Safer alternative: scp the .sql into the container, run psql there.)
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker cp /tmp/courthive-data-only-*.sql courthive-postgres:/tmp/restore.sql && \
    docker exec courthive-postgres psql -U courthive -d courthive -f /tmp/restore.sql"
 
 # Step 9: Start courthive-server with STORAGE_PROVIDER=postgres
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose -f docker-compose.courthive.yml up -d courthive-server"
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose -f docker-compose.courthive.yml up -d courthive-server"
 ```
 
 **Smoke test checklist** (run all from a real browser, not curl):
@@ -374,40 +374,40 @@ The key trick: temporarily run net-level-server as a **separate** container that
 
 ```bash
 # Step 1: Tag the old image for safe rollback (see Phase 3b)
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker tag jim-dot-tennis_courthive-server:latest jim-dot-tennis_courthive-server:pre-pg-migration"
 
 # Step 2: Stop the old courthive-server (releases the LevelDB lock)
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose -f docker-compose.courthive.yml stop courthive-server"
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose -f docker-compose.courthive.yml stop courthive-server"
 
 # Step 3: Start a temporary net-level-server sidecar from the OLD image, command override
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker run -d --rm --name courthive-leveldb-sidecar \
      --network jim-dot-tennis_tennis-network \
      -v courthive-data:/app/data \
-     -e DB_HOST=0.0.0.0 -e DB_PORT=3838 -e DB_USER=admin -e DB_PASS=adminpass \
+     -e DB_HOST=0.0.0.0 -e DB_PORT=3838 -e DB_USER=<courthive-db-user> -e DB_PASS=<courthive-db-password> \
      jim-dot-tennis_courthive-server:pre-pg-migration \
      sh -c 'cd /app && npx net-level-server'"
 # verify it's serving:
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker logs courthive-leveldb-sidecar | tail"
 
 # Step 4: Bring up Postgres + schema-prime via courthive-server (as Approach A Steps 5-7)
 
 # Step 5: Run the migration script as a one-shot container of the NEW image,
 #         pointed at the sidecar for the LevelDB side and prod Postgres for the target
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker run --rm --network jim-dot-tennis_tennis-network \
-     -e DB_HOST=courthive-leveldb-sidecar -e DB_PORT=3838 -e DB_USER=admin -e DB_PASS=adminpass \
+     -e DB_HOST=courthive-leveldb-sidecar -e DB_PORT=3838 -e DB_USER=<courthive-db-user> -e DB_PASS=<courthive-db-password> \
      -e PG_HOST=postgres -e PG_PORT=5432 -e PG_USER=courthive \
-     -e PG_PASSWORD=\$(grep ^COURTHIVE_PG_PASSWORD /opt/jim-dot-tennis/.env | cut -d= -f2) \
+     -e PG_PASSWORD=\$(grep ^COURTHIVE_PG_PASSWORD $REMOTE_PATH/.env | cut -d= -f2) \
      -e PG_DATABASE=courthive \
      jim-dot-tennis_courthive-server:latest \
      node src/scripts/migrate-to-postgres.mjs --verbose"
 
 # Step 6: Stop the sidecar
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
+ssh -i $SSH_KEY $SERVER \
   "docker stop courthive-leveldb-sidecar"
 
 # Step 7: Start courthive-server with STORAGE_PROVIDER=postgres (as Approach A Step 9)
@@ -422,8 +422,8 @@ Three rollback levers, in order of preference. The first two require the deploy 
 **Lever 1: Re-deploy the pre-migration image and flip env back to LevelDB** (~5 min)
 
 ```bash
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 << 'EOF'
-cd /opt/jim-dot-tennis
+ssh -i $SSH_KEY $SERVER << 'EOF'
+cd $REMOTE_PATH
 docker compose -f docker-compose.courthive.yml stop courthive-server
 # Revert compose changes (the diff from 2c) — easiest is a saved-pre-edit copy:
 cp docker-compose.courthive.yml.pre-pg docker-compose.courthive.yml
@@ -437,9 +437,9 @@ EOF
 
 **Before starting Phase 3, save the pre-edit copies:**
 ```bash
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cp /opt/jim-dot-tennis/docker-compose.courthive.yml /opt/jim-dot-tennis/docker-compose.courthive.yml.pre-pg && \
-   cp /opt/jim-dot-tennis/.env /opt/jim-dot-tennis/.env.pre-pg"
+ssh -i $SSH_KEY $SERVER \
+  "cp $REMOTE_PATH/docker-compose.courthive.yml $REMOTE_PATH/docker-compose.courthive.yml.pre-pg && \
+   cp $REMOTE_PATH/.env $REMOTE_PATH/.env.pre-pg"
 ```
 
 **Lever 2: Rebuild the courthive-server image from the safety git tag** (~10-15 min)
@@ -451,10 +451,10 @@ If Lever 1 fails (e.g. the saved image is gone), rebuild from the tagged source:
 cd ~/Development/Tennis/competition-factory-server
 git checkout jim-tennis-deploy-pre-pg-migration
 rsync -avz --exclude='node_modules' --exclude='dist' --exclude='.git' --exclude='build' \
-  -e "ssh -i ~/.ssh/digital_ocean_ssh" \
-  ./ root@144.126.228.64:/opt/competition-factory-server/
-ssh -i ~/.ssh/digital_ocean_ssh root@144.126.228.64 \
-  "cd /opt/jim-dot-tennis && docker compose -f docker-compose.courthive.yml build courthive-server && \
+  -e "ssh -i $SSH_KEY" \
+  ./ $SERVER:$REMOTE_PATH/competition-factory-server/
+ssh -i $SSH_KEY $SERVER \
+  "cd $REMOTE_PATH && docker compose -f docker-compose.courthive.yml build courthive-server && \
    docker compose -f docker-compose.courthive.yml up -d courthive-server"
 # Don't forget to also revert compose + env per Lever 1.
 ```
@@ -475,7 +475,7 @@ Wait for at least one league night + a tournament weekend before declaring the m
 - [ ] Drop the LevelDB Docker volume: `docker volume rm jim-dot-tennis_courthive-data` (use `docker volume ls` to confirm the exact name; the prefix follows the compose project name)
 - [ ] Delete the off-server LevelDB tarball backups older than 30 days (keep one as a long-term archive)
 - [ ] Remove the safety git tag once confidence is established: `git tag -d jim-tennis-deploy-pre-pg-migration` (and `--delete` on origin)
-- [ ] Remove the saved compose/env pre-edit copies: `rm /opt/jim-dot-tennis/docker-compose.courthive.yml.pre-pg /opt/jim-dot-tennis/.env.pre-pg`
+- [ ] Remove the saved compose/env pre-edit copies: `rm $REMOTE_PATH/docker-compose.courthive.yml.pre-pg $REMOTE_PATH/.env.pre-pg`
 - [ ] Update `PRODUCTION_QUICK_REFERENCE.md`:
   - Section 8 (Create CourtHive User): rewrite to use `psql` against the `users` table instead of net-level-client. The simpler form is: hash the password locally with bcrypt and `INSERT INTO users ...` — or use `src/scripts/admin-user.mjs --storage postgres` if it covers the use case.
   - Section 8b (Reset Password): `UPDATE users SET password = $1 WHERE email = $2` after a `bcrypt.hash()` step.

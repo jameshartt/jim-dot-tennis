@@ -1,0 +1,40 @@
+{
+  "id": "WI-114",
+  "title": "Isolate the AGPL PDF scraper and correct acknowledgements",
+  "description": "go.mod pulls in gen2brain/go-fitz (MuPDF, AGPL) solely for cmd/scraper, a one-off 2025 fixture PDF extractor. Shipping binaries built from a module with that dependency invites a licensing question a club should never have to ask. Move cmd/scraper into its own Go module (or delete it if Jim confirms it is dead), so the main module and every released binary are free of it. ACKNOWLEDGEMENTS.md is also stale: it lists jupiterrider/ffi (gone), and omits htmx and the test dependencies.",
+  "type": "refactor",
+  "priority": "medium",
+  "complexity": "S",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "completed",
+  "recommended_model": {
+    "name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5",
+    "rationale": "Contained dependency surgery with a clear pass/fail check."
+  },
+  "acceptance_criteria": [
+    "The main go.mod no longer requires go-fitz, and `go mod why github.com/gen2brain/go-fitz` reports it is not needed",
+    "cmd/scraper either lives in a separate module with its own go.mod and a licence note, or is removed",
+    "ACKNOWLEDGEMENTS.md matches the current go.mod and front-end dependencies, including htmx and each licence",
+    "make check still passes"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "go.mod",
+      "go.sum",
+      "ACKNOWLEDGEMENTS.md",
+      "Makefile (drop scraper targets if any)"
+    ],
+    "notes": [
+      "Go is not installed locally - run all Go commands through the Docker-based make targets."
+    ]
+  },
+  "testing_requirements": [
+    "make check"
+  ],
+  "context": {
+    "user_story": "As a club, I want the software I am given to carry only permissive licences.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

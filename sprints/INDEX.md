@@ -146,7 +146,52 @@ Listed newest first.
 
 ## Planned Sprints
 
-_None currently planned. Add new sprints with the next available work-item ID (WI-112)._
+Sprints 019-024 form the **club-readiness programme**: making the app installable and usable by other BHPLTA clubs with no prior familiarity. Agreed constraints: BHPLTA only; each club hosts its own instance; the original author has no access to other clubs' instances; passkeys by default with passwords as an optional fallback; a real captain role; SQLite only; CourtHive bundled as an opt-in. Each work item carries a `recommended_model`. Suggested order: 019 → 020 → 021 → 022 → 023 → 024 (022 may run alongside 020/021, except its CI e2e job wants 020's fresh-install suite).
+
+### Sprint 019: Public Repo Cleanup & SQLite-Only
+- **Status**: Completed (2026-11-21)
+- **Work Items**: 4 (WI-112 to WI-115)
+- **Goal**: No live credentials or author-server details in tracked files; the real reference deployment in git; AGPL scraper isolated; Postgres path removed
+- **Directory**: `sprint-019/`
+- **Summary**: [sprint-019/SUMMARY.md](sprint-019/SUMMARY.md)
+
+### Sprint 020: Fresh Install — From Empty Database to a Working Club
+- **Status**: Planned
+- **Work Items**: 10 (WI-116 to WI-125)
+- **Goal**: Start on an empty database, guided setup with a one-time code, first administrator, club choice, league/divisions/season pulled from BHPLTA, club settings, no seeded accounts or shared secrets
+- **Directory**: `sprint-020/`
+- **Summary**: [sprint-020/SUMMARY.md](sprint-020/SUMMARY.md)
+- **Schema planned**: app_settings; drop of the migration-010 managing-team trigger
+
+### Sprint 021: Authentication — Passkeys, Recovery and a Real Captain Role
+- **Status**: Planned
+- **Work Items**: 9 (WI-126 to WI-134)
+- **Goal**: Passkeys as default sign-in, passwords as optional fallback, invite and recovery links without email, server-side account commands, enforced captain role, hardening and an independent security review
+- **Directory**: `sprint-021/`
+- **Summary**: [sprint-021/SUMMARY.md](sprint-021/SUMMARY.md)
+- **Schema planned**: WebAuthn credentials, account links, account audit log, nullable password hash
+
+### Sprint 022: Packaging, CI and Releases
+- **Status**: Planned
+- **Work Items**: 7 (WI-135 to WI-141)
+- **Goal**: Self-contained binary (embedded assets, pure-Go SQLite), CI on every push, tagged releases with binaries and a multi-architecture image, safe upgrades, tested backup and restore, jim.tennis moved onto releases
+- **Directory**: `sprint-022/`
+- **Summary**: [sprint-022/SUMMARY.md](sprint-022/SUMMARY.md)
+
+### Sprint 023: CourtHive Bundle — Club Championships in the Box
+- **Status**: Planned
+- **Work Items**: 6 (WI-142 to WI-147)
+- **Goal**: Published club-neutral CourtHive images, an opt-in tournament stack in the packaged deployment, automatic per-club provisioning, tournament data in backups, unattended upgrades
+- **Directory**: `sprint-023/`
+- **Summary**: [sprint-023/SUMMARY.md](sprint-023/SUMMARY.md)
+- **Gate**: WI-142 must confirm redistribution is permitted before any image is published
+
+### Sprint 024: Documentation and Onboarding for New Clubs
+- **Status**: Planned
+- **Work Items**: 4 (WI-148 to WI-151)
+- **Goal**: Operator and user guides, stale docs archived, a cold install by a reader with only the docs, then version 1.0.0
+- **Directory**: `sprint-024/`
+- **Summary**: [sprint-024/SUMMARY.md](sprint-024/SUMMARY.md)
 
 ### Sprint 016: My Tennis — Profile Revamp & Player Self-Expression
 - **Status**: Completed (2026-04-18)
@@ -195,7 +240,8 @@ Work items are numbered sequentially:
 - **WI-093 through WI-100** — Sprint 016 (completed 2026-04-18)
 - **WI-101 through WI-107** — Sprint 017 (completed)
 - **WI-108 through WI-111** — Sprint 018 (completed)
-- **Next available**: WI-112
+- **WI-112 through WI-151** — Sprints 019–024, club-readiness programme (planned)
+- **Next available**: WI-152
 
 ## Migrations Relationship
 
@@ -204,7 +250,8 @@ Sprint work items that deliver migrations document the migration number in their
 - **025** (users.player_id FK) — Sprint 016 WI-094 (used by Sprint 017)
 - **026** (lineup_drafts, lineup_draft_players) — Sprint 017 WI-106
 - **027** (player_tennis_preferences.wizard_progress_tier) — Sprint 018 WI-108
-- **Next available**: 028
+- **028** (retired_by on matchups) and **029** (reschedule statuses) — delivered outside the sprint structure
+- **Next available**: 030 (026 was never committed — never reuse it). Sprints 020 and 021 plan several migrations; each takes the next free number when implemented
 
 ## How to Use This Index
 

@@ -4,7 +4,7 @@ This guide covers monitoring, scaling, and managing the Jim.Tennis stack on Digi
 
 ## Stack Overview
 
-The production deployment (via `docker-compose.courthive.yml`) runs the following services:
+The production deployment (reference definition: `deploy/docker-compose.yml`) runs the following services:
 
 | Service | Container | Port | Type |
 |---|---|---|---|
@@ -320,10 +320,10 @@ curl -X POST \
 2. Restore from the latest backup:
    ```bash
    # Find the latest backup
-   ls -la /opt/jim-dot-tennis/external-backups
+   ls -la $REMOTE_PATH/external-backups
    
    # Restore it
-   cp /opt/jim-dot-tennis/external-backups/latest-backup.db /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db
+   cp $REMOTE_PATH/external-backups/latest-backup.db /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db
    ```
 
 3. Restart the application:

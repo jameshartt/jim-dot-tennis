@@ -176,7 +176,7 @@ The app enforces 5 login attempts per 15 minutes per username+IP. Use unique use
 
 ### HSTS `.app` TLD Issue
 
-Docker service names must not use `.app` — Chromium forces HTTPS on HSTS-preloaded TLDs. The compose config uses `webapp` as the network alias. The base URL is `http://webapp:8080`.
+A bare `app` hostname is unusable — `.app` is an HSTS-preloaded TLD and Chromium forces HTTPS on it. The suite talks to the dedicated `app-e2e` service (its own data volume, no host port). The base URL is `http://app-e2e:8080`.
 
 ### axe-core Violations
 

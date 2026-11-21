@@ -1,0 +1,46 @@
+{
+  "id": "WI-136",
+  "title": "Switch to pure-Go SQLite and build without CGO",
+  "description": "mattn/go-sqlite3 forces CGO, a C toolchain in the build image, and makes cross-compiling release binaries awkward. Switch to modernc.org/sqlite (and golang-migrate's matching driver). Check the points where behaviour can differ: the connection string and pragmas (foreign keys are enabled in internal/database/database.go:57; WAL; busy timeout), date/time scanning, boolean handling, error types used for constraint detection, and anything relying on sqlite_omit_load_extension. Measure the slowest pages before and after. If an unresolvable incompatibility appears, stop and report rather than working around it.",
+  "type": "refactor",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "A driver swap under the whole application; needs methodical verification of subtle behavioural differences."
+  },
+  "acceptance_criteria": [
+    "CGO_ENABLED=0 builds succeed for linux/amd64 and linux/arm64",
+    "Unit, e2e, multi-club and fresh-install suites pass on the new driver",
+    "A copy of a real production database opens, migrates and serves correctly (Jim provides the copy; it stays local)",
+    "Foreign keys, WAL and a busy timeout are confirmed active by a startup self-check",
+    "Timings for dashboard, planning matrix and team selection are recorded before and after; no page regresses by more than an agreed margin",
+    "The Docker build no longer installs gcc, musl-dev or sqlite-dev; the runtime image no longer needs sqlite-libs"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "go.mod",
+      "internal/database/database.go",
+      "Dockerfile",
+      "Dockerfile.import",
+      "Makefile (test targets no longer need CGO)",
+      "any code matching on sqlite3.Error"
+    ],
+    "notes": [
+      "Driver name changes from 'sqlite3' to 'sqlite'; DSN pragma syntax differs (_pragma=foreign_keys(1)).",
+      "Verify details against the modernc.org/sqlite and golang-migrate documentation rather than memory."
+    ]
+  },
+  "testing_requirements": [
+    "All four test suites",
+    "Manual check against a production database copy"
+  ],
+  "context": {
+    "user_story": "As the maintainer, I want release binaries for more than one architecture without a C toolchain.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "id": "WI-140",
+  "title": "Tagged releases: binaries, multi-architecture image, changelog",
+  "description": "Pushing a version tag builds and publishes a release: Linux amd64 and arm64 binaries with checksums on GitHub Releases, and a multi-architecture image on GitHub Container Registry tagged with the version and `latest`. Use GoReleaser (or an equivalent the implementer justifies). Generate release notes from merged changes and keep a CHANGELOG.md with an 'Upgrade notes' section per version. Attach build provenance so a club can verify an image came from this repository. The release compose file references the published image by version instead of building locally.",
+  "type": "infrastructure",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-135",
+    "WI-136",
+    "WI-137",
+    "WI-139"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5",
+    "rationale": "Release configuration following documented patterns."
+  },
+  "acceptance_criteria": [
+    "Pushing tag vX.Y.Z produces a GitHub Release with two binaries, a checksum file and notes, and a ghcr.io image for both architectures",
+    "The running app reports exactly that version",
+    "CHANGELOG.md exists with an entry for the first release and an upgrade-notes convention",
+    "Images carry provenance attestations and standard OCI labels (source, version, licence)",
+    "The release job only runs after CI passes on the tagged commit",
+    "A pre-release tag (v0.x or -rc) publishes without moving `latest`",
+    "RELEASING.md describes cutting a release in under ten steps"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      ".github/workflows/release.yml",
+      ".goreleaser.yaml",
+      "CHANGELOG.md",
+      "RELEASING.md",
+      "deploy/docker-compose.yml (image-based)"
+    ],
+    "files_to_modify": [
+      "Dockerfile",
+      "README.md"
+    ],
+    "notes": [
+      "The package on ghcr.io must be set public once, by hand, in GitHub settings.",
+      "Check the current GoReleaser and docker/build-push-action documentation for configuration syntax."
+    ]
+  },
+  "testing_requirements": [
+    "Cut v0.9.0-rc1 and install it from the published image on a clean machine"
+  ],
+  "context": {
+    "user_story": "As a club operator, I want to install and upgrade by version number.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

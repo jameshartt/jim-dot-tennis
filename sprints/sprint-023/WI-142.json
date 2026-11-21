@@ -1,0 +1,41 @@
+{
+  "id": "WI-142",
+  "title": "Bundle design: licensing, configuration model, footprint, sign-in",
+  "description": "Settle the questions that decide whether and how CourtHive can be bundled, before any build work. (1) Licensing and permission: confirm each component's licence (competition-factory-server and TMX declare MIT; courthive-public declares none) and get CourtHive's author's agreement in writing to redistributing built images from forks; record the attribution required. Jim makes that contact. (2) Configuration: TMX bakes its server address in at compile time (src/platform/web.ts) and builds from upstream's blank production settings white-screen or fail to log in; determine the smallest change that yields one club-neutral build - same-origin defaults, the base path, and the socket settings already needed behind Caddy (origin-only path, polling transport). (3) Footprint: measure memory and disk for app + Postgres + Redis + tournament server on the smallest sensible server and state a minimum specification. (4) Sign-in: decide whether tournament administrators are provisioned from jim-dot-tennis accounts or kept separate. (5) Upgrades: how the forks track upstream and how a club receives a CourtHive update, given the calendar backfill step that had to be run by hand between two server migrations. Deliver a short design note in docs/ and update the downstream work items if the findings change them.",
+  "type": "research",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": false,
+  "dependencies": [],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Fable 5.2",
+    "id": "claude-fable-5-2",
+    "rationale": "Open-ended design across three unfamiliar codebases with legal and operational constraints; the decisions here shape the whole sprint."
+  },
+  "acceptance_criteria": [
+    "Written permission (or a clear refusal) from CourtHive's author is on file, and every component has an explicit licence that allows redistribution",
+    "A chosen configuration approach with a proof: one build of TMX and of the public pages served correctly under two different hostnames",
+    "A measured minimum server specification, with and without the tournament stack",
+    "A decision on sign-in between the two systems, with the reason",
+    "An upgrade policy: which upstream versions are bundled, how often, and how data migrations run unattended",
+    "docs/courthive_bundle_design.md written; WI-143 to WI-147 amended where needed"
+  ],
+  "technical_notes": {
+    "files_to_create": [
+      "docs/courthive_bundle_design.md"
+    ],
+    "notes": [
+      "If permission is refused or a component cannot be licensed, the fallback is documenting how a club points jim-dot-tennis at its own separately installed CourtHive - raise this with Jim immediately rather than proceeding.",
+      "Sibling repositories live beside this one: ../competition-factory-server, ../TMX, ../courthive-public (and ../courthive-components, ../factory).",
+      "Known hazards from past deploys: pnpm link overrides must be removed when rebasing the forks; socket.io behind Caddy needs the origin-only path and polling transport."
+    ]
+  },
+  "testing_requirements": [
+    "The two-hostname proof build"
+  ],
+  "context": {
+    "user_story": "As the maintainer, I want to know the bundle is permitted and practical before investing in it.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

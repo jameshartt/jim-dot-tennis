@@ -8,7 +8,7 @@ Jim.Tennis is a club-agnostic tennis league management system, originally built 
 
 **Key Technical Stack:**
 - Go 1.26+
-- SQLite (default) or PostgreSQL
+- SQLite (the only supported database)
 - Server-side rendered templates with HTMX
 - PWA with push notifications
 - Docker for production deployment
@@ -72,7 +72,7 @@ make test-e2e-failed               # Re-run only previously failed tests
 make test-e2e-report               # Open HTML test report
 make test-e2e-results              # Formatted test summary (Claude-friendly)
 make test-e2e-multiclub            # Run multi-club verification tests
-make test-e2e-clean                # Tear down test containers and clean artifacts
+make test-e2e-clean                # Tear down E2E containers, delete the E2E volume and artifacts
 
 # Test infrastructure:
 # - tests/e2e/              Playwright project root (146 tests across 19 spec files)
@@ -88,6 +88,8 @@ make test-e2e-clean                # Tear down test containers and clean artifac
 # - tests/e2e/scripts/parse-results.mjs  JSON results → Claude-friendly summary
 # - tests/e2e/global-setup.ts  Shared auth session via storageState
 # - Dockerfile.e2e          Playwright container (includes sqlite3 for seeding)
+# - E2E runs against its own `app-e2e` service and `jim-dot-tennis-e2e-data` volume (never the dev/prod
+#   data volume or the port-8080 app); `make test-e2e-bootstrap` prepares a fresh volume automatically
 # - Seeded admin: testadmin / testpassword123
 # - Seeded fantasy token: Sabalenka_Djokovic_Gauff_Sinner
 ```
@@ -245,14 +247,23 @@ Each major handler (Admin, Players) delegates to domain-specific sub-handlers:
 - `HOME_CLUB_LOGO_PATH`: Optional URL path to the club logo image (default: `/static/st-anns-tennis.jpg`). Used by the points table and weekly overview. Set to an empty string to hide the logo.
 - `BHPLTA_CLUB_CODE`: Club code on the BHPLTA website (e.g. `STANN001`) — used for match card imports
 
+**Features:**
+- `WRAPPED_ACCESS_PASSWORD`: Password for the club wrapped unlock form (if unset the form always rejects)
+- `MY_TENNIS_ENABLED`: `true`/`1` shows the My Tennis call-to-action (off when unset)
+- `LEAGUE_TABLES_URL`: Optional source page for the fixture generator's league tables (default: BHPLTA league tables page)
+- `COURTHIVE_API_URL`: Optional CourtHive API URL (default: `http://courthive-server:8383`)
+
 **Database:**
-- `DB_TYPE`: "sqlite3" (default) or "postgres"
+- `DB_TYPE`: optional; only "sqlite3" is supported (any other value fails at startup)
 - `DB_PATH`: SQLite file path (default: "./tennis.db")
-- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSLMODE`: PostgreSQL config
 
 **Application:**
 - `PORT`: HTTP server port (default: "8080")
-- `APP_ENV`: Set to "production" to enforce secure cookies
+- `APP_ENV`: Set to "production" to enforce secure cookies (the reference compose sets it)
+- `TEMPLATE_RELOAD`: Development only; `true` re-parses templates on every request (root `docker-compose.yml` defaults it to true)
+- `MIGRATE_ALLOW_DIRTY_FORCE`: Development only; `true` auto-forces a dirty migration version at startup. Never set in production.
+
+**Reference deployment:** `deploy/docker-compose.yml`, `deploy/Caddyfile` and `deploy/.env.example` describe the production stack (app, CourtHive, Caddy); `.env.example` lists every variable the stack and the app read. `scripts/deploy-app.sh` does not sync them to the server. The root `docker-compose.yml` is for local development and E2E. Superseded variants are in `docs/archive/`.
 
 ### CSV Import Format
 
@@ -287,7 +298,7 @@ Club names extracted from team names (e.g., "Dyke A" → Club: "Dyke").
 - Migrations are numbered sequentially: `001_`, `002_`, etc.
 - Always create both `.up.sql` and `.down.sql` files
 - Migrations run automatically on app startup
-- Database handles dirty state by forcing version
+- A dirty migration state fails startup; auto-forcing is dev-only behind `MIGRATE_ALLOW_DIRTY_FORCE=true`
 
 ## Key Files
 

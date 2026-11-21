@@ -1,0 +1,36 @@
+{
+  "id": "WI-134",
+  "title": "Independent security review of the authentication work",
+  "description": "A fresh review, by a session that did not write the code, of everything in this sprint plus the setup flow from Sprint 020: instance claiming, passkey registration and assertion, link issuance and redemption, session handling, role enforcement, throttling, and the CLI. The reviewer is given the code and the threat model (an internet stranger; a member with a player link; a captain trying to reach administration; someone holding an old database backup) - not the implementers' conclusions. Findings are fixed or explicitly accepted by Jim before the sprint closes.",
+  "type": "security",
+  "priority": "high",
+  "complexity": "S",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-133"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Fable 5.2",
+    "id": "claude-fable-5-2",
+    "rationale": "Review quality depends on finding what a careful implementer missed; use the strongest model with fresh context."
+  },
+  "acceptance_criteria": [
+    "A written list of findings with severity, each either fixed (with commit) or accepted (with reason)",
+    "Specific checks recorded as done: origin and relying-party validation, challenge single use, username enumeration, lockout abuse, last-sign-in-method guards, link token handling in logs and referrers, role check coverage, setup endpoint closure",
+    "No high-severity finding remains open"
+  ],
+  "technical_notes": {
+    "notes": [
+      "Run as a separate session using the security-review flow against the sprint's diff.",
+      "Previously accepted risks (guessable player tokens, decorative Wrapped gate) are out of scope unless the new work made them worse."
+    ]
+  },
+  "testing_requirements": [
+    "Re-run unit and e2e suites after fixes"
+  ],
+  "context": {
+    "user_story": "As a club, I want the sign-in system checked by someone other than its author.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

@@ -2,7 +2,7 @@
 
 This directory contains documentation for the Jim.Tennis application -- a club-agnostic league management system for the Brighton and Hove Parks League, originally built at St Ann's Tennis Club. It manages team selection, player availability, fixture coordination, and venue information for any configured home club.
 
-**Runtime:** Go 1.25 | SQLite (default) or PostgreSQL | Server-side rendering with HTMX
+**Runtime:** Go 1.25 | SQLite (only supported database) | Server-side rendering with HTMX
 
 ## Project Documentation
 

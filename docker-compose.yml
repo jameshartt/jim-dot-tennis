@@ -23,17 +23,48 @@ services:
       - HOME_CLUB_NAME=${HOME_CLUB_NAME:-St Ann}
       - BHPLTA_CLUB_CODE=${BHPLTA_CLUB_CODE}
       - MY_TENNIS_ENABLED=${MY_TENNIS_ENABLED:-}
-    networks:
-      default:
-        # "app" is an HSTS-preloaded TLD (.app) — Chromium unconditionally
-        # upgrades http://app:* to HTTPS. Use "webapp" alias for E2E tests.
-        aliases:
-          - webapp
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 5s
+
+  # App instance used ONLY by the E2E suite (profile "test"). It has its own
+  # data volume, no published host port and no fixed container name, so
+  # `make test-e2e*` can never touch the dev/prod database or collide with the
+  # `app` service above. Seed data is written to this volume by the e2e service.
+  # On a brand-new volume run `make test-e2e-bootstrap` first (the make test-e2e
+  # targets do this automatically): the app refuses to start with zero clubs.
+  app-e2e:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: ["test"]
+    restart: "no"
+    volumes:
+      - e2e-data:/app/data
+      - ./templates:/app/templates
+      - ./static:/app/static
+    environment:
+      - PORT=8080
+      - DB_TYPE=sqlite3
+      - DB_PATH=/app/data/tennis.db
+      - WRAPPED_ACCESS_PASSWORD=${WRAPPED_ACCESS_PASSWORD:-}
+      - HOME_CLUB_ID=${HOME_CLUB_ID:-}
+      - HOME_CLUB_NAME=${HOME_CLUB_NAME:-}
+      - BHPLTA_CLUB_CODE=${BHPLTA_CLUB_CODE:-}
+      - MY_TENNIS_ENABLED=${MY_TENNIS_ENABLED:-}
+    # The E2E suite reaches this service as http://app-e2e:8080. Do not give it
+    # a shared alias such as "webapp": a dev `app` container on the same network
+    # could answer to it too and the tests would hit the wrong database.
+    # (A bare "app" hostname is unusable: .app is an HSTS-preloaded TLD and
+    # Chromium upgrades http://app:* to HTTPS.)
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 10s
+      retries: 6
       start_period: 5s
 
   import:
@@ -55,14 +86,14 @@ services:
       dockerfile: Dockerfile.e2e
     profiles: ["test"]
     depends_on:
-      app:
+      app-e2e:
         condition: service_healthy
     volumes:
-      - tennis-data:/data
+      - e2e-data:/data
       - ./tests/e2e/test-results:/app/tests/test-results
       - ./tests/e2e/playwright-report:/app/tests/playwright-report
     environment:
-      - PLAYWRIGHT_BASE_URL=http://webapp:8080
+      - PLAYWRIGHT_BASE_URL=http://app-e2e:8080
     # Default: seed database and run chromium project tests (excludes multi-club)
     command: sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --project=chromium"
 
@@ -99,3 +130,7 @@ volumes:
     name: jim-dot-tennis-data
   tennis-backups:
     name: jim-dot-tennis-backups 
+  # Dedicated to the E2E suite; never shared with the app/dev data volume.
+  # E2E_DATA_VOLUME lets you point at a throwaway volume (e.g. for a parallel run).
+  e2e-data:
+    name: ${E2E_DATA_VOLUME:-jim-dot-tennis-e2e-data}

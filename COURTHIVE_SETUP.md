@@ -18,7 +18,7 @@ The integration consists of:
 
 ```bash
 # Jim-dot-tennis Configuration
-WRAPPED_ACCESS_PASSWORD=welovestanns
+WRAPPED_ACCESS_PASSWORD=<wrapped-access-password>
 
 # CourtHive JWT Secret (must match competition-factory-server)
 COURTHIVE_JWT_SECRET=<generate-with-openssl-rand-base64-48>
@@ -50,8 +50,8 @@ REDIS_PORT=6379
 # Database Configuration (optional for LevelDB)
 DB_HOST=localhost
 DB_PORT=3838
-DB_USER=admin
-DB_PASS=adminpass
+DB_USER=<courthive-db-user>
+DB_PASS=<courthive-db-password>
 
 # Email Configuration (optional)
 MAILGUN_API_KEY=
@@ -134,15 +134,21 @@ pnpm build --mode development    # Local: http://localhost/api/courthive
 ### 4. Start Docker Services
 
 ```bash
-cd /path/to/jim-dot-tennis
-docker compose -f docker-compose.courthive.yml up -d
+cd /path/to/jim-dot-tennis/deploy
+cp .env.example .env      # fill in every value; for local use DOMAIN=localhost
+docker compose up -d --build
 ```
+
+The stack is defined by `deploy/docker-compose.yml` and `deploy/Caddyfile`
+(the directory layout it expects is described at the top of the compose file).
+The old `docker-compose.courthive.yml` and `Caddyfile.courthive` are archived
+under `docs/archive/`.
 
 ### 5. Verify Services
 
 All containers should show as "healthy":
 ```bash
-docker compose -f docker-compose.courthive.yml ps
+cd deploy && docker compose ps
 ```
 
 Test endpoints:
@@ -154,30 +160,20 @@ Test endpoints:
 
 ## Production Deployment
 
-### Update Caddyfile
+### Set the domain
 
-Uncomment the production domain configuration in `Caddyfile.courthive`:
-
-```caddyfile
-jim.tennis {
-  # Import all the :80 configuration
-  import :80
-
-  # Additional HTTPS security headers
-  header {
-    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-  }
-}
-```
+`deploy/Caddyfile` serves the site named by the `DOMAIN` variable (set it in
+`deploy/.env`); there is nothing to edit in the Caddyfile itself.
 
 ### Point DNS
 
-Point `jim.tennis` A record to your server IP.
+Point your `DOMAIN` A record to your server IP.
 
 ### Deploy
 
 ```bash
-docker compose -f docker-compose.courthive.yml up -d
+cd deploy
+docker compose up -d --build
 ```
 
 Caddy will automatically obtain Let's Encrypt SSL certificates.

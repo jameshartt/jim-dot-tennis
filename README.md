@@ -29,7 +29,7 @@ The BHPLTA organises the parks league that jim.tennis is built around. Match car
 ## Tech stack
 
 - **Go 1.25** — server-side application
-- **SQLite** (default) or PostgreSQL
+- **SQLite** (the only supported database)
 - **HTMX** — server-rendered HTML with minimal client-side JavaScript
 - **PWA** — progressive web app with push notification support
 - **Docker** — production deployment with Caddy reverse proxy
@@ -74,8 +74,18 @@ The application uses environment variables to identify your club:
 | `HOME_CLUB_NAME` | Fallback | Club name for fuzzy lookup if `HOME_CLUB_ID` is not set |
 | `HOME_CLUB_LOGO_PATH` | Optional | URL path to your club logo image (default: `/static/st-anns-tennis.jpg`). Drop the image into `static/` or mount it via Docker volume, then point this at its URL. |
 | `BHPLTA_CLUB_CODE` | For imports | Your club's code on the BHPLTA website (e.g. `STANN001`) |
+| `WRAPPED_ACCESS_PASSWORD` | For "club wrapped" | Password that unlocks the club wrapped pages. If unset, the unlock form always rejects. |
+| `MY_TENNIS_ENABLED` | Optional | `true`/`1` shows the "My Tennis" call-to-action. Off when unset. |
+| `LEAGUE_TABLES_URL` | Optional | Source page for the public fixture generator's league tables (default: the BHPLTA league tables page). |
+| `COURTHIVE_API_URL` | Optional | CourtHive API URL (default: `http://courthive-server:8383`). |
+| `APP_ENV` | Production | Set to `production` to mark session cookies Secure. The reference compose sets it. |
+| `PORT` | Optional | HTTP listen port (default: `8080`). |
+| `DB_TYPE` | Optional | Only `sqlite3` is supported; any other value fails at startup. |
+| `DB_PATH` | Optional | SQLite file path (default: `./tennis.db`; `/app/data/tennis.db` in Docker). |
+| `TEMPLATE_RELOAD` | Dev only | `true` re-parses templates on every request (hot reload). Leave unset in production. |
+| `MIGRATE_ALLOW_DIRTY_FORCE` | Dev only | `true` auto-forces a dirty migration version at startup. Never set in production: a dirty database should stop the deploy. |
 
-See [docs/docker_setup.md](docs/docker_setup.md) for the full list of environment variables.
+The production stack (app, CourtHive, Caddy) is defined in [`deploy/`](deploy/): `deploy/docker-compose.yml`, `deploy/Caddyfile` and `deploy/.env.example`, which lists every variable the stack and the app read. See [docs/docker_setup.md](docs/docker_setup.md) for more.
 
 ### Running tests
 

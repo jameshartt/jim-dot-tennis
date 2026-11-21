@@ -1,0 +1,47 @@
+{
+  "id": "WI-132",
+  "title": "Make the captain role real",
+  "description": "Only `admin` unlocks anything today: every route uses RequireRole(\"admin\"), so a captain account signs in and gets a 403. Define two roles with real meaning. Captain: everything a captain does - planning dashboard, availability, selection, fixtures and rescheduling, result entry and match-card import, players and player links, points and standings. Administrator: all of that plus users and invites, sessions and audit log, club settings and feature switches, BHPLTA import configuration, season creation, and backups. Consistent with the club's whole-team ethos, captains see every team; scope filters stay as a focus aid, never a gate. Navigation hides what a role cannot use, and the server enforces it regardless. The unused `player` role is removed from the create-user form (players use link tokens).",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [
+    "WI-129"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "Cross-cutting authorisation change over many routes where a missed route is a security bug."
+  },
+  "acceptance_criteria": [
+    "A captain account can sign in and reach every captain surface for all teams",
+    "A captain receives 403 from every administrator-only route, and those links do not appear in captain navigation",
+    "Role requirements are declared in one place per route group, with a test that fails if a new /admin/league route is registered without a declared role",
+    "Captains can be linked to their player record (users.player_id) so 'My teams' defaults work",
+    "Existing administrator accounts keep full access after upgrade",
+    "The role names and what each can do are listed in the user guide (Sprint 024)"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/auth/middleware.go (RequireRole 101-131)",
+      "internal/admin/handler.go (167-176 and each sub-handler's routes)",
+      "internal/webpush/handlers.go (23-24)",
+      "templates/admin/*.html navigation",
+      "internal/admin/users.go (67,99,156)"
+    ],
+    "notes": [
+      "Do not introduce per-team data isolation - that would contradict the agreed access model.",
+      "Push 'notify selected players' and 'remind availability' are captain actions; VAPID reset is administrator-only."
+    ]
+  },
+  "testing_requirements": [
+    "Table-driven test: every registered route x role -> expected status",
+    "e2e as captain in WI-133"
+  ],
+  "context": {
+    "user_story": "As a captain, I want my own login that lets me run my teams without being handed the keys to user management.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}

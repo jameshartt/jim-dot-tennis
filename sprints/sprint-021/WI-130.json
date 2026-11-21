@@ -1,0 +1,41 @@
+{
+  "id": "WI-130",
+  "title": "Passwords as an optional fallback",
+  "description": "Keep passwords for people who cannot create a passkey, but make them a deliberate, better-protected option. A user may add or remove a password from their 'Sign-in methods' page (never removing their last method). Add a policy: minimum length 12, rejection of a short list of common passwords, no composition rules. Add self-service password change requiring the current password or a fresh passkey assertion. Add an instance setting 'Require passkeys for administrators'. Standardise hashing cost in one place and rehash on next sign-in where an older cost is found.",
+  "type": "feature",
+  "priority": "medium",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [
+    "WI-129"
+  ],
+  "status": "not_started",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "Several interacting rules (last-method guard, admin requirement) but a clear specification."
+  },
+  "acceptance_criteria": [
+    "A user with a passkey can add or remove a password; a user with only a password is prompted (never forced, unless the admin setting applies) to add a passkey",
+    "New and changed passwords must be at least 12 characters and not on the common-password list",
+    "Changing a password requires re-authentication and ends the user's other sessions",
+    "With 'Require passkeys for administrators' on, admin-role accounts cannot sign in by password, and the setting cannot be enabled until every administrator has a passkey",
+    "Hash cost is a single constant; older hashes are upgraded transparently at sign-in"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "internal/auth/service.go",
+      "internal/accounts/",
+      "templates/account/signin_methods.html",
+      "templates/admin/settings.html",
+      "templates/login.html"
+    ]
+  },
+  "testing_requirements": [
+    "Unit tests for policy, rehash, and the administrator passkey requirement"
+  ],
+  "context": {
+    "user_story": "As a member whose device cannot make a passkey, I still want to be able to sign in.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
+  }
+}
