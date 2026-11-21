@@ -13,8 +13,6 @@ import (
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/repository"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 // findRepoDir walks up from the package directory to find a top-level directory.

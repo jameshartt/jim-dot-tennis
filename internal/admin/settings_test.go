@@ -22,8 +22,6 @@ import (
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/services"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 type settingsTestEnv struct {

@@ -12,8 +12,6 @@ import (
 
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 // GetPlayerEligibilityForTeam checks one player the way the team-selection

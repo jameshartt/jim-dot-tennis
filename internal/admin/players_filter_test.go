@@ -15,8 +15,6 @@ import (
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 // Player and team names arrive from match-card imports and admin forms, so

@@ -12,8 +12,6 @@ import (
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 // TestTeamSelectionTemplatesParse guards the team-selection templates against

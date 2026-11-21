@@ -108,6 +108,9 @@ const (
 )
 
 // errUsage marks a mistake in how a command was typed; the help is shown.
+// cmdVersion is the command that prints the build identity; it needs no database.
+const cmdVersion = "version"
+
 var errUsage = errors.New("usage")
 
 // cliOut is where a command writes its results (problems go to stderr from
@@ -140,7 +143,7 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 		return exitOK
 	}
 
-	if cmd.name == "version" {
+	if cmd.name == cmdVersion {
 		fmt.Fprintf(stdout, "jim-dot-tennis %s\n", version.Long())
 		return exitOK
 	}
@@ -182,8 +185,8 @@ func parseCommand(args []string) (command, error) {
 		switch strings.ToLower(name) {
 		case "h", "help":
 			return command{name: "help"}, nil
-		case "version":
-			return command{name: "version"}, nil
+		case cmdVersion:
+			return command{name: cmdVersion}, nil
 		case "role":
 			if !hasValue {
 				if i+1 >= len(args) {
@@ -221,11 +224,11 @@ func parseCommand(args []string) (command, error) {
 	switch strings.ToLower(words[0]) {
 	case "help":
 		return command{name: "help"}, nil
-	case "version":
+	case cmdVersion:
 		if len(words) != 1 {
 			return command{}, fmt.Errorf("%w: usage: jim-dot-tennis version", errUsage)
 		}
-		return command{name: "version"}, noRole()
+		return command{name: cmdVersion}, noRole()
 	case "setup":
 		if len(words) != 2 || strings.ToLower(words[1]) != "code" {
 			return command{}, fmt.Errorf("%w: usage: jim-dot-tennis setup code", errUsage)

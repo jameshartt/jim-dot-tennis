@@ -142,9 +142,9 @@ dev: build run logs
 # Go image (matches Dockerfile builder stage)
 GO_IMAGE = golang:1.26-alpine
 
-# Docker run for tools that need CGO (vet, deadcode, mod tidy - anything that type-checks sqlite)
-DOCKER_GO_CGO = docker run --rm -v $$(pwd):/app -w /app $(GO_IMAGE) sh -c \
-	"apk add --no-cache gcc musl-dev sqlite-dev build-base > /dev/null 2>&1 && CGO_ENABLED=1
+# Docker run for tools that compile the code (vet, deadcode, mod tidy, test).
+# SQLite is pure Go (modernc.org/sqlite), so there is no C toolchain and CGO is off.
+DOCKER_GO_BUILD = docker run --rm -v $$(pwd):/app -w /app -e CGO_ENABLED=0 $(GO_IMAGE) sh -c "
 
 # Docker run for text-only tools (gofmt, goimports - no compilation needed)
 DOCKER_GO = docker run --rm -v $$(pwd):/app -w /app $(GO_IMAGE)
@@ -152,7 +152,7 @@ DOCKER_GO = docker run --rm -v $$(pwd):/app -w /app $(GO_IMAGE)
 # Run go vet (static analysis)
 vet:
 	@echo "Running go vet..."
-	@$(DOCKER_GO_CGO) go vet ./..."
+	@$(DOCKER_GO_BUILD) go vet ./..."
 
 # First-party Go source paths (excludes .go-mod-cache and other vendored trees)
 GO_SRC_PATHS = ./cmd ./internal
@@ -189,23 +189,23 @@ LINT_CACHE_MOUNT = $(if $(LINT_CACHE_DIR),-v $(LINT_CACHE_DIR)/go:/go -v $(LINT_
 lint:
 	@echo "Running golangci-lint $(GOLANGCI_LINT_VERSION)..."
 	@docker run --rm -v $$(pwd):/app -w /app -e GOFLAGS=-buildvcs=false $(LINT_CACHE_MOUNT) $(GO_IMAGE) sh -c \
-		"apk add --no-cache gcc musl-dev sqlite-dev build-base git > /dev/null 2>&1 && CGO_ENABLED=1 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) && golangci-lint run ./..."
+		"apk add --no-cache git > /dev/null 2>&1 && CGO_ENABLED=0 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) && golangci-lint run ./..."
 
 # Run dead code detection
 deadcode:
 	@echo "Running deadcode analysis..."
-	@$(DOCKER_GO_CGO) go install golang.org/x/tools/cmd/deadcode@latest && deadcode ./..."
+	@$(DOCKER_GO_BUILD) go install golang.org/x/tools/cmd/deadcode@latest && deadcode ./..."
 
 # Run go mod tidy
 tidy:
 	@echo "Running go mod tidy..."
-	@$(DOCKER_GO_CGO) go mod tidy"
+	@$(DOCKER_GO_BUILD) go mod tidy"
 
-# Run Go unit tests (CGO required for the sqlite-backed repository/db tests)
+# Run Go unit tests (pure Go: the sqlite-backed tests need no CGO)
 # Usage: make test [PKG=./internal/database/...] [ARGS="-run TestName -v"]
 test:
 	@echo "Running Go unit tests..."
-	@$(DOCKER_GO_CGO) go test $(if $(PKG),$(PKG),./...) $(ARGS)"
+	@$(DOCKER_GO_BUILD) go test $(if $(PKG),$(PKG),./...) $(ARGS)"
 
 # Run the fixture generator engine tests (plain Node, no dependencies)
 test-js:

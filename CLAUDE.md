@@ -8,7 +8,7 @@ Jim.Tennis is a club-agnostic tennis league management system, originally built 
 
 **Key Technical Stack:**
 - Go 1.26+
-- SQLite (the only supported database)
+- SQLite (the only supported database), through the pure-Go driver `modernc.org/sqlite`: no CGO, `CGO_ENABLED=0` builds for any target (linux/amd64, linux/arm64)
 - Server-side rendered templates with HTMX
 - PWA with push notifications
 - Docker for production deployment
@@ -51,7 +51,7 @@ make backup          # Create manual backup
 
 ### Go Unit Tests (in Docker)
 ```bash
-make test                                 # Run all Go unit tests (CGO/sqlite via Docker)
+make test                                 # Run all Go unit tests (in Docker, CGO_ENABLED=0)
 make test PKG=./internal/database/...     # Test a single package
 make test ARGS="-run TestName -v"         # Pass flags through to `go test`
 # `make check` runs vet + fmt + lint + deadcode + test.
@@ -326,6 +326,7 @@ Each major handler (Admin, Players) delegates to domain-specific sub-handlers:
 **Database:**
 - `DB_TYPE`: optional; only "sqlite3" is supported (any other value fails at startup)
 - `DB_PATH`: SQLite file path (default: "./tennis.db")
+- Every connection is opened with `database.DSN` (`_pragma=` busy_timeout 5000, WAL, synchronous NORMAL, foreign_keys on, and `_time_format=sqlite` so `time.Time` is stored as `2006-01-02 15:04:05.999999999-07:00`, the layout existing rows were written in); `database.New` refuses to return a database whose connection lacks foreign keys, WAL or the busy timeout (`CheckConnectionSettings`). Open SQLite only through `database.New`/`database.DSN`, never `sql.Open("sqlite", path)` directly: without `_time_format` the driver writes `time.Time.String()`.
 
 **Application:**
 - `PORT`: HTTP server port (default: "8080")

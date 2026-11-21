@@ -13,8 +13,6 @@ import (
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/fixturefile"
 	"jim-dot-tennis/internal/models"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 // newSeasonTestService boots a migrated SQLite DB with two seasons:

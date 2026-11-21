@@ -21,9 +21,9 @@ Direct dependencies of the main module (`go.mod`):
 | [github.com/golang-migrate/migrate](https://github.com/golang-migrate/migrate) | MIT | Database migration framework |
 | [github.com/google/uuid](https://github.com/google/uuid) | BSD-3-Clause | UUID generation |
 | [github.com/jmoiron/sqlx](https://github.com/jmoiron/sqlx) | MIT | SQL extensions for Go's database/sql |
-| [github.com/mattn/go-sqlite3](https://github.com/mattn/go-sqlite3) | MIT | SQLite3 driver (CGo) |
 | [golang.org/x/crypto](https://pkg.go.dev/golang.org/x/crypto) | BSD-3-Clause | Cryptographic functions |
 | [golang.org/x/net](https://pkg.go.dev/golang.org/x/net) | BSD-3-Clause | Networking libraries |
+| [modernc.org/sqlite](https://gitlab.com/cznic/sqlite) | BSD-3-Clause | Pure-Go SQLite driver (SQLite itself, translated from C, is public domain) |
 
 ### Indirect dependencies
 
@@ -31,6 +31,9 @@ Direct dependencies of the main module (`go.mod`):
 |---------|---------|-------------|
 | [github.com/andybalholm/cascadia](https://github.com/andybalholm/cascadia) | BSD-2-Clause | CSS selector engine (used by goquery) |
 | [github.com/golang-jwt/jwt](https://github.com/golang-jwt/jwt) | MIT | JSON Web Token implementation (used by webpush-go) |
+| [modernc.org/libc](https://gitlab.com/cznic/libc), [modernc.org/mathutil](https://gitlab.com/cznic/mathutil), [modernc.org/memory](https://gitlab.com/cznic/memory) | BSD-3-Clause | C runtime, maths and memory allocator for the pure-Go SQLite |
+| [github.com/remyoudompheng/bigfft](https://github.com/remyoudompheng/bigfft) | BSD-3-Clause | Big-number multiplication (used by modernc.org/mathutil) |
+| [github.com/dustin/go-humanize](https://github.com/dustin/go-humanize) | MIT | Number formatting (used by modernc.org/sqlite) |
 
 ## Front-end dependencies
 

@@ -81,7 +81,7 @@ make export-backup  # Export latest backup to ./exported-backups
 
 ## Go Tooling (Docker-based)
 
-All Go tooling runs inside Docker containers using the `golang:1.25-alpine` image, so no local Go installation is required. Tools that need CGO (for SQLite type-checking) automatically install the necessary build dependencies inside the container.
+All Go tooling runs inside Docker containers using the `golang:1.25-alpine` image, so no local Go installation is required. The SQLite driver is pure Go (`modernc.org/sqlite`), so every tool runs with `CGO_ENABLED=0` and no C toolchain is installed.
 
 ### Code Quality Checks
 
