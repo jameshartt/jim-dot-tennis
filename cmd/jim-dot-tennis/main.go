@@ -4,10 +4,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html/template"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -24,12 +26,14 @@ import (
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/fixturegen"
+	"jim-dot-tennis/internal/health"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/players"
 	"jim-dot-tennis/internal/render"
 	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/secrets"
 	"jim-dot-tennis/internal/setup"
+	"jim-dot-tennis/internal/version"
 	"jim-dot-tennis/internal/webpush"
 )
 
@@ -45,7 +49,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to determine project root: %v", err)
 	}
-	log.Printf("Using project root: %s", projectRoot)
+
+	// Say what is wrong with the settings in plain words before anything opens.
+	if err := checkEnvironment(); err != nil {
+		log.Fatalf("Cannot start: %v", err)
+	}
 
 	// Initialize database
 	db, err := setupDatabase()
@@ -97,17 +105,9 @@ func main() {
 	pushService := webpush.New(db)
 	pushService.SetSubscriberSource(func() string { return homeClub.ClubSettings().PushSubscriber() })
 
-	// List existing VAPID keys
-	if err := pushService.ListVAPIDKeys(); err != nil {
-		log.Printf("Warning: Failed to list VAPID keys: %v", err)
-	}
-
-	// Generate VAPID keys on startup if none exist
-	publicKey, _, err := pushService.GenerateVAPIDKeys()
-	if err != nil {
+	// Generate VAPID keys on startup if none exist. No key material is logged.
+	if _, _, err := pushService.GenerateVAPIDKeys(); err != nil {
 		log.Printf("Warning: Failed to generate VAPID keys: %v", err)
-	} else {
-		log.Printf("VAPID public key: %s", publicKey)
 	}
 
 	// Clean up push subscriptions older than 90 days on startup
@@ -149,6 +149,7 @@ func main() {
 		"currentYear": func() int {
 			return time.Now().Year()
 		},
+		"appVersion": version.Short,
 	}
 
 	// Load templates with functions
@@ -166,14 +167,15 @@ func main() {
 	})
 
 	// Health check (used by the container health check; served even in setup mode)
-	mux.HandleFunc(setup.HealthPath, func(w http.ResponseWriter, r *http.Request) {
-		if err := db.PingContext(r.Context()); err != nil {
-			http.Error(w, "database unavailable", http.StatusServiceUnavailable)
-			return
-		}
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		fmt.Fprintln(w, "ok")
-	})
+	// 200 only while the database answers and its migrations are clean and
+	// at the latest this build ships.
+	latestMigration, err := database.LatestMigration(jimdottennis.Migrations())
+	if err != nil {
+		log.Fatalf("Cannot start: %v", err)
+	}
+	mux.HandleFunc(setup.HealthPath, health.Handler(db, latestMigration))
+	// The version number alone, public (commit and date are CLI-only).
+	mux.HandleFunc(setup.VersionPath, health.VersionHandler(version.Short()))
 
 	// First-run setup (the rest of the app is gated behind it until a home club is in effect)
 	setupHandler := setup.NewHandler(setupService, authService, templateDir)
@@ -276,7 +278,14 @@ func main() {
 		WriteTimeout: 30 * time.Second,  // Generous for mobile
 		IdleTimeout:  120 * time.Second, // Keep connections alive
 	}
-	serve(server, authService)
+	log.Printf("jim-dot-tennis %s ready: %s, database %s, %s mode",
+		version.Long(), "http://localhost"+server.Addr, getEnv("DB_PATH", "./tennis.db"), runMode())
+	if err := serve(server, authService.StartCleanup); err != nil {
+		db.Close()
+		log.Fatalf("Server stopped: %v", err)
+	}
+	// Normal shutdown: the deferred db.Close() runs and the process exits 0.
+	log.Printf("Stopped cleanly")
 }
 
 // migrateOrStop applies the migrations and stops the server (through fatalf,
@@ -288,38 +297,60 @@ func main() {
 // checks the schema version itself and refuses, see cli.go.)
 func migrateOrStop(db *database.DB, migrations fs.FS, label string, fatalf func(format string, args ...any)) {
 	if err := db.ExecuteMigrationsFS(migrations, label); err != nil {
+		var me *database.MigrationError
+		if errors.As(err, &me) {
+			// The message names the migration and lists the recovery steps.
+			fatalf("Cannot start: %v", err)
+			return
+		}
 		fatalf("Database migration failed, so the app cannot start: %v\n"+
 			"Nothing was served. Migrations read from: %s. "+
 			"See \"Working with Migrations\" in CLAUDE.md for a migration that stopped part-way.", err, label)
 	}
 }
 
+// shutdownTimeout is how long requests in flight get to finish after
+// SIGTERM/SIGINT. It is shorter than the 10 seconds `docker stop` waits before
+// killing the container.
+const shutdownTimeout = 8 * time.Second
+
 // serve runs the server and the scheduled cleanup (expired sessions, old
 // login attempts, finished links: auth.Service.Cleanup) until SIGINT or
 // SIGTERM, then stops both: the cleanup first, then the server, letting
-// requests in flight finish for a few seconds.
-func serve(server *http.Server, authService *auth.Service) {
+// requests in flight finish. It returns nil after a signal-driven shutdown.
+func serve(server *http.Server, startCleanup func(ctx context.Context, firstDelay, interval time.Duration) func()) error {
 	ctx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stopSignals()
-	stopCleanup := authService.StartCleanup(ctx, auth.CleanupFirstDelay, auth.CleanupInterval)
+	stopCleanup := startCleanup(ctx, auth.CleanupFirstDelay, auth.CleanupInterval)
+	ln, err := net.Listen("tcp", server.Addr)
+	if err != nil {
+		stopCleanup()
+		return fmt.Errorf("cannot listen on %s: %w (is another program using the port? set PORT to change it)", server.Addr, err)
+	}
+	return runServer(ctx, server, ln, stopCleanup, shutdownTimeout)
+}
 
+// runServer serves on ln until ctx is cancelled, then stops the cleanup and
+// shuts the server down, waiting up to timeout for requests in flight. A
+// clean, signal-driven stop returns nil.
+func runServer(ctx context.Context, server *http.Server, ln net.Listener, stopCleanup func(), timeout time.Duration) error {
 	failed := make(chan error, 1)
-	go func() { failed <- server.ListenAndServe() }()
-	log.Printf("Server started at http://localhost%s", server.Addr)
+	go func() { failed <- server.Serve(ln) }()
 	select {
 	case err := <-failed:
 		stopCleanup()
-		log.Fatal(err)
+		return err
 	case <-ctx.Done():
 	}
 
-	log.Printf("Shutting down")
+	log.Printf("Shutting down (waiting up to %s for requests in progress)", timeout)
 	stopCleanup()
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Printf("Server shutdown: %v", err)
+		return fmt.Errorf("some requests did not finish in time: %w", err)
 	}
+	return nil
 }
 
 // getProjectRoot returns the project root directory
@@ -341,8 +372,6 @@ func getProjectRoot() (string, error) {
 
 // loadTemplatesWithFuncs loads templates with function map
 func loadTemplatesWithFuncs(templateDir string, funcMap template.FuncMap) (*template.Template, error) {
-	log.Printf("Loading templates from: %s", templateDir)
-
 	// Create a new template with the function map (plus the role helpers the
 	// admin dashboard, which is among templates/*.html, uses)
 	tmpl := template.New("").Funcs(admin.NavTemplateFuncs()).Funcs(funcMap)

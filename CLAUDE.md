@@ -332,7 +332,6 @@ Each major handler (Admin, Players) delegates to domain-specific sub-handlers:
 - `DEV_MODE`: `true`/`1` is the only way to turn off Secure session cookies (plain-http development). Set by the root `docker-compose.yml` (app, app-e2e, app-fresh), `make run-local` and `scripts/run.sh`; fatal with `APP_ENV=production`. Any new way of serving the app over http must set it.
 - `APP_ENV`: Set to "production" for a live instance (the reference compose sets it): needs a valid https `PUBLIC_URL` and refuses `DEV_MODE`. In production the startup self-check (`secrets.StartupCheck`) refuses to start if a secret variable holds a known placeholder such as `change-me`. It also warns (in every mode) about accounts whose password hash is one seeded by old migrations or the e2e seed.
 - `TEMPLATE_RELOAD`: Development only; `true` reads `templates/` and `static/` from disk (the project root) instead of the built-in copies, re-parses templates on every request and never marks static files immutable (root `docker-compose.yml` defaults it to true and bind-mounts the two directories for the `app` service only; the e2e and fresh-install services use the built-in copies)
-- `MIGRATE_ALLOW_DIRTY_FORCE`: Development only; `true` auto-forces a dirty migration version at startup. Never set in production.
 
 **Reference deployment:** `deploy/docker-compose.yml`, `deploy/Caddyfile` and `deploy/.env.example` describe the production stack (app, CourtHive, Caddy); `.env.example` lists every variable the stack and the app read. `scripts/deploy-app.sh` does not sync them to the server. The root `docker-compose.yml` is for local development and E2E. Superseded variants are in `docs/archive/`.
 
@@ -369,7 +368,9 @@ Club names extracted from team names (e.g., "Dyke A" → Club: "Dyke").
 - Migrations are numbered sequentially: `001_`, `002_`, etc.
 - Always create both `.up.sql` and `.down.sql` files
 - Migrations run automatically on app startup; a migration that fails stops the server (`migrateOrStop` in main.go), it is not a warning
-- A dirty migration state fails startup; auto-forcing is dev-only behind `MIGRATE_ALLOW_DIRTY_FORCE=true`
+- A failed or dirty migration stops startup with a `database.MigrationError` that names the migration and lists the recovery steps (stop, restore the pre-upgrade database backup, start the previous version, report). The version is never forced, in any mode; `MIGRATE_ALLOW_DIRTY_FORCE` no longer exists
+- `/healthz` (`internal/health`) is 200 only when the database answers and `schema_migrations` is clean and at the latest migration the build ships; the Dockerfile HEALTHCHECK and the compose files call it
+- Version, commit and build date come from `internal/version`, set by `-ldflags -X` (Dockerfile build args `VERSION`, `COMMIT`, `BUILD_DATE`); shown in the admin footers (`appVersion` template func), at public `/version` (version only, no commit) and by `jim-dot-tennis version` (all three)
 
 ## Key Files
 

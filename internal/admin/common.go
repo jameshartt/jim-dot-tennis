@@ -16,6 +16,7 @@ import (
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/render"
+	"jim-dot-tennis/internal/version"
 )
 
 // getUserFromContext is a helper to get the user from request context
@@ -72,7 +73,8 @@ func parseTemplateFiles(templateDir, templatePath string) (*template.Template, e
 		},
 		// canUse .User "/admin/league/..." (or "POST /admin/league/...")
 		// gates navigation by role from the route table in roles.go.
-		"canUse": canUse,
+		"canUse":     canUse,
+		"appVersion": version.Short,
 		"add": func(a, b int) int {
 			return a + b
 		},

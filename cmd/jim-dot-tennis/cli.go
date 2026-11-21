@@ -19,6 +19,7 @@ import (
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/setup"
+	"jim-dot-tennis/internal/version"
 )
 
 // cliHelp is the text `jim-dot-tennis help` prints. docs/PRODUCTION_QUICK_REFERENCE.md
@@ -74,6 +75,10 @@ First-run setup
                                    the app has no administrator yet. It cancels
                                    any earlier code (including the one in the
                                    app's log) and works once.
+
+  version                          Show which version of the app this is, the
+                                   commit it was built from and when.
+                                   Needs no database.
 
   help                             Show this text.
 
@@ -135,6 +140,11 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 		return exitOK
 	}
 
+	if cmd.name == "version" {
+		fmt.Fprintf(stdout, "jim-dot-tennis %s\n", version.Long())
+		return exitOK
+	}
+
 	ctx := context.Background()
 	db, err := openCLIDatabase(ctx)
 	if err != nil {
@@ -172,6 +182,8 @@ func parseCommand(args []string) (command, error) {
 		switch strings.ToLower(name) {
 		case "h", "help":
 			return command{name: "help"}, nil
+		case "version":
+			return command{name: "version"}, nil
 		case "role":
 			if !hasValue {
 				if i+1 >= len(args) {
@@ -209,6 +221,11 @@ func parseCommand(args []string) (command, error) {
 	switch strings.ToLower(words[0]) {
 	case "help":
 		return command{name: "help"}, nil
+	case "version":
+		if len(words) != 1 {
+			return command{}, fmt.Errorf("%w: usage: jim-dot-tennis version", errUsage)
+		}
+		return command{name: "version"}, noRole()
 	case "setup":
 		if len(words) != 2 || strings.ToLower(words[1]) != "code" {
 			return command{}, fmt.Errorf("%w: usage: jim-dot-tennis setup code", errUsage)

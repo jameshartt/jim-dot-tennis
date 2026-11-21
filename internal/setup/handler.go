@@ -32,6 +32,8 @@ const (
 	DonePath = Path + "/done"
 	// HealthPath is the liveness endpoint used by the container health check.
 	HealthPath = "/healthz"
+	// VersionPath shows the version number (public, also during setup).
+	VersionPath = "/version"
 	// staticPrefix serves CSS, JS, images and the service worker.
 	staticPrefix = "/static/"
 	// brandingPrefix serves the uploaded club logo (internal/branding), so it
@@ -59,6 +61,7 @@ const ticketCookie = "setup_ticket"
 // endpoint, and /setup with anything below it.
 func AllowedDuringSetup(path string) bool {
 	return path == HealthPath ||
+		path == VersionPath ||
 		path == Path ||
 		strings.HasPrefix(path, Path+"/") ||
 		strings.HasPrefix(path, staticPrefix) ||

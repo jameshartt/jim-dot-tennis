@@ -16,13 +16,19 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # Copy source code
 COPY . .
 
+# Build identity, shown in the admin footer, at /version and by
+# `jim-dot-tennis version`. Pass with --build-arg; plain builds say "dev".
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILD_DATE=unknown
+
 # Build the application with SQLite compatibility flags.
 # `-a` is intentionally omitted: static linking does not require rebuilding the
 # whole stdlib, and the build cache mount makes incremental builds far faster on
 # the 1-CPU server.
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=1 GOOS=linux CGO_CFLAGS="-D_LARGEFILE64_SOURCE" go build -ldflags '-extldflags "-static"' -tags 'sqlite_omit_load_extension' -o /app/bin/jim-dot-tennis ./cmd/jim-dot-tennis
+    CGO_ENABLED=1 GOOS=linux CGO_CFLAGS="-D_LARGEFILE64_SOURCE" go build -ldflags "-extldflags '-static' -X jim-dot-tennis/internal/version.Version=${VERSION} -X jim-dot-tennis/internal/version.Commit=${COMMIT} -X jim-dot-tennis/internal/version.Date=${BUILD_DATE}" -tags 'sqlite_omit_load_extension' -o /app/bin/jim-dot-tennis ./cmd/jim-dot-tennis
 
 # Use a smaller image for the final application.
 # Pinned to match the builder's Alpine release (golang:1.26-alpine == 3.24.x)
@@ -60,6 +66,10 @@ RUN adduser -D appuser \
 
 # Switch to non-root user
 USER appuser
+
+# Healthy only when the database answers and migrations are current
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD wget -qO- http://localhost:8080/healthz || exit 1
 
 # Run the application
 CMD ["./jim-dot-tennis"] 
