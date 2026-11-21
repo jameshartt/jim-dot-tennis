@@ -64,6 +64,15 @@ make logs             # View logs
 
 See [docs/PRODUCTION_QUICK_REFERENCE.md](docs/PRODUCTION_QUICK_REFERENCE.md) and [docs/digitalocean_deployment.md](docs/digitalocean_deployment.md) for full deployment details.
 
+### First run
+
+A new install has no accounts and no club. On startup the app prints a one-time
+**setup code** to its log (`make app-logs`, or `docker compose logs app`). Open
+the app in a browser, enter the code, create your administrator login and choose
+your club. The code works once; restarting the app before setup is finished
+prints a new one and cancels the old. Once an administrator exists the setup
+pages are gone.
+
 ### Configuration
 
 The application uses environment variables to identify your club:

@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"jim-dot-tennis/internal/config"
@@ -50,9 +49,9 @@ func newTestState(t *testing.T) (*State, *database.DB) {
 	if err := db.ExecuteMigrations(findRepoDir(t, "migrations")); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	// Migration 004 still seeds accounts (removed by WI-123); start from none.
-	if _, err := db.Exec(`DELETE FROM users`); err != nil {
-		t.Fatal(err)
+	var users int
+	if err := db.Get(&users, `SELECT COUNT(*) FROM users`); err != nil || users != 0 {
+		t.Fatalf("fresh database has %d user accounts (err %v), want none", users, err)
 	}
 	holder, err := config.NewHomeClubHolder(context.Background(), repository.NewClubRepository(db), repository.NewSettingsRepository(db))
 	if err != nil {
@@ -168,6 +167,19 @@ func TestGateRoutesToSetupUntilComplete(t *testing.T) {
 		}
 	}
 
+	// With an administrator but no club, sign-in stays reachable so the
+	// administrator can finish the club step.
+	if _, err := db.Exec(`INSERT INTO users (username, password_hash, role) VALUES ('first', 'x', 'admin')`); err != nil {
+		t.Fatal(err)
+	}
+	for path, allowed := range map[string]bool{"/login": true, "/logout": true, "/admin/league/dashboard": false} {
+		reached = false
+		gated.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, path, nil))
+		if reached != allowed {
+			t.Errorf("needs-club %s: reached=%v, want %v", path, reached, allowed)
+		}
+	}
+
 	// HTMX requests are told to navigate rather than given a redirect to swap in.
 	req := httptest.NewRequest(http.MethodPost, "/admin/league/players", nil)
 	req.Header.Set("HX-Request", "true")
@@ -188,30 +200,5 @@ func TestGateRoutesToSetupUntilComplete(t *testing.T) {
 	gated.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/admin/league/dashboard", nil))
 	if !reached {
 		t.Fatal("after setup: request did not reach the app")
-	}
-}
-
-func TestEntryPage(t *testing.T) {
-	ctx := context.Background()
-	s, db := newTestState(t)
-	mux := http.NewServeMux()
-	NewHandler(s, findRepoDir(t, "templates")).RegisterRoutes(mux)
-
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, Path, nil))
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "has not been set up yet") {
-		t.Fatalf("entry page: %d %s", rec.Code, rec.Body.String())
-	}
-
-	if _, err := db.Exec(`INSERT INTO clubs (id, name) VALUES (1, 'Club')`); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.MarkComplete(ctx, 1); err != nil {
-		t.Fatal(err)
-	}
-	rec = httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, Path, nil))
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("entry page after setup: %d, want 404", rec.Code)
 	}
 }

@@ -1,0 +1,45 @@
+{{define "setup/club.html"}}
+{{template "layout" .}}
+{{end}}
+
+{{define "head"}}
+<title>Set up: choose your club - Jim.Tennis</title>
+{{template "setup-head" .}}
+{{end}}
+
+{{define "user-controls"}}
+<a href="/logout" class="btn btn-sm">Sign out</a>
+{{end}}
+
+{{define "content"}}
+<div class="setup-container">
+    <div class="setup-card" data-setup-status="{{.Status}}" data-setup-step="club">
+        {{template "setup-steps" .}}
+        <h1>Choose your club</h1>
+        <p>Pick the club this app is for. It becomes the home club: its teams, players and fixtures are the ones the app looks after.</p>
+        {{template "setup-error" .}}
+        <form method="POST" action="/setup/club">
+            <fieldset class="setup-clubs" aria-describedby="club-help">
+                <legend class="setup-help" id="club-help">These are the clubs in the Brighton &amp; Hove Parks Tennis League (BHPLTA).</legend>
+                {{range .Clubs}}
+                <label>
+                    <input type="radio" name="club" value="{{.Slug}}" required{{if eq .Slug $.Selected}} checked{{end}}>
+                    {{.DisplayName}}
+                </label>
+                {{end}}
+            </fieldset>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Use this club</button>
+            </div>
+        </form>
+        <details class="setup-details">
+            <summary>My club isn't listed</summary>
+            <p>Jim.Tennis currently supports BHPLTA clubs only. If your club has joined the league recently, a newer version of the app will list it.</p>
+        </details>
+        <details class="setup-details">
+            <summary>Can I change this later?</summary>
+            <p>Yes. Your club's name, logo and other details can be edited from the admin pages once setup is finished.</p>
+        </details>
+    </div>
+</div>
+{{end}}

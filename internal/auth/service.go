@@ -135,31 +135,36 @@ func (s *Service) Login(username, password string, r *http.Request) (*models.Ses
 		log.Printf("Failed to update last login time: %v", err)
 	}
 
-	// Create new session
+	session, err := s.createSession(&user, r)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("Successfully created session in database for user %s", username)
+	return session, nil
+}
+
+// createSession stores a new session for user and returns it.
+func (s *Service) createSession(user *models.User, r *http.Request) (*models.Session, error) {
 	sessionID, err := generateSecureToken(32)
 	if err != nil {
 		log.Printf("Failed to generate session token: %v", err)
 		return nil, fmt.Errorf("failed to generate session token: %w", err)
 	}
-	log.Printf("Generated new session token for user %s", username)
 
-	// Extract device info
-	deviceInfo := extractDeviceInfo(r)
-
+	now := time.Now()
 	session := &models.Session{
 		ID:             sessionID,
 		UserID:         user.ID,
 		Role:           user.Role,
-		CreatedAt:      time.Now(),
-		ExpiresAt:      time.Now().Add(s.config.SessionDuration),
-		LastActivityAt: time.Now(),
+		CreatedAt:      now,
+		ExpiresAt:      now.Add(s.config.SessionDuration),
+		LastActivityAt: now,
 		IP:             clientIP(r),
 		UserAgent:      r.UserAgent(),
-		DeviceInfo:     deviceInfo,
+		DeviceInfo:     extractDeviceInfo(r),
 		IsValid:        true,
 	}
 
-	// Save session to database
 	_, err = s.db.NamedExec(`
 		INSERT INTO sessions (
 			id, user_id, role, created_at, expires_at, 
@@ -173,10 +178,52 @@ func (s *Service) Login(username, password string, r *http.Request) (*models.Ses
 		log.Printf("Failed to create session in database: %v", err)
 		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
-	log.Printf("Successfully created session in database for user %s", username)
-
 	return session, nil
 }
+
+// StartSession signs the active user userID in on this browser without a
+// password check (the caller has just proven who they are, for example by
+// creating the account in first-run setup). Any session the request already
+// carries is invalidated first, so a session ID planted before sign-in is
+// never promoted (session fixation); the new session always has a fresh ID.
+func (s *Service) StartSession(w http.ResponseWriter, r *http.Request, userID int64) error {
+	if cookie, err := r.Cookie(s.config.CookieName); err == nil && cookie.Value != "" {
+		if err := s.InvalidateSession(cookie.Value); err != nil {
+			log.Printf("Failed to invalidate previous session %s: %v", redactToken(cookie.Value), err)
+		}
+	}
+	var user models.User
+	if err := s.db.Get(&user, `SELECT * FROM users WHERE id = ? AND is_active = true`, userID); err != nil {
+		return fmt.Errorf("start session: load user %d: %w", userID, err)
+	}
+	session, err := s.createSession(&user, r)
+	if err != nil {
+		return err
+	}
+	s.SetSessionCookie(w, session)
+	return nil
+}
+
+// SignedInUser returns the active user behind the request's session cookie,
+// or ok=false when there is no valid session.
+func (s *Service) SignedInUser(r *http.Request) (*models.User, bool) {
+	cookie, err := r.Cookie(s.config.CookieName)
+	if err != nil || cookie.Value == "" {
+		return nil, false
+	}
+	session, err := s.ValidateSession(cookie.Value, r)
+	if err != nil {
+		return nil, false
+	}
+	var user models.User
+	if err := s.db.Get(&user, `SELECT * FROM users WHERE id = ? AND is_active = true`, session.UserID); err != nil {
+		return nil, false
+	}
+	return &user, true
+}
+
+// CookieSecure reports whether cookies the app sets are marked Secure.
+func (s *Service) CookieSecure() bool { return s.config.CookieSecure }
 
 // ValidateSession checks if a session is valid and refreshes it
 func (s *Service) ValidateSession(sessionID string, r *http.Request) (*models.Session, error) {

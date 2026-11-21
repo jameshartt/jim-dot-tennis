@@ -54,6 +54,12 @@ func main() {
 		log.Fatalf("Home club configuration error: %v", err)
 	}
 	setupState := setup.NewState(db, homeClub)
+	setupService := setup.NewService(setupState, nil)
+	if code, err := setupService.IssueCode(context.Background()); err != nil {
+		log.Printf("Warning: could not issue a setup code: %v", err)
+	} else if code != "" {
+		setup.LogCode(code)
+	}
 
 	// Initialize web push service
 	pushService := webpush.New(db)
@@ -139,7 +145,7 @@ func main() {
 	})
 
 	// First-run setup (the rest of the app is gated behind it until a home club is in effect)
-	setup.NewHandler(setupState, templateDir).RegisterRoutes(mux)
+	setup.NewHandler(setupService, authService, templateDir).RegisterRoutes(mux)
 
 	// Auth routes
 	authHandler.RegisterRoutes(mux)

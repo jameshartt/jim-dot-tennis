@@ -1,0 +1,28 @@
+{{define "setup/done.html"}}
+{{template "layout" .}}
+{{end}}
+
+{{define "head"}}
+<title>Setup complete - Jim.Tennis</title>
+{{template "setup-head" .}}
+{{end}}
+
+{{define "user-controls"}}
+<a href="/logout" class="btn btn-sm">Sign out</a>
+{{end}}
+
+{{define "content"}}
+<div class="setup-container">
+    <div class="setup-card" data-setup-status="{{.Status}}" data-setup-step="done">
+        <h1>You're all set</h1>
+        <div class="alert alert-success" role="status">
+            Setup is complete{{if .ClubName}}: this app now belongs to {{.ClubName}}{{end}}.
+        </div>
+        <p>You are signed in as the administrator. The setup pages are now switched off for good.</p>
+        <p>Keep your login safe: nobody else, including whoever wrote this app, has a way in.</p>
+        <div class="form-actions">
+            <a href="{{.DashboardURL}}" class="btn btn-primary">Go to the dashboard</a>
+        </div>
+    </div>
+</div>
+{{end}}

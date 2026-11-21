@@ -1,0 +1,48 @@
+{{define "setup/admin.html"}}
+{{template "layout" .}}
+{{end}}
+
+{{define "head"}}
+<title>Set up: create your login - Jim.Tennis</title>
+{{template "setup-head" .}}
+{{end}}
+
+{{define "user-controls"}}{{end}}
+
+{{define "content"}}
+<div class="setup-container">
+    <div class="setup-card" data-setup-status="{{.Status}}" data-setup-step="admin">
+        {{template "setup-steps" .}}
+        <h1>Create your login</h1>
+        <p>This will be the app's first administrator account. Administrators can change everything, including adding other people later.</p>
+        {{template "setup-error" .}}
+        <form method="POST" action="/setup/admin">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" value="{{.Username}}" required autofocus
+                       minlength="3" maxlength="64" autocomplete="username" autocapitalize="none" spellcheck="false"
+                       aria-describedby="username-help">
+                <p class="setup-help" id="username-help">What you'll type to sign in, for example <code>sam.jones</code>. Letters and numbers, plus . _ - or @. No spaces.</p>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required minlength="{{.MinPassword}}" maxlength="72"
+                       autocomplete="new-password" aria-describedby="password-help">
+                <p class="setup-help" id="password-help">At least {{.MinPassword}} characters. A few unrelated words strung together is easy to remember and hard to guess. Don't reuse a password from another site.</p>
+            </div>
+            <div class="form-group">
+                <label for="password_confirm">Type the password again</label>
+                <input type="password" id="password_confirm" name="password_confirm" required minlength="{{.MinPassword}}" maxlength="72"
+                       autocomplete="new-password">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Create my login</button>
+            </div>
+        </form>
+        <details class="setup-details">
+            <summary>What if I close this page?</summary>
+            <p>Come back to this web address in the same browser within a day and you'll pick up here. In a different browser, restart the app for a new setup code.</p>
+        </details>
+    </div>
+</div>
+{{end}}

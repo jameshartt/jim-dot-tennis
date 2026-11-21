@@ -1,0 +1,27 @@
+{{define "setup/signin.html"}}
+{{template "layout" .}}
+{{end}}
+
+{{define "head"}}
+<title>Set up: sign in to continue - Jim.Tennis</title>
+{{template "setup-head" .}}
+{{end}}
+
+{{define "user-controls"}}{{end}}
+
+{{define "content"}}
+<div class="setup-container">
+    <div class="setup-card" data-setup-status="{{.Status}}" data-setup-step="signin">
+        <h1>Almost there</h1>
+        <p>An administrator login has been created, but no club has been chosen yet, so the rest of the app is not available.</p>
+        <p>Sign in as an administrator to choose your club and finish setting up.</p>
+        <div class="form-actions">
+            <a href="/login" class="btn btn-primary">Sign in</a>
+        </div>
+        <details class="setup-details">
+            <summary>I don't know the administrator login</summary>
+            <p>Ask whoever set the app up. The first-time setup code only works before an administrator exists, so it can't be used to make another one.</p>
+        </details>
+    </div>
+</div>
+{{end}}
