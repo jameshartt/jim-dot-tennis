@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/services"
 )
@@ -36,6 +37,8 @@ type MatchCardImportationPageData struct {
 	DefaultYear     int
 	MaxYear         int
 	DefaultClubCode string
+	DefaultClubName string // BHPLTA club name from settings (may be empty)
+	DefaultClubID   int    // BHPLTA club id from settings (0 when not set)
 }
 
 // ImportRequest represents the form data for match card import
@@ -105,7 +108,12 @@ func (h *MatchCardImportationHandler) showImportForm(w http.ResponseWriter, r *h
 		DefaultWeek:     defaultWeek,
 		DefaultYear:     currentYear,
 		MaxYear:         currentYear + 1, // Allow next year
-		DefaultClubCode: h.service.bhpltaClubCode,
+		DefaultClubCode: h.service.currentBHPLTAClubCode(),
+	}
+	if cs := h.service.clubSettings; cs != nil {
+		club := config.GetHomeClub(r.Context())
+		data.DefaultClubName = cs.BHPLTAClubName(club)
+		data.DefaultClubID = cs.BHPLTAClubID(club)
 	}
 
 	// Load and parse the template

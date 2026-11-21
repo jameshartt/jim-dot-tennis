@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Club Settings - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        .admin-header { background: var(--primary-color); color: white; padding: 1rem 0; margin-bottom: 2rem; }
+        .breadcrumb { font-size: 0.9rem; margin-bottom: 0.5rem; }
+        .breadcrumb a { color: #ffffffcc; text-decoration: none; }
+        .breadcrumb a:hover { color: white; }
+        .admin-content { padding: 0 1rem 2rem; }
+        .content-section { background: white; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 1.5rem; }
+        .content-section h2 { margin: 0 0 0.5rem 0; color: var(--primary-color); font-size: 1.25rem; }
+        .section-intro { color: #555; margin: 0 0 1rem 0; font-size: 0.95rem; }
+        .field { margin-bottom: 1.1rem; }
+        .field label { display: block; font-weight: 600; margin-bottom: 0.3rem; }
+        .field input[type=text], .field input[type=url], .field input[type=number], .field input[type=password] {
+            width: 100%; max-width: 28rem; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem;
+        }
+        .field input[type=color] { width: 4rem; height: 2.4rem; padding: 0.1rem; border: 1px solid #ccc; border-radius: 4px; vertical-align: middle; }
+        .hint { display: block; color: #555; font-size: 0.85rem; margin-top: 0.3rem; max-width: 40rem; }
+        .env-note { display: block; background: #fff8e1; border: 1px solid #ffe08a; color: #5c4400; border-radius: 4px; padding: 0.4rem 0.6rem; font-size: 0.85rem; margin-top: 0.3rem; max-width: 40rem; }
+        .logo-preview { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.6rem; }
+        .logo-preview img { max-height: 64px; max-width: 160px; border: 1px solid #eee; border-radius: 4px; background: #fafafa; }
+        .colour-row { display: flex; gap: 2rem; flex-wrap: wrap; }
+        .actions { margin-top: 1rem; }
+        .btn { padding: 0.55rem 1.2rem; border: none; border-radius: 4px; background: var(--primary-color); color: white; font-size: 1rem; cursor: pointer; }
+        .btn-secondary { background: white; color: var(--primary-color); border: 1px solid var(--primary-color); }
+        .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.95rem; }
+        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        details.help { margin-top: 0.5rem; max-width: 40rem; font-size: 0.9rem; }
+        details.help summary { cursor: pointer; font-weight: 600; }
+        details.help ol { margin: 0.5rem 0 0 1.2rem; }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin/league">Admin Dashboard</a> &gt; Club Settings
+            </div>
+            <h1>Club Settings</h1>
+        </div>
+    </header>
+
+    <main class="admin-content">
+        <div class="container">
+            {{if .Message}}<div class="alert alert-success" role="status">{{.Message}}</div>{{end}}
+            {{if .Error}}<div class="alert alert-error" role="alert">{{.Error}}</div>{{end}}
+
+            <form method="POST" action="/admin/league/settings" enctype="multipart/form-data" id="settings-form">
+
+            <section class="content-section" id="identity">
+                <h2>Club identity</h2>
+                <p class="section-intro">How your club appears on pages, the installed app and notifications.</p>
+
+                <div class="field">
+                    <label for="display_name">Display name</label>
+                    <input type="text" id="display_name" name="display_name" value="{{.DisplayName}}" maxlength="80"
+                           placeholder="{{if .ClubName}}{{.ClubName}}{{else}}Your club's name{{end}}">
+                    <span class="hint">Leave empty to use the club's name from the league data{{if .ClubName}} ({{.ClubName}}){{end}}.</span>
+                </div>
+
+                <div class="field">
+                    <label for="logo">Logo</label>
+                    {{if .LogoURL}}
+                    <div class="logo-preview">
+                        <img src="{{.LogoURL}}" alt="Current club logo" id="logo-preview">
+                        {{if .LogoUploaded}}
+                        <label style="font-weight: normal;"><input type="checkbox" name="remove_logo" id="remove_logo"> Remove the uploaded logo</label>
+                        {{end}}
+                    </div>
+                    {{else}}
+                    <span class="hint" id="no-logo">No logo yet.</span>
+                    {{end}}
+                    <input type="file" id="logo" name="logo" accept="image/png,image/jpeg,image/webp">
+                    <span class="hint">PNG, JPEG or WebP, up to {{.LogoMaxMB}} MB and 4096 pixels a side. A square image of at least 192 pixels is also used as the app icon. SVG is not accepted.</span>
+                    {{if .LogoEnv}}
+                    <span class="env-note">The logo is set by the <code>{{.LogoEnv}}</code> environment variable, which takes precedence over an uploaded logo. Remove the variable to use the logo uploaded here.</span>
+                    {{end}}
+                </div>
+
+                <div class="colour-row">
+                    <div class="field">
+                        <label for="primary_colour">Primary colour</label>
+                        <input type="color" id="primary_colour" name="primary_colour" value="{{.PrimaryColour}}">
+                    </div>
+                    <div class="field">
+                        <label for="secondary_colour">Secondary colour</label>
+                        <input type="color" id="secondary_colour" name="secondary_colour" value="{{.SecondaryColour}}">
+                    </div>
+                </div>
+                <span class="hint">Used on the weekly overview and as the app's theme colour (the primary colour).</span>
+            </section>
+
+            <section class="content-section" id="bhplta">
+                <h2>BHPLTA match cards</h2>
+                <p class="section-intro">Match-card import signs in to the BHPLTA club scores page as your club. These three values identify your club there.</p>
+
+                <div class="field">
+                    <label for="bhplta_club_code">Club code (club scores password)</label>
+                    {{if .BHPLTAClubCodeEnv}}
+                    <input type="password" id="bhplta_club_code" value="" placeholder="Set in the environment" disabled>
+                    <span class="env-note">Set by the <code>{{.BHPLTAClubCodeEnv}}</code> environment variable, which takes precedence over a value stored here.</span>
+                    {{else}}
+                    <input type="password" id="bhplta_club_code" name="bhplta_club_code" value="{{.BHPLTAClubCode}}" autocomplete="off" maxlength="100">
+                    <span class="hint">The password your club uses on the BHPLTA “Parks League Match Cards” page. Your league secretary can tell you it.</span>
+                    {{end}}
+                </div>
+
+                <div class="field">
+                    <label for="bhplta_club_name">BHPLTA club name</label>
+                    <input type="text" id="bhplta_club_name" name="bhplta_club_name" value="{{.BHPLTAClubName}}" maxlength="100">
+                    <span class="hint">Exactly as BHPLTA sends it, which can differ from your club's name (for example <code>St+Anns</code>).</span>
+                </div>
+
+                <div class="field">
+                    <label for="bhplta_club_id">BHPLTA club id</label>
+                    <input type="number" id="bhplta_club_id" name="bhplta_club_id" value="{{.BHPLTAClubID}}" min="1">
+                    {{if .BHPLTAFromKnown}}<span class="hint">Filled in from the list of clubs whose values are already known. Save to keep them.</span>{{end}}
+                </div>
+
+                <details class="help" {{if not .BHPLTAClubID}}open{{end}}>
+                    <summary>Where to find the club name and id</summary>
+                    <p>BHPLTA does not publish them; they appear only after signing in with your club code. Once the club code is saved, the “Look up from BHPLTA” button below fetches them for you. To find them by hand:</p>
+                    <ol>
+                        <li>Open the BHPLTA “Parks League Match Cards” page in a desktop browser and enter your club code.</li>
+                        <li>Open the browser's developer tools and inspect the page heading (your club's name): it carries <code>data-clubid</code> and <code>data-clubname</code>.</li>
+                        <li>Alternatively, change the week selector with the developer tools' network tab open: the request to <code>admin-ajax.php</code> sends <code>club_id</code> and <code>club_name</code>.</li>
+                    </ol>
+                </details>
+            </section>
+
+            <section class="content-section" id="instance">
+                <h2>This instance</h2>
+                <div class="field">
+                    <label for="public_url">Public URL</label>
+                    {{if .PublicURLEnv}}
+                    <input type="url" id="public_url" value="{{.PublicURL}}" disabled>
+                    <span class="env-note">Set by the <code>{{.PublicURLEnv}}</code> environment variable, which takes precedence over a value stored here.</span>
+                    {{else}}
+                    <input type="url" id="public_url" name="public_url" value="{{.PublicURL}}" placeholder="https://tennis.example.org">
+                    <span class="hint">The address people use to reach this site, starting with https://. Used for links in messages, calendar files and sign-in.</span>
+                    {{end}}
+                </div>
+            </section>
+
+            <!-- Feature switches (WI-122) go in their own section here, inside this form. -->
+
+            <div class="actions">
+                <button type="submit" class="btn" id="save-settings">Save settings</button>
+            </div>
+            </form>
+
+            <section class="content-section" style="margin-top: 1.5rem;">
+                <h2>Look up BHPLTA club name and id</h2>
+                <p class="section-intro">Uses the saved club code to ask the BHPLTA club scores page for your club's name and id, and saves them. Save any changes above first.</p>
+                <form method="POST" action="/admin/league/settings/bhplta-lookup">
+                    <button type="submit" class="btn btn-secondary" id="bhplta-lookup" {{if and (not .BHPLTAClubCode) (not .BHPLTAClubCodeEnv)}}disabled title="Save a club code first"{{end}}>Look up from BHPLTA</button>
+                </form>
+            </section>
+        </div>
+    </main>
+</body>
+</html>

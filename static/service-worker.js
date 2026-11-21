@@ -1,6 +1,10 @@
 // Service Worker for Jim.Tennis
 console.log('Service Worker: Starting...');
 
+// Club name and notification icon. The server replaces this exact line with
+// the club's settings when it serves the script (internal/branding).
+var BRANDING = {"name":"Jim.Tennis","icon":"/static/icon-192.svg"};
+
 // Install event - cache static assets
 self.addEventListener('install', function(event) {
   console.log('Service Worker: Installing...');
@@ -44,10 +48,10 @@ self.addEventListener('activate', function(event) {
 self.addEventListener('push', function(event) {
   console.log('Service Worker: Push event received');
 
-  var title = 'Jim.Tennis';
+  var title = BRANDING.name;
   var options = {
     body: 'New notification',
-    icon: '/static/icon-192.svg',
+    icon: BRANDING.icon,
     badge: '/static/icon-192.svg',
     data: { url: '/' }
   };

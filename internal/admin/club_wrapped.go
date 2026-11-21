@@ -599,10 +599,7 @@ func (h *ClubWrappedHandler) renderClubWrapped(w http.ResponseWriter, user inter
 // generateClubWrappedData generates all wrapped statistics for the entire club,
 // scoped to the active season.
 func (h *ClubWrappedHandler) generateClubWrappedData(ctx context.Context) (*ClubWrappedData, error) {
-	clubName := "Tennis Club"
-	if club := config.GetHomeClub(ctx); club != nil {
-		clubName = club.Name
-	}
+	clubName := config.GetBranding(ctx).Name
 
 	season, err := h.service.seasonRepository.FindActive(ctx)
 	if err != nil {

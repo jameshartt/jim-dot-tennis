@@ -28,13 +28,10 @@ func getUserFromContext(r *http.Request) (*models.User, error) {
 	return &user, nil
 }
 
-// homeClubNameFromContext extracts the home club name from the request context.
-// Returns "Tennis Club" as a fallback if the club is not set.
+// homeClubNameFromContext returns the club's display name for pages: the
+// stored display name, else the home club's name, else "Tennis Club".
 func homeClubNameFromContext(r *http.Request) string {
-	if club := config.GetHomeClub(r.Context()); club != nil {
-		return club.Name
-	}
-	return "Tennis Club"
+	return config.GetBranding(r.Context()).Name
 }
 
 // homeClubLogoFromContext extracts the home club logo path from the request context.

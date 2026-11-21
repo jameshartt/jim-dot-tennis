@@ -36,10 +36,9 @@ const unresolvedLogInterval = time.Minute
 // lock only and never touch the database. Refresh forces a re-resolution, e.g.
 // after setup stores the chosen club.
 type HomeClubHolder struct {
-	clubRepo       repository.ClubRepository
-	settings       repository.SettingsRepository
-	logoPath       string
-	bhpltaClubCode string
+	clubRepo     repository.ClubRepository
+	settings     repository.SettingsRepository
+	clubSettings *ClubSettings
 
 	resolveMu sync.Mutex // serialises resolution attempts
 
@@ -59,12 +58,10 @@ type HomeClubHolder struct {
 // the clubs table is still empty (a brand-new database): the holder is left
 // unresolved and the server starts in setup mode.
 func NewHomeClubHolder(ctx context.Context, clubRepo repository.ClubRepository, settings repository.SettingsRepository) (*HomeClubHolder, error) {
-	logoPath, bhpltaClubCode := loadStaticSettings()
 	h := &HomeClubHolder{
-		clubRepo:       clubRepo,
-		settings:       settings,
-		logoPath:       logoPath,
-		bhpltaClubCode: bhpltaClubCode,
+		clubRepo:     clubRepo,
+		settings:     settings,
+		clubSettings: NewClubSettings(ctx, settings),
 	}
 
 	club, source, err := ResolveHomeClub(ctx, clubRepo, settings)
@@ -156,10 +153,15 @@ func (h *HomeClubHolder) Current(ctx context.Context) (uint, *models.Club) {
 // Refresh re-resolves the home club and makes the result effective
 // immediately. Call it after changing the stored home club setting. On error
 // the previous value is kept. If nothing is configured any more the holder
-// becomes unresolved.
+// becomes unresolved. It also reloads the stored club settings (for example
+// the BHPLTA identifiers written by PrefillClubSettings during setup).
 func (h *HomeClubHolder) Refresh(ctx context.Context) error {
 	h.resolveMu.Lock()
 	defer h.resolveMu.Unlock()
+
+	if err := h.clubSettings.Reload(ctx); err != nil {
+		log.Printf("Warning: could not reload club settings: %v", err)
+	}
 
 	club, source, err := ResolveHomeClub(ctx, h.clubRepo, h.settings)
 	if err != nil {
@@ -173,8 +175,17 @@ func (h *HomeClubHolder) Refresh(ctx context.Context) error {
 	return nil
 }
 
-// LogoPath returns the configured home club logo path (HOME_CLUB_LOGO_PATH).
-func (h *HomeClubHolder) LogoPath() string { return h.logoPath }
+// ClubSettings returns the live club settings (name, logo, colours, BHPLTA
+// identifiers, public URL), stored in app_settings with env overrides.
+func (h *HomeClubHolder) ClubSettings() *ClubSettings { return h.clubSettings }
 
-// BHPLTAClubCode returns the configured BHPLTA club code (BHPLTA_CLUB_CODE).
-func (h *HomeClubHolder) BHPLTAClubCode() string { return h.bhpltaClubCode }
+// LogoPath returns the effective home club logo path: HOME_CLUB_LOGO_PATH if
+// set, else the uploaded logo, else "" (no logo).
+func (h *HomeClubHolder) LogoPath() string { return h.clubSettings.LogoPath() }
+
+// BHPLTAClubCode returns the effective BHPLTA club code: BHPLTA_CLUB_CODE if
+// set, else the stored code.
+func (h *HomeClubHolder) BHPLTAClubCode() string { return h.clubSettings.BHPLTAClubCode() }
+
+// Branding returns the effective branding for the current home club.
+func (h *HomeClubHolder) Branding() Branding { return h.clubSettings.Branding(h.Club()) }

@@ -14,11 +14,6 @@ import (
 	"jim-dot-tennis/internal/repository"
 )
 
-// defaultHomeClubLogoPath is the fallback logo path used when HOME_CLUB_LOGO_PATH is unset.
-// It points at the St Ann's asset bundled with this repository; new deployments should override
-// it via the HOME_CLUB_LOGO_PATH environment variable (see CONTRIBUTING.md#club-adaptation-guide).
-const defaultHomeClubLogoPath = "/static/st-anns-tennis.jpg"
-
 // Where the home club was resolved from (see ResolveHomeClub).
 const (
 	SourceNone    = ""
@@ -33,8 +28,8 @@ const (
 type AppConfig struct {
 	HomeClubID       uint
 	HomeClub         *models.Club
-	HomeClubLogoPath string // Path (relative to the server) of the home club's logo image
-	BHPLTAClubCode   string // BHPLTA club code/password for match card integration
+	HomeClubLogoPath string // Effective logo URL path (HOME_CLUB_LOGO_PATH, else the uploaded logo)
+	BHPLTAClubCode   string // Effective BHPLTA club code (BHPLTA_CLUB_CODE, else the stored code)
 }
 
 // HomeClubError reports a configured home club that does not match any club.
@@ -116,26 +111,10 @@ func logResolvedHomeClub(club *models.Club, source string) {
 	}
 }
 
-// loadStaticSettings reads the env-only settings that do not change at runtime.
-func loadStaticSettings() (logoPath, bhpltaClubCode string) {
-	bhpltaClubCode = os.Getenv("BHPLTA_CLUB_CODE")
-	if bhpltaClubCode != "" {
-		log.Printf("BHPLTA club code: configured")
-	}
-	logoPath = os.Getenv("HOME_CLUB_LOGO_PATH")
-	if logoPath == "" {
-		logoPath = defaultHomeClubLogoPath
-	} else {
-		log.Printf("Home club logo path: %s", logoPath)
-	}
-	return logoPath, bhpltaClubCode
-}
-
 // Load resolves the home club once (see ResolveHomeClub) and returns a snapshot.
 // It is for the command-line tools, which cannot run without a home club;
 // settings may be nil to consider the environment only.
 func Load(ctx context.Context, clubRepo repository.ClubRepository, settings repository.SettingsRepository) (*AppConfig, error) {
-	logoPath, bhpltaClubCode := loadStaticSettings()
 	club, source, err := ResolveHomeClub(ctx, clubRepo, settings)
 	if err != nil {
 		return nil, err
@@ -144,7 +123,8 @@ func Load(ctx context.Context, clubRepo repository.ClubRepository, settings repo
 		return nil, fmt.Errorf("no home club configured: set HOME_CLUB_ID or HOME_CLUB_NAME in your environment, or complete setup in the web app")
 	}
 	logResolvedHomeClub(club, source)
-	return &AppConfig{HomeClubID: club.ID, HomeClub: club, HomeClubLogoPath: logoPath, BHPLTAClubCode: bhpltaClubCode}, nil
+	cs := NewClubSettings(ctx, settings)
+	return &AppConfig{HomeClubID: club.ID, HomeClub: club, HomeClubLogoPath: cs.LogoPath(), BHPLTAClubCode: cs.BHPLTAClubCode()}, nil
 }
 
 // isHomeClubMismatch reports whether err is a "configured club not found" error.

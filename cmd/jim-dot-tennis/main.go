@@ -14,6 +14,7 @@ import (
 
 	"jim-dot-tennis/internal/admin"
 	"jim-dot-tennis/internal/auth"
+	"jim-dot-tennis/internal/branding"
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/fixturegen"
@@ -169,30 +170,11 @@ func main() {
 	// Public player-facing routes (standings, etc.)
 	playersHandler.RegisterPublicRoutes(mux)
 
-	// Dynamic manifest — allows per-player start_url for PWA install
-	mux.HandleFunc("/api/manifest", func(w http.ResponseWriter, r *http.Request) {
-		startURL := r.URL.Query().Get("start")
-		if startURL == "" {
-			startURL = "/"
-		}
-		w.Header().Set("Content-Type", "application/manifest+json")
-		fmt.Fprintf(w, `{
-  "name": "Jim Dot Tennis",
-  "short_name": "My Tennis",
-  "description": "Tennis league management and notifications",
-  "id": "%s",
-  "start_url": "%s",
-  "scope": "/",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#006400",
-  "icons": [
-    {"src": "/static/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any"},
-    {"src": "/static/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any"},
-    {"src": "/static/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "maskable"}
-  ]
-}`, startURL, startURL)
-	})
+	// Club logo, web app manifests (/static/manifest.json, /api/manifest?start=
+	// for per-player PWA install) and the service worker, using the stored
+	// club name, logo and colours
+	staticDir := filepath.Join(projectRoot, "static")
+	branding.NewHandler(homeClub.ClubSettings(), staticDir).RegisterRoutes(mux)
 
 	// Fixture generator (public: reads the league tables, writes nothing)
 	fixturegen.New(templates).RegisterRoutes(mux)
@@ -226,18 +208,10 @@ func main() {
 		}
 	})
 
-	// Serve static files with special handling for service worker
-	staticDir := filepath.Join(projectRoot, "static")
+	// Serve static files (the service worker and manifest are served by the branding handler)
 	fs := http.FileServer(http.Dir(staticDir))
 	mux.Handle("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Static file request: %s", r.URL.Path)
-
-		// Add Service-Worker-Allowed header for service worker file
-		if r.URL.Path == "/static/service-worker.js" {
-			log.Printf("Service worker request detected, setting Service-Worker-Allowed header")
-			w.Header().Set("Service-Worker-Allowed", "/")
-		}
-
 		http.StripPrefix("/static/", fs).ServeHTTP(w, r)
 	}))
 

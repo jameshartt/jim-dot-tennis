@@ -1095,6 +1095,8 @@ func (h *FixturesHandler) handleWeekOverview(w http.ResponseWriter, r *http.Requ
 		"WeekEnd":            weekEnd,
 		"HomeClubName":       homeClubNameFromContext(r),
 		"HomeClubLogoPath":   homeClubLogoFromContext(r),
+		"PrimaryColour":      config.GetBranding(r.Context()).PrimaryColour,
+		"SecondaryColour":    config.GetBranding(r.Context()).SecondaryColour,
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}

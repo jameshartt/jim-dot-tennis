@@ -81,8 +81,8 @@ The application uses environment variables to identify your club:
 |----------|----------|-------------|
 | `HOME_CLUB_ID` | Unless chosen in setup | Database ID of your club. Overrides `HOME_CLUB_NAME` and the club stored by first-run setup; with none of the three the app starts in setup mode (`/setup`) |
 | `HOME_CLUB_NAME` | Fallback | Club name for fuzzy lookup if `HOME_CLUB_ID` is not set |
-| `HOME_CLUB_LOGO_PATH` | Optional | URL path to your club logo image (default: `/static/st-anns-tennis.jpg`). Drop the image into `static/` or mount it via Docker volume, then point this at its URL. |
-| `BHPLTA_CLUB_CODE` | For imports | Your club's code on the BHPLTA website (e.g. `STANN001`) |
+| `HOME_CLUB_LOGO_PATH` | Optional | URL path to a club logo image. Normally you upload the logo on the admin Club Settings page instead; when set, this wins over the uploaded logo. |
+| `BHPLTA_CLUB_CODE` | Optional | Your club's code on the BHPLTA website, for match card imports. Can be set on the Club Settings page instead; when set, this wins. |
 | `WRAPPED_ACCESS_PASSWORD` | For "club wrapped" | Password that unlocks the club wrapped pages. If unset, the unlock form always rejects. |
 | `MY_TENNIS_ENABLED` | Optional | `true`/`1` shows the "My Tennis" call-to-action. Off when unset. |
 | `LEAGUE_TABLES_URL` | Optional | Source page for the public fixture generator's league tables (default: the BHPLTA league tables page). |

@@ -1,0 +1,323 @@
+// Copyright (c) 2025-2026 James Hartt. Licensed under the MIT License.
+
+package admin
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+
+	"jim-dot-tennis/internal/branding"
+	"jim-dot-tennis/internal/config"
+	"jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/repository"
+	"jim-dot-tennis/internal/services"
+)
+
+// Settings page routes.
+const (
+	settingsPath       = "/admin/league/settings"
+	settingsLookupPath = "/admin/league/settings/bhplta-lookup"
+)
+
+// settingsMaxBody bounds a settings form post: the logo plus the text fields.
+const settingsMaxBody = branding.MaxLogoBytes + 256<<10
+
+// bhpltaLookupFunc finds a club's BHPLTA name and id from its club code.
+type bhpltaLookupFunc func(ctx context.Context, clubCode string) (services.BHPLTAClubIdentity, error)
+
+// SettingsHandler serves the club settings page: display name, logo, colours,
+// BHPLTA identifiers and the public URL. Only the admin role may use it, even
+// if the surrounding /admin/league routes are later opened to other roles.
+type SettingsHandler struct {
+	service     *Service
+	templateDir string
+	lookup      bhpltaLookupFunc
+}
+
+// NewSettingsHandler creates the settings handler.
+func NewSettingsHandler(service *Service, templateDir string) *SettingsHandler {
+	return &SettingsHandler{
+		service:     service,
+		templateDir: templateDir,
+		lookup:      services.NewBHPLTAClubLookup().Lookup,
+	}
+}
+
+// SettingsPageData is the data for templates/admin/settings.html.
+type SettingsPageData struct {
+	User    *models.User
+	Message string
+	Error   string
+
+	ClubName    string // the home club's name (the display name's fallback)
+	DisplayName string
+
+	LogoURL      string // effective logo shown on pages ("" for none)
+	LogoUploaded bool   // a logo has been uploaded
+	LogoEnv      string // env var overriding the logo, if set
+	LogoMaxMB    int
+
+	PrimaryColour   string
+	SecondaryColour string
+
+	BHPLTAClubCode    string
+	BHPLTAClubCodeEnv string
+	BHPLTAClubName    string
+	BHPLTAClubID      string
+	BHPLTAFromKnown   bool // name/id come from the built-in list, not stored
+
+	PublicURL    string
+	PublicURLEnv string
+}
+
+// HandleSettings serves GET and POST /admin/league/settings and POST .../bhplta-lookup.
+func (h *SettingsHandler) HandleSettings(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.requireAdmin(w, r)
+	if !ok {
+		return
+	}
+	cs := h.service.clubSettings
+	if cs == nil {
+		http.Error(w, "Settings are not available", http.StatusInternalServerError)
+		return
+	}
+
+	switch {
+	case r.URL.Path == settingsPath && r.Method == http.MethodGet:
+		h.render(w, r, user, h.pageData(r, cs), http.StatusOK)
+	case r.URL.Path == settingsPath && r.Method == http.MethodPost:
+		h.save(w, r, user, cs)
+	case r.URL.Path == settingsLookupPath && r.Method == http.MethodPost:
+		h.bhpltaLookup(w, r, cs)
+	case r.URL.Path == settingsPath || r.URL.Path == settingsLookupPath:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+// requireAdmin allows only the admin role.
+func (h *SettingsHandler) requireAdmin(w http.ResponseWriter, r *http.Request) (*models.User, bool) {
+	user, err := getUserFromContext(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return nil, false
+	}
+	if user.Role != models.RoleAdmin {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return nil, false
+	}
+	return user, true
+}
+
+func (h *SettingsHandler) pageData(r *http.Request, cs *config.ClubSettings) SettingsPageData {
+	club := config.GetHomeClub(r.Context())
+	d := SettingsPageData{
+		Message:         r.URL.Query().Get("message"),
+		DisplayName:     cs.Stored(repository.SettingClubDisplayName),
+		LogoURL:         cs.LogoPath(),
+		LogoUploaded:    cs.Stored(repository.SettingClubLogoFile) != "",
+		LogoMaxMB:       branding.MaxLogoBytes >> 20,
+		PrimaryColour:   cs.PrimaryColour(),
+		SecondaryColour: cs.SecondaryColour(),
+		BHPLTAClubCode:  cs.Stored(repository.SettingBHPLTAClubCode),
+		BHPLTAClubName:  cs.Stored(repository.SettingBHPLTAClubName),
+		BHPLTAClubID:    cs.Stored(repository.SettingBHPLTAClubID),
+		PublicURL:       cs.PublicURL(),
+	}
+	if club != nil {
+		d.ClubName = club.Name
+	}
+	d.LogoEnv, _ = cs.EnvOverride(repository.SettingClubLogoFile)
+	d.BHPLTAClubCodeEnv, _ = cs.EnvOverride(repository.SettingBHPLTAClubCode)
+	d.PublicURLEnv, _ = cs.EnvOverride(repository.SettingPublicURL)
+	if d.BHPLTAClubName == "" && d.BHPLTAClubID == "" {
+		if k, ok := config.KnownBHPLTAClub(club); ok {
+			d.BHPLTAClubName, d.BHPLTAClubID, d.BHPLTAFromKnown = k.Name, strconv.Itoa(k.ID), true
+		}
+	}
+	return d
+}
+
+func (h *SettingsHandler) render(w http.ResponseWriter, r *http.Request, user *models.User, data SettingsPageData, status int) {
+	data.User = user
+	tmpl, err := parseTemplate(h.templateDir, "admin/settings.html")
+	if err != nil {
+		logAndError(w, "Failed to parse template", err, http.StatusInternalServerError)
+		return
+	}
+	if status != http.StatusOK {
+		w.WriteHeader(status)
+	}
+	if err := renderTemplate(w, tmpl, data); err != nil {
+		log.Printf("Failed to render settings page: %v", err)
+	}
+}
+
+// sentence capitalises the first letter of a validation message for display.
+func sentence(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+// formError is a validation problem to show on the page.
+type formError struct{ msg string }
+
+func (e formError) Error() string { return e.msg }
+
+// save validates the whole form first and stores nothing unless all of it is valid.
+func (h *SettingsHandler) save(w http.ResponseWriter, r *http.Request, user *models.User, cs *config.ClubSettings) {
+	r.Body = http.MaxBytesReader(w, r.Body, settingsMaxBody)
+	if err := r.ParseMultipartForm(1 << 20); err != nil && !errors.Is(err, http.ErrNotMultipart) {
+		var tooBig *http.MaxBytesError
+		msg := "The form could not be read."
+		if errors.As(err, &tooBig) || r.ContentLength > settingsMaxBody {
+			msg = sentence(branding.ErrLogoTooLarge.Error()) + "."
+		}
+		data := h.pageData(r, cs)
+		data.Error = msg
+		h.render(w, r, user, data, http.StatusBadRequest)
+		return
+	}
+
+	values, logo, err := h.parseForm(r, cs)
+	if err != nil {
+		data := h.pageData(r, cs)
+		data.Error = sentence(err.Error())
+		h.render(w, r, user, data, http.StatusBadRequest)
+		return
+	}
+
+	removeLogo := r.FormValue("remove_logo") == "on"
+	var newLogo string
+	switch {
+	case logo != nil:
+		name, err := branding.Store(cs.Dir(), logo)
+		if err != nil {
+			logAndError(w, "Failed to store the logo", err, http.StatusInternalServerError)
+			return
+		}
+		newLogo = name
+		values[repository.SettingClubLogoFile] = name
+		values[repository.SettingClubLogoSize] = fmt.Sprintf("%dx%d", logo.Width, logo.Height)
+	case removeLogo:
+		values[repository.SettingClubLogoFile] = ""
+		values[repository.SettingClubLogoSize] = ""
+	}
+
+	if err := cs.Save(r.Context(), values); err != nil {
+		logAndError(w, "Failed to save settings", err, http.StatusInternalServerError)
+		return
+	}
+	if logo != nil || removeLogo {
+		if err := branding.RemoveOtherLogos(cs.Dir(), newLogo); err != nil {
+			log.Printf("Warning: could not remove old logos: %v", err)
+		}
+	}
+	log.Printf("Club settings updated by %s", user.Username)
+	http.Redirect(w, r, settingsPath+"?message="+url.QueryEscape("Settings saved."), http.StatusSeeOther)
+}
+
+// parseForm validates the submitted fields and returns the values to store.
+// Fields overridden by the environment are left as they are (their inputs
+// are disabled and not submitted).
+func (h *SettingsHandler) parseForm(r *http.Request, cs *config.ClubSettings) (map[string]string, *branding.Logo, error) {
+	values := map[string]string{}
+	var err error
+
+	if values[repository.SettingClubDisplayName], err = config.NormalizeDisplayName(r.FormValue("display_name")); err != nil {
+		return nil, nil, err
+	}
+	if values[repository.SettingClubPrimaryColour], err = config.NormalizeColour(r.FormValue("primary_colour")); err != nil {
+		return nil, nil, formError{"Primary " + err.Error()}
+	}
+	if values[repository.SettingClubSecondaryColour], err = config.NormalizeColour(r.FormValue("secondary_colour")); err != nil {
+		return nil, nil, formError{"Secondary " + err.Error()}
+	}
+	if _, env := cs.EnvOverride(repository.SettingBHPLTAClubCode); !env {
+		if values[repository.SettingBHPLTAClubCode], err = config.NormalizeBHPLTAText("BHPLTA club code", r.FormValue("bhplta_club_code")); err != nil {
+			return nil, nil, err
+		}
+	}
+	if values[repository.SettingBHPLTAClubName], err = config.NormalizeBHPLTAText("BHPLTA club name", r.FormValue("bhplta_club_name")); err != nil {
+		return nil, nil, err
+	}
+	if values[repository.SettingBHPLTAClubID], err = config.NormalizeBHPLTAClubID(r.FormValue("bhplta_club_id")); err != nil {
+		return nil, nil, err
+	}
+	if _, env := cs.EnvOverride(repository.SettingPublicURL); !env {
+		if values[repository.SettingPublicURL], err = config.NormalizePublicURL(r.FormValue("public_url")); err != nil {
+			return nil, nil, err
+		}
+	}
+	// Feature switches (WI-122) are parsed here, alongside the fields above.
+
+	logo, err := readLogo(r)
+	if err != nil {
+		return nil, nil, err
+	}
+	return values, logo, nil
+}
+
+// readLogo returns the validated uploaded logo, or nil when none was chosen.
+func readLogo(r *http.Request) (*branding.Logo, error) {
+	if r.MultipartForm == nil {
+		return nil, nil
+	}
+	f, _, err := r.FormFile("logo")
+	if errors.Is(err, http.ErrMissingFile) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, formError{"The logo upload could not be read."}
+	}
+	defer f.Close()
+	data, err := io.ReadAll(io.LimitReader(f, branding.MaxLogoBytes+1))
+	if err != nil {
+		return nil, formError{"The logo upload could not be read."}
+	}
+	if len(data) == 0 {
+		return nil, nil // an empty file input
+	}
+	logo, err := branding.ValidateLogo(data)
+	if err != nil {
+		return nil, formError{err.Error() + "."}
+	}
+	return logo, nil
+}
+
+// bhpltaLookup asks BHPLTA for the club's name and id using the effective
+// club code, and stores them.
+func (h *SettingsHandler) bhpltaLookup(w http.ResponseWriter, r *http.Request, cs *config.ClubSettings) {
+	redirect := func(param, msg string) {
+		http.Redirect(w, r, settingsPath+"?"+param+"="+url.QueryEscape(msg)+"#bhplta", http.StatusSeeOther)
+	}
+	id, err := h.lookup(r.Context(), cs.BHPLTAClubCode())
+	if err != nil {
+		log.Printf("BHPLTA club lookup failed: %v", err)
+		redirect("message", "Could not look up the club on BHPLTA: "+err.Error()+". Enter the name and id by hand (see below).")
+		return
+	}
+	name, err := config.NormalizeBHPLTAText("BHPLTA club name", id.Name)
+	if err != nil {
+		redirect("message", "BHPLTA returned an unexpected club name. Enter the name and id by hand.")
+		return
+	}
+	if err := cs.Save(r.Context(), map[string]string{
+		repository.SettingBHPLTAClubName: name,
+		repository.SettingBHPLTAClubID:   strconv.Itoa(id.ID),
+	}); err != nil {
+		logAndError(w, "Failed to save settings", err, http.StatusInternalServerError)
+		return
+	}
+	redirect("message", fmt.Sprintf("Found on BHPLTA: %s (club id %d). Saved.", name, id.ID))
+}
