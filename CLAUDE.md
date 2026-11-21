@@ -205,7 +205,7 @@ Key repositories: `SeasonRepository`, `WeekRepository`, `LeagueRepository`, `Div
 **Two Authentication Modes:**
 
 1. **Session-based (Admin)**: Cookie-based authentication with role-based access control
-   - Login at `/login` → redirects to `/admin/league/dashboard`
+   - Login at `/login` → redirects to `/admin/league/dashboard`. Two ways in, one session: a passkey (the login page leads with it) or username and password. Both end in `auth.Service.completeLogin` → `createSession`, so the sessions are identical
    - Sessions stored in database with expiry (7 days default)
    - Middleware: `auth.Middleware.RequireAuth()` + `RequireRole("admin")`
    - Protected routes: `/admin/league/*`
@@ -215,7 +215,17 @@ Key repositories: `SeasonRepository`, `WeekRepository`, `LeagueRepository`, `Div
    - Middleware: `auth.Middleware.RequireFantasyTokenAuth()`
    - No session, passwordless access for specific players
 
-**Rate Limiting:** Login attempts tracked (5 attempts per 15 minutes)
+**Rate Limiting:** Password login attempts tracked per username and address (5 attempts per 15 minutes). Passkey attempts are throttled per client address only, in memory (`internal/auth/passkey_ceremony.go`), and are never recorded against a username, so they cannot lock a named user out.
+
+**Passkeys (WebAuthn)** (`internal/auth/passkey*.go`, `internal/repository/webauthn_credential.go`, `static/passkey.js`, `github.com/go-webauthn/webauthn`; operator notes in `docs/PRODUCTION_QUICK_REFERENCE.md` section 11):
+- Tables (migration 033): `webauthn_credentials` (one row per passkey; `credential_id` unique across users) and `webauthn_user_handles` (a random 32-byte handle per user, created on first enrolment; discoverable sign-in resolves the account from it, never from a username or numeric id).
+- Routes: `POST /login/passkey/begin|finish` (public; optional `{"username"}` for the username-first path, which answers with decoy credential ids for unknown names), `GET /account/signin-methods`, `POST /account/passkeys/begin|finish`, `POST /account/passkeys/{id}/rename|delete` (all `RequireAuth`, own passkeys only), `POST /account/passkeys/{id}/clear-warning` (admin).
+- The relying party is built on every request from `ClubSettings.ResolvePublicURL()` (`Passkeys.relyingPartyAddress`): `Origin` is the only accepted origin, `Hostname` the RP ID. No public URL means no passkeys, except `DEV_MODE=true` (never production) with a request to `localhost`, which uses `http://localhost:<port>`. The Host header is otherwise never used. Changing the public host invalidates existing passkeys.
+- A ceremony's challenge lives in memory (`ceremonyStore`), keyed by a random ticket in the HttpOnly SameSite=Strict `passkey_ceremony` cookie, for 5 minutes, and is removed on the first finish attempt whatever the outcome. Registration ceremonies are also tied to the user and session that began them.
+- A sign counter that does not increase sets `clone_warning_at`: that sign-in is refused and the passkey stays blocked until an administrator clears it on the sign-in methods page (dashboard shows a banner).
+- `repository.CountSignInMethods` (via `auth.Service.CountSignInMethods`) is the one definition of "sign-in method" (passkeys + a non-empty password); the repository's `Delete` refuses to remove the last one. `Passkeys.SetAudit` is the audit seam (wired to `accounts.Service.RecordEvent` in main.go).
+- `must_change_password` is enforced by `RequireAuth` on the session, so it applies however the user signed in: a passkey sign-in for such a user lands on `/account/password` like a password sign-in.
+- Cross-site protection is the app-wide `auth.CrossOriginGuard` (all passkey endpoints are POST); the JSON endpoints also require `Content-Type: application/json`.
 
 ### BHPLTA Integration
 

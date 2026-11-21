@@ -18,7 +18,12 @@ type Handler struct {
 	service      *Service
 	templateDir  string
 	redirectPath string
+	passkeys     *Passkeys
 }
+
+// SetPasskeys makes the login page lead with passkey sign-in wherever
+// passkeys are available.
+func (h *Handler) SetPasskeys(p *Passkeys) { h.passkeys = p }
 
 // NewHandler creates a new auth handler
 func NewHandler(service *Service, templateDir string, redirectPath string) *Handler {
@@ -36,13 +41,16 @@ type loginData struct {
 	// Redirect is the validated same-site path to return to after signing in
 	// ("" when there is none); the form carries it as a hidden field.
 	Redirect string
+	// PasskeysAvailable: passkey sign-in can be offered at this web address.
+	PasskeysAvailable bool
 }
 
 // loginTemplates caches the parsed login page.
 var loginTemplates = render.NewCache()
 
 // renderLogin renders the login form, parsing its templates on first use.
-func (h *Handler) renderLogin(w http.ResponseWriter, data loginData) {
+func (h *Handler) renderLogin(w http.ResponseWriter, r *http.Request, data loginData) {
+	data.PasskeysAvailable = h.passkeys != nil && h.passkeys.Available(r)
 	tmpl, err := loginTemplates.Get(h.templateDir, func() (*template.Template, error) {
 		funcMap := template.FuncMap{
 			"currentYear": func() int {
@@ -96,7 +104,7 @@ func (h *Handler) LoginHandler() http.HandlerFunc {
 		// GET request - show login form
 		if r.Method == http.MethodGet {
 			log.Printf("Processing GET request for login page")
-			h.renderLogin(w, loginData{Redirect: safeRedirectPath(r.URL.Query().Get("redirect"))})
+			h.renderLogin(w, r, loginData{Redirect: safeRedirectPath(r.URL.Query().Get("redirect"))})
 			return
 		}
 
@@ -123,7 +131,7 @@ func (h *Handler) LoginHandler() http.HandlerFunc {
 					Redirect: safeRedirectPath(r.FormValue("redirect")),
 				}
 
-				h.renderLogin(w, data)
+				h.renderLogin(w, r, data)
 				return
 			}
 

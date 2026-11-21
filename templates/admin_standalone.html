@@ -321,6 +321,7 @@
                 </a>
                 <div class="user-controls">
                     <span class="user-info">Logged in as: {{.User.Username}}</span>
+                    <a href="{{.SignInMethodsPath}}" class="btn btn-sm" data-testid="signin-methods-link">Sign-in methods</a>
                     <a href="/logout" class="btn btn-sm btn-danger">Logout</a>
                 </div>
             </div>
@@ -331,6 +332,14 @@
         <div class="container">
             <div class="admin-container">
                 <h1 data-testid="dashboard-title">Admin Dashboard</h1>
+
+                {{if .PasskeyWarnings}}
+                <div class="alert alert-danger" role="alert" data-testid="passkey-warning-banner">
+                    <strong>Security check needed:</strong>
+                    {{.PasskeyWarnings}} passkey{{if ne .PasskeyWarnings 1}}s have{{else}} has{{end}} been blocked because {{if ne .PasskeyWarnings 1}}they{{else}}it{{end}} may have been copied.
+                    <a href="{{.SignInMethodsPath}}#passkey-warnings">Review</a>
+                </div>
+                {{end}}
 
                 {{if .AwaitingReschedule}}
                 <div class="awaiting-reschedule-banner">

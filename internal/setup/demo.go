@@ -77,6 +77,7 @@ var clearedTables = []string{
 var keptTables = []string{
 	"app_settings", "login_attempts", "push_subscriptions", "sessions", "sqlite_sequence",
 	"tennis_players", "tournament_providers", "tournaments", "users", "vapid_keys",
+	"webauthn_credentials", "webauthn_user_handles",
 }
 
 // clearedSettings are the app_settings keys ClearDemo removes: the home club

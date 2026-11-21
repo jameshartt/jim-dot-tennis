@@ -172,7 +172,21 @@ func main() {
 	})
 
 	// First-run setup (the rest of the app is gated behind it until a home club is in effect)
-	setup.NewHandler(setupService, authService, templateDir).RegisterRoutes(mux)
+	setupHandler := setup.NewHandler(setupService, authService, templateDir)
+	setupHandler.RegisterRoutes(mux)
+
+	// Passkeys: bound to the current public URL on every request (it can be
+	// changed on the settings page); changes go through the account audit seam.
+	passkeys := auth.NewPasskeys(authService, homeClub.ClubSettings(), func() string { return homeClub.Branding().Name })
+	passkeyAudit := accounts.New(db)
+	passkeys.SetAudit(func(ctx context.Context, actor *models.User, action, detail string) {
+		if err := passkeyAudit.RecordEvent(ctx, accounts.UserActor(actor.ID, actor.Username), action, detail); err != nil {
+			log.Printf("Failed to record %s: %v", action, err)
+		}
+	})
+	auth.NewPasskeyHandler(passkeys, templateDir, "/admin/league").RegisterRoutes(mux, authMiddleware)
+	authHandler.SetPasskeys(passkeys)
+	setupHandler.OfferPasskeys(passkeys.Available)
 
 	// Auth routes
 	authHandler.RegisterRoutes(mux)
