@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/models"
 )
 
@@ -27,8 +28,6 @@ func NewSessionsHandler(service *Service, templateDir string) *SessionsHandler {
 
 // HandleSessions handles session management routes
 func (h *SessionsHandler) HandleSessions(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Admin sessions handler called with path: %s, method: %s", r.URL.Path, r.Method)
-
 	user, err := getUserFromContext(r)
 	if err != nil {
 		logAndError(w, "Unauthorized", err, http.StatusUnauthorized)
@@ -65,11 +64,10 @@ func (h *SessionsHandler) handleSessionsGet(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Get the current session ID from cookie to highlight it
-	currentSessionID := ""
-	if cookie, err := r.Cookie("session_token"); err == nil {
-		currentSessionID = cookie.Value
-	}
+	// The current session, to highlight it: its numeric id, as RequireAuth
+	// put it in the context (nothing here reads the session cookie, so the
+	// cookie's name and token never reach this page).
+	currentSessionID := auth.SessionIDFromContext(r.Context())
 
 	data := map[string]interface{}{
 		"User":             user,
@@ -86,6 +84,8 @@ func (h *SessionsHandler) handleSessionsGet(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Who is signed in, from where, and recent sign-in attempts: not for a cache.
+	w.Header().Set("Cache-Control", "no-store")
 	if err := renderTemplate(w, tmpl, data); err != nil {
 		logAndError(w, "Failed to render template", err, http.StatusInternalServerError)
 	}
@@ -95,7 +95,7 @@ func (h *SessionsHandler) handleSessionsGet(w http.ResponseWriter, r *http.Reque
 func (h *SessionsHandler) handleSessionAction(w http.ResponseWriter, r *http.Request, user *models.User, path string) {
 	// POST /admin/league/sessions/cleanup
 	if path == "/admin/league/sessions/cleanup" {
-		if err := h.service.CleanupExpiredSessions(); err != nil {
+		if _, err := h.service.accounts.CleanupExpiredSessions(r.Context(), actorFor(user)); err != nil {
 			log.Printf("Failed to cleanup sessions: %v", err)
 			http.Redirect(w, r, "/admin/league/sessions?error=Failed+to+cleanup+sessions", http.StatusSeeOther)
 			return
@@ -112,7 +112,7 @@ func (h *SessionsHandler) handleSessionAction(w http.ResponseWriter, r *http.Req
 			http.Error(w, "Invalid user ID", http.StatusBadRequest)
 			return
 		}
-		if err := h.service.InvalidateAllUserSessions(userID); err != nil {
+		if _, err := h.service.accounts.RevokeSessions(r.Context(), actorFor(user), userID); err != nil {
 			log.Printf("Failed to invalidate user sessions: %v", err)
 			http.Redirect(w, r, "/admin/league/sessions?error=Failed+to+invalidate+sessions", http.StatusSeeOther)
 			return
@@ -121,15 +121,16 @@ func (h *SessionsHandler) handleSessionAction(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// POST /admin/league/sessions/{id}/invalidate
+	// POST /admin/league/sessions/{id}/invalidate, id being the session's
+	// numeric id (never its token)
 	if strings.HasSuffix(path, "/invalidate") {
-		sessionID := strings.TrimPrefix(path, "/admin/league/sessions/")
-		sessionID = strings.TrimSuffix(sessionID, "/invalidate")
-		if sessionID == "" {
+		idStr := strings.TrimSuffix(strings.TrimPrefix(path, "/admin/league/sessions/"), "/invalidate")
+		sessionID, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil || sessionID <= 0 {
 			http.Error(w, "Invalid session ID", http.StatusBadRequest)
 			return
 		}
-		if err := h.service.InvalidateSession(sessionID); err != nil {
+		if err := h.service.accounts.RevokeSession(r.Context(), actorFor(user), sessionID); err != nil {
 			log.Printf("Failed to invalidate session: %v", err)
 			http.Redirect(w, r, "/admin/league/sessions?error=Failed+to+invalidate+session", http.StatusSeeOther)
 			return

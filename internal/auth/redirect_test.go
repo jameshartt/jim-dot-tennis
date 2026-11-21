@@ -2,7 +2,35 @@
 
 package auth
 
-import "testing"
+import (
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"testing"
+)
+
+func TestSafeRedirectPathMoreVariants(t *testing.T) {
+	for _, in := range []string{"/\t/evil.example", "///evil.example", "/\\/evil.example", "/admin\\evil", "HTTPS://evil.example"} {
+		if got := safeRedirectPath(in); got != "" {
+			t.Errorf("safeRedirectPath(%q) = %q, want rejected", in, got)
+		}
+	}
+}
+
+func TestLoginRedirectURLKeepsPathAndQuery(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "/admin/league/fixtures?week=3&team=2", nil)
+	got := loginRedirectURL(r)
+	u, err := url.Parse(got)
+	if err != nil || u.Path != "/login" {
+		t.Fatalf("loginRedirectURL = %q (%v)", got, err)
+	}
+	if back := u.Query().Get("redirect"); back != "/admin/league/fixtures?week=3&team=2" {
+		t.Errorf("redirect round-trips as %q", back)
+	}
+	if safeRedirectPath(u.Query().Get("redirect")) == "" {
+		t.Error("generated redirect is rejected by safeRedirectPath")
+	}
+}
 
 func TestSafeRedirectPath(t *testing.T) {
 	ok := []string{

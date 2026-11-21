@@ -169,7 +169,7 @@
         <div class="container">
             <div class="action-bar">
                 <h2>All Clubs <span class="club-count">({{len .Clubs}})</span></h2>
-                <button type="button" class="btn-save" onclick="document.getElementById('create-club-form').style.display='block'">+ Create Club</button>
+                {{if canUse .User "POST /admin/league/clubs/"}}<button type="button" class="btn-save" data-testid="create-club-button" onclick="document.getElementById('create-club-form').style.display='block'">+ Create Club</button>{{end}}
             </div>
 
             {{if .Success}}

@@ -164,12 +164,12 @@ Sprints 019-024 form the **club-readiness programme**: making the app installabl
 - **Schema**: 030 (app_settings), 031 (drop of the migration-010 managing-team trigger)
 
 ### Sprint 021: Authentication — Passkeys, Recovery and a Real Captain Role
-- **Status**: Planned
+- **Status**: Completed (2026-11-21)
 - **Work Items**: 9 (WI-126 to WI-134)
 - **Goal**: Passkeys as default sign-in, passwords as optional fallback, invite and recovery links without email, server-side account commands, enforced captain role, hardening and an independent security review
 - **Directory**: `sprint-021/`
 - **Summary**: [sprint-021/SUMMARY.md](sprint-021/SUMMARY.md)
-- **Schema planned**: WebAuthn credentials, account links, account audit log, nullable password hash
+- **Schema**: 032 (must_change_password, retired), 033 (WebAuthn credentials and user handles), 034 (account links, nullable password hash), 035 (hashed sessions, account audit log)
 
 ### Sprint 022: Packaging, CI and Releases
 - **Status**: Planned
@@ -180,8 +180,8 @@ Sprints 019-024 form the **club-readiness programme**: making the app installabl
 
 ### Sprint 023: CourtHive Bundle — Club Championships in the Box
 - **Status**: Planned
-- **Work Items**: 6 (WI-142 to WI-147)
-- **Goal**: Published club-neutral CourtHive images, an opt-in tournament stack in the packaged deployment, automatic per-club provisioning, tournament data in backups, unattended upgrades
+- **Work Items**: 7 (WI-142 to WI-147, WI-152)
+- **Goal**: Published club-neutral CourtHive images, an opt-in tournament stack in the packaged deployment, automatic per-club provisioning, single sign-on with jim-dot-tennis as the identity source, tournament data in backups, unattended upgrades
 - **Directory**: `sprint-023/`
 - **Summary**: [sprint-023/SUMMARY.md](sprint-023/SUMMARY.md)
 - **Gate**: WI-142 must confirm redistribution is permitted before any image is published
@@ -240,8 +240,9 @@ Work items are numbered sequentially:
 - **WI-093 through WI-100** — Sprint 016 (completed 2026-04-18)
 - **WI-101 through WI-107** — Sprint 017 (completed)
 - **WI-108 through WI-111** — Sprint 018 (completed)
-- **WI-112 through WI-151** — Sprints 019–024, club-readiness programme (planned)
-- **Next available**: WI-152
+- **WI-112 through WI-151** — Sprints 019–024, club-readiness programme
+- **WI-152** — Sprint 023, single sign-on (added 2026-11-21)
+- **Next available**: WI-153
 
 ## Migrations Relationship
 
@@ -252,7 +253,8 @@ Sprint work items that deliver migrations document the migration number in their
 - **027** (player_tennis_preferences.wizard_progress_tier) — Sprint 018 WI-108
 - **028** (retired_by on matchups) and **029** (reschedule statuses) — delivered outside the sprint structure
 - **030** (app_settings) and **031** (drop managing-team trigger) — Sprint 020 WI-116, WI-120
-- **Next available**: 032 (026 was never committed — never reuse it). Sprint 021 plans several migrations; each takes the next free number when implemented
+- **032** to **035** (must-change flag, WebAuthn credentials, account links and nullable password hash, hashed sessions and account audit log) — Sprint 021 WI-127, WI-128, WI-129, WI-131
+- **Next available**: 036 (026 was never committed — never reuse it)
 
 ## How to Use This Index
 

@@ -1342,6 +1342,7 @@ func (h *FixturesHandler) handleCalendarDownload(w http.ResponseWriter, r *http.
 		resolution.Club,
 	)
 
+	event.UIDDomain = h.service.clubSettings.Host(r)
 	icalContent := services.GenerateICalEvent(event)
 
 	w.Header().Set("Content-Type", "text/calendar; charset=utf-8")

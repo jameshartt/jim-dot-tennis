@@ -1,0 +1,286 @@
+{{define "account/signin_methods.html"}}
+{{template "layout" .}}
+{{end}}
+
+{{define "head"}}
+<title>Sign-in methods - Jim.Tennis</title>
+<meta name="robots" content="noindex">
+<style>
+    [hidden] { display: none !important; }
+    .methods-container { display: flex; justify-content: center; padding: 1.5rem 0; }
+    .methods-card { background: #fff; padding: 1.75rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100%; max-width: 640px; }
+    .methods-card h1 { color: var(--primary-color); margin-bottom: 0.5rem; font-size: 1.6rem; }
+    .methods-card h2 { font-size: 1.15rem; margin: 1.5rem 0 0.6rem; }
+    .methods-card p { margin-bottom: 0.8rem; line-height: 1.5; }
+    .methods-help { font-size: 0.9rem; color: #555; }
+    .passkey-list { list-style: none; padding: 0; margin: 0 0 1rem; }
+    .passkey-list > li { border: 1px solid var(--border-color); border-radius: 6px; padding: 0.85rem; margin-bottom: 0.6rem; }
+    .passkey-name { font-weight: 600; }
+    .passkey-meta { font-size: 0.85rem; color: #555; margin: 0.2rem 0 0.6rem; }
+    .passkey-badge { display: inline-block; font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 999px; background: #eef2ee; color: #333; margin-left: 0.4rem; font-weight: normal; }
+    .passkey-badge.blocked { background: #f8d7da; color: #721c24; }
+    .passkey-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    .passkey-actions form { display: flex; gap: 0.4rem; align-items: center; margin: 0; }
+    .passkey-actions input[type="text"] { width: 12rem; max-width: 100%; margin: 0; padding: 0.35rem 0.5rem; }
+    .passkey-add { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-end; }
+    .passkey-add .form-group { margin: 0; flex: 1 1 14rem; }
+    .methods-footer { margin-top: 1.5rem; display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .passkey-warnings { border: 1px solid #f5c6cb; border-radius: 6px; padding: 0.85rem; background: #fff8f8; }
+    .passkey-warnings ul { list-style: none; padding: 0; margin: 0; }
+    .passkey-warnings li { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: space-between; padding: 0.4rem 0; }
+    .passkey-warnings form { margin: 0; }
+    .passkey-prompt { border: 1px solid var(--primary-color); border-radius: 6px; padding: 1rem; margin: 1rem 0; background: #f6fbf6; }
+    .passkey-prompt h2 { margin-top: 0; }
+    .password-form { border: 1px solid var(--border-color); border-radius: 6px; padding: 0.85rem; margin-bottom: 0.8rem; }
+    .password-form-title { font-size: 1rem; margin: 0 0 0.6rem; }
+    .password-remove { margin: 0; }
+    .proof-box { border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem 0.75rem; }
+    .proof-box > summary { cursor: pointer; color: #a12; font-size: 0.9rem; }
+    .proof-box[open] > summary { margin-bottom: 0.6rem; }
+    .proof-box form { display: block; margin: 0; }
+    .proof-box label { display: block; font-size: 0.9rem; margin-bottom: 0.5rem; }
+    .proof-box input[type="password"] { display: block; width: 16rem; max-width: 100%; margin: 0.2rem 0 0; padding: 0.35rem 0.5rem; }
+</style>
+{{end}}
+
+{{/* What a form that changes a sign-in method asks for, so that being signed
+     in is not enough: the current password, or a passkey confirmation made a
+     moment ago ("Confirm with a passkey" reloads the page with one). */}}
+{{define "ownership-proof"}}
+{{if .PasskeyConfirmed}}
+<p class="methods-help" data-proof-confirmed>Confirmed with your passkey. This lasts 5 minutes and works once.</p>
+{{else}}
+{{if .HasPassword}}
+<label>Your current password, to confirm it's you
+    <input type="password" name="current_password" autocomplete="current-password"{{if not .CanConfirmWithPasskey}} required{{end}} data-proof-password>
+</label>
+{{end}}
+{{if .CanConfirmWithPasskey}}
+<p class="methods-help" data-passkey-ui hidden>{{if .HasPassword}}Or confirm it's you with a passkey you already have:{{else}}First confirm it's you with a passkey you already have:{{end}}
+    <button type="button" class="btn btn-sm" data-passkey-reauth>Confirm with a passkey</button></p>
+{{end}}
+{{if .NoProofPossible}}
+<p class="methods-help" data-proof-impossible>You have no working way to confirm it's you here (no password, and no passkey that works at this address). Ask a club administrator for a recovery link.</p>
+{{end}}
+{{end}}
+{{end}}
+
+{{define "user-controls"}}
+<form method="POST" action="/logout" style="margin:0"><button type="submit" class="btn btn-sm" data-testid="logout-button">Sign out</button></form>
+{{end}}
+
+{{define "content"}}
+<div class="methods-container">
+    <div class="methods-card" data-page="signin-methods">
+        <h1>Sign-in methods</h1>
+        <p>You are signed in as <strong>{{.Username}}</strong>. These are the ways you can sign in.</p>
+
+        {{if .Notice}}<div class="alert alert-success" role="status" data-signin-notice>{{.Notice}}</div>{{end}}
+        {{if .Error}}<div class="alert alert-danger" role="alert" data-signin-error>{{.Error}}</div>{{end}}
+        <div class="alert alert-danger" role="alert" id="passkey-status" data-passkey-status hidden></div>
+
+        {{if .PromptPasskey}}
+        <div class="passkey-prompt" data-passkey-prompt data-passkey-ui hidden>
+            <h2>Add a passkey?</h2>
+            <p>Next time, sign in with your fingerprint, face or screen lock instead of typing a password. It is quicker, and nobody can guess or steal it. You can keep your password as well.</p>
+            <div class="passkey-actions">
+                <a href="#passkeys" class="btn btn-primary" data-passkey-prompt-add>Add a passkey below</a>
+                <form method="POST" action="{{.DismissPath}}">
+                    {{if .Next}}<input type="hidden" name="next" value="{{.Next}}">{{end}}
+                    <button type="submit" class="btn" data-passkey-prompt-dismiss>Not now</button>
+                </form>
+            </div>
+        </div>
+        {{end}}
+
+        <section id="passkeys" aria-labelledby="passkeys-heading">
+            <h2 id="passkeys-heading">Passkeys</h2>
+            <p class="methods-help">A passkey signs you in with your fingerprint, face or screen lock. It is kept by your phone, computer or password manager, and there is nothing to remember.</p>
+
+            {{if .Passkeys}}
+            <ul class="passkey-list" data-passkey-list>
+                {{range .Passkeys}}
+                <li data-passkey-id="{{.ID}}"{{if .Blocked}} data-passkey-blocked{{end}}>
+                    <div class="passkey-name">
+                        <span data-passkey-name-text>{{.Name}}</span>
+                        {{if .Synced}}<span class="passkey-badge">Synced</span>{{end}}
+                        {{if .Blocked}}<span class="passkey-badge blocked">Blocked</span>{{end}}
+                    </div>
+                    <p class="passkey-meta">
+                        Added <time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.CreatedAt.Format "2 Jan 2006"}}</time>
+                        &middot;
+                        <span data-passkey-last-used>{{if .LastUsedAt}}Last used <time datetime="{{.LastUsedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.LastUsedAt.Format "2 Jan 2006 15:04"}}</time>{{else}}Not used yet{{end}}</span>
+                    </p>
+                    {{if .Blocked}}
+                    <p class="methods-help">This passkey reported something that can mean it has been copied, so it can't sign in. Remove it and add a new one, or ask an administrator to check.</p>
+                    {{end}}
+                    <div class="passkey-actions">
+                        <form method="POST" action="/account/passkeys/{{.ID}}/rename">
+                            <input type="text" id="passkey-name-{{.ID}}" name="name" value="{{.Name}}" maxlength="{{$.MaxNameLength}}" required aria-label="Name for this passkey">
+                            <button type="submit" class="btn btn-sm" data-passkey-rename>Rename</button>
+                        </form>
+                        {{if .CanRemove}}
+                        <details class="proof-box" data-passkey-remove-box>
+                            <summary data-passkey-remove-open>Remove this passkey...</summary>
+                            <form method="POST" action="/account/passkeys/{{.ID}}/delete">
+                                <p class="methods-help">You will no longer be able to sign in with it, and you will be signed out on your other devices.</p>
+                                {{template "ownership-proof" $}}
+                                {{if or $.HasPassword $.PasskeyConfirmed}}<button type="submit" class="btn btn-sm btn-danger" data-passkey-remove>Remove</button>{{end}}
+                            </form>
+                        </details>
+                        {{else}}
+                        <span class="methods-help" data-passkey-last-method>{{if .Blocked}}This is your only passkey, so it can't be removed. Ask an administrator to check it, or for a recovery link.{{else}}This is your only working way to sign in, so it can't be removed.{{end}}</span>
+                        {{end}}
+                    </div>
+                </li>
+                {{end}}
+            </ul>
+            {{else}}
+            <p data-passkey-none>You have no passkeys yet.</p>
+            {{end}}
+
+            {{if not .PasskeysAvailable}}
+            <div class="alert alert-info" data-passkey-unavailable>
+                Passkeys can't be added at this web address. {{if .IsAdmin}}Set the site's public address on the Club Settings page (it must be the address people actually use), then open the site at that address.{{else}}Open the site at its usual address, or ask an administrator.{{end}}
+            </div>
+            {{else if .AtLimit}}
+            <p class="methods-help">This account has the most passkeys it can hold. Remove one to add another.</p>
+            {{else}}
+            <div class="alert alert-info" data-passkey-unsupported hidden>
+                This browser can't use passkeys here. Try a current version of Safari, Chrome, Edge or Firefox.
+            </div>
+            <div class="passkey-add" data-passkey-ui hidden>
+                <div class="form-group">
+                    <label for="new-passkey-name">Name for the new passkey (optional)</label>
+                    <input type="text" id="new-passkey-name" maxlength="{{.MaxNameLength}}" placeholder="For example: Sam's phone" autocomplete="off">
+                </div>
+                {{if and .HasPassword (not .PasskeyConfirmed)}}
+                <div class="form-group">
+                    <label for="passkey-add-current-password">Your current password, to confirm it's you</label>
+                    <input type="password" id="passkey-add-current-password" autocomplete="current-password" data-proof-password>
+                </div>
+                {{end}}
+                {{if or .HasPassword .PasskeyConfirmed}}
+                <button type="button" class="btn btn-primary" id="passkey-add" data-passkey-add data-passkey-name="#new-passkey-name"{{if and .HasPassword (not .PasskeyConfirmed)}} data-passkey-password="#passkey-add-current-password"{{end}}{{if .Next}} data-next="{{.Next}}"{{end}}{{if .Enrol}} autofocus{{end}}>Add a passkey</button>
+                {{end}}
+            </div>
+            <div data-passkey-add-proof>
+                {{if .PasskeyConfirmed}}
+                <p class="methods-help" data-proof-confirmed>Confirmed with your passkey. This lasts 5 minutes and works once.</p>
+                {{else if .CanConfirmWithPasskey}}
+                <p class="methods-help" data-passkey-ui hidden>{{if .HasPassword}}Or, instead of your password, confirm it's you with a passkey you already have:{{else}}To add another passkey, first confirm it's you with one you already have:{{end}}
+                    <button type="button" class="btn btn-sm" id="passkey-add-confirm" data-passkey-reauth>Confirm with a passkey</button></p>
+                {{else if .NoProofPossible}}
+                <p class="methods-help" data-proof-impossible>To add a passkey you first confirm it's you, and this account has no working way to do that (no password, and no passkey that works). Ask a club administrator for a recovery link.</p>
+                {{end}}
+                <p class="methods-help">Adding a passkey signs you out on your other devices.</p>
+            </div>
+            {{end}}
+        </section>
+
+        <section id="password" aria-labelledby="password-heading" data-signin-password="{{if .HasPassword}}set{{else}}none{{end}}">
+            <h2 id="password-heading">Password</h2>
+            {{if .PasswordNotice}}<div class="alert alert-success" role="status" data-password-notice>{{.PasswordNotice}}</div>{{end}}
+            {{if .PasswordError}}<div class="alert alert-danger" role="alert" data-password-error>{{.PasswordError}}</div>{{end}}
+            {{if .HasPassword}}
+            <p>You have a password. A password is a fallback for when you can't use a passkey; a passkey is safer.</p>
+            {{else}}
+            <p>You have no password: you sign in with a passkey. You can add a password as a fallback, for a device that can't use passkeys.</p>
+            {{end}}
+            {{if .AdminPasswordUnusable}}
+            <p class="alert alert-info" data-password-admin-unusable>The club requires administrators to sign in with a passkey, so a password can't be used to sign in to this account at the moment.</p>
+            {{end}}
+
+            {{if .CanSetPassword}}
+            <form method="POST" action="/account/password" class="password-form" data-password-form="{{if .HasPassword}}change{{else}}add{{end}}">
+                <h3 class="password-form-title">{{if .HasPassword}}Change your password{{else}}Add a password{{end}}</h3>
+                <input type="text" name="username" value="{{.Username}}" autocomplete="username" hidden>
+                {{if .PasskeyConfirmed}}
+                <p class="methods-help" data-password-confirmed>Confirmed with your passkey. This lasts 5 minutes and works once.</p>
+                {{else}}
+                {{if .HasPassword}}
+                <div class="form-group">
+                    <label for="current_password">Current password</label>
+                    <input type="password" id="current_password" name="current_password" autocomplete="current-password"{{if not .CanConfirmWithPasskey}} required{{end}}>
+                </div>
+                {{end}}
+                {{if .CanConfirmWithPasskey}}
+                <p class="methods-help">{{if .HasPassword}}Or, instead of typing your current password, confirm it's you with a passkey first:{{else}}First confirm it's you with one of your passkeys:{{end}}</p>
+                <p data-passkey-ui hidden><button type="button" class="btn btn-sm" id="password-confirm-passkey" data-passkey-reauth data-reauth-for="password">Confirm with a passkey</button></p>
+                {{end}}
+                {{end}}
+                <div class="form-group">
+                    <label for="new_password">New password</label>
+                    <input type="password" id="new_password" name="new_password" required minlength="{{.MinPassword}}" maxlength="{{.MaxPasswordBytes}}"
+                           autocomplete="new-password" aria-describedby="new-password-help">
+                    <p id="new-password-help" class="methods-help">At least {{.MinPassword}} characters. A few unrelated words strung together are easy to remember and hard to guess. Don't reuse a password from another site.</p>
+                </div>
+                <div class="form-group">
+                    <label for="new_password_confirm">Type the new password again</label>
+                    <input type="password" id="new_password_confirm" name="new_password_confirm" required minlength="{{.MinPassword}}" maxlength="{{.MaxPasswordBytes}}" autocomplete="new-password">
+                </div>
+                <p class="methods-help">{{if .HasPassword}}Changing your password{{else}}Adding a password{{end}} signs you out on your other devices.</p>
+                <button type="submit" class="btn btn-primary" data-password-submit>{{if .HasPassword}}Change password{{else}}Add password{{end}}</button>
+            </form>
+            {{else}}
+            <p class="methods-help" data-password-cannot-add>To add a password you first confirm it's you with a passkey, and passkeys can't be used at this web address. Open the site at its usual address.</p>
+            {{end}}
+
+            {{if .HasPassword}}
+            {{if .CanRemovePassword}}
+            <details class="proof-box password-remove" data-password-remove-box>
+                <summary data-password-remove-open>Remove my password...</summary>
+                <form method="POST" action="/account/password/remove">
+                    <p class="methods-help">You will sign in with a passkey only, and you will be signed out on your other devices.</p>
+                    {{template "ownership-proof" .}}
+                    <button type="submit" class="btn btn-sm btn-danger" data-password-remove>Remove my password</button>
+                </form>
+            </details>
+            {{else}}
+            <p class="methods-help" data-password-last-method>Your password is your only working way to sign in, so it can't be removed. Add a passkey first.</p>
+            {{end}}
+            {{end}}
+        </section>
+
+        <section id="sessions" aria-labelledby="sessions-heading" data-other-sessions="{{.OtherSessions}}">
+            <h2 id="sessions-heading">Other devices</h2>
+            <p>{{if eq .OtherSessions 0}}This is the only browser signed in to your account.{{else if eq .OtherSessions 1}}Your account is signed in on 1 other browser or device.{{else}}Your account is signed in on {{.OtherSessions}} other browsers or devices.{{end}}
+               If you left yourself signed in somewhere, or think someone else is using your account, sign out everywhere else. You stay signed in here.</p>
+            <form method="POST" action="{{.SignOutElsewhere}}" style="margin:0">
+                <button type="submit" class="btn btn-sm" data-signout-elsewhere>Sign out everywhere else</button>
+            </form>
+        </section>
+
+        {{if and .IsAdmin .Warnings}}
+        <section id="passkey-warnings" aria-labelledby="warnings-heading" data-passkey-warnings>
+            <h2 id="warnings-heading">Passkeys blocked for a security check</h2>
+            <div class="passkey-warnings">
+                <p class="methods-help">These passkeys reported a sign-in counter that went backwards, which can mean the passkey was copied to another device. They can't sign in. Check with the person: if they recognise the sign-in attempt and trust their device, clear the warning; if not, ask them to remove the passkey and add a new one.</p>
+                <ul>
+                    {{range .Warnings}}
+                    <li data-warning-passkey-id="{{.ID}}">
+                        <span><strong>{{.Username}}</strong>: {{.Name}} (since {{.CloneWarningAt.Format "2 Jan 2006 15:04"}})</span>
+                        <form method="POST" action="/account/passkeys/{{.ID}}/clear-warning" onsubmit="return confirm('Let this passkey sign in again?');">
+                            <button type="submit" class="btn btn-sm" data-passkey-clear-warning>Clear warning</button>
+                        </form>
+                    </li>
+                    {{end}}
+                </ul>
+            </div>
+        </section>
+        {{end}}
+
+        <div class="methods-footer">
+            {{if .Next}}
+            <a href="{{.Next}}" class="btn btn-primary" data-signin-continue>Continue</a>
+            {{else}}
+            <a href="{{.HomePath}}" class="btn" data-signin-back>Back to the dashboard</a>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script src="/static/passkey.js"></script>
+{{end}}

@@ -117,32 +117,36 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
+        .issued-link {
+            border: 2px solid var(--primary-color);
         }
-        .modal-content {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            max-width: 400px;
-            width: 90%;
+        .issued-link-row {
+            display: flex;
+            gap: 0.5rem;
+            margin: 0.75rem 0;
         }
-        .modal-content h3 {
-            margin: 0 0 1rem 0;
+        .issued-link-row input {
+            flex: 1;
+            font-family: monospace;
+            font-size: 0.85rem;
+            margin: 0;
         }
+        .issued-link ul {
+            margin: 0.5rem 0 0 1.25rem;
+            font-size: 0.9rem;
+        }
+        .form-help {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin: 0.75rem 0 0;
+        }
+        .badge-pending { background: #fff3cd; color: #856404; }
         @media (max-width: 768px) {
             .new-user-form {
                 grid-template-columns: 1fr;
             }
-            .user-table th:nth-child(4),
-            .user-table td:nth-child(4) {
+            .user-table th:nth-child(6),
+            .user-table td:nth-child(6) {
                 display: none;
             }
         }
@@ -167,16 +171,34 @@
             <div class="alert alert-error">{{.ErrorMsg}}</div>
             {{end}}
 
+            {{with .IssuedLink}}
+            <div class="content-section issued-link" data-issued-link data-link-kind="{{if .IsInvite}}invite{{else}}recovery{{end}}" data-link-username="{{.Username}}">
+                <h2>{{if .IsInvite}}Invite link{{else}}Recovery link{{end}} for {{.Username}}</h2>
+                <p>{{if .NewAccount}}The account was created. {{end}}Copy this link now and give it to <strong>{{.Username}}</strong> yourself (in person, by phone or in a private message). <strong>It is shown only this once</strong> and the app does not email it.</p>
+                <div class="issued-link-row">
+                    <input type="text" id="issued-link-url" readonly value="{{.URL}}" aria-label="Link to hand over" onfocus="this.select()">
+                    <button type="button" class="btn btn-primary" data-copy-link onclick="copyIssuedLink(this)">Copy</button>
+                </div>
+                <ul>
+                    <li>It works once, until {{.ExpiresAt.Local.Format "Mon 2 Jan 2006 15:04"}} ({{.Lifetime}} from now).</li>
+                    {{if .IsInvite}}
+                    <li>Whoever opens it chooses how {{.Username}} signs in (a passkey, or a password) and is signed in as them.</li>
+                    {{else}}
+                    <li>Nothing has changed for {{.Username}} yet. When the link is used they choose a new way to sign in and are signed out everywhere else.</li>
+                    {{end}}
+                    {{if .Superseded}}<li>An earlier unused link for this account was cancelled.</li>{{end}}
+                    <li>Sent it to the wrong person? Cancel it under "Links not used yet" below.</li>
+                    {{if .FromRequest}}<li><strong>No public URL is set</strong> (Club Settings), so this link uses the address you are browsing at. Check that the other person can reach it.</li>{{end}}
+                </ul>
+            </div>
+            {{end}}
+
             <div class="content-section">
                 <h2>Create New User</h2>
-                <form method="POST" action="/admin/league/users" class="new-user-form">
+                <form method="POST" action="/admin/league/users" class="new-user-form" data-user-create>
                     <div class="form-group" style="margin-bottom: 0;">
                         <label for="username">Username</label>
-                        <input type="text" id="username" name="username" required placeholder="Enter username">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label for="password">Password</label>
-                        <input type="password" id="password" name="password" required placeholder="Enter password">
+                        <input type="text" id="username" name="username" required placeholder="Enter username" autocomplete="off">
                     </div>
                     <div class="form-group" style="margin-bottom: 0;">
                         <label for="role">Role</label>
@@ -186,8 +208,19 @@
                             {{end}}
                         </select>
                     </div>
-                    <button type="submit" class="btn btn-primary">Create User</button>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="player_id">Linked player (optional)</label>
+                        <select id="player_id" name="player_id">
+                            <option value="">None</option>
+                            {{range .Players}}
+                            <option value="{{.ID}}">{{.Name}}</option>
+                            {{end}}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="create-user-submit">Create user and invite link</button>
                 </form>
+                <p class="form-help">You do not choose a password. Creating the user gives you an invite link to pass on; the person who opens it sets up their own passkey or password.</p>
+                <p class="form-help" data-role-help>A <strong>captain</strong> runs every team: planning, availability, selection, fixtures and rescheduling, results, players and standings. An <strong>admin</strong> can do all of that and also manage users, sessions, club settings, seasons, imports and backups. Players do not need an account: they use their own availability link. Link a captain to their player record so their own teams are marked on the planning dashboard.</p>
             </div>
 
             <div class="content-section">
@@ -198,24 +231,42 @@
                             <tr>
                                 <th>Username</th>
                                 <th>Role</th>
+                                <th>Linked player</th>
                                 <th>Status</th>
+                                <th>Signs in with</th>
                                 <th>Last Login</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {{range .Users}}
-                            <tr>
+                            <tr data-user-id="{{.ID}}" data-username="{{.Username}}">
                                 <td>
                                     <strong>{{.Username}}</strong>
                                     {{if eq .ID $.User.ID}}<span style="font-size: 0.75rem; color: #6c757d;">(you)</span>{{end}}
                                 </td>
                                 <td>
                                     <form method="POST" action="/admin/league/users/{{.ID}}/role" class="inline-form">
-                                        <select name="role" class="inline-select" onchange="this.form.submit()">
-                                            <option value="admin" {{if eq (lower .Role) "admin"}}selected{{end}}>admin</option>
-                                            <option value="captain" {{if eq (lower .Role) "captain"}}selected{{end}}>captain</option>
-                                            <option value="player" {{if eq (lower .Role) "player"}}selected{{end}}>player</option>
+                                        <select name="role" class="inline-select" data-user-role-select onchange="this.form.submit()">
+                                            {{$current := lower .Role}}
+                                            {{if not (has $.Roles $current)}}
+                                            {{/* A retired role (player, from before WI-132): the account reaches nothing until it is made a captain or admin. */}}
+                                            <option value="" selected disabled>{{$current}} (no access)</option>
+                                            {{end}}
+                                            {{range $.Roles}}
+                                            <option value="{{.}}" {{if eq . $current}}selected{{end}}>{{.}}</option>
+                                            {{end}}
+                                        </select>
+                                    </form>
+                                </td>
+                                <td>
+                                    <form method="POST" action="/admin/league/users/{{.ID}}/player" class="inline-form" data-user-player-form>
+                                        <select name="player_id" class="inline-select" data-user-player-select aria-label="Linked player for {{.Username}}" onchange="this.form.submit()">
+                                            <option value="">None</option>
+                                            {{if .PlayerID}}{{$pid := deref .PlayerID}}<option value="{{$pid}}" selected>{{index $.PlayerNames $pid}}</option>{{end}}
+                                            {{range $.Players}}
+                                            <option value="{{.ID}}">{{.Name}}</option>
+                                            {{end}}
                                         </select>
                                     </form>
                                 </td>
@@ -224,6 +275,13 @@
                                     <span class="badge badge-active">Active</span>
                                     {{else}}
                                     <span class="badge badge-inactive">Inactive</span>
+                                    {{end}}
+                                </td>
+                                <td style="font-size: 0.85rem;" data-user-signin-methods="{{.SignInMethods}}">
+                                    {{if eq .SignInMethods 0}}
+                                    <span class="badge badge-pending">Invite not accepted</span>
+                                    {{else}}
+                                    {{if .Passkeys}}{{.Passkeys}} passkey{{if ne .Passkeys 1}}s{{end}}{{end}}{{if and .Passkeys .HasPassword}}, {{end}}{{if .HasPassword}}password{{end}}
                                     {{end}}
                                 </td>
                                 <td style="font-size: 0.85rem;">{{.LastLoginAt.Format "02 Jan 2006 15:04"}}</td>
@@ -235,7 +293,15 @@
                                         </button>
                                     </form>
                                     {{end}}
-                                    <button class="action-btn" onclick="showResetModal({{.ID}}, '{{.Username}}')">Reset Password</button>
+                                    {{if eq .SignInMethods 0}}
+                                    <form method="POST" action="/admin/league/users/{{.ID}}/invite" class="inline-form">
+                                        <button type="submit" class="action-btn" data-user-invite onclick="return confirm('Make a new invite link for this user? Any earlier unused link stops working.')">New invite link</button>
+                                    </form>
+                                    {{else}}
+                                    <form method="POST" action="/admin/league/users/{{.ID}}/recover" class="inline-form">
+                                        <button type="submit" class="action-btn" data-user-recover onclick="return confirm('Make a recovery link for this user? Nothing changes for them until the link is used.')">Recovery link</button>
+                                    </form>
+                                    {{end}}
                                 </td>
                             </tr>
                             {{end}}
@@ -243,35 +309,56 @@
                     </table>
                 </div>
             </div>
+
+            <div class="content-section" data-pending-links>
+                <h2>Links not used yet ({{len .PendingLinks}})</h2>
+                {{if .PendingLinks}}
+                <div class="table-container">
+                    <table class="user-table">
+                        <thead>
+                            <tr>
+                                <th>For</th>
+                                <th>Kind</th>
+                                <th>Made</th>
+                                <th>Works until</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .PendingLinks}}
+                            <tr data-link-id="{{.ID}}" data-link-username="{{.Username}}" data-link-kind="{{.Kind}}">
+                                <td><strong>{{.Username}}</strong>{{if not .UserActive}} <span class="badge badge-inactive">Inactive: cannot use it</span>{{end}}</td>
+                                <td>{{.Kind}}</td>
+                                <td style="font-size: 0.85rem;">{{.CreatedAt.Local.Format "02 Jan 2006 15:04"}}</td>
+                                <td style="font-size: 0.85rem;">{{.ExpiresAt.Local.Format "02 Jan 2006 15:04"}}</td>
+                                <td>
+                                    <form method="POST" action="/admin/league/users/links/{{.ID}}/revoke" class="inline-form">
+                                        <button type="submit" class="action-btn action-btn-danger" data-link-revoke onclick="return confirm('Cancel this link? It will stop working straight away.')">Cancel link</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+                {{else}}
+                <p class="form-help" style="margin: 0;">No invite or recovery links are waiting to be used. The links themselves are never shown again after they are made; if one is lost, make a new one.</p>
+                {{end}}
+            </div>
         </div>
     </main>
 
-    <div id="resetModal" class="modal-overlay">
-        <div class="modal-content">
-            <h3>Reset Password</h3>
-            <p style="color: #6c757d; margin-bottom: 1rem;">Reset password for <strong id="resetUsername"></strong></p>
-            <form id="resetForm" method="POST">
-                <div class="form-group">
-                    <label for="new_password">New Password</label>
-                    <input type="password" id="new_password" name="password" required placeholder="Enter new password">
-                </div>
-                <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-                    <button type="button" onclick="hideResetModal()" class="btn btn-sm" style="background: #6c757d; color: white; border: none;">Cancel</button>
-                    <button type="submit" class="btn btn-sm btn-primary">Reset Password</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <script>
-        function showResetModal(userId, username) {
-            document.getElementById('resetUsername').textContent = username;
-            document.getElementById('resetForm').action = '/admin/league/users/' + userId + '/reset-password';
-            document.getElementById('resetModal').style.display = 'flex';
-            document.getElementById('new_password').focus();
-        }
-        function hideResetModal() {
-            document.getElementById('resetModal').style.display = 'none';
+        function copyIssuedLink(button) {
+            var input = document.getElementById('issued-link-url');
+            input.select();
+            var done = function () { button.textContent = 'Copied'; };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(input.value).then(done, function () { document.execCommand('copy'); done(); });
+            } else {
+                document.execCommand('copy');
+                done();
+            }
         }
     </script>
 </body>

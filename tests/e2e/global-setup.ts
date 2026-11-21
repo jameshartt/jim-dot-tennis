@@ -1,4 +1,5 @@
 import { chromium, FullConfig } from "@playwright/test";
+import { continueAfterPasswordSignIn, openPasswordForm } from "./helpers/auth";
 
 /**
  * Global setup: log in once as admin and save the browser storage state
@@ -16,9 +17,11 @@ async function globalSetup(config: FullConfig) {
   const page = await context.newPage();
 
   await page.goto("/login");
+  await openPasswordForm(page);
   await page.fill('input[name="username"]', "testadmin");
   await page.fill('input[name="password"]', "testpassword123");
   await page.click('button[type="submit"]');
+  await continueAfterPasswordSignIn(page);
   await page.waitForURL("**/admin/league/dashboard");
 
   // Save the authenticated state

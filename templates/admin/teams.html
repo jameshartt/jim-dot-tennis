@@ -188,7 +188,7 @@
 
             <div class="action-bar">
                 <h2>{{.HomeClubName}} Teams</h2>
-                <button onclick="showCreateTeamModal()" class="btn-add" style="background: var(--primary-color); color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">+ Create Team</button>
+                {{if canUse .User "POST /admin/league/teams"}}<button onclick="showCreateTeamModal()" class="btn-add" data-testid="create-team-button" style="background: var(--primary-color); color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">+ Create Team</button>{{end}}
             </div>
 
             {{if .Club}}

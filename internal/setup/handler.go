@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -40,9 +41,15 @@ const (
 	// that administrator can sign in to finish the club step.
 	loginPath  = "/login"
 	logoutPath = "/logout"
+	// passkeyLoginPrefix is passkey sign-in (begin and finish).
+	passkeyLoginPrefix = "/login/passkey/"
 	// dashboardPath is where setup hands over.
 	dashboardPath = "/admin/league/dashboard"
 )
+
+// maxFormBody bounds the body of every setup form post (a code, a username
+// and password, a club choice).
+const maxFormBody = 16 << 10
 
 // ticketCookie carries the browser ticket from a redeemed setup code.
 const ticketCookie = "setup_ticket"
@@ -69,8 +76,7 @@ func (s *State) Gate(next http.Handler) http.Handler {
 			return
 		}
 		status := s.Status(r.Context())
-		if status == StatusReady ||
-			(status == StatusNeedsClub && (r.URL.Path == loginPath || r.URL.Path == logoutPath)) {
+		if status == StatusReady || (status == StatusNeedsClub && allowedWithAdmin(r.URL.Path)) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -82,6 +88,23 @@ func (s *State) Gate(next http.Handler) http.Handler {
 		}
 		http.Redirect(w, r, Path, http.StatusSeeOther)
 	})
+}
+
+// allowedWithAdmin reports whether path is served once an administrator
+// exists but no club has been chosen: signing in and out (by password or
+// passkey), and the administrator's own sign-in methods page and passkey
+// endpoints, so the first administrator can add a passkey before the club
+// step; and invite and recovery links, so an administrator who is locked out
+// before the club step can be let back in with `jim-dot-tennis user reset`.
+// The /account/ pages still need a signed-in session, and a link has to have
+// been issued by an administrator or on the server. While no administrator
+// exists, links stay behind the gate like everything else.
+func allowedWithAdmin(path string) bool {
+	return path == loginPath || path == logoutPath ||
+		strings.HasPrefix(path, passkeyLoginPrefix) ||
+		path == auth.SignInMethodsPath ||
+		strings.HasPrefix(path, auth.PasskeysPathPrefix) ||
+		strings.HasPrefix(path, auth.AccountLinkPathPrefix)
 }
 
 // Sessions is what the setup pages need from sign-in (auth.Service
@@ -102,7 +125,14 @@ type Handler struct {
 	sessions    Sessions
 	templateDir string
 	templates   *render.Cache
+	// passkeyOffer reports whether passkeys work at the request's address;
+	// nil means never offer them.
+	passkeyOffer func(r *http.Request) bool
 }
+
+// OfferPasskeys makes the "create your login" step offer adding a passkey
+// straight afterwards, wherever available(r) says passkeys work.
+func (h *Handler) OfferPasskeys(available func(r *http.Request) bool) { h.passkeyOffer = available }
 
 // NewHandler returns the setup page handler.
 func NewHandler(svc *Service, sessions Sessions, templateDir string) *Handler {
@@ -134,6 +164,8 @@ type pageData struct {
 	ClubName     string
 	CreatedClub  bool
 	DashboardURL string
+	// PasskeyOffer: the login step offers adding a passkey afterwards.
+	PasskeyOffer bool
 	// Club step running in the background (reading BHPLTA).
 	Working      bool
 	ProgressText string
@@ -236,11 +268,12 @@ func (h *Handler) code(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxFormBody)
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return
 	}
-	ticket, err := h.svc.RedeemCode(ctx, r.PostForm.Get("code"), auth.ClientIP(r))
+	ticket, err := h.svc.RedeemCode(ctx, r.PostForm.Get("code"), auth.ThrottleKey(r))
 	if err == nil {
 		h.setTicket(w, ticket)
 		http.Redirect(w, r, AdminPath, http.StatusSeeOther)
@@ -281,7 +314,8 @@ func (h *Handler) admin(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	data := pageData{Step: 2, Status: status.String(), MinPassword: auth.MinPasswordLength}
+	data := pageData{Step: 2, Status: status.String(), MinPassword: auth.MinPasswordLength,
+		PasskeyOffer: h.passkeyOffer != nil && h.passkeyOffer(r)}
 	if r.Method != http.MethodPost {
 		if !h.svc.TicketValid(ctx, h.ticket(r)) {
 			http.Redirect(w, r, Path, http.StatusSeeOther)
@@ -291,6 +325,7 @@ func (h *Handler) admin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxFormBody)
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return
@@ -332,12 +367,17 @@ func (h *Handler) admin(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, loginPath, http.StatusSeeOther)
 		return
 	}
+	next := ClubPath
 	if h.svc.State().Status(ctx) == StatusReady {
 		// A home club was already in effect: there is no club to choose.
-		http.Redirect(w, r, dashboardPath, http.StatusSeeOther)
-		return
+		next = dashboardPath
 	}
-	http.Redirect(w, r, ClubPath, http.StatusSeeOther)
+	if data.PasskeyOffer && r.PostForm.Get("then") == "passkey" {
+		// The new administrator asked to add a passkey: the sign-in methods
+		// page does that with their new session, then continues to next.
+		next = auth.SignInMethodsPath + "?enrol=1&next=" + url.QueryEscape(next)
+	}
+	http.Redirect(w, r, next, http.StatusSeeOther)
 }
 
 // club is step 3: choose the club. Only a signed-in administrator can reach it.
@@ -396,6 +436,7 @@ func (h *Handler) club(w http.ResponseWriter, r *http.Request) {
 		h.render(w, http.StatusOK, "club", data)
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxFormBody)
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return

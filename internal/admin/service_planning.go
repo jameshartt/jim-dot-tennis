@@ -18,16 +18,6 @@ type ResolvedScope struct {
 	DivisionIDs []uint
 }
 
-// SetPlayerIDOnUser writes users.player_id for a user (nil to unlink).
-func (s *Service) SetPlayerIDOnUser(ctx context.Context, userID int64, playerID *string) error {
-	if playerID == nil {
-		_, err := s.db.ExecContext(ctx, `UPDATE users SET player_id = NULL WHERE id = ?`, userID)
-		return err
-	}
-	_, err := s.db.ExecContext(ctx, `UPDATE users SET player_id = ? WHERE id = ?`, *playerID, userID)
-	return err
-}
-
 // ListHomeClubPlayersForLink returns active home-club players, alphabetised
 // by last name for the 'I am…' picker.
 func (s *Service) ListHomeClubPlayersForLink(ctx context.Context) ([]models.Player, error) {

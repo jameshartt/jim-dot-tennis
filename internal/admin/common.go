@@ -71,6 +71,9 @@ func parseTemplateFiles(templateDir, templatePath string) (*template.Template, e
 		"currentYear": func() int {
 			return time.Now().Year()
 		},
+		// canUse .User "/admin/league/..." (or "POST /admin/league/...")
+		// gates navigation by role from the route table in roles.go.
+		"canUse": canUse,
 		"add": func(a, b int) int {
 			return a + b
 		},

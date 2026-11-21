@@ -32,8 +32,6 @@ func NewAvailabilityHandler(service *Service, templateDir string) *AvailabilityH
 
 // HandleAvailability handles fantasy mixed doubles availability routes
 func (h *AvailabilityHandler) HandleAvailability(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Player availability handler called with path: %s, method: %s", r.URL.Path, r.Method)
-
 	// Extract auth token from URL path
 	// Expected format: /my-availability/Sabalenka_Alcaraz_Guaff_Sinner[/action]
 	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/my-availability/"), "/")
@@ -53,9 +51,6 @@ func (h *AvailabilityHandler) HandleAvailability(w http.ResponseWriter, r *http.
 		logAndError(w, "Player not found in context", err, http.StatusUnauthorized)
 		return
 	}
-
-	log.Printf("Authenticated player: %s %s (ID: %s) for auth token: %s, action: %s",
-		player.FirstName, player.LastName, player.ID, authToken, action)
 
 	// Check for fixture sub-routes: /my-availability/{token}/fixture/{fixtureID}[/calendar.ics]
 	if action == "fixture" && len(pathParts) > 2 {
@@ -113,7 +108,7 @@ func (h *AvailabilityHandler) handleAvailabilityGet(w http.ResponseWriter, r *ht
 	// Get the fantasy match details
 	fantasyMatch, err := h.service.GetFantasyMatchByToken(authToken)
 	if err != nil {
-		log.Printf("Fantasy match not found for token %s: %v", authToken, err)
+		log.Printf("Fantasy match not found for player %s: %v", player.ID, err)
 		http.Error(w, "Fantasy match not found", http.StatusNotFound)
 		return
 	}
@@ -518,7 +513,7 @@ func (h *AvailabilityHandler) handleFixtureCalendarDownload(w http.ResponseWrite
 		return
 	}
 
-	icalContent, err := h.service.GenerateFixtureICal(uint(fixtureID))
+	icalContent, err := h.service.GenerateFixtureICal(uint(fixtureID), r)
 	if err != nil {
 		log.Printf("Error generating iCal for fixture %d: %v", fixtureID, err)
 		http.Error(w, "Failed to generate calendar event", http.StatusInternalServerError)

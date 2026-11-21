@@ -31,8 +31,6 @@ func NewProfileHandler(service *Service, templateDir string) *ProfileHandler {
 
 // HandleProfile handles player profile routes
 func (h *ProfileHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Player profile handler called with path: %s, method: %s", r.URL.Path, r.Method)
-
 	// Extract auth token from URL path
 	// Expected format: /my-profile/Sabalenka_Alcaraz_Guaff_Sinner[/action]
 	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/my-profile/"), "/")
@@ -52,9 +50,6 @@ func (h *ProfileHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 		logAndError(w, "Player not found in context", err, http.StatusUnauthorized)
 		return
 	}
-
-	log.Printf("Authenticated player: %s %s (ID: %s) for auth token: %s, action: %s",
-		player.FirstName, player.LastName, player.ID, authToken, action)
 
 	// Route based on action and method.
 	// GET /my-profile/{token}         → blank 'My Tennis' form (write-only; WI-095/WI-097)

@@ -9,9 +9,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
+	"jim-dot-tennis/internal/accounts"
 	"jim-dot-tennis/internal/admin"
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/bhplta"
@@ -29,6 +32,12 @@ import (
 )
 
 func main() {
+	// With arguments this is the server command line (`user ...`, `setup
+	// code`, `help`; see cli.go). With none it starts the server, as always.
+	if len(os.Args) > 1 {
+		os.Exit(runCLI(os.Args[1:], os.Stdout, os.Stderr))
+	}
+
 	// Get project root directory
 	projectRoot, err := getProjectRoot()
 	if err != nil {
@@ -45,9 +54,7 @@ func main() {
 
 	// Execute migrations
 	migrationsPath := filepath.Join(projectRoot, "migrations")
-	if err := db.ExecuteMigrations(migrationsPath); err != nil {
-		log.Printf("Warning: Failed to run migrations: %v", err)
-	}
+	migrateOrStop(db, migrationsPath, log.Fatalf)
 
 	// Load the embedded fantasy name list on first run (also in setup mode).
 	if n, err := repository.NewProTennisPlayerRepository(db).SeedIfEmpty(context.Background()); err != nil {
@@ -69,6 +76,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Home club configuration error: %v", err)
 	}
+	// Production needs a valid https public URL (and no DEV_MODE).
+	if err := config.ValidateStartup(homeClub.ClubSettings()); err != nil {
+		log.Fatalf("Configuration error: %v", err)
+	}
 	setupState := setup.NewState(db, homeClub)
 	// The club step imports the league, clubs and current season from BHPLTA.
 	setupService := setup.NewService(setupState, setup.NewBHPLTAProvisioner(bhplta.NewBootstrapper(db)))
@@ -80,6 +91,7 @@ func main() {
 
 	// Initialize web push service
 	pushService := webpush.New(db)
+	pushService.SetSubscriberSource(func() string { return homeClub.ClubSettings().PushSubscriber() })
 
 	// List existing VAPID keys
 	if err := pushService.ListVAPIDKeys(); err != nil {
@@ -103,10 +115,8 @@ func main() {
 
 	// Set up auth service
 	authConfig := auth.DefaultConfig()
-	// In development, we can allow insecure cookies
-	if os.Getenv("APP_ENV") != "production" {
-		authConfig.CookieSecure = false
-	}
+	// Cookies are Secure unless DEV_MODE is explicitly enabled
+	authConfig.CookieSecure = config.SecureCookies()
 	authService := auth.NewService(db, authConfig)
 
 	// Set up repositories for fantasy token auth
@@ -162,10 +172,35 @@ func main() {
 	})
 
 	// First-run setup (the rest of the app is gated behind it until a home club is in effect)
-	setup.NewHandler(setupService, authService, templateDir).RegisterRoutes(mux)
+	setupHandler := setup.NewHandler(setupService, authService, templateDir)
+	setupHandler.RegisterRoutes(mux)
+
+	// Passkeys: bound to the current public URL on every request (it can be
+	// changed on the settings page); changes go through the account audit seam.
+	passkeys := auth.NewPasskeys(authService, homeClub.ClubSettings(), func() string { return homeClub.Branding().Name })
+	passkeyAudit := accounts.New(db)
+	passkeys.SetAudit(func(ctx context.Context, actor *models.User, action, detail string) {
+		if err := passkeyAudit.RecordEvent(ctx, accounts.UserActor(actor.ID, actor.Username), action, detail); err != nil {
+			log.Printf("Failed to record %s: %v", action, err)
+		}
+	})
+	// Administrators' sign-ins (any method) go to the account audit log too.
+	authService.SetSignInAudit(func(ctx context.Context, user *models.User, method, address string) {
+		if err := passkeyAudit.RecordSignIn(ctx, user.ID, user.Username, method, address); err != nil {
+			log.Printf("Failed to record a sign-in: %v", err)
+		}
+	})
+	auth.NewPasskeyHandler(passkeys, templateDir, "/admin/league").RegisterRoutes(mux, authMiddleware)
+	authHandler.SetPasskeys(passkeys)
+	adminHandler.SetPasskeysAvailable(passkeys.Available)
+	setupHandler.OfferPasskeys(passkeys.Available)
 
 	// Auth routes
 	authHandler.RegisterRoutes(mux)
+	// A user's own password (forms on the sign-in methods page)
+	accounts.NewPasswordPage(accounts.New(db), authService, passkeys).RegisterRoutes(mux)
+	// Invite and recovery links (no session needed: the link is the authorisation)
+	accounts.NewLinkPage(accounts.New(db), authService, passkeys, templateDir, "/admin/league").RegisterRoutes(mux)
 
 	// Admin routes (protected)
 	adminHandler.RegisterRoutes(mux, authMiddleware)
@@ -199,7 +234,7 @@ func main() {
 	tournamentRepo := repository.NewTournamentRepository(db)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
-			log.Printf("Not found: %s", r.URL.Path)
+			log.Printf("Not found: %s", auth.RedactPath(r.URL.Path))
 			http.NotFound(w, r)
 			return
 		}
@@ -237,13 +272,55 @@ func main() {
 	port := getPort()
 	server := &http.Server{
 		Addr:         ":" + port,
-		Handler:      auth.CrossOriginGuard(setupState.Gate(setupService.DemoBanner(config.HomeClubMiddleware(homeClub, mux)))),
+		Handler:      auth.NoFraming(auth.CrossOriginGuard(setupState.Gate(setupService.DemoBanner(config.HomeClubMiddleware(homeClub, mux))))),
 		ReadTimeout:  30 * time.Second,  // Generous for mobile
 		WriteTimeout: 30 * time.Second,  // Generous for mobile
 		IdleTimeout:  120 * time.Second, // Keep connections alive
 	}
-	log.Printf("Server started at http://localhost:%s", port)
-	log.Fatal(server.ListenAndServe())
+	serve(server, authService)
+}
+
+// migrateOrStop applies the migrations and stops the server (through fatalf,
+// log.Fatalf in the server) if that fails. A failed migration used to be only
+// a warning, from the first commit on and for no recorded reason, and the app
+// then ran against a schema older than the code. Sign-in, sessions and the
+// audit log all depend on their tables being as the code expects, so that is
+// not a state to serve requests in. (The command line never migrates; it
+// checks the schema version itself and refuses, see cli.go.)
+func migrateOrStop(db *database.DB, migrationsPath string, fatalf func(format string, args ...any)) {
+	if err := db.ExecuteMigrations(migrationsPath); err != nil {
+		fatalf("Database migration failed, so the app cannot start: %v\n"+
+			"Nothing was served. Check that the migrations directory (%s) is present and matches this build, "+
+			"and see \"Working with Migrations\" in CLAUDE.md for a migration that stopped part-way.", err, migrationsPath)
+	}
+}
+
+// serve runs the server and the scheduled cleanup (expired sessions, old
+// login attempts, finished links: auth.Service.Cleanup) until SIGINT or
+// SIGTERM, then stops both: the cleanup first, then the server, letting
+// requests in flight finish for a few seconds.
+func serve(server *http.Server, authService *auth.Service) {
+	ctx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
+	stopCleanup := authService.StartCleanup(ctx, auth.CleanupFirstDelay, auth.CleanupInterval)
+
+	failed := make(chan error, 1)
+	go func() { failed <- server.ListenAndServe() }()
+	log.Printf("Server started at http://localhost%s", server.Addr)
+	select {
+	case err := <-failed:
+		stopCleanup()
+		log.Fatal(err)
+	case <-ctx.Done():
+	}
+
+	log.Printf("Shutting down")
+	stopCleanup()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Server shutdown: %v", err)
+	}
 }
 
 // getProjectRoot returns the project root directory
@@ -267,8 +344,9 @@ func getProjectRoot() (string, error) {
 func loadTemplatesWithFuncs(templateDir string, funcMap template.FuncMap) (*template.Template, error) {
 	log.Printf("Loading templates from: %s", templateDir)
 
-	// Create a new template with the function map
-	tmpl := template.New("").Funcs(funcMap)
+	// Create a new template with the function map (plus the role helpers the
+	// admin dashboard, which is among templates/*.html, uses)
+	tmpl := template.New("").Funcs(admin.NavTemplateFuncs()).Funcs(funcMap)
 
 	// Parse all HTML files in the template directory
 	pattern := filepath.Join(templateDir, "*.html")

@@ -21,6 +21,7 @@ type ICalEvent struct {
 	Longitude   *float64
 	Description string // Division, week, teams, venue details
 	URL         string // Google Maps URL or club website
+	UIDDomain   string // domain part of the UID: the public URL host (see config.ClubSettings.Host)
 }
 
 // GenerateICalEvent generates an .ics file content string for a fixture
@@ -35,7 +36,13 @@ func GenerateICalEvent(event ICalEvent) string {
 	b.WriteString("BEGIN:VEVENT\r\n")
 
 	// Stable UID so re-downloads update not duplicate
-	b.WriteString(fmt.Sprintf("UID:fixture-%d@jim.tennis\r\n", event.FixtureID))
+	// The domain is the instance's public host, so subscriptions made before
+	// it was configurable (jim.tennis) keep the same UIDs.
+	uidDomain := event.UIDDomain
+	if uidDomain == "" {
+		uidDomain = "localhost"
+	}
+	b.WriteString(fmt.Sprintf("UID:fixture-%d@%s\r\n", event.FixtureID, uidDomain))
 
 	// Timestamps in UTC
 	b.WriteString(fmt.Sprintf("DTSTAMP:%s\r\n", formatICalTime(time.Now())))

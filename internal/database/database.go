@@ -4,10 +4,14 @@ package database
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -142,4 +146,66 @@ func (db *DB) ExecuteMigrations(migrationsPath string) error {
 
 	log.Println("Migrations applied successfully")
 	return nil
+}
+
+// SchemaStatus is the migration state recorded in a database.
+type SchemaStatus struct {
+	Version  uint // highest applied migration (0 when none)
+	Dirty    bool // a migration started but did not finish
+	Migrated bool // the database has a migration table at all
+}
+
+// ReadSchemaStatus reads the migration state without changing anything
+// (unlike ExecuteMigrations it never applies or forces a migration).
+func (db *DB) ReadSchemaStatus(ctx context.Context) (SchemaStatus, error) {
+	var exists bool
+	if err := db.GetContext(ctx, &exists, `SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations')`); err != nil {
+		return SchemaStatus{}, fmt.Errorf("check migration table: %w", err)
+	}
+	if !exists {
+		return SchemaStatus{}, nil
+	}
+	var row struct {
+		Version uint `db:"version"`
+		Dirty   bool `db:"dirty"`
+	}
+	err := db.GetContext(ctx, &row, `SELECT version, dirty FROM schema_migrations LIMIT 1`)
+	if errors.Is(err, sql.ErrNoRows) {
+		return SchemaStatus{Migrated: true}, nil
+	}
+	if err != nil {
+		return SchemaStatus{}, fmt.Errorf("read migration version: %w", err)
+	}
+	return SchemaStatus{Version: row.Version, Dirty: row.Dirty, Migrated: true}, nil
+}
+
+// LatestMigration returns the highest migration number among the
+// NNN_name.up.sql files in migrationsPath.
+func LatestMigration(migrationsPath string) (uint, error) {
+	entries, err := os.ReadDir(migrationsPath)
+	if err != nil {
+		return 0, fmt.Errorf("read migrations: %w", err)
+	}
+	var latest uint
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".up.sql") {
+			continue
+		}
+		prefix, _, ok := strings.Cut(name, "_")
+		if !ok {
+			continue
+		}
+		n, err := strconv.ParseUint(prefix, 10, 32)
+		if err != nil {
+			continue
+		}
+		if uint(n) > latest {
+			latest = uint(n)
+		}
+	}
+	if latest == 0 {
+		return 0, fmt.Errorf("no migrations found in %s", migrationsPath)
+	}
+	return latest, nil
 }

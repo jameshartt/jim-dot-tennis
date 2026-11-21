@@ -81,12 +81,13 @@ func newTicket() (string, error) {
 // in memory; a restart clears them but also replaces the code.
 const (
 	// perClientMaxFailures wrong codes from one client address within
-	// throttleWindow lock that address out until the window has passed.
+	// throttleWindow lock that address out until the window has passed: it
+	// gets no further codes checked, right or wrong.
 	perClientMaxFailures = 5
 	// globalMaxFailures wrong codes from all clients together within
-	// throttleWindow lock code entry for everyone (stops guessing spread over
-	// many addresses; the owner can restart the app to get a fresh code and a
-	// clear throttle).
+	// throttleWindow mean someone is guessing from many addresses. Wrong
+	// codes are then answered "too many attempts", but the right code is
+	// still accepted (see Service.RedeemCode).
 	globalMaxFailures = 30
 	throttleWindow    = 15 * time.Minute
 )
@@ -111,12 +112,12 @@ func prune(ts []time.Time, cutoff time.Time) []time.Time {
 	return ts[i:]
 }
 
-// blocked reports whether client may not try a code at now.
-func (t *codeThrottle) blocked(client string, now time.Time) bool {
+// clientBlocked reports whether client has used up its own wrong codes at
+// now. It never depends on what other addresses did.
+func (t *codeThrottle) clientBlocked(client string, now time.Time) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	cutoff := now.Add(-throttleWindow)
-	t.all = prune(t.all, cutoff)
 	if len(t.byClient) > 256 {
 		for c, ts := range t.byClient {
 			if len(prune(ts, cutoff)) == 0 {
@@ -130,15 +131,33 @@ func (t *codeThrottle) blocked(client string, now time.Time) bool {
 	} else {
 		t.byClient[client] = ts
 	}
-	return len(ts) >= perClientMaxFailures || len(t.all) >= globalMaxFailures
+	return len(ts) >= perClientMaxFailures
 }
 
-// fail records a wrong code from client at now.
+// globalBlocked reports whether wrong codes from all addresses together have
+// reached the global limit at now.
+func (t *codeThrottle) globalBlocked(now time.Time) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.all = prune(t.all, now.Add(-throttleWindow))
+	return len(t.all) >= globalMaxFailures
+}
+
+// fail records a wrong code from client at now. Each list keeps no more than
+// its limit (the newest), which is all the limits need, so a flood of wrong
+// codes cannot grow them.
 func (t *codeThrottle) fail(client string, now time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.byClient[client] = append(t.byClient[client], now)
-	t.all = append(t.all, now)
+	t.byClient[client] = keepNewest(append(t.byClient[client], now), perClientMaxFailures)
+	t.all = keepNewest(append(t.all, now), globalMaxFailures)
+}
+
+func keepNewest(ts []time.Time, n int) []time.Time {
+	if len(ts) > n {
+		return ts[len(ts)-n:]
+	}
+	return ts
 }
 
 // reset clears all recorded failures (a new code was issued).

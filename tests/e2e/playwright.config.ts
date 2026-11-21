@@ -1,5 +1,21 @@
 import { defineConfig } from "@playwright/test";
 
+// Specs that need passkeys (WebAuthn needs a secure context), so they only run
+// in the "auth" project against http://localhost:8080.
+//
+// admin/users.spec.ts used to be here for another reason: the users page sent
+// "Referrer-Policy: no-referrer", so over plain http to a non-localhost host
+// (http://app-e2e:8080, no Sec-Fetch-Site) the browser posted its forms with
+// "Origin: null" and the app's cross-origin guard refused them. The page now
+// sends "same-origin" (WI-134), and the spec runs in the main suite, at exactly
+// that kind of address, as the regression test for it.
+const AUTH_SPECS = [
+  "**/passkeys.spec.ts",
+  "**/account-links.spec.ts",
+  "**/admin-passkeys.spec.ts",
+  "**/cli-reset.spec.ts",
+];
+
 export default defineConfig({
   testDir: ".",
   testMatch: "**/*.spec.ts",
@@ -31,7 +47,17 @@ export default defineConfig({
     {
       name: "chromium",
       use: { browserName: "chromium" },
-      testIgnore: ["**/multi-club.spec.ts", "**/fresh-install*.spec.ts"],
+      testIgnore: ["**/multi-club.spec.ts", "**/fresh-install*.spec.ts", ...AUTH_SPECS],
+    },
+    // Passkey-enabled run: the browser reaches the app as http://localhost:8080
+    // (a secure context), see docker-compose.yml `e2e-auth` and
+    // scripts/test-e2e-auth.sh. Run with --workers=1 (the script does): these specs share the app's
+    // sign-in throttling and the "require passkeys" setting.
+    {
+      name: "auth",
+      use: { browserName: "chromium" },
+      testMatch: AUTH_SPECS,
+      fullyParallel: false,
     },
     {
       name: "multi-club",

@@ -252,7 +252,10 @@
             </div>
             {{end}}
 
-            <form method="POST" action="/admin/league/clubs/{{.Club.ID}}">
+            {{$canEditClub := canUse .User (printf "POST /admin/league/clubs/%d" .Club.ID)}}
+            <form method="POST" action="/admin/league/clubs/{{.Club.ID}}" data-testid="club-edit-form">
+            {{/* Captains can read a club's details; only administrators change them. */}}
+            <fieldset {{if not $canEditClub}}disabled{{end}} style="border:0;padding:0;margin:0;min-width:0;">
 
                 <div class="form-section">
                     <h2>Basic Information</h2>
@@ -360,8 +363,9 @@
                     </div>
                 </div>
 
+            </fieldset>
                 <div class="form-actions">
-                    <button type="submit" class="btn-save">Save Changes</button>
+                    {{if $canEditClub}}<button type="submit" class="btn-save">Save Changes</button>{{end}}
                     <a href="/admin/league/clubs" class="btn-back">Back to Clubs</a>
                 </div>
 
@@ -398,7 +402,7 @@
                     <p style="color:#6c757d;text-align:center;padding:2rem;">This club has no teams yet.</p>
                 {{end}}
 
-                {{if .ActiveSeason}}
+                {{if and .ActiveSeason (canUse .User "POST /admin/league/teams/")}}
                 <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #e9ecef;">
                     <button type="button" class="btn-save" onclick="document.getElementById('add-team-form').style.display='block'" style="font-size:0.9rem;padding:0.4rem 1rem;">+ Add Team</button>
                     <div id="add-team-form" style="display:none;margin-top:1rem;">
@@ -428,6 +432,7 @@
             </div>
 
             <!-- Delete Club Section (WI-028) -->
+            {{if canUse .User (printf "POST /admin/league/clubs/%d/delete" .Club.ID)}}
             <div class="form-section" style="border:1px solid #f5c6cb;">
                 <h2 style="color:#dc3545;border-bottom-color:#dc3545;">Danger Zone</h2>
                 <p style="color:#6c757d;margin-bottom:1rem;">Deleting a club will also remove all its teams. This action cannot be undone.</p>
@@ -443,6 +448,7 @@
                     <button type="submit" style="background:#dc3545;color:white;padding:0.6rem 1.5rem;border:none;border-radius:4px;font-size:1rem;cursor:pointer;font-weight:500;">Delete Club</button>
                 </form>
             </div>
+            {{end}}
 
         </div>
     </main>

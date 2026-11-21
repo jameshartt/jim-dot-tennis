@@ -13,7 +13,7 @@ test.describe("Authentication flows", () => {
   }) => {
     await loginWith(page, "testadmin", "wrongpassword");
     await expect(page).toHaveURL(/\/login/);
-    await expect(page.locator(".alert.alert-danger")).toBeVisible();
+    await expect(page.locator(".alert.alert-danger:not([hidden])")).toBeVisible();
     // Username should be preserved in the input
     await expect(page.locator("#username")).toHaveValue("testadmin");
   });
@@ -28,9 +28,18 @@ test.describe("Authentication flows", () => {
     await expect(password).toHaveAttribute("required", "");
   });
 
+  test("GET /logout is refused and does not sign out", async ({ page }) => {
+    await loginAsAdmin(page);
+    const response = await page.goto("/logout");
+    expect(response?.status()).toBe(405);
+    await page.goto("/admin/league/dashboard");
+    await expect(page).toHaveURL(/\/admin\/league\/dashboard/);
+  });
+
   test("logout redirects to login and clears session", async ({ page }) => {
     await loginAsAdmin(page);
-    await page.goto("/logout");
+    // Logout is POST-only: the control is a form posting to /logout.
+    await page.click('form[action="/logout"] [data-testid="logout-button"]');
     await expect(page).toHaveURL(/\/login/);
     // Trying to access admin should redirect to login
     await page.goto("/admin/league/dashboard");

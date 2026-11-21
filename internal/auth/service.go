@@ -3,6 +3,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -11,26 +12,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
-
-	"golang.org/x/crypto/bcrypt"
 )
-
-// redactToken returns a short, non-reversible fingerprint of a session token
-// for logging. It lets log lines be correlated to a session without ever
-// writing the token itself (which is the bearer credential — anyone with the
-// value can hijack the session), so logs are safe to share for debugging.
-func redactToken(token string) string {
-	if token == "" {
-		return "<empty>"
-	}
-	sum := sha256.Sum256([]byte(token))
-	return "sha256:" + hex.EncodeToString(sum[:])[:12]
-}
 
 var (
 	ErrInvalidCredentials = errors.New("invalid username or password")
@@ -78,6 +66,12 @@ type Service struct {
 	db                     *database.DB
 	config                 Config
 	loginAttemptRepository repository.LoginAttemptRepository
+	signInAudit            SignInAudit              // see SetSignInAudit (throttle.go)
+	loginLocks             *addressLocks            // one password sign-in at a time per address (login_gate.go)
+	compareQueue           compareWaiters           // sign-ins waiting for a bcrypt slot
+	compares               atomic.Int64             // password compares made by sign-in (tests read it)
+	currentPassword        *AttemptLimiter          // wrong current passwords, per address (ownership.go)
+	passkeysAvailable      func(*http.Request) bool // set by NewPasskeys; nil: no passkeys (admin_passkeys.go)
 }
 
 // NewService creates a new auth service
@@ -86,66 +80,126 @@ func NewService(db *database.DB, config Config) *Service {
 		db:                     db,
 		config:                 config,
 		loginAttemptRepository: repository.NewLoginAttemptRepository(db),
+		loginLocks:             newAddressLocks(),
+		currentPassword:        NewAttemptLimiter(currentPasswordFailureLimit, currentPasswordFailureWindow),
 	}
 }
 
-// Login authenticates a user and creates a new session
+// Login authenticates a user and creates a new session. Attempted usernames
+// and failure reasons are not logged (a username field often receives a
+// password typed in the wrong box); they are in login_attempts, which
+// administrators can see.
+//
+// The whole attempt (throttle check, password compare, record) runs under
+// the client address's lock, so attempts sent at the same moment cannot all
+// pass the throttle before any of them is recorded; see login_gate.go. A
+// password is always compared, against a fixed dummy hash when the account
+// does not exist, is inactive or has no password, so the time taken does not
+// reveal which usernames are real.
 func (s *Service) Login(username, password string, r *http.Request) (*models.Session, error) {
-	log.Printf("Login attempt for username: %s from IP: %s", username, clientIP(r))
+	ctx, cancel := context.WithTimeout(r.Context(), loginWait)
+	defer cancel()
+	release, ok := s.loginLocks.acquire(ctx, ThrottleKey(r))
+	if !ok {
+		return nil, ErrLoginBusy
+	}
+	defer release()
 
-	// Check for too many failed login attempts
-	if tooMany, err := s.tooManyFailedAttempts(username, clientIP(r)); err != nil {
+	// Throttled attempts are refused without being recorded, so hammering a
+	// locked-out pair does not extend the lockout (see loginThrottled).
+	if throttled, err := s.loginThrottled(ClipUsername(username), r); err != nil {
 		log.Printf("Error checking login attempts: %v", err)
-	} else if tooMany {
-		log.Printf("Too many failed login attempts for %s", username)
-		s.recordLoginAttempt(username, r, false)
+	} else if throttled {
+		log.Printf("Password sign-in throttled for %s", ThrottleKey(r))
 		return nil, ErrTooManyAttempts
 	}
 
-	// Get user by username
-	var user models.User
-	err := s.db.Get(&user, `
-		SELECT * FROM users 
-		WHERE username = ? AND is_active = true
-	`, username)
-	if err != nil {
-		log.Printf("User not found or inactive: %s, error: %v", username, err)
+	// No account has a name this long: refuse without spending a compare.
+	if len(username) > MaxUsernameBytes {
 		s.recordLoginAttempt(username, r, false)
 		return nil, ErrInvalidCredentials
 	}
-	log.Printf("User found: %s (ID: %d, Role: %s)", user.Username, user.ID, user.Role)
 
-	// Verify password
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		log.Printf("Password verification failed for user %s: %v", username, err)
+	// An account with no password (passkeys only, or an invite not yet
+	// accepted) can never sign in this way, and neither can an inactive or
+	// unknown one; all three still cost a compare.
+	var user models.User
+	hash := dummyPasswordHash
+	found := s.db.Get(&user, `
+		SELECT * FROM users
+		WHERE username = ? AND is_active = true
+	`, username) == nil && user.PasswordHash != ""
+	if found {
+		hash = string(user.PasswordHash)
+	}
+	matches, err := s.comparePasswordBounded(ctx, hash, password)
+	if err != nil {
+		return nil, err
+	}
+	// passwordSignInAllowed (admin_passkeys.go) refuses administrators while
+	// passkeys are required for them, after the compare.
+	if !found || !matches || !s.passwordSignInAllowed(r, &user) {
 		s.recordLoginAttempt(username, r, false)
 		return nil, ErrInvalidCredentials
 	}
-	log.Printf("Password verification successful for user %s", username)
+	if NeedsRehash(hash) {
+		s.rehash(r.Context(), user.ID, hash, password)
+	}
 
 	// Record successful login attempt
 	s.recordLoginAttempt(username, r, true)
 
-	// Update last login time
+	s.endCarriedSession(r)
+	return s.completeLogin(&user, r, SignInPassword)
+}
+
+// completeLogin is the one path from "this user has proven who they are" to
+// a session, whatever the sign-in method (password, passkey): it stamps the
+// last sign-in time and creates the session. Because both methods end here,
+// their sessions are identical and follow the same expiry rules. method (one
+// of the SignIn constants) is only recorded: an administrator's sign-in goes
+// to the account audit log through SetSignInAudit.
+func (s *Service) completeLogin(user *models.User, r *http.Request, method string) (*models.Session, error) {
 	if _, err := s.db.Exec(`
-		UPDATE users 
-		SET last_login_at = ? 
+		UPDATE users
+		SET last_login_at = ?
 		WHERE id = ?
 	`, time.Now(), user.ID); err != nil {
 		log.Printf("Failed to update last login time: %v", err)
 	}
 
-	session, err := s.createSession(&user, r)
+	session, err := s.createSession(user, r)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Successfully created session in database for user %s", username)
+	s.auditSignIn(r.Context(), user, method, r)
 	return session, nil
 }
 
-// createSession stores a new session for user and returns it.
+// CountSignInMethods is the number of ways userID can sign in (passkeys plus
+// a password). Removing a sign-in method is only allowed while this is more
+// than one; see repository.CountSignInMethods, the single definition.
+func (s *Service) CountSignInMethods(ctx context.Context, userID int64) (int, error) {
+	return repository.CountSignInMethods(ctx, s.db, userID)
+}
+
+// sessionFingerprint is a non-reversible fingerprint of the request's session
+// cookie ("" without one), used to tie a passkey enrolment to the session
+// that began it.
+func (s *Service) sessionFingerprint(r *http.Request) string {
+	cookie, err := r.Cookie(s.config.CookieName)
+	if err != nil || cookie.Value == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte("passkey-ceremony:" + cookie.Value))
+	return hex.EncodeToString(sum[:])
+}
+
+// createSession stores a new session for user and returns it. Only the
+// token's hash is stored; the returned session carries the token itself
+// (Token) for the cookie.
 func (s *Service) createSession(user *models.User, r *http.Request) (*models.Session, error) {
-	sessionID, err := generateSecureToken(32)
+	token, err := generateSecureToken(32)
 	if err != nil {
 		log.Printf("Failed to generate session token: %v", err)
 		return nil, fmt.Errorf("failed to generate session token: %w", err)
@@ -153,24 +207,25 @@ func (s *Service) createSession(user *models.User, r *http.Request) (*models.Ses
 
 	now := time.Now()
 	session := &models.Session{
-		ID:             sessionID,
+		Token:          token,
+		TokenHash:      HashSessionToken(token),
 		UserID:         user.ID,
 		Role:           user.Role,
 		CreatedAt:      now,
 		ExpiresAt:      now.Add(s.config.SessionDuration),
 		LastActivityAt: now,
 		IP:             clientIP(r),
-		UserAgent:      r.UserAgent(),
+		UserAgent:      ClipUserAgent(r.UserAgent()),
 		DeviceInfo:     extractDeviceInfo(r),
 		IsValid:        true,
 	}
 
-	_, err = s.db.NamedExec(`
+	res, err := s.db.NamedExec(`
 		INSERT INTO sessions (
-			id, user_id, role, created_at, expires_at, 
+			token_hash, user_id, role, created_at, expires_at,
 			last_activity_at, ip, user_agent, device_info, is_valid
 		) VALUES (
-			:id, :user_id, :role, :created_at, :expires_at, 
+			:token_hash, :user_id, :role, :created_at, :expires_at,
 			:last_activity_at, :ip, :user_agent, :device_info, :is_valid
 		)
 	`, session)
@@ -178,30 +233,40 @@ func (s *Service) createSession(user *models.User, r *http.Request) (*models.Ses
 		log.Printf("Failed to create session in database: %v", err)
 		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
+	if session.ID, err = res.LastInsertId(); err != nil {
+		return nil, fmt.Errorf("failed to create session: %w", err)
+	}
 	return session, nil
 }
 
 // StartSession signs the active user userID in on this browser without a
 // password check (the caller has just proven who they are, for example by
-// creating the account in first-run setup). Any session the request already
+// creating the account in first-run setup or by using an invite or recovery
+// link). It goes through completeLogin like every other sign-in. Any session the request already
 // carries is invalidated first, so a session ID planted before sign-in is
 // never promoted (session fixation); the new session always has a fresh ID.
 func (s *Service) StartSession(w http.ResponseWriter, r *http.Request, userID int64) error {
-	if cookie, err := r.Cookie(s.config.CookieName); err == nil && cookie.Value != "" {
-		if err := s.InvalidateSession(cookie.Value); err != nil {
-			log.Printf("Failed to invalidate previous session %s: %v", redactToken(cookie.Value), err)
-		}
-	}
+	s.endCarriedSession(r)
 	var user models.User
 	if err := s.db.Get(&user, `SELECT * FROM users WHERE id = ? AND is_active = true`, userID); err != nil {
 		return fmt.Errorf("start session: load user %d: %w", userID, err)
 	}
-	session, err := s.createSession(&user, r)
+	session, err := s.completeLogin(&user, r, SignInNewSession)
 	if err != nil {
 		return err
 	}
 	s.SetSessionCookie(w, session)
 	return nil
+}
+
+// endCarriedSession ends the session the request's cookie names, if any.
+// Every sign-in does this before it makes the new session.
+func (s *Service) endCarriedSession(r *http.Request) {
+	if cookie, err := r.Cookie(s.config.CookieName); err == nil && cookie.Value != "" {
+		if err := s.InvalidateSession(cookie.Value); err != nil {
+			log.Printf("Failed to invalidate the previous session: %v", err)
+		}
+	}
 }
 
 // SignedInUser returns the active user behind the request's session cookie,
@@ -225,24 +290,24 @@ func (s *Service) SignedInUser(r *http.Request) (*models.User, bool) {
 // CookieSecure reports whether cookies the app sets are marked Secure.
 func (s *Service) CookieSecure() bool { return s.config.CookieSecure }
 
-// ValidateSession checks if a session is valid and refreshes it
-func (s *Service) ValidateSession(sessionID string, r *http.Request) (*models.Session, error) {
-	log.Printf("Validating session: %s", redactToken(sessionID))
-
+// ValidateSession checks if the session behind a cookie token is valid and
+// refreshes it. The token is looked up by its hash (HashSessionToken).
+func (s *Service) ValidateSession(token string, r *http.Request) (*models.Session, error) {
+	if token == "" {
+		return nil, ErrSessionInvalid
+	}
 	var session models.Session
 	err := s.db.Get(&session, `
-		SELECT * FROM sessions 
-		WHERE id = ? AND is_valid = true
-	`, sessionID)
+		SELECT * FROM sessions
+		WHERE token_hash = ? AND is_valid = true
+	`, HashSessionToken(token))
 	if err != nil {
-		log.Printf("Session validation failed - invalid or not found: %v", err)
 		return nil, ErrSessionInvalid
 	}
 
 	// Check if session has expired (sliding window)
 	if time.Now().After(session.ExpiresAt) {
-		log.Printf("Session expired: %s (expired at %v)", redactToken(sessionID), session.ExpiresAt)
-		s.InvalidateSession(sessionID)
+		s.invalidateSessionByID(session.ID)
 		return nil, ErrSessionExpired
 	}
 
@@ -251,57 +316,47 @@ func (s *Service) ValidateSession(sessionID string, r *http.Request) (*models.Se
 	if s.config.AbsoluteSessionDuration > 0 {
 		absoluteExpiry := session.CreatedAt.Add(s.config.AbsoluteSessionDuration)
 		if time.Now().After(absoluteExpiry) {
-			log.Printf("Session exceeded absolute lifetime: %s (created at %v)", redactToken(sessionID), session.CreatedAt)
-			s.InvalidateSession(sessionID)
+			s.invalidateSessionByID(session.ID)
 			return nil, ErrSessionExpired
 		}
 	}
 
-	// Optional: You could validate IP and user agent for additional security
-	// This is a trade-off between security and user experience
-	// Uncomment this if you want stricter security
-	/*
-		if session.IP != clientIP(r) || session.UserAgent != r.UserAgent() {
-			log.Printf("Session security warning: IP/UserAgent mismatch for session %s", redactToken(sessionID))
-			// You might choose to invalidate or just log the discrepancy
-			// s.InvalidateSession(sessionID)
-			// return nil, ErrSessionInvalid
-		}
-	*/
-
 	// Update last activity time
 	if _, err := s.db.Exec(`
-		UPDATE sessions 
-		SET last_activity_at = ?, 
-		    expires_at = ? 
+		UPDATE sessions
+		SET last_activity_at = ?,
+		    expires_at = ?
 		WHERE id = ?
-	`, time.Now(), time.Now().Add(s.config.SessionDuration), sessionID); err != nil {
-		log.Printf("Failed to update session activity: %v", err)
-	} else {
-		log.Printf("Session validated and refreshed: %s (user ID: %d, role: %s)", redactToken(sessionID), session.UserID, session.Role)
+	`, time.Now(), time.Now().Add(s.config.SessionDuration), session.ID); err != nil {
+		log.Printf("Failed to update activity of session #%d: %v", session.ID, err)
 	}
 
 	return &session, nil
 }
 
-// InvalidateSession marks a session as invalid (logout)
-func (s *Service) InvalidateSession(sessionID string) error {
+// InvalidateSession marks the session behind a cookie token invalid (logout).
+func (s *Service) InvalidateSession(token string) error {
 	_, err := s.db.Exec(`
-		UPDATE sessions 
-		SET is_valid = false 
-		WHERE id = ?
-	`, sessionID)
+		UPDATE sessions
+		SET is_valid = false
+		WHERE token_hash = ?
+	`, HashSessionToken(token))
 	return err
 }
 
-// SetSessionCookie sets the session cookie in the response
-func (s *Service) SetSessionCookie(w http.ResponseWriter, session *models.Session) {
-	log.Printf("Setting session cookie: name=%s, value=%s, expires=%v, secure=%v, httpOnly=%v, path=%s",
-		s.config.CookieName, redactToken(session.ID), session.ExpiresAt, s.config.CookieSecure, s.config.CookieHttpOnly, s.config.CookiePath)
+// invalidateSessionByID marks session id invalid.
+func (s *Service) invalidateSessionByID(id int64) {
+	if _, err := s.db.Exec(`UPDATE sessions SET is_valid = false WHERE id = ?`, id); err != nil {
+		log.Printf("Failed to invalidate session #%d: %v", id, err)
+	}
+}
 
+// SetSessionCookie sets the session cookie in the response. session must be
+// one createSession has just made (only it carries the token).
+func (s *Service) SetSessionCookie(w http.ResponseWriter, session *models.Session) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     s.config.CookieName,
-		Value:    session.ID,
+		Value:    session.Token,
 		Path:     s.config.CookiePath,
 		Expires:  session.ExpiresAt,
 		HttpOnly: s.config.CookieHttpOnly,
@@ -323,12 +378,16 @@ func (s *Service) ClearSessionCookie(w http.ResponseWriter) {
 	})
 }
 
-// recordLoginAttempt records a login attempt
+// recordLoginAttempt records a login attempt. The address stored is the
+// throttle key (ThrottleKey: the IPv4 address, or the /64 of an IPv6 one).
+// The username and User-Agent come from the client, so both are cut to a
+// fixed length: a failed sign-in can never store more than a few hundred
+// bytes.
 func (s *Service) recordLoginAttempt(username string, r *http.Request, success bool) {
 	attempt := &models.LoginAttempt{
-		Username:  username,
-		IP:        clientIP(r),
-		UserAgent: r.UserAgent(),
+		Username:  ClipUsername(username),
+		IP:        ThrottleKey(r),
+		UserAgent: ClipUserAgent(r.UserAgent()),
 		Success:   success,
 		CreatedAt: time.Now(),
 	}
@@ -336,26 +395,6 @@ func (s *Service) recordLoginAttempt(username string, r *http.Request, success b
 	if err := s.loginAttemptRepository.Create(attempt); err != nil {
 		log.Printf("Failed to record login attempt: %v", err)
 	}
-}
-
-// tooManyFailedAttempts checks if there have been too many failed login attempts
-func (s *Service) tooManyFailedAttempts(username, ip string) (bool, error) {
-	// Use repository to check recent failed attempts
-	attempts, err := s.loginAttemptRepository.FindByUsernameAndIP(username, ip, s.config.MaxLoginAttempts)
-	if err != nil {
-		return false, err
-	}
-
-	// Count failed attempts within the window
-	count := 0
-	cutoff := time.Now().Add(-s.config.LoginAttemptWindow)
-	for _, attempt := range attempts {
-		if !attempt.Success && attempt.CreatedAt.After(cutoff) {
-			count++
-		}
-	}
-
-	return count >= s.config.MaxLoginAttempts, nil
 }
 
 // generateSecureToken generates a cryptographically secure random token
@@ -369,5 +408,5 @@ func generateSecureToken(length int) (string, error) {
 
 // extractDeviceInfo extracts basic device info from the user agent
 func extractDeviceInfo(r *http.Request) string {
-	return r.UserAgent() // For simplicity; could use a UA parsing library for more details
+	return ClipUserAgent(r.UserAgent()) // For simplicity; could use a UA parsing library for more details
 }

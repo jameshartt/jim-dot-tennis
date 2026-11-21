@@ -8,7 +8,8 @@
   "parallelisable": false,
   "dependencies": [
     "WI-145",
-    "WI-146"
+    "WI-146",
+    "WI-152"
   ],
   "status": "not_started",
   "recommended_model": {

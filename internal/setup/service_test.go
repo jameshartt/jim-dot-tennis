@@ -5,6 +5,7 @@ package setup
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
@@ -176,16 +177,60 @@ func TestGlobalThrottle(t *testing.T) {
 	now := time.Now()
 	for i := 0; i < globalMaxFailures; i++ {
 		client := "203.0.113." + string(rune('a'+i%26)) + string(rune('a'+i/26))
-		if th.blocked(client, now) {
+		if th.globalBlocked(now) || th.clientBlocked(client, now) {
 			t.Fatalf("blocked after %d failures spread over clients", i)
 		}
 		th.fail(client, now)
 	}
-	if !th.blocked("192.0.2.200", now) {
-		t.Fatal("fresh client not blocked after the global limit")
+	if !th.globalBlocked(now) {
+		t.Fatal("not globally blocked after the global limit")
 	}
-	if th.blocked("192.0.2.200", now.Add(throttleWindow+time.Second)) {
+	// The global limit never blocks an address by itself.
+	if th.clientBlocked("192.0.2.200", now) {
+		t.Fatal("a fresh client is blocked by other clients' failures")
+	}
+	if th.globalBlocked(now.Add(throttleWindow + time.Second)) {
 		t.Fatal("global block did not lift after the window")
+	}
+	// A flood cannot grow the lists.
+	for i := 0; i < 10000; i++ {
+		th.fail("192.0.2.9", now)
+	}
+	if len(th.all) > globalMaxFailures || len(th.byClient["192.0.2.9"]) > perClientMaxFailures {
+		t.Fatalf("lists grew: all=%d client=%d", len(th.all), len(th.byClient["192.0.2.9"]))
+	}
+}
+
+// F11 (WI-134): wrong codes from many addresses must not stop the owner
+// using the right code; each address's own limit still holds, and wrong
+// codes are answered "too many" during the flood.
+func TestStrangerCannotBlockTheRightSetupCode(t *testing.T) {
+	ctx := context.Background()
+	s, _ := newTestService(t)
+	code, err := s.IssueCode(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < globalMaxFailures+10; i++ {
+		_, err := s.RedeemCode(ctx, "AAAA-AAAA-AAAA", fmt.Sprintf("203.0.113.%d", i))
+		if !errors.Is(err, ErrWrongCode) && !errors.Is(err, ErrThrottled) {
+			t.Fatalf("wrong code %d: %v", i, err)
+		}
+	}
+	// The flood is on: a wrong code from a new address is "too many"...
+	if _, err := s.RedeemCode(ctx, "BBBB-BBBB-BBBB", "198.51.100.50"); !errors.Is(err, ErrThrottled) {
+		t.Fatalf("wrong code during the flood: %v, want ErrThrottled", err)
+	}
+	// ...an address that used up its own tries gets nothing checked, not even the right code...
+	for i := 0; i < perClientMaxFailures; i++ {
+		_, _ = s.RedeemCode(ctx, "CCCC-CCCC-CCCC", "198.51.100.51")
+	}
+	if _, err := s.RedeemCode(ctx, code, "198.51.100.51"); !errors.Is(err, ErrThrottled) {
+		t.Fatalf("right code from an address over its own limit: %v, want ErrThrottled", err)
+	}
+	// ...and the owner, from their own address, gets in with the right code.
+	if _, err := s.RedeemCode(ctx, code, "192.0.2.77"); err != nil {
+		t.Fatalf("right code during the flood: %v, want success", err)
 	}
 }
 

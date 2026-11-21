@@ -83,6 +83,8 @@ type SettingsPageData struct {
 	MyTennisEnvVar string          // env var overriding the My Tennis switch, if set
 	WrappedCode    string          // Club Wrapped access code for members ("" if unavailable)
 	WrappedCodeEnv string          // env var overriding the generated code, if set
+
+	AdminPasskeys adminPasskeysView // "Require passkeys for administrators"
 }
 
 // HandleSettings serves GET and POST /admin/league/settings and POST .../bhplta-lookup.
@@ -104,7 +106,9 @@ func (h *SettingsHandler) HandleSettings(w http.ResponseWriter, r *http.Request)
 		h.save(w, r, user, cs)
 	case r.URL.Path == settingsLookupPath && r.Method == http.MethodPost:
 		h.bhpltaLookup(w, r, cs)
-	case r.URL.Path == settingsPath || r.URL.Path == settingsLookupPath:
+	case r.URL.Path == settingsAdminPasskeysPath && r.Method == http.MethodPost:
+		h.setAdminPasskeys(w, r, user)
+	case r.URL.Path == settingsPath || r.URL.Path == settingsLookupPath || r.URL.Path == settingsAdminPasskeysPath:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	default:
 		http.NotFound(w, r)
@@ -151,6 +155,7 @@ func (h *SettingsHandler) pageData(r *http.Request, cs *config.ClubSettings) Set
 	d.BHPLTAClubCodeEnv, _ = cs.EnvOverride(repository.SettingBHPLTAClubCode)
 	d.PublicURLEnv, _ = cs.EnvOverride(repository.SettingPublicURL)
 	d.MyTennisEnvVar, _ = cs.EnvOverride(repository.SettingFeatureMyTennis)
+	d.AdminPasskeys = h.adminPasskeysView(r, cs)
 	if code, fromEnv, err := secrets.NewWrappedAccess(h.service.db).Code(r.Context()); err != nil {
 		log.Printf("Club Wrapped access code unavailable: %v", err)
 	} else if fromEnv {
@@ -173,6 +178,8 @@ func (h *SettingsHandler) render(w http.ResponseWriter, r *http.Request, user *m
 		logAndError(w, "Failed to parse template", err, http.StatusInternalServerError)
 		return
 	}
+	// The page shows the instance's settings and its Club Wrapped code.
+	w.Header().Set("Cache-Control", "no-store")
 	if status != http.StatusOK {
 		w.WriteHeader(status)
 	}
@@ -210,6 +217,9 @@ func (h *SettingsHandler) save(w http.ResponseWriter, r *http.Request, user *mod
 	}
 
 	values, logo, err := h.parseForm(r, cs)
+	if err == nil {
+		err = h.publicURLChangeRefused(r, cs, values)
+	}
 	if err != nil {
 		data := h.pageData(r, cs)
 		data.Error = sentence(err.Error())
@@ -277,6 +287,9 @@ func (h *SettingsHandler) parseForm(r *http.Request, cs *config.ClubSettings) (m
 	if _, env := cs.EnvOverride(repository.SettingPublicURL); !env {
 		if values[repository.SettingPublicURL], err = config.NormalizePublicURL(r.FormValue("public_url")); err != nil {
 			return nil, nil, err
+		}
+		if v := values[repository.SettingPublicURL]; config.Production() && !strings.HasPrefix(v, "https://") {
+			return nil, nil, fmt.Errorf("the public URL must start with https:// on a production instance, and cannot be cleared")
 		}
 	}
 	// Feature switches: each is a hidden "off" input followed by a checkbox

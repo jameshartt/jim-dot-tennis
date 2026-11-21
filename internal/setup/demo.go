@@ -75,8 +75,9 @@ var clearedTables = []string{
 // A test requires every table to be in exactly one of the two lists, so a new
 // migration has to decide.
 var keptTables = []string{
-	"app_settings", "login_attempts", "push_subscriptions", "sessions", "sqlite_sequence",
+	"account_audit_log", "account_links", "app_settings", "login_attempts", "push_subscriptions", "sessions", "sqlite_sequence",
 	"tennis_players", "tournament_providers", "tournaments", "users", "vapid_keys",
+	"webauthn_credentials", "webauthn_user_handles",
 }
 
 // clearedSettings are the app_settings keys ClearDemo removes: the home club

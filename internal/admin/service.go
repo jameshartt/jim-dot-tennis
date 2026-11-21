@@ -4,8 +4,10 @@ package admin
 
 import (
 	"context"
+	"net/http"
 	"time"
 
+	"jim-dot-tennis/internal/accounts"
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
@@ -42,6 +44,10 @@ type Service struct {
 	teamEligibilityService       *TeamEligibilityService
 	pushService                  *webpush.Service
 	courthiveAPIURL              string
+	accounts                     *accounts.Service
+	// passkeysAvailable reports whether passkeys work at a request's address
+	// (set by Handler.SetPasskeysAvailable; nil in tests).
+	passkeysAvailable func(*http.Request) bool
 }
 
 // homeClubID returns the current home club ID (0 while the instance is still
@@ -61,6 +67,10 @@ func (s *Service) currentBHPLTAClubCode() string {
 	}
 	return s.bhpltaClubCode
 }
+
+// baseURL is the prefix for absolute links in messages: the public URL, with
+// the request host only as a development fallback (see config.ClubSettings.BaseURL).
+func (s *Service) baseURL(r *http.Request) string { return s.clubSettings.BaseURL(r) }
 
 // NewService creates a new admin service. homeClub is normally the server's
 // *config.HomeClubHolder, which also provides the live club settings; then
@@ -90,6 +100,7 @@ func NewService(db *database.DB, courthiveAPIURL string, homeClub config.HomeClu
 		captainNoteRepository:        repository.NewCaptainNoteRepository(db),
 		weatherService:               services.NewWeatherService(),
 		courthiveAPIURL:              courthiveAPIURL,
+		accounts:                     accounts.New(db),
 	}
 
 	if len(pushService) > 0 {

@@ -72,11 +72,13 @@ make test-e2e-failed               # Re-run only previously failed tests
 make test-e2e-report               # Open HTML test report
 make test-e2e-results              # Formatted test summary (Claude-friendly)
 make test-e2e-multiclub            # Run multi-club verification tests
+make test-e2e-auth                 # Passkey-enabled suite (project `auth`): virtual authenticator, invite/recovery links, password fallback, proof of ownership, require-passkeys setting, `user reset` CLI; browser reaches the app as http://localhost:8080 (ARGS="-g text" filters)
+make test-e2e-all                  # test-e2e + test-e2e-auth + test-e2e-fresh, all run, non-zero if any failed
 make test-e2e-fresh                # Fresh-install suite: EMPTY volumes, setup flow, saved BHPLTA pages (own compose project)
 make test-e2e-clean                # Tear down E2E containers, delete the E2E volume and artifacts
 
 # Test infrastructure:
-# - tests/e2e/              Playwright project root (213 tests across 30 spec files)
+# - tests/e2e/              Playwright project root (246 tests across 37 spec files: 222 in the main suite, 11 in `auth`, 13 in `fresh-install`; multi-club.spec.ts runs separately)
 # - tests/e2e/helpers/      Reusable helpers (auth, htmx, navigation, assertions)
 # - tests/e2e/fixtures/     Seed data (seed.sql) and test fixtures (test-fixtures.ts)
 # - tests/e2e/admin/        Admin page specs (dashboard, navigation, CRUD, points, wrapped)
@@ -86,6 +88,19 @@ make test-e2e-clean                # Tear down E2E containers, delete the E2E vo
 # - tests/e2e/responsive.spec.ts     Mobile (375×812) and tablet (768×1024) viewport tests
 # - tests/e2e/smoke.spec.ts Smoke tests validating the full stack
 # - tests/e2e/auth.spec.ts  Authentication flow tests (login, logout, rate limit)
+# - tests/e2e/roles.spec.ts  Captain vs administrator (seeded `testcaptain` / testpassword123, id 900)
+# - Passkey-enabled project `auth` (passkeys.spec.ts, account-links.spec.ts, admin-passkeys.spec.ts,
+#   cli-reset.spec.ts; list is AUTH_SPECS in playwright.config.ts; ignored by `chromium`):
+#   WebAuthn needs a secure context and Chromium only treats http://localhost as one, so the `e2e-auth`
+#   compose service shares app-e2e's network namespace and the browser uses http://localhost:8080 (the app accepts
+#   exactly that origin for passkeys under DEV_MODE; no app change). Run through scripts/test-e2e-auth.sh:
+#   recreates app-e2e (clears in-memory throttling), seeds, runs `jim-dot-tennis user create/reset` inside the app
+#   container and passes the printed link in E2E_CLI_RESET_LINK / E2E_CLI_USER (Playwright has no Docker
+#   access), runs one worker, then `admin-passkeys off` and stops app-e2e. Virtual authenticator helper:
+#   helpers/webauthn.ts (CDP, Chromium only; `putAway()`/`restore()` swap devices, one attached at a time); account/link helpers (`confirmWithPasskey`, `addSecondPasskey`: changing a sign-in method needs the password or an older passkey) and DB access (`sql()`, for expiring links) in helpers/accounts.ts
+# - Where passkeys work the login page folds the password form into details[data-passkey-fallback], and a
+#   password sign-in of an account without a passkey detours via /account/signin-methods?prompt=1:
+#   use helpers/auth.ts (openPasswordForm, continueAfterPasswordSignIn, loginAsAdmin, loginAsCaptain)
 # - tests/e2e/scripts/parse-results.mjs  JSON results → Claude-friendly summary
 # - tests/e2e/global-setup.ts  Shared auth session via storageState (skipped when FRESH_INSTALL is set)
 # - tests/e2e/fresh-install*.spec.ts  `fresh-install` project (only with `make test-e2e-fresh`; excluded from `make test-e2e`)
@@ -144,7 +159,8 @@ The codebase follows a clean layered architecture:
 - `models/`: Data structures (Player, Team, Fixture, etc.)
 - `repository/`: Data access layer (one per entity)
 - `auth/`: Authentication service, middleware, and handlers
-- `admin/`: Admin interface handlers (dashboard, players, fixtures, teams, users, sessions, match card import, points, club wrapped)
+- `accounts/`: The one account service (invite, list, enable/disable, role, invite and recovery links in `links.go`, session revocation, last-usable-administrator guard, audit seam `recordAudit`), used by the admin users/sessions pages and the server command line `jim-dot-tennis user ... | admin-passkeys status|on|off | setup code` (`cmd/jim-dot-tennis/cli.go`; help text reproduced in `docs/PRODUCTION_QUICK_REFERENCE.md` section 10, kept in step by a test). Also the link page `/account/link/{token}` (`link_page.go`), a user's own password (`password.go`, endpoints in `password_page.go`) and the "Require passkeys for administrators" setting (`admin_passkeys.go`)
+- `admin/`: Admin interface handlers (dashboard, players, fixtures, teams, users, sessions, account audit log, match card import, points, club wrapped)
 - `players/`: Player-facing handlers (availability management)
 - `services/`: Business logic (match card parsing, player matching, nonce extraction)
 - `webpush/`: Push notification service
@@ -156,7 +172,7 @@ The codebase follows a clean layered architecture:
 
 **migrations/**: SQL migration files (up/down pairs)
 
-**tests/e2e/**: Playwright E2E browser tests (213 tests across 30 spec files)
+**tests/e2e/**: Playwright E2E browser tests (246 tests across 37 spec files: main suite 222, `auth` 11, `fresh-install` 13)
 - `helpers/`: Reusable test helpers (auth, htmx, navigation, assertions)
 - `fixtures/`: SQL seed data and Playwright test fixtures
 - `admin/`, `players/`: Page-level spec files
@@ -187,8 +203,9 @@ The codebase follows a clean layered architecture:
 - `player_availability`: Player availability tracking
 - `fixture_players`: Player assignments to fixtures
 - `tennis_players`: External player database from BHPLTA
-- `users`, `sessions`: Authentication
-- `push_subscriptions`, `vapid_keys`: Push notifications
+- `users`, `sessions`, `login_attempts`: Authentication (`sessions` holds token hashes only)
+- `account_audit_log`: Append-only record of account actions
+- `push_subscriptions`, `vapid_keys`: Push notifications (no part of the VAPID private key, no player token and no push endpoint is ever logged or returned)
 
 ### Repository Pattern
 
@@ -204,17 +221,58 @@ Key repositories: `SeasonRepository`, `WeekRepository`, `LeagueRepository`, `Div
 **Two Authentication Modes:**
 
 1. **Session-based (Admin)**: Cookie-based authentication with role-based access control
-   - Login at `/login` → redirects to `/admin/league/dashboard`
-   - Sessions stored in database with expiry (7 days default)
-   - Middleware: `auth.Middleware.RequireAuth()` + `RequireRole("admin")`
+   - Login at `/login` → redirects to `/admin/league/dashboard`. Two ways in, one session: a passkey (the login page leads with it; the password form is folded away in a `<details data-passkey-fallback>` wherever passkeys are available) or username and password. Both end in `auth.Service.completeLogin` → `createSession`, so the sessions are identical
+   - Sessions stored in database with expiry (7 days sliding, 30 days absolute). The cookie carries a random token; only its SHA-256 is stored (`sessions.token_hash`, `auth.HashSessionToken`, migration 035, which signed everyone out once), and `sessions.id` is a non-secret number used on the admin sessions page (`/admin/league/sessions/{id}/invalidate`). `RequireAuth` puts the user (with `PasswordHash` always emptied: read the hash from the database where it is needed), the role and the session id (`auth.SessionIDFromContext`) in the request context, and logs nothing per request
+   - Logout is `POST /logout` only (GET is 405); every logout control is a `<form method="POST" action="/logout">` with `data-testid="logout-button"`
+   - Scheduled cleanup (`internal/auth/cleanup.go`, started by `serve` in main.go a minute after start, hourly, stopped on SIGINT/SIGTERM): deletes dead sessions, login attempts older than 90 days, and used/revoked/expired links older than 30 days; never the audit log
+   - Middleware: `auth.Middleware.RequireAuth()` + `RequireRole(admin, captain)` on the `/admin/league` mount, then a per-route role check
    - Protected routes: `/admin/league/*`
+
+**Roles** (WI-132; the role matrix for users is `docs/roles.md`): `captain` does everything a captain does for every team (no per-team isolation; scope filters are a focus aid only); `admin` does that plus users, sessions, audit log, settings and feature switches, BHPLTA import configuration, seasons, divisions, tournaments, demo data, passkey clone warnings and VAPID reset. `models.RoleAtLeast(role, min)` is the one ordering (admin ⊇ captain; anything else grants nothing). The `player` role is retired: `accounts.ParseRole` refuses it, so no account can be given it; a leftover player-role account can sign in and use `/account/*` but gets 403 everywhere else.
+- `/admin/league/*`: `adminRouteRoles` in `internal/admin/roles.go` maps every pattern to `captainRoute`, `adminRoute`, or a mixed rule (`captainReadsAdminWrites`, `captainExcept(fn)`) for patterns where some actions need an administrator. `handler.go` registers on a `guardedMux`, which panics at startup on a pattern with no entry and wraps each handler with the check. Templates gate links and forms with `canUse .User "/admin/league/..."` (or `"POST /admin/league/..."`), which reads the same table; never hand-roll a role check in a template. Tests: `TestEveryAdminRouteHasADeclaredRole`, `TestAdminRouteRoleMatrix`, `TestCaptainAccessSpec` (`internal/admin/roles_test.go`).
+- A refused request gets `auth.WriteForbidden`: a friendly 403 page, or for HTMX a short text body with `HX-Reswap: none`. `RequireRole` uses it too.
+- Other groups: push `/api/push/test` and `/api/vapid-reset` (admin, wrapper in main.go), `/account/passkeys/{id}/clear-warning` (admin), `/setup/demo*` (admin, checked in `internal/setup`), the rest of `/account/*` (any signed-in account).
+- After sign-in and after link redemption everyone lands on `/admin/league/dashboard`, which both roles can use; the dashboard hides what the role cannot use. `users.player_id` (set by the user on `/admin/league/planning/link` or by an administrator on the users page, `POST /admin/league/users/{id}/player`; both go through `accounts.SetPlayerLink`, which refuses a player linked to another account and records the change) marks "My Teams" on the planning dashboard.
 
 2. **Token-based (Fantasy Players)**: URL-embedded tokens for player availability
    - URL pattern: `/my-availability/{token}` where token is composite player names
    - Middleware: `auth.Middleware.RequireFantasyTokenAuth()`
    - No session, passwordless access for specific players
 
-**Rate Limiting:** Login attempts tracked (5 attempts per 15 minutes)
+**Rate Limiting:** Password sign-in (`internal/auth/throttle.go`, from `login_attempts` over 15 minutes): 5 failures per username and address, and 30 failures per address across all usernames (`MaxLoginFailuresPerAddress`, password spraying); a throttled attempt is refused without being recorded, so it does not extend the block. The limits hold under concurrency (`internal/auth/login_gate.go`): `Service.Login` runs the throttle check, the compare and the record under a per-address in-memory lock (`addressLocks`, at most 8 waiting per address), and all bcrypt work in the process shares 2 slots (`bcryptSlots`); a sign-in that cannot get its turn within 5 seconds gets `ErrLoginBusy` and is not recorded. Every password sign-in costs exactly one compare: an unknown, inactive or passwordless account is compared against the fixed `dummyPasswordHash` (cost 12), so timing does not reveal usernames; a username over `MaxUsernameBytes` (128) is refused with no compare. Stored client data is cut (`ClipUsername`, `ClipUserAgent` 256 bytes: login attempts, sessions; audit rows 512/128 in `accounts.recordAudit`) and anonymous POST bodies are bounded with `http.MaxBytesReader` (`/login`, passkey begin/finish, setup forms, `/api/push/subscribe`). Passkey attempts are throttled per client address only, in memory (`internal/auth/passkey_ceremony.go`), and are never recorded against a username, so they cannot lock a named user out; the per-address password count leaves them out. All throttles key on `auth.ThrottleKey(r)` (the client address, an IPv6 one reduced to its /64), which is also what `login_attempts.ip` stores. The client address comes only from `clientIP` (`internal/auth/clientip.go`): the rightmost `X-Forwarded-For` entry when the peer is private/loopback (Caddy), else the peer. That is safe only while the app port is reachable solely through the proxy (never publish 8080 in production).
+
+**Account audit log** (migration 035, `account_audit_log`): `accounts.recordAudit` inserts one row in the transaction that made the change (a failed insert fails the change); rows hold actor (user or CLI command), action, target account and a short non-secret detail, never passwords, tokens, hashes or session ids; no foreign keys (history outlives accounts); triggers refuse UPDATE and DELETE; retention is keep. Administrators' sign-ins are recorded through `auth.Service.SetSignInAudit` (wired in main.go to `accounts.Service.RecordSignIn`). Read-only page `GET /admin/league/audit-log` (`internal/admin/audit_log.go`, `templates/admin/audit_log.html`, administrators only, 50 per page, newest first).
+
+**Passkeys (WebAuthn)** (`internal/auth/passkey*.go`, `internal/repository/webauthn_credential.go`, `static/passkey.js`, `github.com/go-webauthn/webauthn`; operator notes in `docs/PRODUCTION_QUICK_REFERENCE.md` section 11):
+- Tables (migration 033): `webauthn_credentials` (one row per passkey; `credential_id` unique across users) and `webauthn_user_handles` (a random 32-byte handle per user, created on first enrolment; discoverable sign-in resolves the account from it, never from a username or numeric id).
+- Routes: `POST /login/passkey/begin|finish` (public), `GET /account/signin-methods`, `POST /account/passkeys/begin|finish`, `POST /account/passkeys/{id}/rename|delete`, `POST /account/sessions/end-others` ("Sign out everywhere else") (all `RequireAuth`, own account only), `POST /account/passkeys/{id}/clear-warning` (admin).
+- Sign-in is discoverable only: `Passkeys.BeginLogin` takes no username (a body naming one is read and ignored, and gets the same answer) and never lists an account's passkeys to an anonymous caller. The username-first path and its decoy ids are gone; `NewPasskeys` deletes a leftover `passkey_decoy_key` row at startup. Enrolment requires a resident key, so every passkey made here is discoverable; someone whose authenticator cannot hold one uses a password or a recovery link.
+- User verification: `preferred` for ordinary accounts (a security key with no PIN works). For an administrator (`requireUserVerification`) it is required at enrolment (also through a link) and for confirmations, and a sign-in whose signed response lacks the user-verified flag is refused with `ErrUserVerificationRequired` (not counted as a failed attempt).
+- The relying party is built on every request from `ClubSettings.ResolvePublicURL()` (`Passkeys.relyingPartyAddress`): `Origin` is the only accepted origin, `Hostname` the RP ID. No public URL means no passkeys, except `DEV_MODE=true` (never production) with a request to `localhost`, which uses `http://localhost:<port>`. The Host header is otherwise never used. Changing the public host invalidates existing passkeys.
+- A ceremony's challenge lives in memory (`ceremonyStore`), keyed by a random ticket in the HttpOnly SameSite=Strict `passkey_ceremony` cookie, for 5 minutes, and is removed on the first finish attempt whatever the outcome. Registration ceremonies are also tied to the user and session that began them.
+- A sign counter that does not increase sets `clone_warning_at`: that sign-in is refused and the passkey stays blocked until an administrator clears it on the sign-in methods page (dashboard shows a banner).
+- `repository.CountSignInMethods` (via `auth.Service.CountSignInMethods`) is the one definition of "sign-in method": usable passkeys (no clone warning) + a non-empty password. The repository's `Delete` refuses a removal that leaves none, so the only working passkey cannot go while a blocked one remains, and a blocked one can go while a usable method remains. `Passkeys.SetAudit` is the audit seam (wired to `accounts.Service.RecordEvent` in main.go).
+- Passwords are optional: `users.password_hash` is NULL for an account with passkeys only or an unused invite (`models.PasswordHash` scans NULL as ""; password sign-in is refused for it).
+
+**Passwords (optional fallback)** (`internal/auth/password.go`, `password_section.go`, `reauth.go`, `admin_passkeys.go`, `passkey_prompt.go`; `internal/accounts/password.go`, `password_page.go`, `admin_passkeys.go`; operator notes in `docs/PRODUCTION_QUICK_REFERENCE.md` section 11):
+- Policy (`auth.ValidatePassword`, new and changed passwords only; stored ones keep working): at least 12 characters, at most 72 bytes, not on the embedded `common_passwords.txt` (compared ignoring case and spaces), not containing the username, not one repeated character; no composition rules. Errors are `*auth.PasswordPolicyError` with a URL-safe `Code` (`auth.PasswordPolicyMessage`).
+- `auth.BcryptCost` (12) is the one hashing cost; `Service.Login` rehashes a lower-cost hash after a successful password sign-in (`auth.NeedsRehash`), guarded on the old hash.
+- The password form is the "Password" section of `/account/signin-methods`. `POST /account/password` adds or changes (`accounts.SetOwnPassword`), `POST /account/password/remove` removes (`accounts.RemoveOwnPassword`), `GET /account/password` redirects to the section. Results come back as `?done=password-added|password-changed|password-removed` or `?perror=<code>`. Removal is one UPDATE that requires a usable (not clone-blocked) passkey. Adding, changing and removing each end every session, then `StartSession` gives this browser a new one.
+- Proof of ownership (`internal/auth/ownership.go`): a session alone never changes how an account signs in. Adding or removing a passkey and adding, changing or removing the password each need the current password (`Service.CheckCurrentPassword`; wrong ones limited per address, 5 / 15 min, one in-memory limiter for every form) or a passkey confirmation (below). `POST /account/passkeys/begin` takes `{"current_password"}` or needs a live confirmation, which `FinishRegistration` uses up; the delete and password-remove forms carry `current_password` or use the confirmation (`Passkeys.ProveOwnership`, `accounts.Proof`). A passkey added from a session cannot confirm anything for `NewPasskeyQuarantine` (10 minutes) nor in the session that added it (`enrolmentLog`, in memory; `ErrPasskeyTooNew`), unless it is the account's only usable method; a passkey enrolled through a link is not quarantined. No exemption for new accounts (they prove with the password or passkey they just set) and none for an account with no usable method (an administrator clears the block or issues a recovery link). After a passkey is added or removed the account's other sessions are ended (`Service.EndOtherSessions`, keeps the current one) and the audit detail records `reauth=password|passkey sessions_ended=N`.
+- Re-authentication: the current password, or a passkey proof. `POST /account/reauth/passkey/begin|finish` (signed in, JSON) run an assertion limited to the user's own passkeys (ceremony kind `ceremonyReauth`, tied to the browser, the user and the session fingerprint); success mints a 256-bit proof kept in memory by hash (`reauthStore`), bound to user + session fingerprint, 5 minutes, sent as the HttpOnly SameSite=Strict `reauth_proof` cookie (path `/account/`). `Passkeys.ConsumeReauthProof` removes it on first use whatever the outcome; `SetOwnPassword` and `RemoveOwnPassword` only consume it after every other check passed. A sign-in is never proof. Its limiter keys on `ThrottleKey` like the others.
+- After a password sign-in, an account with no passkey (where passkeys are available) lands on `/account/signin-methods?prompt=1&next=...` with a dismissible "Add a passkey?" box; `POST /account/passkey-prompt/dismiss` sets a 30-day `passkey_prompt_dismissed` cookie.
+- "Require passkeys for administrators": `app_settings` key `require_admin_passkeys` = "true", read from the database every time (never cached, so the CLI `admin-passkeys off` applies to a running server). While on: admin password sign-in fails with the same `ErrInvalidCredentials` as a wrong password (checked after the bcrypt compare; no per-username hint, the login page states the rule to everyone); `RedeemLink` refuses a password for an admin (`ErrAdminPasskeyRequired`, link stays unused); the passkey repository's `Delete` refuses an admin's last usable passkey (`repository.ErrAdminNeedsPasskey`); `SetRole` refuses promoting an account without a usable passkey (`accounts.ErrAdminNeedsPasskey`); `SetActive` refuses enabling an administrator without one (`accounts.ErrEnableNeedsPasskey`). Turning it on (`accounts.SetAdminPasskeysRequired`, settings page `POST /admin/league/settings/admin-passkeys`, CLI) writes first, then re-checks in the same transaction that every active admin has a usable passkey (`*AdminsWithoutPasskeyError` names them) and that one exists. The sign-in rules apply only where passkeys are available (`Service.PasskeysAvailable`, set by `NewPasskeys`), so a missing public URL never locks admins out; the settings page refuses to change the stored public URL while it is on. All checks are in the same statement or transaction as the write (`repository.AdminLacksRequiredPasskeySQL`, `UsablePasskeysSQL`).
+- Last-administrator guard (`lastActiveAdminCondition` in `internal/accounts/accounts.go`, inside the single UPDATE of `SetActive`/`SetRole`): refuses removing the only active administrator account, and the only administrator who can actually sign in (`repository.UsableAdminSQL`: active, with a usable passkey, or with a password while the requirement is off). An administrator who cannot sign in (unaccepted invite, password-only while passkeys are required) does not count and may itself be disabled or demoted while another active administrator account exists. The guard only stops removal: `user create --role admin`, `user reset` and `admin-passkeys off` always work.
+- Cross-site protection is the app-wide `auth.CrossOriginGuard` (all passkey endpoints are POST); the JSON endpoints also require `Content-Type: application/json`. `auth.NoFraming` (outermost handler in main.go) sends `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'` on every response; nothing in the app frames its own pages.
+
+**Invite and recovery links** (`internal/accounts/links.go`, `link_page.go`, `templates/account/accept_link.html`, admin side in `internal/admin/users_links.go`; operator notes in `docs/PRODUCTION_QUICK_REFERENCE.md` section 12). There is no email and nobody sets a password for someone else:
+- An administrator creates an account with no password (`accounts.Service.Invite`: username, role, optional `player_id`) and is shown an invite link once; `IssueLink` makes a recovery link (`POST /admin/league/users/{id}/recover`, CLI `user reset`) or a fresh invite (`.../{id}/invite`, only while the account has no sign-in method; CLI `user create`). `POST /admin/league/users/links/{id}/revoke` cancels an unused link. The link is rendered on the POST response itself, never put in a redirect.
+- Table `account_links` (migration 034): 32 random bytes as the token, only its SHA-256 stored, kind `invite` (48h) or `recovery` (1h), `used_at`, `revoked_at`. Issuing a link revokes the user's earlier unused links and changes nothing else about the account.
+- `GET /account/link/{token}` shows who the link is for and changes nothing. `POST /account/link/{token}` sets a password; `POST /account/link/{token}/passkey/begin|finish` enrol a passkey (offered only where passkeys are available). No session is needed. `RedeemLink` consumes the link with the first statement of its transaction (`UPDATE ... WHERE used_at IS NULL AND revoked_at IS NULL`), sets the method, ends every session of the account, optionally removes the old passkeys and password (recovery only, the person's choice), and records `link.use`; then `auth.Service.StartSession` signs the browser in. Disabled accounts cannot redeem.
+- A link passkey ceremony is tied to the browser (ceremony cookie), the account and the link (`accounts.LinkBinding(token)` stands where the session fingerprint does in `Passkeys.BeginLinkRegistration` / `VerifyLinkRegistration`); the verified passkey is stored inside the redeeming transaction, so a link that loses a race leaves nothing behind.
+- Every link response has `Cache-Control: no-store` and `Referrer-Policy: same-origin` (as do the admin users page and the setup pages; never `no-referrer`, which makes browsers post the page's own forms with `Origin: null`, and the cross-origin guard refuses that wherever the browser sends no `Sec-Fetch-Site`, i.e. plain http to a host other than localhost); wrong, expired, used, revoked and disabled-account links all get the same 404 page; failures are throttled per client address (10 per 15 minutes, in memory). The token must never be logged: the page logs no paths, and anything that logs a request path that could be a link uses `auth.RedactPath` (the cross-origin guard and the home handler's "Not found" do).
+- The setup gate lets `/account/link/` through once an administrator exists (`StatusNeedsClub`), not before.
+- `must_change_password` (migration 032) is retired: the column stays, always FALSE, and nothing reads it. Migration 034 makes `password_hash` nullable by add-copy-drop-rename of the column, never by rebuilding `users` (foreign keys are on and migrations run in a transaction, so dropping `users` would cascade-delete sessions and passkeys); use the same approach for any future change to `users`.
 
 ### BHPLTA Integration
 
@@ -251,7 +309,7 @@ Each major handler (Admin, Players) delegates to domain-specific sub-handlers:
 - `HOME_CLUB_NAME`: Club name for fuzzy lookup (fallback if `HOME_CLUB_ID` is not set)
 - `HOME_CLUB_LOGO_PATH`: Optional URL path to a club logo image; overrides the logo uploaded on the settings page. Unset (or empty) means the uploaded logo, else the bundled logo of a club in `config.KnownBHPLTAClub`'s list (St Ann's: `/static/st-anns-tennis.jpg`), else no logo.
 - `BHPLTA_CLUB_CODE`: Club code on the BHPLTA website — used for match card imports; overrides the code stored on the settings page
-- `PUBLIC_URL`: Optional public base URL of the instance; overrides the stored one
+- `PUBLIC_URL`: The instance's public base URL; overrides the one stored on the settings page. Required (valid, https) when `APP_ENV=production`: `config.ValidateStartup` (called from main.go) refuses to start otherwise. Read it only through `ClubSettings.ResolvePublicURL()` (validated `PublicURL{Origin, Base, Scheme, Hostname}`; passkeys and recovery links use this, Hostname is the relying-party ID) or `ClubSettings.BaseURL(r)` / `Host(r)` for links and identifiers, which fall back to the request host only when no public URL is set (development); that fallback lives in `config.RequestBaseURL`. The web push VAPID subscriber (`PushSubscriber()`) and the iCal UID domain (`UID:fixture-<id>@<public host>`) derive from it. Changing the public host changes iCal UIDs, so calendar apps treat existing subscribed events as new: keep the host stable (the live site's host is the UID domain its subscriptions already use).
 
 **Club settings page** (`/admin/league/settings`, admin role only): display name, logo, primary/secondary colours, BHPLTA club code/name/id and public URL, stored in `app_settings` and held live in `config.ClubSettings` (`HomeClubHolder.ClubSettings()`); changes apply without a restart. A non-empty env variable above always wins over the stored value and the page says so. Uploaded logos (PNG/JPEG/WebP, sniffed by content, max 2 MB, no SVG) are stored in `branding/` next to the SQLite database (`DB_PATH`'s directory, i.e. the data volume) and served only at `/branding/<content-hash name>`. `internal/branding` also serves `/static/manifest.json`, `/api/manifest` and `/static/service-worker.js` with the stored name, logo and colours. BHPLTA's club name and id are not published: the page can look them up from the club code, `config.KnownBHPLTAClub` covers clubs whose values are known, and `config.PrefillClubSettings` stores them during setup.
 
@@ -268,7 +326,8 @@ Each major handler (Admin, Players) delegates to domain-specific sub-handlers:
 
 **Application:**
 - `PORT`: HTTP server port (default: "8080")
-- `APP_ENV`: Set to "production" to enforce secure cookies (the reference compose sets it). In production the startup self-check (`secrets.StartupCheck`) refuses to start if a secret variable holds a known placeholder such as `change-me`. It also warns (in every mode) about accounts whose password hash is one seeded by old migrations or the e2e seed.
+- `DEV_MODE`: `true`/`1` is the only way to turn off Secure session cookies (plain-http development). Set by the root `docker-compose.yml` (app, app-e2e, app-fresh), `make run-local` and `scripts/run.sh`; fatal with `APP_ENV=production`. Any new way of serving the app over http must set it.
+- `APP_ENV`: Set to "production" for a live instance (the reference compose sets it): needs a valid https `PUBLIC_URL` and refuses `DEV_MODE`. In production the startup self-check (`secrets.StartupCheck`) refuses to start if a secret variable holds a known placeholder such as `change-me`. It also warns (in every mode) about accounts whose password hash is one seeded by old migrations or the e2e seed.
 - `TEMPLATE_RELOAD`: Development only; `true` re-parses templates on every request (root `docker-compose.yml` defaults it to true)
 - `MIGRATE_ALLOW_DIRTY_FORCE`: Development only; `true` auto-forces a dirty migration version at startup. Never set in production.
 
@@ -298,15 +357,15 @@ Club names extracted from team names (e.g., "Dyke A" → Club: "Dyke").
 ### Adding a New Admin Feature
 
 1. Create sub-handler in `internal/admin/` (e.g., `new_feature.go`)
-2. Register routes in `internal/admin/handler.go` `RegisterRoutes()`
-3. Add templates in `templates/admin/`
-4. Apply `authMiddleware.RequireAuth()` + `RequireRole("admin")`
+2. Declare each route pattern's role in `adminRouteRoles` (`internal/admin/roles.go`): `captainRoute` for captain work, otherwise `adminRoute`
+3. Register routes in `internal/admin/handler.go` `RegisterRoutes()` (the guarded mux refuses undeclared patterns and enforces the role)
+4. Add templates in `templates/admin/`; gate links and forms with `canUse .User "..."`
 
 ### Working with Migrations
 
 - Migrations are numbered sequentially: `001_`, `002_`, etc.
 - Always create both `.up.sql` and `.down.sql` files
-- Migrations run automatically on app startup
+- Migrations run automatically on app startup; a migration that fails stops the server (`migrateOrStop` in main.go), it is not a warning
 - A dirty migration state fails startup; auto-forcing is dev-only behind `MIGRATE_ALLOW_DIRTY_FORCE=true`
 
 ## Key Files

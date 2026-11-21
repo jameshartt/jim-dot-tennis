@@ -4,45 +4,87 @@
 
 {{define "head"}}
 <title>Login - Jim.Tennis</title>
+{{if .PasskeysAvailable}}
+<style>
+    [hidden] { display: none !important; }
+    .passkey-signin { text-align: center; margin-bottom: 1rem; }
+    .passkey-signin .btn { width: 100%; padding: 0.8rem; font-size: 1rem; }
+    .passkey-help { font-size: 0.9rem; color: #555; margin-top: 0.5rem; }
+    .password-signin { margin-top: 1.25rem; border-top: 1px solid var(--border-color); padding-top: 1rem; }
+    .password-signin > summary { cursor: pointer; color: #333; font-size: 0.95rem; margin-bottom: 0.75rem; }
+</style>
+{{end}}
 {{end}}
 
 {{define "content"}}
 <div class="auth-container">
     <div class="auth-form">
         <h1>Login</h1>
-        
+
         {{if .Error}}
         <div class="alert alert-danger">
             {{.Error}}
         </div>
         {{end}}
-        
+
+        {{if .PasskeysAvailable}}
+        {{/* Passkey sign-in leads. It stays hidden until static/passkey.js has
+             checked that this browser can use passkeys here. */}}
+        <div class="passkey-signin" data-passkey-ui hidden>
+            <button type="button" class="btn btn-primary" id="passkey-signin" data-passkey-signin{{if .Redirect}} data-redirect="{{.Redirect}}"{{end}}>Sign in with a passkey</button>
+            <p class="passkey-help">Use your fingerprint, face or screen lock. Nothing to type.</p>
+        </div>
+        <div class="alert alert-info" data-passkey-unsupported hidden>
+            This browser can't use passkeys here, so sign in with your username and password.
+        </div>
+        <div class="alert alert-danger" role="alert" id="passkey-status" data-passkey-status hidden></div>
+        {{if .AdminPasskeysRequired}}
+        {{/* The same for every visitor: it never depends on a username. */}}
+        <p class="passkey-help" data-admin-passkeys-required>Club administrators sign in with a passkey.</p>
+        {{end}}
+        {{/* The password form is the second choice: folded away unless this
+             browser cannot use passkeys (passkey.js opens it) or a password
+             sign-in has just been tried. */}}
+        <details class="password-signin" data-passkey-fallback data-password-signin{{if or .Error .Username}} open{{end}}>
+            <summary>Sign in with a username and password</summary>
+        {{end}}
+
         <form method="POST" action="/login">
+            {{if .Redirect}}<input type="hidden" name="redirect" value="{{.Redirect}}">{{end}}
             <div class="form-group">
                 <label for="username">Username</label>
-                <input type="text" id="username" name="username" value="{{.Username}}" required autofocus>
+                <input type="text" id="username" name="username" value="{{.Username}}" required autofocus autocomplete="username">
             </div>
-            
+
             <div class="form-group">
                 <label for="password">Password</label>
-                <input type="password" id="password" name="password" required>
+                <input type="password" id="password" name="password" required autocomplete="current-password">
             </div>
-            
+
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Login</button>
             </div>
         </form>
+        {{if .PasskeysAvailable}}
+        </details>
+        {{end}}
     </div>
 </div>
 {{end}}
 
 {{define "scripts"}}
+{{if .PasskeysAvailable}}<script src="/static/passkey.js"></script>{{end}}
 <script>
-    // Focus on username field on page load if empty, otherwise on password
+    // Focus the username field (or the password, when the username is
+    // filled in), unless the password form is folded away behind passkeys.
     document.addEventListener('DOMContentLoaded', function() {
         const usernameField = document.getElementById('username');
         const passwordField = document.getElementById('password');
-        
+        const folded = usernameField.closest('details');
+        if (folded && !folded.open) {
+            return;
+        }
+
         if (usernameField.value === '') {
             usernameField.focus();
         } else {
@@ -50,4 +92,4 @@
         }
     });
 </script>
-{{end}} 
+{{end}}

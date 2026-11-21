@@ -146,8 +146,8 @@
             <div class="action-bar">
                 <h2>Away Teams</h2>
                 <div style="display:flex;gap:0.75rem;">
-                    <a href="/admin/league/divisions/review" class="review-link">Division Review</a>
-                    <button type="button" onclick="document.getElementById('create-away-team-form').style.display='block'" style="background:#6c757d;color:white;padding:0.5rem 1rem;border:none;border-radius:4px;cursor:pointer;">+ Create Away Team</button>
+                    {{if canUse .User "/admin/league/divisions/review"}}<a href="/admin/league/divisions/review" class="review-link">Division Review</a>{{end}}
+                    {{if canUse .User "POST /admin/league/teams/away"}}<button type="button" data-testid="create-away-team-button" onclick="document.getElementById('create-away-team-form').style.display='block'" style="background:#6c757d;color:white;padding:0.5rem 1rem;border:none;border-radius:4px;cursor:pointer;">+ Create Away Team</button>{{end}}
                 </div>
             </div>
 
