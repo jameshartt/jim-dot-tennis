@@ -80,7 +80,7 @@ make test-e2e-fresh                # Fresh-install suite: EMPTY volumes, setup f
 make test-e2e-clean                # Tear down E2E containers, delete the E2E volume and artifacts
 
 # Test infrastructure:
-# - tests/e2e/              Playwright project root (246 tests across 37 spec files: 222 in the main suite, 11 in `auth`, 13 in `fresh-install`; multi-club.spec.ts runs separately)
+# - tests/e2e/              Playwright project root (251 tests across 39 spec files: 226 in the main suite, 12 in `auth`, 13 in `fresh-install`; multi-club.spec.ts runs separately)
 # - tests/e2e/helpers/      Reusable helpers (auth, htmx, navigation, assertions)
 # - tests/e2e/fixtures/     Seed data (seed.sql) and test fixtures (test-fixtures.ts)
 # - tests/e2e/admin/        Admin page specs (dashboard, navigation, CRUD, points, wrapped)
@@ -91,7 +91,7 @@ make test-e2e-clean                # Tear down E2E containers, delete the E2E vo
 # - tests/e2e/smoke.spec.ts Smoke tests validating the full stack
 # - tests/e2e/auth.spec.ts  Authentication flow tests (login, logout, rate limit)
 # - tests/e2e/roles.spec.ts  Captain vs administrator (seeded `testcaptain` / testpassword123, id 900)
-# - Passkey-enabled project `auth` (passkeys.spec.ts, account-links.spec.ts, admin-passkeys.spec.ts,
+# - Passkey-enabled project `auth` (passkeys.spec.ts, account-links.spec.ts, admin-passkeys.spec.ts, backups-passkey.spec.ts,
 #   cli-reset.spec.ts; list is AUTH_SPECS in playwright.config.ts; ignored by `chromium`):
 #   WebAuthn needs a secure context and Chromium only treats http://localhost as one, so the `e2e-auth`
 #   compose service shares app-e2e's network namespace and the browser uses http://localhost:8080 (the app accepts
@@ -177,7 +177,7 @@ The codebase follows a clean layered architecture:
 
 **embed.go** (package `jimdottennis`, repository root): builds `templates/`, `static/` and `migrations/*.sql` into the binary, so it runs from any directory with only its data directory. The server reads templates through `internal/render` (`render.ParseFiles`/`ParseGlob`/`Glob`/`ReadFile`, never `template.ParseFiles` or `os.ReadFile` directly; handlers' `templateDir` is `"."` inside the embedded tree) and serves `/static/` through `internal/assets`. Templates link CSS/JS as `{{asset "/static/..."}}`, which appends `?v=<hash of the static tree>`; such URLs are cached as immutable for a year, every other `/static/` URL gets `no-cache` with an ETag. Uploaded logos stay on the data volume (`/branding/`).
 
-**tests/e2e/**: Playwright E2E browser tests (246 tests across 37 spec files: main suite 222, `auth` 11, `fresh-install` 13)
+**tests/e2e/**: Playwright E2E browser tests (251 tests across 39 spec files: main suite 226, `auth` 12, `fresh-install` 13)
 - `helpers/`: Reusable test helpers (auth, htmx, navigation, assertions)
 - `fixtures/`: SQL seed data and Playwright test fixtures
 - `admin/`, `players/`: Page-level spec files
