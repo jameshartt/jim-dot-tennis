@@ -156,12 +156,12 @@ Sprints 019-024 form the **club-readiness programme**: making the app installabl
 - **Summary**: [sprint-019/SUMMARY.md](sprint-019/SUMMARY.md)
 
 ### Sprint 020: Fresh Install — From Empty Database to a Working Club
-- **Status**: Planned
+- **Status**: Completed (2026-11-21)
 - **Work Items**: 10 (WI-116 to WI-125)
 - **Goal**: Start on an empty database, guided setup with a one-time code, first administrator, club choice, league/divisions/season pulled from BHPLTA, club settings, no seeded accounts or shared secrets
 - **Directory**: `sprint-020/`
 - **Summary**: [sprint-020/SUMMARY.md](sprint-020/SUMMARY.md)
-- **Schema planned**: app_settings; drop of the migration-010 managing-team trigger
+- **Schema**: 030 (app_settings), 031 (drop of the migration-010 managing-team trigger)
 
 ### Sprint 021: Authentication — Passkeys, Recovery and a Real Captain Role
 - **Status**: Planned
@@ -251,7 +251,8 @@ Sprint work items that deliver migrations document the migration number in their
 - **026** (lineup_drafts, lineup_draft_players) — Sprint 017 WI-106
 - **027** (player_tennis_preferences.wizard_progress_tier) — Sprint 018 WI-108
 - **028** (retired_by on matchups) and **029** (reschedule statuses) — delivered outside the sprint structure
-- **Next available**: 030 (026 was never committed — never reuse it). Sprints 020 and 021 plan several migrations; each takes the next free number when implemented
+- **030** (app_settings) and **031** (drop managing-team trigger) — Sprint 020 WI-116, WI-120
+- **Next available**: 032 (026 was never committed — never reuse it). Sprint 021 plans several migrations; each takes the next free number when implemented
 
 ## How to Use This Index
 

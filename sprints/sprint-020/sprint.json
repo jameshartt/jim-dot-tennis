@@ -3,10 +3,10 @@
     "id": "sprint-020",
     "name": "Fresh Install - From Empty Database to a Working Club",
     "goal": "A BHPLTA club with no prior knowledge starts the app on an empty database, is walked through creating its first administrator and choosing its club, has the league, divisions, clubs and current season pulled in from BHPLTA, and ends up on a working dashboard - with no SQL, no CLI import tools, no inherited accounts and no secrets shared with any other instance.",
-    "start_date": null,
-    "end_date": null,
+    "start_date": "2026-11-21",
+    "end_date": "2026-11-21",
     "type": "numbered",
-    "status": "planned",
+    "status": "completed",
     "programme": "club-readiness (sprints 019-024)",
     "focus_areas": [
       "The app starts on an empty database and guides setup instead of exiting",

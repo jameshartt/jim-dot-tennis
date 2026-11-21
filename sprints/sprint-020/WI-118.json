@@ -10,7 +10,7 @@
     "WI-116",
     "WI-117"
   ],
-  "status": "not_started",
+  "status": "completed",
   "recommended_model": {
     "name": "Opus 5.5",
     "id": "claude-opus-5-5",

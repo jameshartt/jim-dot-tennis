@@ -16,7 +16,7 @@
     "WI-122",
     "WI-123"
   ],
-  "status": "not_started",
+  "status": "completed",
   "recommended_model": {
     "name": "Sonnet 5.5",
     "id": "claude-sonnet-5-5",
