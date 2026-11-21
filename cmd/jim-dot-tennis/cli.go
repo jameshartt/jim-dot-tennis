@@ -1,0 +1,512 @@
+// Copyright (c) 2025-2026 James Hartt. Licensed under the MIT License.
+
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"path/filepath"
+	"strings"
+	"text/tabwriter"
+	"time"
+
+	"jim-dot-tennis/internal/accounts"
+	"jim-dot-tennis/internal/config"
+	"jim-dot-tennis/internal/database"
+	"jim-dot-tennis/internal/repository"
+	"jim-dot-tennis/internal/setup"
+)
+
+// cliHelp is the text `jim-dot-tennis help` prints. docs/PRODUCTION_QUICK_REFERENCE.md
+// reproduces it; keep the two in step.
+const cliHelp = `jim-dot-tennis - the club's tennis app
+
+Run it with no command to start the web app. That is what the app's
+container does, so you never need to start it by hand.
+
+The commands below are for the person who looks after the club's server.
+Run them on the server, inside the app's container, for example:
+
+    docker exec -it jim-dot-tennis ./jim-dot-tennis user list
+
+They work while the app is running; there is no need to stop it.
+
+Accounts
+  user list                        Show every account: its role, whether it can
+                                   sign in, and when it last signed in.
+  user create <username> --role <role>
+                                   Make a new account. <role> is admin, captain
+                                   or player. Prints a temporary password once;
+                                   the person chooses their own the first time
+                                   they sign in.
+  user reset <username>            For someone who is locked out (even the last
+                                   administrator): gives the account a new
+                                   temporary password, printed once, signs it
+                                   out everywhere, and asks the person to choose
+                                   their own password when they next sign in.
+  user disable <username>          Stop an account signing in, and sign it out
+                                   everywhere. Refused for the last active
+                                   administrator.
+  user enable <username>           Let a disabled account sign in again.
+  user role <username> <role>      Change an account's role. Refused if it would
+                                   leave no active administrator.
+  user sessions revoke <username>  Sign an account out on every device.
+
+First-run setup
+  setup code                       Print a new setup code, for creating the first
+                                   administrator in the browser. Only works while
+                                   the app has no administrator yet. It cancels
+                                   any earlier code (including the one in the
+                                   app's log) and works once.
+
+  help                             Show this text.
+
+Good to know
+  - No command asks for, accepts or shows your own password. Where a password
+    is needed the app makes up a temporary one and shows it once; pass it on
+    privately (in person or by phone, not in a group chat).
+  - Anyone who can run these commands already controls the server and the
+    app's database file. The commands make recovery easier; they do not give
+    anyone powers they did not already have.
+  - Each command records what it did: the time, the command and the account.
+  - If the app was upgraded but has not started since, the commands refuse to
+    run until it has (starting the app upgrades the database).
+`
+
+// Exit codes for the command line.
+const (
+	exitOK    = 0
+	exitError = 1
+	exitUsage = 2
+)
+
+// errUsage marks a mistake in how a command was typed; the help is shown.
+var errUsage = errors.New("usage")
+
+// cliOut is where a command writes its results (problems go to stderr from
+// runCLI; audit records go to stderr through the log package).
+type cliOut struct {
+	out io.Writer
+}
+
+func (c cliOut) printf(format string, a ...any) { fmt.Fprintf(c.out, format, a...) }
+
+// runCLI runs the command in args (os.Args without the program name) and
+// returns the process exit code.
+func runCLI(args []string, stdout, stderr io.Writer) int {
+	// Audit records (accounts.recordAudit) go to the operator's terminal.
+	log.SetOutput(stderr)
+	log.SetFlags(0)
+	c := cliOut{out: stdout}
+
+	cmd, err := parseCommand(args)
+	if err != nil {
+		if errors.Is(err, errUsage) {
+			fmt.Fprintf(stderr, "%s\n\nRun \"jim-dot-tennis help\" to see the commands.\n", strings.TrimPrefix(err.Error(), errUsage.Error()+": "))
+			return exitUsage
+		}
+		fmt.Fprintln(stderr, err)
+		return exitUsage
+	}
+	if cmd.name == "help" {
+		fmt.Fprint(stdout, cliHelp)
+		return exitOK
+	}
+
+	ctx := context.Background()
+	db, err := openCLIDatabase(ctx)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return exitError
+	}
+	defer db.Close()
+
+	if err := cmd.run(ctx, c, db); err != nil {
+		fmt.Fprintf(stderr, "Not done: %s\n", describeError(err))
+		return exitError
+	}
+	return exitOK
+}
+
+// command is a parsed command line.
+type command struct {
+	name string   // "help", "user list", "user create", ...
+	args []string // positional arguments after the command words
+	role string   // --role
+}
+
+// parseCommand turns args into a command. Flags may come before or after
+// the positional arguments.
+func parseCommand(args []string) (command, error) {
+	var words []string
+	var cmd command
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if !strings.HasPrefix(a, "-") || a == "-" {
+			words = append(words, a)
+			continue
+		}
+		name, value, hasValue := strings.Cut(strings.TrimLeft(a, "-"), "=")
+		switch strings.ToLower(name) {
+		case "h", "help":
+			return command{name: "help"}, nil
+		case "role":
+			if !hasValue {
+				if i+1 >= len(args) {
+					return command{}, fmt.Errorf("%w: --role needs a value: admin, captain or player", errUsage)
+				}
+				i++
+				value = args[i]
+			}
+			cmd.role = value
+		default:
+			if strings.Contains(strings.ToLower(name), "pass") {
+				return command{}, fmt.Errorf("%w: passwords are never given on the command line. "+
+					"\"user create\" and \"user reset\" make up a temporary password and show it once", errUsage)
+			}
+			return command{}, fmt.Errorf("%w: unknown option %q", errUsage, a)
+		}
+	}
+	if len(words) == 0 {
+		return command{name: "help"}, nil
+	}
+
+	need := func(n int, usage string) error {
+		if len(cmd.args) != n {
+			return fmt.Errorf("%w: usage: jim-dot-tennis %s", errUsage, usage)
+		}
+		return nil
+	}
+	noRole := func() error {
+		if cmd.role != "" {
+			return fmt.Errorf("%w: --role only goes with \"user create\" (to change a role use \"user role <username> <role>\")", errUsage)
+		}
+		return nil
+	}
+
+	switch strings.ToLower(words[0]) {
+	case "help":
+		return command{name: "help"}, nil
+	case "setup":
+		if len(words) != 2 || strings.ToLower(words[1]) != "code" {
+			return command{}, fmt.Errorf("%w: usage: jim-dot-tennis setup code", errUsage)
+		}
+		cmd.name = "setup code"
+		return cmd, noRole()
+	case "user":
+		if len(words) < 2 {
+			return command{}, fmt.Errorf("%w: say what to do, for example: jim-dot-tennis user list", errUsage)
+		}
+		sub := strings.ToLower(words[1])
+		cmd.args = words[2:]
+		switch sub {
+		case "list":
+			cmd.name = "user list"
+			if err := need(0, "user list"); err != nil {
+				return command{}, err
+			}
+			return cmd, noRole()
+		case "create":
+			cmd.name = "user create"
+			if err := need(1, "user create <username> --role <admin|captain|player>"); err != nil {
+				return command{}, err
+			}
+			if cmd.role == "" {
+				return command{}, fmt.Errorf("%w: say which role the new account has: --role admin, --role captain or --role player", errUsage)
+			}
+			if _, err := accounts.ParseRole(cmd.role); err != nil {
+				return command{}, fmt.Errorf("%w: %v", errUsage, err)
+			}
+			return cmd, nil
+		case "reset", "disable", "enable":
+			cmd.name = "user " + sub
+			if err := need(1, "user "+sub+" <username>"); err != nil {
+				return command{}, err
+			}
+			return cmd, noRole()
+		case "role":
+			cmd.name = "user role"
+			if err := need(2, "user role <username> <admin|captain|player>"); err != nil {
+				return command{}, err
+			}
+			if _, err := accounts.ParseRole(cmd.args[1]); err != nil {
+				return command{}, fmt.Errorf("%w: %v", errUsage, err)
+			}
+			return cmd, noRole()
+		case "sessions":
+			if len(cmd.args) == 0 || strings.ToLower(cmd.args[0]) != "revoke" {
+				return command{}, fmt.Errorf("%w: usage: jim-dot-tennis user sessions revoke <username>", errUsage)
+			}
+			cmd.name = "user sessions revoke"
+			cmd.args = cmd.args[1:]
+			if err := need(1, "user sessions revoke <username>"); err != nil {
+				return command{}, err
+			}
+			return cmd, noRole()
+		}
+		return command{}, fmt.Errorf("%w: unknown command \"user %s\"", errUsage, words[1])
+	}
+	return command{}, fmt.Errorf("%w: unknown command %q", errUsage, words[0])
+}
+
+// openCLIDatabase opens the database the server uses (DB_PATH, as the server
+// resolves it) without creating it, migrating it or running the startup
+// checks. It refuses a database whose schema is older than this program
+// (the server upgrades it on start) or left half-migrated.
+func openCLIDatabase(ctx context.Context) (*database.DB, error) {
+	path := getEnv("DB_PATH", "./tennis.db")
+	if err := database.RequireSQLite(getEnv("DB_TYPE", database.DriverSQLite)); err != nil {
+		return nil, err
+	}
+	if _, err := os.Stat(path); err != nil {
+		return nil, fmt.Errorf("there is no database at %s. Run this command inside the app's container "+
+			"(docker exec -it jim-dot-tennis ./jim-dot-tennis ...), where DB_PATH points at the app's database", path)
+	}
+	// database.New sets WAL and a busy timeout, so this works alongside the
+	// running server: a write waits briefly for the server's instead of failing.
+	db, err := setupDatabase()
+	if err != nil {
+		return nil, err
+	}
+
+	root, err := getProjectRoot()
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+	latest, err := database.LatestMigration(filepath.Join(root, "migrations"))
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("cannot check the database version (%v). Run this command from the app's folder (/app in the container)", err)
+	}
+	st, err := db.ReadSchemaStatus(ctx)
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+	switch {
+	case !st.Migrated:
+		db.Close()
+		return nil, fmt.Errorf("the database at %s has not been set up yet. Start the app once, then try again", path)
+	case st.Dirty:
+		db.Close()
+		return nil, fmt.Errorf("the database at %s is part-way through an upgrade (version %d) and needs attention before anything else changes it; see the migration notes in docs/PRODUCTION_QUICK_REFERENCE.md", path, st.Version)
+	case st.Version < latest:
+		db.Close()
+		return nil, fmt.Errorf("the database is at version %d but this program needs version %d. Start (or restart) the app once so it upgrades the database, then try again", st.Version, latest)
+	}
+	return db, nil
+}
+
+func (cmd command) run(ctx context.Context, c cliOut, db *database.DB) error {
+	svc := accounts.New(db)
+	actor := accounts.CLIActor(cmd.name)
+	switch cmd.name {
+	case "user list":
+		return userList(ctx, c, svc)
+	case "user create":
+		return userCreate(ctx, c, svc, actor, cmd.args[0], cmd.role)
+	case "user reset":
+		return userReset(ctx, c, svc, actor, cmd.args[0])
+	case "user disable", "user enable":
+		return userSetActive(ctx, c, svc, actor, cmd.args[0], cmd.name == "user enable")
+	case "user role":
+		return userRole(ctx, c, svc, actor, cmd.args[0], cmd.args[1])
+	case "user sessions revoke":
+		return userRevokeSessions(ctx, c, svc, actor, cmd.args[0])
+	case "setup code":
+		return setupCode(ctx, c, db, svc, actor)
+	}
+	return fmt.Errorf("unknown command %q", cmd.name)
+}
+
+func userList(ctx context.Context, c cliOut, svc *accounts.Service) error {
+	list, err := svc.List(ctx)
+	if err != nil {
+		return err
+	}
+	if len(list) == 0 {
+		c.printf("There are no accounts yet.\n")
+		c.printf("If the app has not been set up, run \"jim-dot-tennis setup code\" and open the app in a browser.\n")
+		return nil
+	}
+	tw := tabwriter.NewWriter(c.out, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "USERNAME\tROLE\tCAN SIGN IN\tLAST SIGNED IN\tSIGNED IN ON\tNOTE")
+	admins := 0
+	for _, a := range list {
+		if a.IsActiveAdmin() {
+			admins++
+		}
+		status := "yes"
+		if !a.IsActive {
+			status = "no (disabled)"
+		}
+		last := a.LastLoginAt.Local().Format("2 Jan 2006 15:04")
+		if !a.LastLoginAt.After(a.CreatedAt.Add(time.Second)) {
+			last = "never"
+		}
+		note := ""
+		if a.MustChangePassword {
+			note = "must choose a new password"
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d device(s)\t%s\n", a.Username, a.Role, status, last, a.ActiveSessions, note)
+	}
+	if err := tw.Flush(); err != nil {
+		return err
+	}
+	c.printf("\n%d account(s), %d active administrator(s).\n", len(list), admins)
+	if admins == 0 {
+		c.printf("Nobody can administer the app. Make an account an administrator with\n" +
+			"\"jim-dot-tennis user role <username> admin\" (and \"user enable <username>\" if it is disabled).\n")
+	}
+	return nil
+}
+
+func userCreate(ctx context.Context, c cliOut, svc *accounts.Service, actor accounts.Actor, username, roleName string) error {
+	role, err := accounts.ParseRole(roleName)
+	if err != nil {
+		return err
+	}
+	a, temp, err := svc.CreateWithTemporaryPassword(ctx, actor, username, role)
+	if err != nil {
+		return err
+	}
+	c.printf("Created the account %q (%s).\n\n", a.Username, a.Role)
+	printTemporaryPassword(c, a.Username, temp)
+	return nil
+}
+
+func userReset(ctx context.Context, c cliOut, svc *accounts.Service, actor accounts.Actor, username string) error {
+	a, err := svc.Find(ctx, username)
+	if err != nil {
+		return err
+	}
+	temp, ended, err := svc.ResetWithTemporaryPassword(ctx, actor, a.ID)
+	if err != nil {
+		return err
+	}
+	c.printf("Reset the password of %q (%s) and signed it out of %d session(s).\n\n", a.Username, a.Role, ended)
+	printTemporaryPassword(c, a.Username, temp)
+	if !a.IsActive {
+		c.printf("\nThis account is disabled, so it cannot sign in yet. To let it, run:\n    jim-dot-tennis user enable %s\n", a.Username)
+	}
+	return nil
+}
+
+func printTemporaryPassword(c cliOut, username, temp string) {
+	c.printf("Temporary password (shown only this once):\n\n    %s\n\n", temp)
+	c.printf("Give it to the person who uses %q privately. When they sign in with it\n"+
+		"they will be asked to choose their own password straight away.\n", username)
+}
+
+func userSetActive(ctx context.Context, c cliOut, svc *accounts.Service, actor accounts.Actor, username string, active bool) error {
+	a, err := svc.Find(ctx, username)
+	if err != nil {
+		return err
+	}
+	if a.IsActive == active {
+		if active {
+			c.printf("%q can already sign in; nothing changed.\n", a.Username)
+		} else {
+			c.printf("%q is already disabled; nothing changed.\n", a.Username)
+		}
+		return nil
+	}
+	after, err := svc.SetActive(ctx, actor, a.ID, active)
+	if err != nil {
+		return err
+	}
+	if active {
+		c.printf("Enabled %q (%s). It can sign in again.\n", after.Username, after.Role)
+		return nil
+	}
+	c.printf("Disabled %q (%s). It can no longer sign in and was signed out of %d session(s).\n", after.Username, after.Role, a.ActiveSessions)
+	return nil
+}
+
+func userRole(ctx context.Context, c cliOut, svc *accounts.Service, actor accounts.Actor, username, roleName string) error {
+	role, err := accounts.ParseRole(roleName)
+	if err != nil {
+		return err
+	}
+	a, err := svc.Find(ctx, username)
+	if err != nil {
+		return err
+	}
+	if a.Role == role {
+		c.printf("%q is already %s; nothing changed.\n", a.Username, role)
+		return nil
+	}
+	previous, err := svc.SetRole(ctx, actor, a.ID, role)
+	if err != nil {
+		return err
+	}
+	c.printf("Changed %q from %s to %s.\n", a.Username, previous, role)
+	if !a.IsActive {
+		c.printf("This account is disabled. To let it sign in, run:\n    jim-dot-tennis user enable %s\n", a.Username)
+	}
+	return nil
+}
+
+func userRevokeSessions(ctx context.Context, c cliOut, svc *accounts.Service, actor accounts.Actor, username string) error {
+	a, err := svc.Find(ctx, username)
+	if err != nil {
+		return err
+	}
+	ended, err := svc.RevokeSessions(ctx, actor, a.ID)
+	if err != nil {
+		return err
+	}
+	c.printf("Signed %q out of %d session(s). They will need to sign in again on every device.\n", a.Username, ended)
+	return nil
+}
+
+// setupCode issues a new first-run setup code through the same code as
+// server startup (setup.Service.IssueCode): only while the instance has no
+// administrator, only the hash is stored, and it replaces any earlier code
+// and any browser that had redeemed one. The running server checks codes
+// against the database, so the new code works without a restart; its
+// wrong-code throttle is in the server's memory and is not reset from here.
+func setupCode(ctx context.Context, c cliOut, db *database.DB, svc *accounts.Service, actor accounts.Actor) error {
+	holder, err := config.NewHomeClubHolder(ctx, repository.NewClubRepository(db), repository.NewSettingsRepository(db))
+	if err != nil {
+		return fmt.Errorf("home club configuration: %w", err)
+	}
+	state := setup.NewState(db, holder)
+	status := state.Status(ctx)
+	if !status.NeedsFirstAdmin() {
+		c.printf("No setup code is needed: this app already has an administrator account.\n" +
+			"If nobody can sign in as an administrator, see who can with \"jim-dot-tennis user list\"\n" +
+			"and use \"jim-dot-tennis user reset <username>\" (or \"user enable\") instead.\n")
+		return nil
+	}
+	code, err := setup.NewService(state, nil).IssueCode(ctx)
+	if err != nil {
+		return err
+	}
+	if code == "" {
+		c.printf("No setup code is needed: this app already has an administrator account.\n")
+		return nil
+	}
+	if err := svc.RecordEvent(ctx, actor, accounts.ActionSetupCode, "status "+status.String()); err != nil {
+		return err
+	}
+	c.printf("Setup code (shown only this once):\n\n    %s\n\n", code)
+	c.printf("Open the app in a browser and enter this code to create the first administrator.\n" +
+		"It works once. It replaces any earlier setup code, including the one in the app's log,\n" +
+		"and anyone half-way through setup with an earlier code has to start again.\n")
+	return nil
+}
+
+// describeError turns an error from a command into a sentence for the
+// operator.
+func describeError(err error) string {
+	if errors.Is(err, accounts.ErrNotFound) {
+		return "there is no account with that username. \"jim-dot-tennis user list\" shows them all."
+	}
+	return err.Error()
+}

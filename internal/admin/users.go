@@ -3,11 +3,15 @@
 package admin
 
 import (
+	"errors"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
+	"jim-dot-tennis/internal/accounts"
+	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/models"
 )
 
@@ -55,7 +59,7 @@ func (h *UsersHandler) HandleUsers(w http.ResponseWriter, r *http.Request) {
 
 // handleUsersGet renders the user management page
 func (h *UsersHandler) handleUsersGet(w http.ResponseWriter, r *http.Request, user *models.User) {
-	users, err := h.service.GetAllUsers()
+	users, err := h.service.accounts.List(r.Context())
 	if err != nil {
 		logAndError(w, "Failed to load users", err, http.StatusInternalServerError)
 		return
@@ -89,22 +93,22 @@ func (h *UsersHandler) handleUsersPost(w http.ResponseWriter, r *http.Request, u
 
 	username := strings.TrimSpace(r.FormValue("username"))
 	password := r.FormValue("password")
-	role := models.Role(r.FormValue("role"))
-
 	if username == "" || password == "" {
 		http.Redirect(w, r, "/admin/league/users?error=Username+and+password+are+required", http.StatusSeeOther)
 		return
 	}
 
-	if role != models.RoleAdmin && role != models.RoleCaptain && role != models.RolePlayer {
+	role, err := accounts.ParseRole(r.FormValue("role"))
+	if err != nil {
 		http.Redirect(w, r, "/admin/league/users?error=Invalid+role", http.StatusSeeOther)
 		return
 	}
 
-	_, err := h.service.CreateUser(username, password, role)
-	if err != nil {
+	// The administrator chose this password, so the new user is asked to
+	// replace it at their first sign-in.
+	if _, err := h.service.accounts.Create(r.Context(), actorFor(user), username, role, password, true); err != nil {
 		log.Printf("Failed to create user: %v", err)
-		http.Redirect(w, r, "/admin/league/users?error=Failed+to+create+user", http.StatusSeeOther)
+		redirectUsersError(w, r, err, "Failed to create user")
 		return
 	}
 
@@ -140,9 +144,14 @@ func (h *UsersHandler) handleUserAction(w http.ResponseWriter, r *http.Request, 
 			http.Redirect(w, r, "/admin/league/users?error=Cannot+deactivate+your+own+account", http.StatusSeeOther)
 			return
 		}
-		if err := h.service.ToggleUserActive(targetID); err != nil {
+		target, err := h.service.accounts.Get(r.Context(), targetID)
+		if err != nil {
+			redirectUsersError(w, r, err, "Failed to update user")
+			return
+		}
+		if _, err := h.service.accounts.SetActive(r.Context(), actorFor(currentUser), targetID, !target.IsActive); err != nil {
 			log.Printf("Failed to toggle user active: %v", err)
-			http.Redirect(w, r, "/admin/league/users?error=Failed+to+update+user", http.StatusSeeOther)
+			redirectUsersError(w, r, err, "Failed to update user")
 			return
 		}
 		http.Redirect(w, r, "/admin/league/users?success=User+status+updated", http.StatusSeeOther)
@@ -152,14 +161,14 @@ func (h *UsersHandler) handleUserAction(w http.ResponseWriter, r *http.Request, 
 			http.Error(w, "Invalid form data", http.StatusBadRequest)
 			return
 		}
-		role := models.Role(r.FormValue("role"))
-		if role != models.RoleAdmin && role != models.RoleCaptain && role != models.RolePlayer {
+		role, err := accounts.ParseRole(r.FormValue("role"))
+		if err != nil {
 			http.Redirect(w, r, "/admin/league/users?error=Invalid+role", http.StatusSeeOther)
 			return
 		}
-		if err := h.service.UpdateUserRole(targetID, role); err != nil {
+		if _, err := h.service.accounts.SetRole(r.Context(), actorFor(currentUser), targetID, role); err != nil {
 			log.Printf("Failed to update user role: %v", err)
-			http.Redirect(w, r, "/admin/league/users?error=Failed+to+update+role", http.StatusSeeOther)
+			redirectUsersError(w, r, err, "Failed to update role")
 			return
 		}
 		http.Redirect(w, r, "/admin/league/users?success=Role+updated+successfully", http.StatusSeeOther)
@@ -174,9 +183,11 @@ func (h *UsersHandler) handleUserAction(w http.ResponseWriter, r *http.Request, 
 			http.Redirect(w, r, "/admin/league/users?error=Password+cannot+be+empty", http.StatusSeeOther)
 			return
 		}
-		if err := h.service.ResetUserPassword(targetID, newPassword); err != nil {
+		// Ends all of the user's sessions; unless it is the administrator's own
+		// account the user must choose a new password at their next sign-in.
+		if err := h.service.accounts.SetPassword(r.Context(), actorFor(currentUser), targetID, newPassword); err != nil {
 			log.Printf("Failed to reset password: %v", err)
-			http.Redirect(w, r, "/admin/league/users?error=Failed+to+reset+password", http.StatusSeeOther)
+			redirectUsersError(w, r, err, "Failed to reset password")
 			return
 		}
 		http.Redirect(w, r, "/admin/league/users?success=Password+reset+successfully", http.StatusSeeOther)
@@ -184,4 +195,33 @@ func (h *UsersHandler) handleUserAction(w http.ResponseWriter, r *http.Request, 
 	default:
 		http.Error(w, "Unknown action", http.StatusBadRequest)
 	}
+}
+
+// actorFor is the audit actor for an administrator using the web interface.
+func actorFor(u *models.User) accounts.Actor {
+	return accounts.UserActor(u.ID, u.Username)
+}
+
+// redirectUsersError sends the browser back to the users page with a message
+// for err: the account rule that refused the change, or fallback.
+func redirectUsersError(w http.ResponseWriter, r *http.Request, err error, fallback string) {
+	msg := fallback
+	var invalidName *accounts.InvalidUsernameError
+	switch {
+	case errors.Is(err, accounts.ErrLastAdmin), errors.Is(err, accounts.ErrUsernameTaken),
+		errors.Is(err, accounts.ErrNotFound), errors.Is(err, accounts.ErrInvalidRole):
+		msg = upperFirst(err.Error())
+	case errors.As(err, &invalidName):
+		msg = upperFirst(err.Error())
+	case errors.Is(err, auth.ErrPasswordPolicy):
+		msg = "Password: " + strings.TrimPrefix(err.Error(), auth.ErrPasswordPolicy.Error()+": ")
+	}
+	http.Redirect(w, r, "/admin/league/users?error="+url.QueryEscape(msg), http.StatusSeeOther)
+}
+
+func upperFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
 }

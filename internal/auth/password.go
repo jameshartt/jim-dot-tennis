@@ -68,3 +68,8 @@ func HashPassword(password string) (string, error) {
 	}
 	return string(hashed), nil
 }
+
+// PasswordMatches reports whether password matches the bcrypt hash.
+func PasswordMatches(hash, password string) bool {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
+}

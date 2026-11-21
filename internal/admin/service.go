@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"jim-dot-tennis/internal/accounts"
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
@@ -43,6 +44,7 @@ type Service struct {
 	teamEligibilityService       *TeamEligibilityService
 	pushService                  *webpush.Service
 	courthiveAPIURL              string
+	accounts                     *accounts.Service
 }
 
 // homeClubID returns the current home club ID (0 while the instance is still
@@ -95,6 +97,7 @@ func NewService(db *database.DB, courthiveAPIURL string, homeClub config.HomeClu
 		captainNoteRepository:        repository.NewCaptainNoteRepository(db),
 		weatherService:               services.NewWeatherService(),
 		courthiveAPIURL:              courthiveAPIURL,
+		accounts:                     accounts.New(db),
 	}
 
 	if len(pushService) > 0 {

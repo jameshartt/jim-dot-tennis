@@ -310,6 +310,100 @@ ssh -i $SSH_KEY $SERVER "docker run --rm -v courthive-data:/data alpine tar czf 
 
 ---
 
+### 10. Accounts and Setup from the Server Command Line
+
+The app's own binary has commands for listing, creating, resetting and
+disabling accounts, and for printing a new first-run setup code. Use them when
+nobody can sign in as an administrator. Run them inside the running container;
+the app keeps running:
+
+```bash
+ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis user list"
+ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis user reset <username>"
+ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis setup code"
+```
+
+Anyone who can run these commands already controls the server and the
+database file. The commands add convenience, not privilege.
+
+What they do and do not do:
+
+- They use the same database as the server (`DB_PATH`, `/app/data/tennis.db` in
+  the container) and wait briefly if the server is writing. They never create a
+  database, apply migrations or run the startup checks. If the database is older
+  than the program (an upgraded image that has not started yet) or a migration
+  stopped part-way, they refuse and say so.
+- `user create` and `user reset` print a generated temporary password once. The
+  account must choose its own password at its next sign-in (every signed-in page
+  goes to `/account/password` until it does). `user reset`, `user disable` and
+  `user sessions revoke` sign the account out everywhere.
+- Disabling or demoting the last active administrator is refused.
+- `setup code` only works while the app has no administrator. The new code
+  replaces the one in the startup log and works once. The server's limit on
+  wrong codes is not reset by it (restarting the app resets it).
+- Each command writes an audit line (time, command, account, action) to the
+  terminal it ran in. No password or code is ever included. A stored audit log
+  that administrators can view comes later.
+
+The full `help` text:
+
+```text
+jim-dot-tennis - the club's tennis app
+
+Run it with no command to start the web app. That is what the app's
+container does, so you never need to start it by hand.
+
+The commands below are for the person who looks after the club's server.
+Run them on the server, inside the app's container, for example:
+
+    docker exec -it jim-dot-tennis ./jim-dot-tennis user list
+
+They work while the app is running; there is no need to stop it.
+
+Accounts
+  user list                        Show every account: its role, whether it can
+                                   sign in, and when it last signed in.
+  user create <username> --role <role>
+                                   Make a new account. <role> is admin, captain
+                                   or player. Prints a temporary password once;
+                                   the person chooses their own the first time
+                                   they sign in.
+  user reset <username>            For someone who is locked out (even the last
+                                   administrator): gives the account a new
+                                   temporary password, printed once, signs it
+                                   out everywhere, and asks the person to choose
+                                   their own password when they next sign in.
+  user disable <username>          Stop an account signing in, and sign it out
+                                   everywhere. Refused for the last active
+                                   administrator.
+  user enable <username>           Let a disabled account sign in again.
+  user role <username> <role>      Change an account's role. Refused if it would
+                                   leave no active administrator.
+  user sessions revoke <username>  Sign an account out on every device.
+
+First-run setup
+  setup code                       Print a new setup code, for creating the first
+                                   administrator in the browser. Only works while
+                                   the app has no administrator yet. It cancels
+                                   any earlier code (including the one in the
+                                   app's log) and works once.
+
+  help                             Show this text.
+
+Good to know
+  - No command asks for, accepts or shows your own password. Where a password
+    is needed the app makes up a temporary one and shows it once; pass it on
+    privately (in person or by phone, not in a group chat).
+  - Anyone who can run these commands already controls the server and the
+    app's database file. The commands make recovery easier; they do not give
+    anyone powers they did not already have.
+  - Each command records what it did: the time, the command and the account.
+  - If the app was upgraded but has not started since, the commands refuse to
+    run until it has (starting the app upgrades the database).
+```
+
+---
+
 ## Go Tooling (Sprint 004)
 
 All commands run inside Docker (no local Go install required). Uses `golang:1.26-alpine`.
@@ -413,6 +507,8 @@ ssh -i $SSH_KEY $SERVER "docker compose restart courthive-server"
 ```bash
 ssh -i $SSH_KEY $SERVER "docker logs --tail 50 jim-dot-tennis | grep -i auth"
 ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ls -lh /app/data/tennis.db"
+# Locked out of every administrator account: see section 10
+ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis user list"
 ```
 
 ### TMX login issues
