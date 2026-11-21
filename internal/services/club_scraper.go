@@ -45,6 +45,7 @@ var KnownClubSlugs = []ClubSlugMapping{
 // ScrapedClubInfo holds data scraped from a BHPLTA club page
 type ScrapedClubInfo struct {
 	Slug          string
+	CanonicalSlug string // the page's slug after any redirect
 	Name          string
 	Address       string
 	AddressLine1  string
@@ -73,6 +74,7 @@ type ClubScraper struct {
 	db         *database.DB
 	clubRepo   repository.ClubRepository
 	httpClient *http.Client
+	baseURL    string
 	dryRun     bool
 	verbose    bool
 }
@@ -85,6 +87,7 @@ func NewClubScraper(db *database.DB, clubRepo repository.ClubRepository, dryRun 
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		baseURL: BHPLTABaseURL(),
 		dryRun:  dryRun,
 		verbose: verbose,
 	}
@@ -187,9 +190,25 @@ func (s *ClubScraper) ScrapeClub(ctx context.Context, slug string) (*ClubScraper
 
 // fetchClubPage fetches and parses a single club page from the BHPLTA website
 func (s *ClubScraper) fetchClubPage(slug string) (*ScrapedClubInfo, error) {
-	url := fmt.Sprintf("https://www.bhplta.co.uk/clubs/%s/", slug)
+	info, err := FetchClubPage(context.Background(), s.httpClient, s.baseURL, slug)
+	if err != nil {
+		return nil, err
+	}
+	if info.Latitude == nil && s.verbose {
+		fmt.Printf("  WARNING: Could not extract coordinates for %s\n", info.Slug)
+	}
+	return info, nil
+}
 
-	req, err := http.NewRequest("GET", url, nil)
+// FetchClubPage fetches and parses the public BHPLTA page for the club with
+// slug under base (see BHPLTABaseURL). Besides network errors it returns an
+// *HTTPStatusError for a non-200 answer and an error wrapping
+// ErrUnexpectedMarkup when the page has no club name or address. The page's
+// slug after any redirect is in CanonicalSlug.
+func FetchClubPage(ctx context.Context, client *http.Client, base, slug string) (*ScrapedClubInfo, error) {
+	url := BHPLTAClubURL(base, slug)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -200,14 +219,14 @@ func (s *ClubScraper) fetchClubPage(slug string) (*ScrapedClubInfo, error) {
 	req.Header.Set("Accept-Encoding", "gzip, deflate")
 	req.Header.Set("Connection", "keep-alive")
 
-	resp, err := s.httpClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch page: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d for %s", resp.StatusCode, url)
+		return nil, &HTTPStatusError{URL: url, Status: resp.StatusCode}
 	}
 
 	// Handle compressed response
@@ -221,18 +240,37 @@ func (s *ClubScraper) fetchClubPage(slug string) (*ScrapedClubInfo, error) {
 		reader = gzipReader
 	}
 
-	body, err := io.ReadAll(reader)
+	body, err := io.ReadAll(io.LimitReader(reader, 8<<20))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
+	info, err := ParseClubPage(slug, body)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", url, err)
+	}
+	info.CanonicalSlug = slug
+	if resp.Request != nil && resp.Request.URL != nil {
+		if final := ClubSlugFromURL(resp.Request.URL.String()); final != "" {
+			info.CanonicalSlug = final
+		}
+	}
+	return info, nil
+}
+
+// ParseClubPage parses the HTML of a BHPLTA club page. It returns an error
+// wrapping ErrUnexpectedMarkup when the page has neither a club name nor a
+// club address.
+func ParseClubPage(slug string, body []byte) (*ScrapedClubInfo, error) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(body)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse HTML: %w", err)
 	}
 
+	s := &ClubScraper{}
 	info := &ScrapedClubInfo{
-		Slug: slug,
+		Slug:          slug,
+		CanonicalSlug: slug,
 	}
 
 	// Extract club name from page title or h1/h2
@@ -240,6 +278,11 @@ func (s *ClubScraper) fetchClubPage(slug string) (*ScrapedClubInfo, error) {
 
 	// Extract address from the "Club Address" section
 	s.extractAddress(doc, info)
+
+	if info.Name == "" && info.Address == "" {
+		return nil, fmt.Errorf("no club name or address found: %w", ErrUnexpectedMarkup)
+	}
+	info.Name = normalize.Apostrophes(info.Name)
 
 	// Extract website and email links
 	s.extractContactLinks(doc, info)
@@ -541,9 +584,6 @@ func (s *ClubScraper) extractCoordinates(doc *goquery.Document, info *ScrapedClu
 		}
 	}
 
-	if info.Latitude == nil && s.verbose {
-		fmt.Printf("  WARNING: Could not extract coordinates for %s\n", info.Slug)
-	}
 }
 
 // parseFloat64 parses a string to *float64, returning nil on failure

@@ -3,9 +3,12 @@
 package services
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +25,9 @@ type ScrapedFixture struct {
 	Date     time.Time
 	HomeTeam string
 	AwayTeam string
+	// HomeClubSlug is the BHPLTA club page slug the home team links to
+	// ("" when the cell has no club link).
+	HomeClubSlug string
 }
 
 // ScrapedDivision represents a division with its teams and fixtures from the BHPLTA page
@@ -31,22 +37,39 @@ type ScrapedDivision struct {
 	Fixtures []ScrapedFixture
 }
 
+// ErrNoFixturesPublished means the BHPLTA fixtures page loaded and says there
+// are no upcoming fixtures (between seasons, before the new season's fixtures
+// are published).
+var ErrNoFixturesPublished = errors.New("the BHPLTA fixtures page has no upcoming fixtures")
+
+// ErrUnexpectedMarkup means a BHPLTA page loaded but did not contain what the
+// scraper looks for, which usually means the site has changed.
+var ErrUnexpectedMarkup = errors.New("the page did not look as expected")
+
 // ScrapeFixtures fetches and parses the BHPLTA fixtures page, returning divisions with their teams and fixtures
 func ScrapeFixtures(url string) ([]ScrapedDivision, error) {
-	req, err := http.NewRequest("GET", url, nil)
+	return FetchFixtures(context.Background(), &http.Client{Timeout: 30 * time.Second}, url)
+}
+
+// FetchFixtures fetches and parses the BHPLTA fixtures page at url. Besides
+// network errors it returns an *HTTPStatusError for a non-200 answer,
+// ErrNoFixturesPublished when the page says there are no upcoming fixtures,
+// and an error wrapping ErrUnexpectedMarkup when the page has neither.
+func FetchFixtures(ctx context.Context, client *http.Client, url string) ([]ScrapedDivision, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch fixtures page: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("fixtures page returned status %d", resp.StatusCode)
+		return nil, &HTTPStatusError{URL: url, Status: resp.StatusCode}
 	}
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
@@ -79,19 +102,25 @@ func ParseFixturesHTML(doc *goquery.Document) ([]ScrapedDivision, error) {
 			fixtureDate := parseFixtureDateBHPLTA(dateStr)
 
 			table.Find("tbody tr").Each(func(k int, row *goquery.Selection) {
-				homeTeam := normalize.Apostrophes(strings.TrimSpace(row.Find("td.bhplta_fixtures_home_team").Text()))
+				homeCell := row.Find("td.bhplta_fixtures_home_team")
+				homeTeam := normalize.Apostrophes(strings.TrimSpace(homeCell.Text()))
 				awayTeam := normalize.Apostrophes(strings.TrimSpace(row.Find("td.bhplta_fixtures_away_team").Text()))
 
 				if homeTeam == "" || awayTeam == "" {
 					return
 				}
+				// A team without a fixture that week is listed against a bye.
+				if row.Find(".bhplta_bye").Length() > 0 || strings.EqualFold(homeTeam, "bye") || strings.EqualFold(awayTeam, "bye") {
+					return
+				}
 
 				div.Fixtures = append(div.Fixtures, ScrapedFixture{
-					Division: divName,
-					Week:     weekNum,
-					Date:     fixtureDate,
-					HomeTeam: homeTeam,
-					AwayTeam: awayTeam,
+					Division:     divName,
+					Week:         weekNum,
+					Date:         fixtureDate,
+					HomeTeam:     homeTeam,
+					AwayTeam:     awayTeam,
+					HomeClubSlug: ClubSlugFromURL(homeCell.Find("a").AttrOr("href", "")),
 				})
 
 				teamSet[homeTeam] = true
@@ -102,12 +131,16 @@ func ParseFixturesHTML(doc *goquery.Document) ([]ScrapedDivision, error) {
 		for team := range teamSet {
 			div.Teams = append(div.Teams, team)
 		}
+		sort.Strings(div.Teams)
 
 		divisions = append(divisions, div)
 	})
 
 	if len(divisions) == 0 {
-		return nil, fmt.Errorf("no divisions found on fixtures page")
+		if strings.Contains(strings.ToLower(doc.Find("body").Text()), "no upcoming fixtures") {
+			return nil, ErrNoFixturesPublished
+		}
+		return nil, fmt.Errorf("no divisions found on fixtures page: %w", ErrUnexpectedMarkup)
 	}
 
 	return divisions, nil
