@@ -5,7 +5,16 @@
 #
 #   cd deploy
 #   cp .env.example .env        # then fill in every value
-#   docker compose up -d --build
+#   docker compose up -d
+#
+# The app runs the published image ghcr.io/jameshartt/jim-dot-tennis at the
+# version in JIM_DOT_TENNIS_VERSION (pinned default below, no leading "v"):
+# nothing is compiled on your server. To upgrade, read the "Upgrade notes" for
+# the new version in CHANGELOG.md, set the variable in .env and run
+# `docker compose pull app && docker compose up -d app`. The app takes a backup
+# before it migrates. To build the app from source instead (development), use
+# the repository's root docker-compose.yml. The CourtHive server below is still
+# built from its source checkout.
 #
 # Compose reads deploy/.env automatically (it sits next to this file).
 # Required variables use ${VAR:?message}: a missing value stops compose with a
@@ -16,7 +25,6 @@
 #   <parent>/
 #     jim-dot-tennis/              this repository (checkout or rsync target)
 #       deploy/                    this file, Caddyfile, .env
-#       templates/  static/        built into the app image (not mounted)
 #     competition-factory-server/  CourtHive API server source (built here)
 #     TMX/dist/                    pre-built TMX frontend, served at /tournaments
 #     courthive-public/dist/       pre-built public viewer, served at /public
@@ -32,11 +40,9 @@
 name: jim-dot-tennis
 
 services:
-  # Existing jim-dot-tennis app
+  # The jim-dot-tennis app, from the published release image
   app:
-    build:
-      context: ..
-      dockerfile: Dockerfile
+    image: ghcr.io/jameshartt/jim-dot-tennis:${JIM_DOT_TENNIS_VERSION:-0.1.0}
     container_name: jim-dot-tennis
     restart: unless-stopped
     volumes:

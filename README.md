@@ -28,7 +28,7 @@ The BHPLTA organises the parks league that jim.tennis is built around. Match car
 
 ## Tech stack
 
-- **Go 1.25** — server-side application
+- **Go 1.26** — server-side application
 - **SQLite** (the only supported database)
 - **HTMX** — server-rendered HTML with minimal client-side JavaScript
 - **PWA** — progressive web app with push notification support
@@ -53,7 +53,23 @@ make run-local        # Build and run
 make clean-local      # Clean binary and database
 ```
 
-### Production deployment
+### Install a release
+
+Each tagged version is published as Linux amd64 and arm64 binaries on the
+[Releases page](https://github.com/jameshartt/jim-dot-tennis/releases) (with a
+checksum file) and as a multi-architecture image,
+`ghcr.io/jameshartt/jim-dot-tennis:<version>` (no leading `v`). Nothing needs to
+be compiled on your server: `deploy/docker-compose.yml` runs the image named by
+`JIM_DOT_TENNIS_VERSION`. Versions before 1.0.0 are pre-releases. Before
+upgrading read the **Upgrade notes** for each version in
+[CHANGELOG.md](CHANGELOG.md); builds carry provenance attestations you can check
+(see [RELEASING.md](RELEASING.md#how-a-club-verifies-a-download)).
+
+```bash
+./jim-dot-tennis version        # prints the version, commit and build date
+```
+
+### Production deployment (building from source)
 
 ```bash
 make build            # Build Docker images
