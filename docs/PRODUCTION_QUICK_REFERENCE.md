@@ -343,10 +343,27 @@ What they do and do not do:
 - `user reset` changes nothing by itself: the account keeps its password,
   passkeys and sessions until the link is used. `user disable` and
   `user sessions revoke` sign the account out everywhere at once.
-- Disabling or demoting the last active administrator is refused.
+- Disabling or demoting the last administrator **who can sign in** is refused.
+  An administrator account nobody can use does not count: one whose invite was
+  never accepted, or one with only a password while passkeys are required for
+  administrators. Such an account can itself be disabled or demoted while
+  another administrator account exists. Creating an administrator, `user reset`
+  and `admin-passkeys off` are never refused, so there is always a way back in
+  from the server.
+- `user enable` is refused for an administrator account with no working
+  passkey while passkeys are required for administrators. Make it a captain
+  first (`user role <username> captain`, then `user enable`), or run
+  `admin-passkeys off`; if the person is locked out, `user reset` then gives
+  them a link.
 - `setup code` only works while the app has no administrator. The new code
   replaces the one in the startup log and works once. The server's limit on
-  wrong codes is not reset by it (restarting the app resets it).
+  wrong codes is not reset by it (restarting the app resets it). That limit is
+  5 wrong codes per address in 15 minutes. Wrong codes from many addresses (30
+  in 15 minutes) make the page answer "too many" to further wrong codes, but
+  the **right code is still accepted** from any address that has not used up
+  its own 5, so a stranger hammering the setup page cannot stop you claiming
+  your own instance. The code is 60 random bits, which is far beyond guessing
+  at any rate the server can answer.
 - Each command records what it did (time, command, account, action) in the
   account audit log that administrators see at `/admin/league/audit-log`
   (section 13), and writes the same line to the terminal it ran in. No password,
@@ -384,11 +401,11 @@ Accounts
                                    else. The link works once, for 1 hour. Nothing
                                    changes for the account until it is used.
   user disable <username>          Stop an account signing in, and sign it out
-                                   everywhere. Refused for the last active
-                                   administrator.
+                                   everywhere. Refused for the last
+                                   administrator who can sign in.
   user enable <username>           Let a disabled account sign in again.
   user role <username> <role>      Change an account's role. Refused if it would
-                                   leave no active administrator.
+                                   leave no administrator who can sign in.
   user sessions revoke <username>  Sign an account out on every device.
 
 Passkeys for administrators
@@ -434,8 +451,55 @@ username and password. The login page leads with "Sign in with a passkey"; the
 password form is folded away underneath ("Sign in with a username and
 password") and opens by itself in a browser that can't use passkeys. Each person adds, names and removes their own
 passkeys on the **Sign-in methods** page (`/account/signin-methods`, linked from
-the dashboard header). A passkey that is someone's only way to sign in cannot be
-removed. First-run setup offers "Create my login, then add a passkey".
+the dashboard header). A passkey that is someone's only working way to sign in
+cannot be removed. First-run setup offers "Create my login, then add a passkey"
+(the page then asks for the password just chosen, see "Confirming it's you").
+
+**Sign-in needs a discoverable passkey.** "Sign in with a passkey" never asks
+for a username: the browser offers the passkeys it holds for the site, and the
+app learns who it is from the signed answer. There is no "use a passkey for
+this username" option (it let anyone ask which usernames had passkeys). Every
+passkey made in the app is discoverable (it is required when one is added), so
+this only matters for an authenticator that cannot store one, such as some
+older security keys: that person signs in with a password, or gets a recovery
+link (section 12).
+
+**Confirming it's you.** Being signed in is not enough to change how an account
+signs in, so that someone who finds a signed-in browser cannot take the account
+over. Adding a passkey, removing a passkey, and adding, changing or removing
+the password each ask for one of:
+
+- the account's current password, typed there and then (5 wrong tries per
+  address in 15 minutes), or
+- "Confirm with a passkey": a fresh confirmation with a passkey the account
+  already had. It lasts 5 minutes, works for one change, and only in that
+  browser session. A passkey that was itself just added from a signed-in
+  session cannot confirm anything for 10 minutes, nor in the session that
+  added it ("That passkey was only just added"): use an older passkey or the
+  password. A passkey set up through an invite or recovery link can confirm
+  straight away.
+
+Someone with only a password adds their first passkey by typing the password;
+someone with only passkeys confirms with one of them. An account whose only
+passkey is blocked (below) and has no password cannot confirm anything: an
+administrator clears the block, or gives them a recovery link.
+
+**Signing out other devices.** Adding or removing a passkey, and adding,
+changing or removing the password, sign the account out everywhere else; the
+browser that made the change stays signed in. The page also has "Sign out
+everywhere else" for someone who left themselves signed in somewhere. Each is
+written to the audit log with how it was confirmed and how many sessions
+ended.
+
+**Administrators need a passkey that checks who is holding it.** For an
+administrator account the app requires "user verification": the PIN,
+fingerprint, face or screen lock of the phone, computer or security key. A
+security key with no PIN proves only that someone has the key, so an
+administrator cannot add one, and a sign-in or confirmation that did not check
+is refused with a message saying to set a PIN on the security key (or a screen
+lock on the device) and try again. Other accounts are not held to this, so a
+plain security key works for a captain. An account promoted to administrator
+keeps its passkeys; they must verify from then on.
 
 **Passkeys are tied to the public URL.** A passkey only works at the web address
 it was made for: the host of `PUBLIC_URL` (or the Public URL on the Club Settings
@@ -466,7 +530,9 @@ passkey reports a count that went backwards, a copy of it may be in use: the
 sign-in is refused, the passkey is blocked, a `SECURITY WARNING` line is logged
 and administrators see a red banner on the dashboard. On the Sign-in methods
 page an administrator can clear the warning after checking with the person, or
-the person can remove the passkey and add a new one.
+the person can remove the passkey and add a new one. A blocked passkey does not
+count as a way to sign in: the only working passkey cannot be removed just
+because a blocked one is still listed.
 
 **Throttling.** Passkey attempts are limited per client address only (10 failed
 sign-ins per 15 minutes, 30 started per minute), never per username, so nobody
@@ -486,13 +552,11 @@ can add, change or remove their own password (nobody else ever sets one):
   character repeated. There are no "must contain a digit" rules. Existing
   passwords keep working whatever they are; the rules apply only when one is
   chosen.
-- Adding or changing a password needs the current password, or a fresh
-  confirmation with one of the person's passkeys ("Confirm with a passkey",
-  valid for 5 minutes, once, in that browser session only). Being signed in is
-  not enough. Wrong current passwords are limited to 5 per 15 minutes per
-  address.
-- Changing a password signs the account out on every other device; this browser
-  stays signed in (with a new session). Adding one signs nobody out.
+- Adding, changing or removing a password needs the current password, or a
+  fresh confirmation with one of the person's passkeys (see "Confirming it's
+  you" above). Being signed in is not enough.
+- Each of those signs the account out on every other device; this browser
+  stays signed in (with a new session).
 - A password can only be removed while the account keeps a passkey that works
   (not one blocked for a security check).
 - Someone who signs in with a password and has no passkey is offered one
@@ -511,7 +575,8 @@ administrators"). While it is on:
   that club administrators sign in with a passkey;
 - an administrator's invite or recovery link only offers a passkey;
 - an administrator cannot remove their last working passkey;
-- an account without a working passkey cannot be made an administrator.
+- an account without a working passkey cannot be made an administrator, and a
+  deactivated administrator without one cannot be activated.
 
 It cannot be turned on until every active administrator has a working passkey
 (the page, and `admin-passkeys on`, name anyone who has not). The Public URL
@@ -597,6 +662,11 @@ old one).
 - Links start with the public URL (`PUBLIC_URL`, or the Public URL on the Club
   Settings page). Passkeys are offered on the link page only when a public URL is
   set (section 11); otherwise the page asks for a password.
+- The link page and the users page send `Referrer-Policy: same-origin`: the
+  link's address is never passed to another site, and the page's own forms keep
+  working in every browser (with `no-referrer` a browser posts them with
+  `Origin: null`, which the app's cross-site check refuses over plain http to
+  anything but localhost).
 - Link addresses contain the secret, so they must not be written to access logs.
   The app never logs them, and the reference `deploy/Caddyfile` has no access
   log. If you add request logging to a proxy in front of the app, leave out (or
@@ -613,7 +683,9 @@ ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis user list"
 # Print a recovery link for an administrator (works once, for 1 hour)
 ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis user reset <username>"
 
-# If the account was deactivated, activate it first (or the link will not work)
+# If the account was deactivated, activate it first (or the link will not work).
+# While passkeys are required for administrators this is refused for an
+# administrator with no working passkey: run `admin-passkeys off` first.
 ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis user enable <username>"
 
 # If no administrator account is left at all, promote one or make a new one
@@ -663,7 +735,20 @@ Neither limit ever counts other addresses, so nobody can lock a named person out
 of signing in from somewhere else, and neither applies to passkeys (section 11):
 password failures against a name never block that person's passkey. While
 blocked, further attempts are refused without being counted, so retrying does
-not extend the block. An IPv6 client counts as its whole /64 network; the
+not extend the block.
+
+The limits hold however many attempts arrive at once: password sign-ins from
+one address are handled one at a time (the check, the password compare and the
+record of one attempt finish before the next is looked at), and the app runs at
+most two password hashes at a time in total, so a burst cannot pin a small
+server. A sign-in that cannot get its turn within 5 seconds, or that finds 8
+already waiting from its address, is told "the site is busy signing people in;
+please try again in a moment"; it is not counted as a failed attempt. Sign-in
+takes the same time whether or not the username exists, has a password or is
+deactivated, so the response time does not reveal which usernames are real.
+What a sign-in attempt stores is bounded: the username is cut to 128 bytes and
+the browser's User-Agent to 256, and the sign-in form itself is limited to
+16 KB. An IPv6 client counts as its whole /64 network; the
 dashboard's login attempts show that network for IPv6 clients.
 
 **Client addresses.** Every throttle and recorded address comes from one
@@ -705,7 +790,21 @@ line with the counts.
 
 **Logging.** Sign-in logs no usernames (attempted usernames are in
 `login_attempts`, visible to administrators) and nothing per request; player
-link tokens and the paths that contain them are never logged.
+link tokens and the paths that contain them are never logged, nor are push
+subscription addresses. No part of the web push (VAPID) private key is logged
+or returned by "reset the push keys"; only the public key is.
+
+**Framing.** The app tells browsers never to show its pages inside a frame on
+any site (`X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors
+'none'` on every response), so a page cannot be overlaid on another to trick
+someone into clicking. It does this itself; it does not rely on the proxy.
+
+**A failed database migration stops the app.** If a migration cannot be applied
+at startup the app logs "Database migration failed, so the app cannot start"
+with the reason and exits, instead of carrying on with an older database
+layout. Check the log, and that the image's `migrations/` directory matches the
+build; for a migration that stopped part-way see "Working with Migrations" in
+`CLAUDE.md`.
 
 **Signing out** is a POST form (the Logout / Sign out buttons). `GET /logout`
 answers 405 and signs nobody out, so a link or image on another page cannot

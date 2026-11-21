@@ -51,7 +51,10 @@ the club: accounts, settings, seasons and imports.
 | Backups | No | Yes (on the server) |
 
 Everyone with an account can manage their own sign-in methods (passkeys and
-password) on the sign-in methods page.
+password) on the sign-in methods page. Changing them asks you to confirm it's
+you first, with your current password or a passkey you already have, and signs
+you out on your other devices. An administrator's passkey must check who is
+holding it (a PIN, fingerprint, face or screen lock).
 
 If a captain opens a page that is only for administrators, they see a page
 saying so, with a link back to the dashboard. Links to those pages are not
@@ -63,7 +66,8 @@ An administrator chooses the role when creating the account on the users
 page, and can change it there at any time. On the server the same is done with
 `jim-dot-tennis user create <username> --role captain` and
 `jim-dot-tennis user role <username> admin`. There must always be at least one
-active administrator.
+active administrator who can actually sign in (an account whose invite was
+never accepted does not count).
 
 On the users page an administrator can also link an account to the person's
 player record ("Linked player"). A captain can do this for themselves from the

@@ -52,11 +52,11 @@ Accounts
                                    else. The link works once, for 1 hour. Nothing
                                    changes for the account until it is used.
   user disable <username>          Stop an account signing in, and sign it out
-                                   everywhere. Refused for the last active
-                                   administrator.
+                                   everywhere. Refused for the last
+                                   administrator who can sign in.
   user enable <username>           Let a disabled account sign in again.
   user role <username> <role>      Change an account's role. Refused if it would
-                                   leave no active administrator.
+                                   leave no administrator who can sign in.
   user sessions revoke <username>  Sign an account out on every device.
 
 Passkeys for administrators
