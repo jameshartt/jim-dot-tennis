@@ -4,6 +4,7 @@
 **Domain:** jim.tennis
 **SSH:** `ssh -i $SSH_KEY $SERVER`
 **Path:** `$REMOTE_PATH/`
+**Reference deployment in git:** `deploy/docker-compose.yml`, `deploy/Caddyfile`, `deploy/.env.example`. The server-side commands below use the file name the server runs today (`docker-compose.courthive.yml`); the server is reconciled with the reference in WI-141. `scripts/deploy-app.sh` does not sync compose or the Caddyfile.
 **Go Version:** 1.26 (bumped from 1.25 on 2026-09-25; runtime image alpine:3.24)
 
 ---

@@ -20,6 +20,9 @@
 #   -s, --skip-build  Rsync only. Useful if you want to inspect changes
 #                     on the server before triggering a rebuild.
 #   -h, --help        Show this help.
+#
+# Compose/Caddy: this script does NOT sync docker-compose or Caddyfile (see the
+# note above the FILES list). Update those on the server by hand when needed.
 
 set -euo pipefail
 
@@ -81,8 +84,11 @@ done
 # Root-level build inputs. Without these, a Dockerfile/.dockerignore change
 # never reaches the server and the rebuild silently uses the old build recipe;
 # a go.mod/go.sum change (new dependency) breaks the server build outright.
-# (Compose files are deliberately NOT synced — prod compose has diverged from
-# the repo, so overwriting it would resurrect the wrong stack.)
+# Compose files and the Caddyfile are deliberately NOT synced by this script,
+# and neither is deploy/. The reference deployment (deploy/docker-compose.yml,
+# deploy/Caddyfile, deploy/.env.example) lives in git, but changing the running
+# stack is a manual, deliberate step; this script only ships app source and the
+# build inputs below, then rebuilds and restarts the app service.
 FILES=(go.mod go.sum Dockerfile Dockerfile.import .dockerignore)
 
 for file in "${FILES[@]}"; do
