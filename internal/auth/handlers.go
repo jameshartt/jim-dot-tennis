@@ -43,6 +43,9 @@ type loginData struct {
 	Redirect string
 	// PasskeysAvailable: passkey sign-in can be offered at this web address.
 	PasskeysAvailable bool
+	// AdminPasskeysRequired: administrators must use a passkey here (shown
+	// to everyone; never per username).
+	AdminPasskeysRequired bool
 }
 
 // loginTemplates caches the parsed login page.
@@ -51,6 +54,7 @@ var loginTemplates = render.NewCache()
 // renderLogin renders the login form, parsing its templates on first use.
 func (h *Handler) renderLogin(w http.ResponseWriter, r *http.Request, data loginData) {
 	data.PasskeysAvailable = h.passkeys != nil && h.passkeys.Available(r)
+	data.AdminPasskeysRequired = data.PasskeysAvailable && h.service.AdminPasskeysRequired(r.Context())
 	tmpl, err := loginTemplates.Get(h.templateDir, func() (*template.Template, error) {
 		funcMap := template.FuncMap{
 			"currentYear": func() int {
@@ -155,6 +159,8 @@ func (h *Handler) LoginHandler() http.HandlerFunc {
 				log.Printf("WARNING: redirectPath is empty, defaulting to /admin/league")
 				redirectTo = "/admin/league"
 			}
+			// An account with no passkey is offered one first (never forced).
+			redirectTo = h.passkeyPromptTarget(r, session.UserID, redirectTo)
 
 			log.Printf("Login successful for user: %s, redirecting to: %s", username, redirectTo)
 

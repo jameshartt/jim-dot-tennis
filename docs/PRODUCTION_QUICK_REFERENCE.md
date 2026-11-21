@@ -321,6 +321,7 @@ the app keeps running:
 ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis user list"
 ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis user reset <username>"
 ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis setup code"
+ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis admin-passkeys off"
 ```
 
 Anyone who can run these commands already controls the server and the
@@ -388,6 +389,15 @@ Accounts
                                    leave no active administrator.
   user sessions revoke <username>  Sign an account out on every device.
 
+Passkeys for administrators
+  admin-passkeys status            Say whether administrators must sign in with
+                                   a passkey, and which have none.
+  admin-passkeys off               Stop requiring passkeys for administrators,
+                                   so they can sign in with a password again
+                                   (for when they are locked out).
+  admin-passkeys on                Require them. Refused until every active
+                                   administrator has a passkey.
+
 First-run setup
   setup code                       Print a new setup code, for creating the first
                                    administrator in the browser. Only works while
@@ -419,7 +429,8 @@ Good to know
 
 People sign in with a passkey (fingerprint, face or screen lock) or with a
 username and password. The login page leads with "Sign in with a passkey"; the
-password form stays underneath. Each person adds, names and removes their own
+password form is folded away underneath ("Sign in with a username and
+password") and opens by itself in a browser that can't use passkeys. Each person adds, names and removes their own
 passkeys on the **Sign-in methods** page (`/account/signin-methods`, linked from
 the dashboard header). A passkey that is someone's only way to sign in cannot be
 removed. First-run setup offers "Create my login, then add a passkey".
@@ -432,8 +443,10 @@ change takes effect at once. Consequences:
 
 - **Changing the domain (or moving between `www.` and the bare name) makes every
   existing passkey stop working.** Nothing is deleted, and changing it back makes
-  them work again. Before changing it, make sure every administrator has a
-  password; afterwards, anyone left without a way in gets a recovery link
+  them work again. Before changing it, turn off "Require passkeys for
+  administrators" (below; the settings page refuses to change the address while
+  it is on) and make sure every administrator has a password; afterwards, anyone
+  left without a way in gets a recovery link
   (section 12; `jim-dot-tennis user reset <username>` on the server if no
   administrator can sign in). Each person then adds a new passkey and removes
   the old one.
@@ -461,6 +474,59 @@ login attempts as `(passkey)`.
 **Nothing leaves the server.** No attestation is requested and no authenticator
 metadata is fetched; `static/passkey.js` is the only script involved and is
 served by the app.
+
+**Passwords are an optional fallback.** On the Sign-in methods page each person
+can add, change or remove their own password (nobody else ever sets one):
+
+- New and changed passwords need at least 12 characters (at most 72 bytes) and
+  must not be on a short built-in list of common passwords
+  (`internal/auth/common_passwords.txt`), contain the username or be one
+  character repeated. There are no "must contain a digit" rules. Existing
+  passwords keep working whatever they are; the rules apply only when one is
+  chosen.
+- Adding or changing a password needs the current password, or a fresh
+  confirmation with one of the person's passkeys ("Confirm with a passkey",
+  valid for 5 minutes, once, in that browser session only). Being signed in is
+  not enough. Wrong current passwords are limited to 5 per 15 minutes per
+  address.
+- Changing a password signs the account out on every other device; this browser
+  stays signed in (with a new session). Adding one signs nobody out.
+- A password can only be removed while the account keeps a passkey that works
+  (not one blocked for a security check).
+- Someone who signs in with a password and has no passkey is offered one
+  afterwards (where passkeys work). "Not now" hides the offer in that browser
+  for 30 days; it is never required.
+- Passwords are hashed with bcrypt at cost 12 (`auth.BcryptCost`, the only
+  place it is set). An older, cheaper hash is replaced the next time its owner
+  signs in with the password.
+
+**Require passkeys for administrators** (Club Settings, "Sign-in for
+administrators"). While it is on:
+
+- an administrator cannot sign in with a password. The login page shows the
+  same "invalid username or password" as for a wrong password, so it never
+  reveals which usernames are administrators; instead it tells every visitor
+  that club administrators sign in with a passkey;
+- an administrator's invite or recovery link only offers a passkey;
+- an administrator cannot remove their last working passkey;
+- an account without a working passkey cannot be made an administrator.
+
+It cannot be turned on until every active administrator has a working passkey
+(the page, and `admin-passkeys on`, name anyone who has not). The Public URL
+cannot be changed on the settings page while it is on.
+
+It can never lock the club out for good:
+
+- `jim-dot-tennis admin-passkeys off` on the server turns it off at once (the
+  app reads it on every sign-in; no restart).
+- `jim-dot-tennis user reset <username>` still works: the recovery link lets an
+  administrator set up a new passkey and sign in.
+- It only applies where passkeys can be used. If the instance has no usable
+  public URL (outside production only, since production requires one),
+  administrators can sign in with a password again. If `PUBLIC_URL` is changed
+  in the environment while it is on, existing passkeys stop working but new ones
+  can be made at the new address: use `user reset` for each administrator, or
+  turn the setting off first.
 
 **Local development.** WebAuthn needs https, with one exception: `http://localhost`.
 
@@ -554,7 +620,9 @@ ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis user create
 ```
 
 Open the printed link in a browser, set a passkey or password, and you are
-signed in as that administrator. If the app has no public URL set, the command
+signed in as that administrator. While passkeys are required for administrators
+(section 11) the link offers only a passkey; if you cannot make one there, run
+`jim-dot-tennis admin-passkeys off` first. If the app has no public URL set, the command
 prints only the `/account/link/...` part: put the address you use to reach the
 app in front of it.
 
@@ -675,6 +743,9 @@ ssh -i $SSH_KEY $SERVER "docker logs --tail 50 jim-dot-tennis | grep -i auth"
 ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ls -lh /app/data/tennis.db"
 # Locked out of every administrator account: see section 12
 ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis user list"
+# An administrator's right password is refused as "invalid": passkeys may be
+# required for administrators (section 11). Check, and turn it off if needed:
+ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis admin-passkeys status"
 ```
 
 ### TMX login issues

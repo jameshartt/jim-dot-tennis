@@ -17,8 +17,6 @@ import (
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 // redactToken returns a short, non-reversible fingerprint of a session token
@@ -79,6 +77,7 @@ type Service struct {
 	db                     *database.DB
 	config                 Config
 	loginAttemptRepository repository.LoginAttemptRepository
+	passkeysAvailable      func(*http.Request) bool // set by NewPasskeys; nil: no passkeys (admin_passkeys.go)
 }
 
 // NewService creates a new auth service
@@ -123,8 +122,9 @@ func (s *Service) Login(username, password string, r *http.Request) (*models.Ses
 		s.recordLoginAttempt(username, r, false)
 		return nil, ErrInvalidCredentials
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		log.Printf("Password verification failed for user %s: %v", username, err)
+	// checkPassword (admin_passkeys.go) also refuses administrators while
+	// passkeys are required for them, and upgrades an older hash.
+	if !s.checkPassword(r, &user, password) {
 		s.recordLoginAttempt(username, r, false)
 		return nil, ErrInvalidCredentials
 	}

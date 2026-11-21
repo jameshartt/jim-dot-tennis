@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"testing"
 
@@ -133,9 +134,17 @@ func TestWrappedCheckGeneratedCodeIsForgiving(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, in := range []string{code, " " + code + " ", normalizeCode(code), "x" + code[1:]} {
+	// A code with its first character changed must be refused. The
+	// replacement must differ from that character even after normalising
+	// (upper case), or the "wrong" code would be the real one.
+	first := "Q"
+	if strings.EqualFold(code[:1], first) {
+		first = "Z"
+	}
+	wrong := first + code[1:]
+	for _, in := range []string{code, " " + code + " ", normalizeCode(code), wrong, strings.ToLower(wrong)} {
 		got, err := w.Check(ctx, in)
-		want := in != "x"+code[1:]
+		want := in != wrong && in != strings.ToLower(wrong)
 		if err != nil || got != want {
 			t.Errorf("Check(variant) = %v (err %v), want %v", got, err, want)
 		}

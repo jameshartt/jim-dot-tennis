@@ -10,7 +10,7 @@ import { FixtureServer, readSetupCode, sqlite } from "./helpers/fresh-install";
  */
 
 const ADMIN_USER = "fresh.admin";
-const ADMIN_PASSWORD = "correct horse battery staple";
+const ADMIN_PASSWORD = "a quiet morning on court seven";
 const CLUB_DISPLAY_NAME = "Fresh Install Tennis";
 
 let context: BrowserContext;
@@ -67,8 +67,8 @@ test.describe("Fresh install", () => {
 
   test("a password that breaks the policy is refused, nothing is created", async () => {
     await page.fill("#username", ADMIN_USER);
-    await page.fill("#password", "tennisclub");
-    await page.fill("#password_confirm", "tennisclub");
+    await page.fill("#password", "tennisclub123");
+    await page.fill("#password_confirm", "tennisclub123");
     await page.click('button[type="submit"]');
     await expect(page.locator('[data-setup-step="admin"]')).toBeVisible();
     await expect(page.locator("body")).toContainText("too common");

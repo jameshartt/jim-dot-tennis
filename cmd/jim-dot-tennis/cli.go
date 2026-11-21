@@ -58,6 +58,15 @@ Accounts
                                    leave no active administrator.
   user sessions revoke <username>  Sign an account out on every device.
 
+Passkeys for administrators
+  admin-passkeys status            Say whether administrators must sign in with
+                                   a passkey, and which have none.
+  admin-passkeys off               Stop requiring passkeys for administrators,
+                                   so they can sign in with a password again
+                                   (for when they are locked out).
+  admin-passkeys on                Require them. Refused until every active
+                                   administrator has a passkey.
+
 First-run setup
   setup code                       Print a new setup code, for creating the first
                                    administrator in the browser. Only works while
@@ -205,6 +214,16 @@ func parseCommand(args []string) (command, error) {
 		}
 		cmd.name = "setup code"
 		return cmd, noRole()
+	case "admin-passkeys":
+		if len(words) != 2 {
+			return command{}, fmt.Errorf("%w: usage: jim-dot-tennis admin-passkeys status|on|off", errUsage)
+		}
+		switch sub := strings.ToLower(words[1]); sub {
+		case "status", "on", "off":
+			cmd.name = "admin-passkeys " + sub
+			return cmd, noRole()
+		}
+		return command{}, fmt.Errorf("%w: usage: jim-dot-tennis admin-passkeys status|on|off", errUsage)
 	case "user":
 		if len(words) < 2 {
 			return command{}, fmt.Errorf("%w: say what to do, for example: jim-dot-tennis user list", errUsage)
@@ -328,6 +347,8 @@ func (cmd command) run(ctx context.Context, c cliOut, db *database.DB) error {
 		return userRevokeSessions(ctx, c, svc, actor, cmd.args[0])
 	case "setup code":
 		return setupCode(ctx, c, db, svc, actor)
+	case "admin-passkeys status", "admin-passkeys on", "admin-passkeys off":
+		return adminPasskeys(ctx, c, svc, actor, strings.TrimPrefix(cmd.name, "admin-passkeys "))
 	}
 	return fmt.Errorf("unknown command %q", cmd.name)
 }

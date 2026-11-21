@@ -70,6 +70,8 @@ func (h *PasskeyHandler) RegisterRoutes(mux *http.ServeMux, m *Middleware) {
 	mux.Handle("POST "+PasskeysPathPrefix+"{id}/delete", signedIn(h.remove))
 	mux.Handle("POST "+PasskeysPathPrefix+"{id}/clear-warning",
 		m.RequireAuth(m.RequireRole(models.RoleAdmin)(http.HandlerFunc(h.clearWarning))))
+	h.registerReauthRoutes(mux, signedIn)
+	mux.Handle("POST "+PasskeyPromptDismissPath, signedIn(h.dismissPasskeyPrompt))
 }
 
 // passkeyError is the JSON body of a failed passkey request.
@@ -275,6 +277,8 @@ func (h *PasskeyHandler) remove(w http.ResponseWriter, r *http.Request) {
 		backToSignInMethods(w, r, "done", "removed")
 	case errors.Is(err, repository.ErrLastSignInMethod):
 		backToSignInMethods(w, r, "error", "last")
+	case errors.Is(err, repository.ErrAdminNeedsPasskey):
+		backToSignInMethods(w, r, "error", "adminpasskey")
 	case errors.Is(err, repository.ErrPasskeyNotFound):
 		http.NotFound(w, r)
 	default:
@@ -318,8 +322,11 @@ type passkeyRow struct {
 }
 
 // signInMethodsData is what templates/account/signin_methods.html renders.
-// WI-130 extends the page with adding and removing a password.
+// The password section (add, change, remove) and the passkey prompt are
+// described by passwordSection (password_section.go).
 type signInMethodsData struct {
+	passwordSection
+
 	Username string
 	Passkeys []passkeyRow
 	// HasPassword: the account has a password (an invited or recovered
@@ -351,8 +358,9 @@ var signInMethodsNotices = map[string]string{
 }
 
 var signInMethodsErrors = map[string]string{
-	"last":   "That is your only way to sign in, so it can't be removed. Add another sign-in method first.",
-	"failed": "Something went wrong. Nothing was changed; please try again.",
+	"last":         "That is your only way to sign in, so it can't be removed. Add another sign-in method first.",
+	"adminpasskey": "The club requires administrators to sign in with a passkey, so you must keep at least one that works. Add another passkey before removing this one.",
+	"failed":       "Something went wrong. Nothing was changed; please try again.",
 }
 
 // signInMethods shows the signed-in user's passkeys and password.
@@ -400,6 +408,7 @@ func (h *PasskeyHandler) signInMethods(w http.ResponseWriter, r *http.Request) {
 			log.Printf("sign-in methods: list clone warnings: %v", err)
 		}
 	}
+	h.fillPasswordSection(r, user, &data)
 
 	tmpl, err := h.templates.Get("signin_methods", func() (*template.Template, error) {
 		funcMap := template.FuncMap{"currentYear": func() int { return time.Now().Year() }}

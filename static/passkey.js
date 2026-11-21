@@ -18,6 +18,8 @@
 //                               passkey for the link's account and sign in
 //       data-passkey-name="#id"     input holding the name for the new passkey
 //       data-link-remove="#id"      checkbox: also remove the old sign-in methods
+//   [data-passkey-reauth]       button (sign-in methods page): confirm it's you
+//                               with a passkey before setting a password
 //   details[data-passkey-fallback]  opened when this browser cannot use passkeys
 (function () {
     'use strict';
@@ -264,6 +266,24 @@
         });
     }
 
+    // Confirm it's you with one of your own passkeys before changing your
+    // password. The server keeps the confirmation (5 minutes, single use);
+    // the page reloads to show the password form without the current password.
+    function reauthPasskey(button) {
+        setStatus('');
+        busy(button, true);
+        postJSON('/account/reauth/passkey/begin').then(function (options) {
+            return navigator.credentials.get(decodeRequestOptions(options));
+        }).then(function (cred) {
+            return postJSON('/account/reauth/passkey/finish', encodeCredential(cred));
+        }).then(function (result) {
+            window.location.assign(result.redirect || '/account/signin-methods');
+        }).catch(function (err) {
+            busy(button, false);
+            setStatus(describeError(err, false));
+        });
+    }
+
     function setupWithPasskey(button) {
         var form = button.form;
         var field = form && form.elements[button.getAttribute('data-field')];
@@ -298,6 +318,9 @@
         });
         each('[data-passkey-add]', function (button) {
             button.addEventListener('click', function () { addPasskey(button); });
+        });
+        each('[data-passkey-reauth]', function (button) {
+            button.addEventListener('click', function () { reauthPasskey(button); });
         });
         each('[data-passkey-setup]', function (button) {
             button.addEventListener('click', function () { setupWithPasskey(button); });

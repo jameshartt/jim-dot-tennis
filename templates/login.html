@@ -10,7 +10,8 @@
     .passkey-signin { text-align: center; margin-bottom: 1rem; }
     .passkey-signin .btn { width: 100%; padding: 0.8rem; font-size: 1rem; }
     .passkey-help { font-size: 0.9rem; color: #555; margin-top: 0.5rem; }
-    .auth-divider { text-align: center; color: #555; font-size: 0.9rem; margin: 1.25rem 0 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem; }
+    .password-signin { margin-top: 1.25rem; border-top: 1px solid var(--border-color); padding-top: 1rem; }
+    .password-signin > summary { cursor: pointer; color: #333; font-size: 0.95rem; margin-bottom: 0.75rem; }
     .passkey-username { background: none; border: 0; padding: 0; margin-top: 1rem; color: var(--primary-color); text-decoration: underline; cursor: pointer; font-size: 0.9rem; }
 </style>
 {{end}}
@@ -38,7 +39,15 @@
             This browser can't use passkeys here, so sign in with your username and password.
         </div>
         <div class="alert alert-danger" role="alert" id="passkey-status" data-passkey-status hidden></div>
-        <p class="auth-divider" data-passkey-ui hidden>or sign in with your username</p>
+        {{if .AdminPasskeysRequired}}
+        {{/* The same for every visitor: it never depends on a username. */}}
+        <p class="passkey-help" data-admin-passkeys-required>Club administrators sign in with a passkey.</p>
+        {{end}}
+        {{/* The password form is the second choice: folded away unless this
+             browser cannot use passkeys (passkey.js opens it) or a password
+             sign-in has just been tried. */}}
+        <details class="password-signin" data-passkey-fallback data-password-signin{{if or .Error .Username}} open{{end}}>
+            <summary>Sign in with a username and password</summary>
         {{end}}
 
         <form method="POST" action="/login">
@@ -61,6 +70,9 @@
                     data-passkey-signin data-passkey-username="#username"{{if .Redirect}} data-redirect="{{.Redirect}}"{{end}}>Use a passkey for this username instead</button>
             {{end}}
         </form>
+        {{if .PasskeysAvailable}}
+        </details>
+        {{end}}
     </div>
 </div>
 {{end}}
@@ -68,10 +80,15 @@
 {{define "scripts"}}
 {{if .PasskeysAvailable}}<script src="/static/passkey.js"></script>{{end}}
 <script>
-    // Focus on username field on page load if empty, otherwise on password
+    // Focus the username field (or the password, when the username is
+    // filled in), unless the password form is folded away behind passkeys.
     document.addEventListener('DOMContentLoaded', function() {
         const usernameField = document.getElementById('username');
         const passwordField = document.getElementById('password');
+        const folded = usernameField.closest('details');
+        if (folded && !folded.open) {
+            return;
+        }
 
         if (usernameField.value === '') {
             usernameField.focus();

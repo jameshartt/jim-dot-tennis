@@ -14,6 +14,7 @@ import (
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/render"
+	"jim-dot-tennis/internal/repository"
 )
 
 // Guessing at link addresses is slowed per client address: after
@@ -87,6 +88,9 @@ type linkPageData struct {
 	MinPassword      int
 	MaxNameLength    int
 	Error            string
+	// PasswordAllowed: the page may offer a password (false for an
+	// administrator while passkeys are required for administrators).
+	PasswordAllowed bool
 }
 
 const (
@@ -175,6 +179,12 @@ func (p *LinkPage) pageData(r *http.Request, link Link, token string) linkPageDa
 		data.ExistingPasskeys = account.Passkeys
 		data.HasPassword = account.HasPassword
 	}
+	data.PasswordAllowed = true
+	if link.Role == models.RoleAdmin && data.PasskeysAvailable {
+		if required, err := repository.AdminPasskeysRequired(r.Context(), p.accounts.db); err != nil || required {
+			data.PasswordAllowed = false
+		}
+	}
 	return data
 }
 
@@ -251,14 +261,19 @@ func (p *LinkPage) setPassword(w http.ResponseWriter, r *http.Request, link Link
 		retry("The two passwords are not the same. Type them again.")
 		return
 	}
-	_, err := p.accounts.RedeemLink(r.Context(), token, Redemption{Password: password, RemoveOtherMethods: remove})
+	_, err := p.accounts.RedeemLink(r.Context(), token, Redemption{Password: password, RemoveOtherMethods: remove,
+		PasskeysUnavailable: !p.passkeysAvailable(r)})
 	switch {
 	case err == nil:
 	case errors.Is(err, ErrLinkInvalid):
 		p.invalid(w, r, false)
 		return
+	case errors.Is(err, ErrAdminPasskeyRequired):
+		retry("The club requires administrators to sign in with a passkey, so set up a passkey above. A password can't be used for this account.")
+		return
 	case errors.Is(err, auth.ErrPasswordPolicy):
-		retry(strings.TrimPrefix(err.Error(), auth.ErrPasswordPolicy.Error()+": "))
+		msg, _ := auth.PolicyMessage(err)
+		retry(msg)
 		return
 	default:
 		log.Printf("account link: set password for user %d: %v", link.UserID, err)
