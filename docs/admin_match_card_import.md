@@ -28,7 +28,7 @@ The match card import functionality is available to admin users through:
 
 ### 🔧 **Flexible Configuration**
 - **Year Selection**: Current year by default, supports next year
-- **Club Settings**: Pre-configured for "St+Anns" (Club ID: 10)
+- **Club Settings**: Pre-filled from Admin → Club Settings (BHPLTA club code, name and id)
 - **Secure Password Input**: Club password field with secure handling
 - **Import Options**: Dry run mode and clear existing matchups
 
@@ -50,9 +50,9 @@ The match card import functionality is available to admin users through:
 2. **Configure Import Parameters**
    - **Week**: Select week 1-18 from dropdown
    - **Year**: Set import year (defaults to current year)
-   - **Club Name**: Pre-set to "St+Anns" 
-   - **Club ID**: Pre-set to 10
-   - **Club Password**: Enter your club's BHPLTA password
+   - **Club Name**: Pre-filled with the BHPLTA club name from Club Settings
+   - **Club ID**: Pre-filled with the BHPLTA club id from Club Settings
+   - **Club Password**: Pre-filled with the club code from Club Settings (or `BHPLTA_CLUB_CODE`)
    - **Options**: Choose dry run and/or clear existing data
 
 3. **Execute Import**
@@ -122,9 +122,9 @@ The system provides detailed error information:
 ### Default Settings
 
 ```go
-// Default configuration values
-ClubName: "St+Anns"
-ClubID: 10
+// Default configuration values (ClubName, ClubID and the club code come from Club Settings)
+ClubName: <BHPLTA club name>
+ClubID: <BHPLTA club id>
 Year: CurrentYear
 DefaultWeek: EstimatedCurrentWeek
 BaseURL: "https://www.bhplta.co.uk/wp-admin/admin-ajax.php"

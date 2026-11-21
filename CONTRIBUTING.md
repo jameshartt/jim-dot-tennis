@@ -125,8 +125,8 @@ Set these environment variables to run jim.tennis for your club:
 |----------|----------|-------------|
 | `HOME_CLUB_ID` | Unless chosen in setup | Database ID of your club. Overrides `HOME_CLUB_NAME` and the club stored by first-run setup; with none of the three the app starts in setup mode (`/setup`) |
 | `HOME_CLUB_NAME` | Fallback | Club name for fuzzy lookup if `HOME_CLUB_ID` is not set |
-| `HOME_CLUB_LOGO_PATH` | Optional | URL path to your club logo (default: `/static/st-anns-tennis.jpg`). See "Club logo" below. |
-| `BHPLTA_CLUB_CODE` | For imports | Your club's code on the BHPLTA website (e.g. `STANN001`) |
+| `HOME_CLUB_LOGO_PATH` | Optional | URL path to a club logo; overrides the logo uploaded on the Club Settings page. See "Club logo" below. |
+| `BHPLTA_CLUB_CODE` | Optional | Your club's code on the BHPLTA website; overrides the code stored on the Club Settings page |
 | `WRAPPED_ACCESS_PASSWORD` | For "club wrapped" | Password that unlocks the club wrapped pages. If unset, the unlock form always rejects. |
 | `MY_TENNIS_ENABLED` | Optional | `true`/`1` shows the "My Tennis" call-to-action. Off when unset. |
 | `LEAGUE_TABLES_URL` | Optional | Source page for the public fixture generator's league tables (default: the BHPLTA league tables page). |
@@ -144,11 +144,9 @@ You'll also want to update:
 
 ### Club logo
 
-The points table and weekly overview pages display a club logo. To swap St Ann's default for your own:
+The points table and weekly overview pages display a club logo. Upload it on **Admin Dashboard → Club Settings** (PNG, JPEG or WebP, up to 2 MB). It is stored on the data volume next to the database, so it survives upgrades, and a square logo of at least 192 pixels is also used as the installed app's icon. The same page sets the display name, the two club colours and the BHPLTA identifiers.
 
-1. Drop your logo (JPG/PNG/SVG) into the `static/` directory — e.g. `static/my-club.jpg`. If deploying via Docker, mount it as a volume at `/app/static/my-club.jpg` instead of rebuilding the image.
-2. Set `HOME_CLUB_LOGO_PATH=/static/my-club.jpg` in your environment.
-3. Leave it unset to keep the default St Ann's logo, or set it to an empty string to hide the logo entirely.
+`HOME_CLUB_LOGO_PATH` still works and takes precedence: point it at an image you serve yourself (for example one mounted into `/app/static/`). Without either there is no logo.
 
 ### What's already handled
 
@@ -156,9 +154,9 @@ These used to require code changes but are now built in:
 
 - **Home/away team logic** — determined by `HOME_CLUB_ID`, not hardcoded
 - **Club name in templates** — injected dynamically from the database via middleware
-- **Club logo** — configurable via `HOME_CLUB_LOGO_PATH`
+- **Club name, logo and colours** — set on the Club Settings page (`HOME_CLUB_LOGO_PATH` overrides the logo)
 - **Divisions label on the points table** — computed dynamically from the divisions your teams are playing in
-- **BHPLTA club code** — configured via `BHPLTA_CLUB_CODE` environment variable
+- **BHPLTA club code, name and id** — set on the Club Settings page (`BHPLTA_CLUB_CODE` overrides the code)
 - **Apostrophe normalisation** — a centralised normalisation layer (`internal/normalize/`) handles the various Unicode apostrophe characters that appear across data sources
 
 ### Remaining customisation (if needed)

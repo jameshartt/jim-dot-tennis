@@ -14,6 +14,7 @@ const (
 	homeClubIDKey contextKey = iota
 	homeClubKey
 	homeClubLogoPathKey
+	brandingKey
 )
 
 // WithHomeClub returns a new context with the home club ID, model and logo path injected.
@@ -41,4 +42,18 @@ func GetHomeClub(ctx context.Context) *models.Club {
 func GetHomeClubLogoPath(ctx context.Context) string {
 	path, _ := ctx.Value(homeClubLogoPathKey).(string)
 	return path
+}
+
+// WithBranding returns a new context carrying the club branding.
+func WithBranding(ctx context.Context, b Branding) context.Context {
+	return context.WithValue(ctx, brandingKey, b)
+}
+
+// GetBranding retrieves the club branding from context. Without one (tests,
+// tools) it returns the defaults, using the home club's name when present.
+func GetBranding(ctx context.Context) Branding {
+	if b, ok := ctx.Value(brandingKey).(Branding); ok {
+		return b
+	}
+	return (*ClubSettings)(nil).Branding(GetHomeClub(ctx))
 }

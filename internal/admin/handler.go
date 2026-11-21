@@ -37,6 +37,7 @@ type Handler struct {
 	planning          *PlanningHandler
 	planningLink      *PlanningLinkHandler
 	captainNotes      *CaptainNotesHandler
+	settings          *SettingsHandler
 }
 
 // New creates a new admin handler
@@ -70,6 +71,7 @@ func New(db *database.DB, templateDir string, courthiveAPIURL string, homeClub c
 		planning:          NewPlanningHandler(service, templateDir),
 		planningLink:      NewPlanningLinkHandler(service, templateDir),
 		captainNotes:      NewCaptainNotesHandler(service, templateDir),
+		settings:          NewSettingsHandler(service, templateDir),
 	}
 }
 
@@ -163,6 +165,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/league/preferred-names/history", h.service.HandlePreferredNameHistory)
 	adminMux.HandleFunc("/admin/league/preferred-names/approve/", h.service.HandleApprovePreferredName)
 	adminMux.HandleFunc("/admin/league/preferred-names/reject/", h.service.HandleRejectPreferredName)
+
+	// Club settings (admin role only, checked again in the handler)
+	adminMux.HandleFunc(settingsPath, h.settings.HandleSettings)
+	adminMux.HandleFunc(settingsPath+"/", h.settings.HandleSettings)
 
 	// Register admin routes with authentication middleware
 	mux.Handle("/admin/league", authMiddleware.RequireAuth(

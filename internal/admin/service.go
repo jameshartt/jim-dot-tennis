@@ -18,7 +18,8 @@ import (
 type Service struct {
 	db                           *database.DB
 	homeClub                     config.HomeClubSource
-	bhpltaClubCode               string
+	clubSettings                 *config.ClubSettings // live club settings; nil when homeClub has none (tests)
+	bhpltaClubCode               string               // fallback BHPLTA code when clubSettings is nil
 	loginAttemptRepository       repository.LoginAttemptRepository
 	playerRepository             repository.PlayerRepository
 	clubRepository               repository.ClubRepository
@@ -53,8 +54,17 @@ func (s *Service) homeClubID() uint {
 	return s.homeClub.ID()
 }
 
+// currentBHPLTAClubCode returns the effective BHPLTA club code, read live.
+func (s *Service) currentBHPLTAClubCode() string {
+	if s.clubSettings != nil {
+		return s.clubSettings.BHPLTAClubCode()
+	}
+	return s.bhpltaClubCode
+}
+
 // NewService creates a new admin service. homeClub is normally the server's
-// *config.HomeClubHolder.
+// *config.HomeClubHolder, which also provides the live club settings; then
+// bhpltaClubCode is ignored in favour of the effective stored/env code.
 func NewService(db *database.DB, courthiveAPIURL string, homeClub config.HomeClubSource, bhpltaClubCode string, pushService ...*webpush.Service) *Service {
 	service := &Service{
 		db:                           db,
@@ -84,6 +94,11 @@ func NewService(db *database.DB, courthiveAPIURL string, homeClub config.HomeClu
 
 	if len(pushService) > 0 {
 		service.pushService = pushService[0]
+	}
+
+	// The server's *config.HomeClubHolder also carries the live club settings.
+	if p, ok := homeClub.(config.ClubSettingsProvider); ok {
+		service.clubSettings = p.ClubSettings()
 	}
 
 	// Initialize team eligibility service with reference to the main service

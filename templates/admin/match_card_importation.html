@@ -327,13 +327,18 @@
                                     <div class="form-group">
                                         <label for="club_name">Club Name</label>
                                         <input type="text" class="form-control" id="club_name" name="club_name" 
-                                               value="St+Anns" required>
+                                               value="{{.DefaultClubName}}" required>
                                     </div>
 
                                     <div class="form-group">
                                         <label for="club_id">Club ID</label>
                                         <input type="number" class="form-control" id="club_id" name="club_id" 
-                                               value="10" required>
+                                               value="{{if .DefaultClubID}}{{.DefaultClubID}}{{end}}" min="1" required>
+                                        {{if or (not .DefaultClubName) (not .DefaultClubID)}}
+                                        <small class="form-text text-muted">
+                                            Set your club's BHPLTA name and id once in <a href="/admin/league/settings">Club settings</a> and they will be filled in here.
+                                        </small>
+                                        {{end}}
                                     </div>
 
                                     <div class="form-group">
