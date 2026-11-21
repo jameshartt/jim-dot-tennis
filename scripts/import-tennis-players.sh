@@ -19,7 +19,7 @@ PRODUCTION_SERVER="${SERVER#*@}"
 PRODUCTION_PATH="$REMOTE_PATH"
 SSH_OPTS=(-i "$SSH_KEY")
 BINARY_NAME="import-tennis-players"
-JSON_FILE="cmd/collect_tennis_data/tennis_players.json"
+JSON_FILE="internal/repository/data/tennis_players.json"
 
 echo -e "${BLUE}🎾 Tennis Player Import Deployment Script${NC}"
 echo

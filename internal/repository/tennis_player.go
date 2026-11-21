@@ -4,6 +4,7 @@ package repository
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -14,6 +15,13 @@ import (
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 )
+
+// embeddedTennisPlayers is the professional player list (the fantasy name pool)
+// shipped inside the binary. It lives under internal/repository because go:embed
+// cannot reach outside the embedding package's directory.
+//
+//go:embed data/tennis_players.json
+var embeddedTennisPlayers []byte
 
 // ProTennisPlayerRepository defines the interface for tennis player data access
 type ProTennisPlayerRepository interface {
@@ -41,6 +49,9 @@ type ProTennisPlayerRepository interface {
 
 	// Import operations
 	ImportFromJSON(ctx context.Context, filePath string) error
+	ImportFromData(ctx context.Context, data []byte) error
+	ImportEmbedded(ctx context.Context) error
+	SeedIfEmpty(ctx context.Context) (seeded int, err error)
 	ClearAll(ctx context.Context) error
 
 	// Statistics
@@ -280,12 +291,38 @@ func (r *tennisPlayerRepository) FindByLastName(ctx context.Context, lastName st
 
 // ImportFromJSON imports tennis players from a JSON file
 func (r *tennisPlayerRepository) ImportFromJSON(ctx context.Context, filePath string) error {
-	// Read the JSON file
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to read JSON file: %w", err)
 	}
+	return r.ImportFromData(ctx, data)
+}
 
+// SeedIfEmpty loads the embedded player list when tennis_players is empty. A
+// populated table is left untouched. It returns the number of rows loaded
+// (0 when skipped). A failed load leaves the table empty.
+func (r *tennisPlayerRepository) SeedIfEmpty(ctx context.Context) (int, error) {
+	count, err := r.CountAll(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("count tennis players: %w", err)
+	}
+	if count > 0 {
+		return 0, nil
+	}
+	if err := r.ImportEmbedded(ctx); err != nil {
+		_ = r.ClearAll(ctx) // do not leave a partial list behind
+		return 0, fmt.Errorf("load embedded tennis players: %w", err)
+	}
+	return r.CountAll(ctx)
+}
+
+// ImportEmbedded replaces the tennis players with the list embedded in the binary.
+func (r *tennisPlayerRepository) ImportEmbedded(ctx context.Context) error {
+	return r.ImportFromData(ctx, embeddedTennisPlayers)
+}
+
+// ImportFromData replaces the tennis players with those in the given JSON document.
+func (r *tennisPlayerRepository) ImportFromData(ctx context.Context, data []byte) error {
 	// Parse the JSON structure
 	var jsonData struct {
 		LastUpdated string `json:"last_updated"`
@@ -323,6 +360,10 @@ func (r *tennisPlayerRepository) ImportFromJSON(ctx context.Context, filePath st
 
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		return fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	if len(jsonData.ATPPlayers)+len(jsonData.WTAPlayers) == 0 {
+		return fmt.Errorf("tennis player data contains no players")
 	}
 
 	// Clear existing data
