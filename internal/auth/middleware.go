@@ -25,6 +25,10 @@ const (
 	PlayerContextKey ContextKey = "player"
 )
 
+// ChangePasswordPath is the page where a signed-in user chooses a new
+// password. RequireAuth sends users who must change their password there.
+const ChangePasswordPath = "/account/password"
+
 // Middleware provides authentication middleware
 type Middleware struct {
 	service          *Service
@@ -85,6 +89,19 @@ func (m *Middleware) RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 		log.Printf("User details retrieved: ID=%d, Username=%s, Role=%s", user.ID, user.Username, user.Role)
+
+		// A password someone else chose (a temporary one from the server
+		// command line, or one an administrator typed) must be replaced
+		// before anything else.
+		if user.MustChangePassword {
+			if r.Header.Get("HX-Request") == "true" {
+				w.Header().Set("HX-Redirect", ChangePasswordPath)
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			http.Redirect(w, r, ChangePasswordPath, http.StatusSeeOther)
+			return
+		}
 
 		// Add user and role to request context
 		ctx := context.WithValue(r.Context(), UserContextKey, user)

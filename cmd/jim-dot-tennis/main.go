@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"jim-dot-tennis/internal/accounts"
 	"jim-dot-tennis/internal/admin"
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/bhplta"
@@ -29,6 +30,12 @@ import (
 )
 
 func main() {
+	// With arguments this is the server command line (`user ...`, `setup
+	// code`, `help`; see cli.go). With none it starts the server, as always.
+	if len(os.Args) > 1 {
+		os.Exit(runCLI(os.Args[1:], os.Stdout, os.Stderr))
+	}
+
 	// Get project root directory
 	projectRoot, err := getProjectRoot()
 	if err != nil {
@@ -166,6 +173,7 @@ func main() {
 
 	// Auth routes
 	authHandler.RegisterRoutes(mux)
+	accounts.NewPasswordPage(accounts.New(db), authService, templateDir, "/admin/league").RegisterRoutes(mux)
 
 	// Admin routes (protected)
 	adminHandler.RegisterRoutes(mux, authMiddleware)

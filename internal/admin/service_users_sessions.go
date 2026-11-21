@@ -3,67 +3,17 @@
 package admin
 
 import (
-	"fmt"
-
-	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/models"
 )
+
+// Account operations (create, role, activation, passwords, session
+// revocation) live in internal/accounts, shared with the server command line;
+// the users and sessions handlers call s.accounts.
 
 // SessionWithUser represents a session joined with its user info
 type SessionWithUser struct {
 	models.Session
 	Username string `db:"username"`
-}
-
-// GetAllUsers retrieves all users for admin management
-func (s *Service) GetAllUsers() ([]models.User, error) {
-	var users []models.User
-	err := s.db.Select(&users, `
-		SELECT id, username, password_hash, role, player_id, is_active, created_at, last_login_at
-		FROM users
-		ORDER BY username ASC
-	`)
-	return users, err
-}
-
-// CreateUser creates a new user with a hashed password
-func (s *Service) CreateUser(username, password string, role models.Role) (int64, error) {
-	hashedPassword, err := hashPassword(password)
-	if err != nil {
-		return 0, fmt.Errorf("failed to hash password: %w", err)
-	}
-
-	result, err := s.db.Exec(`
-		INSERT INTO users (username, password_hash, role, is_active, created_at, last_login_at)
-		VALUES (?, ?, ?, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-	`, username, hashedPassword, role)
-	if err != nil {
-		return 0, fmt.Errorf("failed to create user: %w", err)
-	}
-
-	return result.LastInsertId()
-}
-
-// UpdateUserRole changes a user's role
-func (s *Service) UpdateUserRole(id int64, role models.Role) error {
-	_, err := s.db.Exec(`UPDATE users SET role = ? WHERE id = ?`, role, id)
-	return err
-}
-
-// ToggleUserActive toggles a user's active status
-func (s *Service) ToggleUserActive(id int64) error {
-	_, err := s.db.Exec(`UPDATE users SET is_active = NOT is_active WHERE id = ?`, id)
-	return err
-}
-
-// ResetUserPassword resets a user's password
-func (s *Service) ResetUserPassword(id int64, newPassword string) error {
-	hashedPassword, err := hashPassword(newPassword)
-	if err != nil {
-		return fmt.Errorf("failed to hash password: %w", err)
-	}
-	_, err = s.db.Exec(`UPDATE users SET password_hash = ? WHERE id = ?`, hashedPassword, id)
-	return err
 }
 
 // GetActiveSessions retrieves all valid sessions with usernames
@@ -79,29 +29,6 @@ func (s *Service) GetActiveSessions() ([]SessionWithUser, error) {
 		ORDER BY s.last_activity_at DESC
 	`)
 	return sessions, err
-}
-
-// InvalidateSession marks a session as invalid
-func (s *Service) InvalidateSession(sessionID string) error {
-	_, err := s.db.Exec(`UPDATE sessions SET is_valid = false WHERE id = ?`, sessionID)
-	return err
-}
-
-// InvalidateAllUserSessions invalidates all sessions for a user
-func (s *Service) InvalidateAllUserSessions(userID int64) error {
-	_, err := s.db.Exec(`UPDATE sessions SET is_valid = false WHERE user_id = ?`, userID)
-	return err
-}
-
-// CleanupExpiredSessions marks all expired sessions as invalid
-func (s *Service) CleanupExpiredSessions() error {
-	_, err := s.db.Exec(`UPDATE sessions SET is_valid = false WHERE expires_at < CURRENT_TIMESTAMP`)
-	return err
-}
-
-// hashPassword generates a bcrypt hash for a password at the app-wide cost.
-func hashPassword(password string) (string, error) {
-	return auth.HashPassword(password)
 }
 
 // GetRecentLoginAttempts retrieves recent login attempts

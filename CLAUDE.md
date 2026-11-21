@@ -144,6 +144,7 @@ The codebase follows a clean layered architecture:
 - `models/`: Data structures (Player, Team, Fixture, etc.)
 - `repository/`: Data access layer (one per entity)
 - `auth/`: Authentication service, middleware, and handlers
+- `accounts/`: The one account service (create, list, enable/disable, role, password reset, session revocation, last-active-administrator guard, audit seam `recordAudit`), used by the admin users/sessions pages and the server command line `jim-dot-tennis user ... | setup code` (`cmd/jim-dot-tennis/cli.go`; help text reproduced in `docs/PRODUCTION_QUICK_REFERENCE.md` section 10, kept in step by a test). Also `/account/password`, where users with `must_change_password` are sent by `RequireAuth`
 - `admin/`: Admin interface handlers (dashboard, players, fixtures, teams, users, sessions, match card import, points, club wrapped)
 - `players/`: Player-facing handlers (availability management)
 - `services/`: Business logic (match card parsing, player matching, nonce extraction)

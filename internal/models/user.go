@@ -25,6 +25,10 @@ type User struct {
 	IsActive     bool      `db:"is_active"`
 	CreatedAt    time.Time `db:"created_at"`
 	LastLoginAt  time.Time `db:"last_login_at"`
+	// MustChangePassword is set when the password was chosen by someone else
+	// (a temporary password from the server command line, or one an
+	// administrator typed). Signed-in pages send the user to choose their own.
+	MustChangePassword bool `db:"must_change_password"`
 }
 
 // Session represents a user's authenticated session

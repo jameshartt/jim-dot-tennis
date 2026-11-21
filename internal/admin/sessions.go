@@ -95,7 +95,7 @@ func (h *SessionsHandler) handleSessionsGet(w http.ResponseWriter, r *http.Reque
 func (h *SessionsHandler) handleSessionAction(w http.ResponseWriter, r *http.Request, user *models.User, path string) {
 	// POST /admin/league/sessions/cleanup
 	if path == "/admin/league/sessions/cleanup" {
-		if err := h.service.CleanupExpiredSessions(); err != nil {
+		if _, err := h.service.accounts.CleanupExpiredSessions(r.Context(), actorFor(user)); err != nil {
 			log.Printf("Failed to cleanup sessions: %v", err)
 			http.Redirect(w, r, "/admin/league/sessions?error=Failed+to+cleanup+sessions", http.StatusSeeOther)
 			return
@@ -112,7 +112,7 @@ func (h *SessionsHandler) handleSessionAction(w http.ResponseWriter, r *http.Req
 			http.Error(w, "Invalid user ID", http.StatusBadRequest)
 			return
 		}
-		if err := h.service.InvalidateAllUserSessions(userID); err != nil {
+		if _, err := h.service.accounts.RevokeSessions(r.Context(), actorFor(user), userID); err != nil {
 			log.Printf("Failed to invalidate user sessions: %v", err)
 			http.Redirect(w, r, "/admin/league/sessions?error=Failed+to+invalidate+sessions", http.StatusSeeOther)
 			return
@@ -129,7 +129,7 @@ func (h *SessionsHandler) handleSessionAction(w http.ResponseWriter, r *http.Req
 			http.Error(w, "Invalid session ID", http.StatusBadRequest)
 			return
 		}
-		if err := h.service.InvalidateSession(sessionID); err != nil {
+		if err := h.service.accounts.RevokeSession(r.Context(), actorFor(user), sessionID); err != nil {
 			log.Printf("Failed to invalidate session: %v", err)
 			http.Redirect(w, r, "/admin/league/sessions?error=Failed+to+invalidate+session", http.StatusSeeOther)
 			return
