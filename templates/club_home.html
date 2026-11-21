@@ -1,0 +1,56 @@
+{{define "club_home.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Branding.Name}}</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="{{.Branding.PrimaryColour}}">
+    <style>
+      body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; }
+      .club-hero { text-align: center; padding: 3rem 1rem 2rem; }
+      .club-hero img { max-width: 160px; max-height: 160px; margin-bottom: 1rem; }
+      .club-hero h1 { font-size: 2.5rem; margin-bottom: 0.5rem; color: #2c3e50; }
+      .club-links { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 2rem; }
+      .club-links a { display: inline-block; padding: 0.8rem 1.75rem; border-radius: 6px; text-decoration: none; font-size: 1.05rem; font-weight: 600; color: #fff; background: {{.Branding.PrimaryColour}}; }
+      .club-links a.secondary { background: {{.Branding.SecondaryColour}}; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <a href="/" class="logo">
+                    {{if .Branding.LogoPath}}<img src="{{.Branding.LogoPath}}" alt="{{.Branding.Name}} logo">{{else}}<span>{{.Branding.Name}}</span>{{end}}
+                </a>
+                <div class="user-controls">
+                    <a href="/login" class="btn btn-sm">Sign in</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <div class="club-hero" data-testid="club-home">
+                {{if .Branding.LogoPath}}<img src="{{.Branding.LogoPath}}" alt="">{{end}}
+                <h1>{{.Branding.Name}}</h1>
+                <p style="font-size: 1.15rem; color: #7f8c8d;">Parks League tennis</p>
+                <div class="club-links">
+                    <a href="/standings">League standings</a>
+                    <a href="/login" class="secondary">Sign in</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>{{.Branding.Name}} {{currentYear}} &middot; <a href="/standings">Standings</a> &middot; <a href="/fixture-generator">Fixture generator</a> &middot; <a href="/about">About</a></p>
+        </div>
+    </footer>
+</body>
+</html>
+{{end}}

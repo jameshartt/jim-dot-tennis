@@ -95,6 +95,8 @@ func (h *AvailabilityHandler) HandleAvailability(w http.ResponseWriter, r *http.
 		h.handleExceptionDelete(w, r, &player, authToken)
 	case action == "request-preferred-name" && r.Method == http.MethodPost:
 		h.handlePreferredNameRequest(w, r, &player, authToken)
+	case action == "wrapped-auth" && !h.service.clubSettings().ClubWrappedEnabled():
+		http.NotFound(w, r)
 	case action == "wrapped-auth" && r.Method == http.MethodPost:
 		h.handleWrappedPasswordAuth(w, r)
 	case action == "" && r.Method == http.MethodGet:
@@ -131,23 +133,17 @@ func (h *AvailabilityHandler) handleAvailabilityGet(w http.ResponseWriter, r *ht
 
 	// Execute the template with data
 	if err := renderTemplate(w, tmpl, map[string]interface{}{
-		"Player":          player,
-		"FantasyMatch":    fantasyMatch,
-		"AuthToken":       authToken,
-		"TeamAName":       getTeamName(fantasyMatch.TeamAWoman, fantasyMatch.TeamAMan),
-		"TeamBName":       getTeamName(fantasyMatch.TeamBWoman, fantasyMatch.TeamBMan),
-		"MyTennisEnabled": myTennisEnabled(),
+		"Player":             player,
+		"FantasyMatch":       fantasyMatch,
+		"AuthToken":          authToken,
+		"TeamAName":          getTeamName(fantasyMatch.TeamAWoman, fantasyMatch.TeamAMan),
+		"TeamBName":          getTeamName(fantasyMatch.TeamBWoman, fantasyMatch.TeamBMan),
+		"MyTennisEnabled":    h.service.clubSettings().MyTennisEnabled(),
+		"ClubWrappedEnabled": h.service.clubSettings().ClubWrappedEnabled(),
+		"ThemeColour":        h.service.clubSettings().PrimaryColour(),
 	}); err != nil {
 		logAndError(w, err.Error(), err, http.StatusInternalServerError)
 	}
-}
-
-// myTennisEnabled reports whether the 'My Tennis' CTA should render on the
-// availability page. Gated by the MY_TENNIS_ENABLED env var (parsed as a bool;
-// default off) so the feature can be rolled out independently of the route.
-func myTennisEnabled() bool {
-	b, _ := strconv.ParseBool(os.Getenv("MY_TENNIS_ENABLED"))
-	return b
 }
 
 // handleAvailabilityPost handles POST requests for updating availability

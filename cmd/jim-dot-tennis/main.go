@@ -195,6 +195,15 @@ func main() {
 			return
 		}
 
+		// With tournaments off the home page is the club's own page and
+		// nothing links to the tournament software
+		if !homeClub.ClubSettings().TournamentsEnabled() {
+			if err := render.Execute(w, templates, "club_home.html", map[string]interface{}{"Branding": homeClub.Branding()}); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
+		}
+
 		var visibleTournaments []models.Tournament
 		if tournaments, err := tournamentRepo.FindVisible(r.Context()); err == nil {
 			visibleTournaments = tournaments

@@ -42,6 +42,16 @@ func (s *Service) homeClubID() uint {
 	return s.homeClub.ID()
 }
 
+// clubSettings returns the live club settings (feature switches, colours), or
+// nil when the home club source carries none (tests). A nil *ClubSettings is
+// safe to read and reports the defaults.
+func (s *Service) clubSettings() *config.ClubSettings {
+	if p, ok := s.homeClub.(config.ClubSettingsProvider); ok {
+		return p.ClubSettings()
+	}
+	return nil
+}
+
 // NewService creates a new players service. homeClub is normally the server's
 // *config.HomeClubHolder.
 func NewService(db *database.DB, homeClub config.HomeClubSource) *Service {

@@ -25,6 +25,8 @@ const (
 	EnvLogoPath       = "HOME_CLUB_LOGO_PATH"
 	EnvBHPLTAClubCode = "BHPLTA_CLUB_CODE"
 	EnvPublicURL      = "PUBLIC_URL"
+	// EnvMyTennisEnabled overrides the stored My Tennis switch (true/1 or false/0).
+	EnvMyTennisEnabled = "MY_TENNIS_ENABLED"
 )
 
 // Defaults used when a colour has not been chosen.
@@ -43,6 +45,8 @@ var envOverrides = map[string]string{
 	repository.SettingClubLogoFile:   EnvLogoPath,
 	repository.SettingBHPLTAClubCode: EnvBHPLTAClubCode,
 	repository.SettingPublicURL:      EnvPublicURL,
+
+	repository.SettingFeatureMyTennis: EnvMyTennisEnabled,
 }
 
 // clubSettingKeys are the keys ClubSettings caches.
@@ -56,6 +60,10 @@ var clubSettingKeys = []string{
 	repository.SettingBHPLTAClubName,
 	repository.SettingBHPLTAClubID,
 	repository.SettingPublicURL,
+	repository.SettingFeatureTournaments,
+	repository.SettingFeatureClubWrapped,
+	repository.SettingFeatureMyTennis,
+	repository.SettingSetupCompletedAt,
 }
 
 // Branding is what pages, the manifest and the service worker show for the club.
@@ -392,4 +400,67 @@ func NormalizeBHPLTAText(label, s string) (string, error) {
 		return "", fmt.Errorf("%s must be at most %d characters on one line, without semicolons", label, MaxBHPLTAFieldLength)
 	}
 	return s, nil
+}
+
+// Features is the set of optional features in effect, for templates.
+type Features struct {
+	Tournaments bool
+	ClubWrapped bool
+	MyTennis    bool
+}
+
+// Features returns every feature switch's effective value.
+func (c *ClubSettings) Features() Features {
+	return Features{
+		Tournaments: c.TournamentsEnabled(),
+		ClubWrapped: c.ClubWrappedEnabled(),
+		MyTennis:    c.MyTennisEnabled(),
+	}
+}
+
+// storedBool parses a stored "true"/"false" switch.
+func (c *ClubSettings) storedBool(key string) (value, ok bool) {
+	v := c.Stored(key)
+	if v == "" {
+		return false, false
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false, false
+	}
+	return b, true
+}
+
+// TournamentsEnabled reports whether tournament links and navigation show.
+// A stored value wins. With nothing stored: off once the instance was set up
+// through the first-run setup flow (setup_completed_at exists; tournaments
+// need the optional CourtHive bundle), on for instances that predate it,
+// which keeps their behaviour after an upgrade.
+func (c *ClubSettings) TournamentsEnabled() bool {
+	if b, ok := c.storedBool(repository.SettingFeatureTournaments); ok {
+		return b
+	}
+	return c.Stored(repository.SettingSetupCompletedAt) == ""
+}
+
+// ClubWrappedEnabled reports whether Club Wrapped is available. A stored
+// value wins; the default is on, as it always was.
+func (c *ClubSettings) ClubWrappedEnabled() bool {
+	if b, ok := c.storedBool(repository.SettingFeatureClubWrapped); ok {
+		return b
+	}
+	return true
+}
+
+// MyTennisEnabled reports whether My Tennis is available. MY_TENNIS_ENABLED
+// wins when set (parsed as a bool; an unparsable value counts as false, as
+// before), then a stored value; the default is off, as it was with the env
+// variable unset.
+func (c *ClubSettings) MyTennisEnabled() bool {
+	if v, ok := c.envValue(repository.SettingFeatureMyTennis); ok {
+		b, _ := strconv.ParseBool(v)
+		return b
+	}
+	b, _ := c.storedBool(repository.SettingFeatureMyTennis)
+	return b
 }

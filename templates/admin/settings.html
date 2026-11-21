@@ -148,7 +148,33 @@
                 </div>
             </section>
 
-            <!-- Feature switches (WI-122) go in their own section here, inside this form. -->
+            <section class="content-section" id="features">
+                <h2>Features</h2>
+                <p class="section-intro">Switch optional parts of the site on or off. A feature that is off disappears from the menus and its pages show "not found". Changes apply straight away.</p>
+
+                <div class="field">
+                    <input type="hidden" name="feature_tournaments" value="off">
+                    <label><input type="checkbox" id="feature_tournaments" name="feature_tournaments" value="on" {{if .Features.Tournaments}}checked{{end}}> Tournaments</label>
+                    <span class="hint">Tournament pages and the tournament links on the home page and the admin menu. They only work when the CourtHive tournament software is running alongside this site.</span>
+                </div>
+
+                <div class="field">
+                    <input type="hidden" name="feature_club_wrapped" value="off">
+                    <label><input type="checkbox" id="feature_club_wrapped" name="feature_club_wrapped" value="on" {{if .Features.ClubWrapped}}checked{{end}}> Club Wrapped</label>
+                    <span class="hint">The end-of-season club review, for admins and for players with the access password.</span>
+                </div>
+
+                <div class="field">
+                    {{if .MyTennisEnvVar}}
+                    <label><input type="checkbox" id="feature_my_tennis" {{if .Features.MyTennis}}checked{{end}} disabled> My Tennis</label>
+                    <span class="env-note">Set by the <code>{{.MyTennisEnvVar}}</code> environment variable, which takes precedence over a value stored here.</span>
+                    {{else}}
+                    <input type="hidden" name="feature_my_tennis" value="off">
+                    <label><input type="checkbox" id="feature_my_tennis" name="feature_my_tennis" value="on" {{if .Features.MyTennis}}checked{{end}}> My Tennis</label>
+                    {{end}}
+                    <span class="hint">The "My Tennis" questionnaire players fill in from their availability page.</span>
+                </div>
+            </section>
 
             <div class="actions">
                 <button type="submit" class="btn" id="save-settings">Save settings</button>

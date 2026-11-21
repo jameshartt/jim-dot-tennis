@@ -61,6 +61,8 @@ func (h *ProfileHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 	// POST /my-profile/{token}        → merge-save partial preferences (WI-097)
 	// GET /my-profile/{token}/history → match history (initials-only; WI-093)
 	switch {
+	case action == "" && !h.service.clubSettings().MyTennisEnabled():
+		http.NotFound(w, r) // My Tennis is switched off
 	case action == "" && r.Method == http.MethodGet:
 		h.myTennis.HandleGet(w, r, &player, authToken)
 	case action == "" && r.Method == http.MethodPost:

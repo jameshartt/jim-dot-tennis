@@ -253,7 +253,7 @@ Each major handler (Admin, Players) delegates to domain-specific sub-handlers:
 
 **Features:**
 - `WRAPPED_ACCESS_PASSWORD`: Password for the club wrapped unlock form (if unset the form always rejects)
-- `MY_TENNIS_ENABLED`: `true`/`1` shows the My Tennis call-to-action (off when unset)
+- `MY_TENNIS_ENABLED`: `true`/`1` (or `false`/`0`) overrides the stored My Tennis switch on the settings page (Features section, with Tournaments and Club Wrapped). Defaults with nothing stored: My Tennis off, Club Wrapped on, Tournaments on unless setup_completed_at exists (new installs). A switch that is off hides its links and its routes return 404; with Tournaments off the home page is a club page.
 - `LEAGUE_TABLES_URL`: Optional source page for the fixture generator's league tables (default: BHPLTA league tables page)
 - `COURTHIVE_API_URL`: Optional CourtHive API URL (default: `http://courthive-server:8383`)
 
