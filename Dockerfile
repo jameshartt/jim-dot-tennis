@@ -38,10 +38,9 @@ WORKDIR /app
 # Copy the binary from builder
 COPY --from=builder /app/bin/jim-dot-tennis .
 
-# Copy necessary files
-COPY migrations/ ./migrations/
-COPY templates/ ./templates/
-COPY static/ ./static/
+# Templates, static files and migrations are built into the binary (embed.go),
+# so nothing else is copied. Development can bind-mount templates/ and static/
+# over /app and set TEMPLATE_RELOAD=true to use the files on disk instead.
 
 # Create a directory for the SQLite database
 RUN mkdir -p /app/data

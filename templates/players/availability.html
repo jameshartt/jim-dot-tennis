@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Player Availability - Jim Dot Tennis</title>
-    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="{{asset "/static/css/main.css"}}">
     <!-- PWA — dynamic manifest so Add to Home Screen opens this player's page -->
     <link rel="manifest" href="/api/manifest?start=/my-availability/{{.AuthToken}}">
     <meta name="theme-color" content="{{if .ThemeColour}}{{.ThemeColour}}{{else}}#006400{{end}}">
@@ -2396,7 +2396,7 @@
         &copy; Jim.Tennis {{currentYear}} &middot; <a href="/about" style="color: #4a7c59; text-decoration: none;">About</a>
     </footer>
 
-    <script src="/static/push.js"></script>
+    <script src="{{asset "/static/push.js"}}"></script>
     <script>
     // Service worker registration
     if ('serviceWorker' in navigator) {

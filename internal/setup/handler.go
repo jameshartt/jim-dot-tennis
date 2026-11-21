@@ -505,7 +505,7 @@ func (h *Handler) done(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) render(w http.ResponseWriter, status int, page string, data pageData) {
 	tmpl, err := h.templates.Get(page, func() (*template.Template, error) {
 		funcMap := template.FuncMap{"currentYear": func() int { return time.Now().Year() }}
-		return template.New("").Funcs(funcMap).ParseFiles(
+		return render.ParseFiles(template.New("").Funcs(funcMap),
 			filepath.Join(h.templateDir, "layout.html"),
 			filepath.Join(h.templateDir, "setup", "parts.html"),
 			filepath.Join(h.templateDir, "setup", page+".html"),

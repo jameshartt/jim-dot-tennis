@@ -74,7 +74,7 @@ func parseTemplateFile(templateDir, templateName string) (*template.Template, er
 		"printf": fmt.Sprintf,
 	})
 
-	return tmpl.ParseFiles(templatePath)
+	return render.ParseFiles(tmpl, templatePath)
 }
 
 // renderTemplate executes a template with the given data. Nothing is written

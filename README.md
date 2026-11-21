@@ -62,6 +62,8 @@ make stop             # Stop containers
 make logs             # View logs
 ```
 
+The binary carries its templates, static files and migrations (`embed.go`), so it runs from any directory with only its data directory (`DB_PATH`); the image copies nothing else.
+
 See [docs/PRODUCTION_QUICK_REFERENCE.md](docs/PRODUCTION_QUICK_REFERENCE.md) and [docs/digitalocean_deployment.md](docs/digitalocean_deployment.md) for full deployment details.
 
 ### First run
@@ -99,7 +101,7 @@ The application uses environment variables to identify your club:
 | `PORT` | Optional | HTTP listen port (default: `8080`). |
 | `DB_TYPE` | Optional | Only `sqlite3` is supported; any other value fails at startup. |
 | `DB_PATH` | Optional | SQLite file path (default: `./tennis.db`; `/app/data/tennis.db` in Docker). |
-| `TEMPLATE_RELOAD` | Dev only | `true` re-parses templates on every request (hot reload). Leave unset in production. |
+| `TEMPLATE_RELOAD` | Dev only | `true` reads `templates/` and `static/` from disk instead of the copies built into the binary, and re-parses templates on every request (hot reload). Leave unset in production. |
 | `MIGRATE_ALLOW_DIRTY_FORCE` | Dev only | `true` auto-forces a dirty migration version at startup. Never set in production: a dirty database should stop the deploy. |
 
 **iCal note.** Calendar files carry the UID `fixture-<id>@<host of PUBLIC_URL>`. The host is part of every event's identity, so changing it (for example `jim.tennis` to `www.jim.tennis`) makes calendar apps treat already-subscribed events as new and duplicate them. Set `PUBLIC_URL` to the host your players already use and keep it stable.

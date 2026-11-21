@@ -8,13 +8,12 @@ import (
 	"bytes"
 	"html/template"
 	"net/http"
-	"os"
-	"strconv"
 	"sync"
 )
 
-// ReloadEnv names the environment variable that disables caching, so edits to
-// bind-mounted templates show up on the next request during development.
+// ReloadEnv names the environment variable for development: templates and
+// static files are read from disk instead of the copies built into the binary,
+// and templates are re-parsed on every request, so edits show up at once.
 const ReloadEnv = "TEMPLATE_RELOAD"
 
 // Cache holds parsed templates by key. Parse errors are never cached, so a
@@ -28,8 +27,7 @@ type Cache struct {
 // NewCache returns a cache that re-parses on every call when TEMPLATE_RELOAD
 // is set to a true value.
 func NewCache() *Cache {
-	reload, _ := strconv.ParseBool(os.Getenv(ReloadEnv))
-	return &Cache{byKey: map[string]*template.Template{}, reload: reload}
+	return &Cache{byKey: map[string]*template.Template{}, reload: ReloadEnabled()}
 }
 
 // Get returns the cached template for key, calling parse on a miss.

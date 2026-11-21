@@ -30,8 +30,9 @@ make clean-local      # Clean binary and database
 
 ### Database Management
 ```bash
-# Migrations run automatically on startup
-# To manually migrate:
+# Migrations run automatically on startup, from the copies built into the
+# binary (embed.go); cmd/migrate and cmd/migrate-down use the same built-in
+# copies (-path <dir> reads a directory instead). To manually migrate:
 go run cmd/migrate/main.go
 
 # To rollback:
@@ -171,6 +172,8 @@ The codebase follows a clean layered architecture:
 **static/fixture-generator/**: The fixture generator itself, which runs in the browser. `engine.js` holds the promotion/relegation rules, the scheduler and the file format (no DOM, tested by `tests/fixture-generator`); `app.js`/`app.css` are the interface. See `docs/fixture_generator.md`.
 
 **migrations/**: SQL migration files (up/down pairs)
+
+**embed.go** (package `jimdottennis`, repository root): builds `templates/`, `static/` and `migrations/*.sql` into the binary, so it runs from any directory with only its data directory. The server reads templates through `internal/render` (`render.ParseFiles`/`ParseGlob`/`Glob`/`ReadFile`, never `template.ParseFiles` or `os.ReadFile` directly; handlers' `templateDir` is `"."` inside the embedded tree) and serves `/static/` through `internal/assets`. Templates link CSS/JS as `{{asset "/static/..."}}`, which appends `?v=<hash of the static tree>`; such URLs are cached as immutable for a year, every other `/static/` URL gets `no-cache` with an ETag. Uploaded logos stay on the data volume (`/branding/`).
 
 **tests/e2e/**: Playwright E2E browser tests (246 tests across 37 spec files: main suite 222, `auth` 11, `fresh-install` 13)
 - `helpers/`: Reusable test helpers (auth, htmx, navigation, assertions)
@@ -328,7 +331,7 @@ Each major handler (Admin, Players) delegates to domain-specific sub-handlers:
 - `PORT`: HTTP server port (default: "8080")
 - `DEV_MODE`: `true`/`1` is the only way to turn off Secure session cookies (plain-http development). Set by the root `docker-compose.yml` (app, app-e2e, app-fresh), `make run-local` and `scripts/run.sh`; fatal with `APP_ENV=production`. Any new way of serving the app over http must set it.
 - `APP_ENV`: Set to "production" for a live instance (the reference compose sets it): needs a valid https `PUBLIC_URL` and refuses `DEV_MODE`. In production the startup self-check (`secrets.StartupCheck`) refuses to start if a secret variable holds a known placeholder such as `change-me`. It also warns (in every mode) about accounts whose password hash is one seeded by old migrations or the e2e seed.
-- `TEMPLATE_RELOAD`: Development only; `true` re-parses templates on every request (root `docker-compose.yml` defaults it to true)
+- `TEMPLATE_RELOAD`: Development only; `true` reads `templates/` and `static/` from disk (the project root) instead of the built-in copies, re-parses templates on every request and never marks static files immutable (root `docker-compose.yml` defaults it to true and bind-mounts the two directories for the `app` service only; the e2e and fresh-install services use the built-in copies)
 - `MIGRATE_ALLOW_DIRTY_FORCE`: Development only; `true` auto-forces a dirty migration version at startup. Never set in production.
 
 **Reference deployment:** `deploy/docker-compose.yml`, `deploy/Caddyfile` and `deploy/.env.example` describe the production stack (app, CourtHive, Caddy); `.env.example` lists every variable the stack and the app read. `scripts/deploy-app.sh` does not sync them to the server. The root `docker-compose.yml` is for local development and E2E. Superseded variants are in `docs/archive/`.

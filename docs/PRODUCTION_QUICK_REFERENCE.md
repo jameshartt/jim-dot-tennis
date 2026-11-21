@@ -35,7 +35,7 @@ rsync -avz --delete -e "ssh -i $SSH_KEY" migrations/ $SERVER:$REMOTE_PATH/migrat
 ssh -i $SSH_KEY $SERVER "cd $REMOTE_PATH && docker compose build app && docker compose up -d app"
 ```
 
-> **Do not forget `migrations/`!** Migrations are `COPY`'d into the Docker image at build time and run automatically on app startup. If new migrations exist in the source but are missing from the server, the build will bake in stale migration files and the app will fail with "no such column" errors at runtime. (The script always includes them.)
+> **Do not forget `migrations/`!** Templates, static files and migrations are built into the binary (`embed.go`) when the image is built, and migrations run automatically on app startup. If new migrations exist in the source but are missing from the server, the build will bake in stale migration files and the app will fail with "no such column" errors at runtime. (The script always includes them.) A template or static change likewise needs the rebuild: the production app does not read `templates/` or `static/` from disk (only `TEMPLATE_RELOAD=true` does, for development), so any bind mounts of them in the server's compose file are ignored and can be removed.
 
 **Time:** ~2 minutes
 **Downtime:** ~10 seconds

@@ -205,7 +205,7 @@ func newBrandingEnv(t *testing.T) brandingEnv {
 		t.Fatal(err)
 	}
 	cs := config.NewClubSettings(context.Background(), repository.NewSettingsRepository(db))
-	h := NewHandler(cs, filepath.Join("..", "..", "static"))
+	h := NewHandler(cs, os.DirFS(filepath.Join("..", "..", "static")))
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 	return brandingEnv{cs: cs, handler: h, mux: mux}

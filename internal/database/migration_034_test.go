@@ -4,12 +4,12 @@ package database
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 )
 
 // migrateTo moves db to exactly version, through the same golang-migrate
@@ -17,15 +17,7 @@ import (
 // at startup.
 func migrateTo(t *testing.T, db *DB, version uint) {
 	t.Helper()
-	driver, err := sqlite3.WithInstance(db.DB.DB, &sqlite3.Config{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	abs, err := filepath.Abs(filepath.Join("..", "..", "migrations"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	m, err := migrate.NewWithDatabaseInstance("file://"+abs, DriverSQLite, driver)
+	m, err := db.NewMigrate(os.DirFS(filepath.Join("..", "..", "migrations")))
 	if err != nil {
 		t.Fatal(err)
 	}

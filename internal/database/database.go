@@ -7,16 +7,16 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
 )
@@ -89,26 +89,43 @@ func (db *DB) Close() error {
 	return nil
 }
 
-// ExecuteMigrations runs the database migrations
+// ExecuteMigrations runs the migrations in a directory on disk (tests and
+// tools pointed at a checkout; the server uses the embedded copies through
+// ExecuteMigrationsFS).
 func (db *DB) ExecuteMigrations(migrationsPath string) error {
-	log.Printf("Running migrations from: %s", migrationsPath)
+	if _, err := os.Stat(migrationsPath); err != nil {
+		return fmt.Errorf("migrations directory: %w", err)
+	}
+	return db.ExecuteMigrationsFS(os.DirFS(migrationsPath), migrationsPath)
+}
 
+// NewMigrate returns a golang-migrate instance for this database reading the
+// NNN_name.up.sql / .down.sql files at the root of migrations (for example
+// jimdottennis.Migrations(), the copies built into the binary).
+func (db *DB) NewMigrate(migrations fs.FS) (*migrate.Migrate, error) {
 	driver, err := sqlite3.WithInstance(db.DB.DB, &sqlite3.Config{})
 	if err != nil {
-		return fmt.Errorf("failed to create migration driver: %w", err)
+		return nil, fmt.Errorf("failed to create migration driver: %w", err)
 	}
-
-	// Convert to absolute path for file:// URL
-	absPath, err := filepath.Abs(migrationsPath)
+	src, err := iofs.New(migrations, ".")
 	if err != nil {
-		return fmt.Errorf("failed to get absolute migrations path: %w", err)
+		return nil, fmt.Errorf("failed to read migrations: %w", err)
 	}
-
-	// Create proper file:// URL without escaping path separators
-	sourceURL := fmt.Sprintf("file://%s", absPath)
-	m, err := migrate.NewWithDatabaseInstance(sourceURL, db.DriverName(), driver)
+	m, err := migrate.NewWithInstance("iofs", src, db.DriverName(), driver)
 	if err != nil {
-		return fmt.Errorf("failed to create migration instance: %w", err)
+		return nil, fmt.Errorf("failed to create migration instance: %w", err)
+	}
+	return m, nil
+}
+
+// ExecuteMigrationsFS runs the migrations in migrations; label names their
+// source in the log.
+func (db *DB) ExecuteMigrationsFS(migrations fs.FS, label string) error {
+	log.Printf("Running migrations from: %s", label)
+
+	m, err := db.NewMigrate(migrations)
+	if err != nil {
+		return err
 	}
 
 	// Check if the database is in a dirty state
@@ -180,9 +197,9 @@ func (db *DB) ReadSchemaStatus(ctx context.Context) (SchemaStatus, error) {
 }
 
 // LatestMigration returns the highest migration number among the
-// NNN_name.up.sql files in migrationsPath.
-func LatestMigration(migrationsPath string) (uint, error) {
-	entries, err := os.ReadDir(migrationsPath)
+// NNN_name.up.sql files at the root of migrations.
+func LatestMigration(migrations fs.FS) (uint, error) {
+	entries, err := fs.ReadDir(migrations, ".")
 	if err != nil {
 		return 0, fmt.Errorf("read migrations: %w", err)
 	}
@@ -205,7 +222,7 @@ func LatestMigration(migrationsPath string) (uint, error) {
 		}
 	}
 	if latest == 0 {
-		return 0, fmt.Errorf("no migrations found in %s", migrationsPath)
+		return 0, errors.New("no migrations found")
 	}
 	return latest, nil
 }

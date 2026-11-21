@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	jimdottennis "jim-dot-tennis"
 	"jim-dot-tennis/internal/accounts"
 	"jim-dot-tennis/internal/admin"
 	"jim-dot-tennis/internal/auth"
@@ -52,9 +54,11 @@ func main() {
 	}
 	defer db.Close()
 
-	// Execute migrations
-	migrationsPath := filepath.Join(projectRoot, "migrations")
-	migrateOrStop(db, migrationsPath, log.Fatalf)
+	// Execute migrations (always the copies built into this binary)
+	migrateOrStop(db, jimdottennis.Migrations(), "migrations built into this binary", log.Fatalf)
+
+	// Templates and static files: built in, or from disk with TEMPLATE_RELOAD
+	files := loadFiles(projectRoot)
 
 	// Load the embedded fantasy name list on first run (also in setup mode).
 	if n, err := repository.NewProTennisPlayerRepository(db).SeedIfEmpty(context.Background()); err != nil {
@@ -127,7 +131,7 @@ func main() {
 	authMiddleware := auth.NewMiddleware(authService, playerRepo, fantasyMatchRepo)
 
 	// Set up auth handlers
-	templateDir := filepath.Join(projectRoot, "templates")
+	templateDir := files.templateDir
 	authHandler := auth.NewHandler(authService, templateDir, "/admin/league")
 
 	// Set up admin handlers
@@ -217,8 +221,7 @@ func main() {
 	// Club logo, web app manifests (/static/manifest.json, /api/manifest?start=
 	// for per-player PWA install) and the service worker, using the stored
 	// club name, logo and colours
-	staticDir := filepath.Join(projectRoot, "static")
-	branding.NewHandler(homeClub.ClubSettings(), staticDir).RegisterRoutes(mux)
+	branding.NewHandler(homeClub.ClubSettings(), files.static).RegisterRoutes(mux)
 
 	// Fixture generator (public: reads the league tables, writes nothing)
 	fixturegen.New(templates).RegisterRoutes(mux)
@@ -262,11 +265,7 @@ func main() {
 	})
 
 	// Serve static files (the service worker and manifest are served by the branding handler)
-	fs := http.FileServer(http.Dir(staticDir))
-	mux.Handle("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("Static file request: %s", r.URL.Path)
-		http.StripPrefix("/static/", fs).ServeHTTP(w, r)
-	}))
+	mux.Handle("/static/", files.staticHandler)
 
 	// Start server with proper timeouts
 	port := getPort()
@@ -287,11 +286,11 @@ func main() {
 // audit log all depend on their tables being as the code expects, so that is
 // not a state to serve requests in. (The command line never migrates; it
 // checks the schema version itself and refuses, see cli.go.)
-func migrateOrStop(db *database.DB, migrationsPath string, fatalf func(format string, args ...any)) {
-	if err := db.ExecuteMigrations(migrationsPath); err != nil {
+func migrateOrStop(db *database.DB, migrations fs.FS, label string, fatalf func(format string, args ...any)) {
+	if err := db.ExecuteMigrationsFS(migrations, label); err != nil {
 		fatalf("Database migration failed, so the app cannot start: %v\n"+
-			"Nothing was served. Check that the migrations directory (%s) is present and matches this build, "+
-			"and see \"Working with Migrations\" in CLAUDE.md for a migration that stopped part-way.", err, migrationsPath)
+			"Nothing was served. Migrations read from: %s. "+
+			"See \"Working with Migrations\" in CLAUDE.md for a migration that stopped part-way.", err, label)
 	}
 }
 
@@ -350,7 +349,7 @@ func loadTemplatesWithFuncs(templateDir string, funcMap template.FuncMap) (*temp
 
 	// Parse all HTML files in the template directory
 	pattern := filepath.Join(templateDir, "*.html")
-	templates, err := tmpl.ParseGlob(pattern)
+	templates, err := render.ParseGlob(tmpl, pattern)
 	if err != nil {
 		return nil, err
 	}

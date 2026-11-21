@@ -168,7 +168,7 @@ environment:
 
 Upload the logo on **Admin Dashboard → Club Settings** (PNG, JPEG or WebP, up to 2 MB). It is stored in `/app/data/branding/`, on the data volume next to the database, so it survives image upgrades. Back it up with the database if you copy the volume by hand (the SQLite `.backup` job covers only the database file).
 
-Alternatively, mount an image into the container (e.g. `- ./my-club.jpg:/app/static/my-club.jpg:ro`) and set `HOME_CLUB_LOGO_PATH=/static/my-club.jpg`; that takes precedence over an uploaded logo.
+Alternatively, set `HOME_CLUB_LOGO_PATH` to the URL path of an image you serve yourself (for example from the reverse proxy); that takes precedence over an uploaded logo. Static files are built into the binary, so an image mounted into `/app/static` is not served (except in development with `TEMPLATE_RELOAD=true`).
 
 ## Deployment
 
