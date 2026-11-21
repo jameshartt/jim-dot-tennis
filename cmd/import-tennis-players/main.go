@@ -15,7 +15,7 @@ import (
 func main() {
 	var (
 		dbPath   = flag.String("db-path", "./tennis.db", "Path to SQLite database file")
-		jsonFile = flag.String("json-file", "cmd/collect_tennis_data/tennis_players.json", "Path to tennis players JSON file")
+		jsonFile = flag.String("json-file", "", "Path to a tennis players JSON file (default: the list embedded in the binary)")
 		verbose  = flag.Bool("verbose", false, "Enable verbose logging")
 		dryRun   = flag.Bool("dry-run", false, "Show what would be imported without making changes")
 	)
@@ -27,11 +27,13 @@ func main() {
 
 	log.Printf("🎾 Tennis Player Import Tool")
 	log.Printf("Database: %s", *dbPath)
-	log.Printf("JSON File: %s", *jsonFile)
-
-	// Check if JSON file exists
-	if _, err := os.Stat(*jsonFile); os.IsNotExist(err) {
-		log.Fatalf("❌ Tennis players JSON file not found: %s", *jsonFile)
+	if *jsonFile == "" {
+		log.Printf("JSON File: (embedded list)")
+	} else {
+		log.Printf("JSON File: %s", *jsonFile)
+		if _, err := os.Stat(*jsonFile); os.IsNotExist(err) {
+			log.Fatalf("❌ Tennis players JSON file not found: %s", *jsonFile)
+		}
 	}
 
 	// Connect to database
@@ -77,7 +79,13 @@ func main() {
 
 	// Import tennis players
 	log.Printf("🔄 Importing tennis players...")
-	if err := tennisPlayerRepo.ImportFromJSON(ctx, *jsonFile); err != nil {
+	var importErr error
+	if *jsonFile == "" {
+		importErr = tennisPlayerRepo.ImportEmbedded(ctx)
+	} else {
+		importErr = tennisPlayerRepo.ImportFromJSON(ctx, *jsonFile)
+	}
+	if err := importErr; err != nil {
 		log.Fatalf("❌ Failed to import tennis players: %v", err)
 	}
 

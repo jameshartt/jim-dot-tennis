@@ -46,6 +46,13 @@ func main() {
 		log.Printf("Warning: Failed to run migrations: %v", err)
 	}
 
+	// Load the embedded fantasy name list on first run (also in setup mode).
+	if n, err := repository.NewProTennisPlayerRepository(db).SeedIfEmpty(context.Background()); err != nil {
+		log.Fatalf("Failed to load tennis players: %v", err)
+	} else if n > 0 {
+		log.Printf("Loaded %d tennis players into an empty tennis_players table", n)
+	}
+
 	// Resolve the home club (HOME_CLUB_ID, then HOME_CLUB_NAME, then the stored
 	// setting). With nothing configured the server still starts, in setup mode.
 	clubRepo := repository.NewClubRepository(db)
