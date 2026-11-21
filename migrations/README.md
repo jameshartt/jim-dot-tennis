@@ -148,7 +148,7 @@ This has been done deliberately once:
 
 ## Troubleshooting
 
-- **Dirty Database State**: If a migration fails partway through, the database is marked as "dirty" and the schema may be inconsistent. On startup the app now **fails fast** on a dirty database rather than silently forcing the version (which used to mask schema drift). Inspect the schema, roll back to a clean version with the migrate-down tool, then re-run. In development only, you may set `MIGRATE_ALLOW_DIRTY_FORCE=true` to restore the old auto-force behaviour.
+- **Dirty Database State**: If a migration fails partway through, the database is marked "dirty" and the schema may be inconsistent. The app refuses to start, naming the migration and listing the recovery steps, and `/healthz` stays failing. The version is never forced: restore the database file from the backup taken before the upgrade, start the previous version of the app, and report the failing migration. (`MIGRATE_ALLOW_DIRTY_FORCE`, which used to force it in development, has been removed.)
 
 - **Migration Version Mismatch**: If you need to force a specific migration version, you can use the migrate down tool to roll back to a specific version, then run the migration tool again to apply migrations up to the desired version.
 

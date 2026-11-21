@@ -19,6 +19,7 @@ import (
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/setup"
+	"jim-dot-tennis/internal/version"
 )
 
 // cliTestDB creates a migrated database in a temp dir, points DB_PATH at it
@@ -404,4 +405,18 @@ func mustHashForTest(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return h
+}
+
+// `version` prints version, commit and date without needing a database.
+func TestCLIVersion(t *testing.T) {
+	t.Setenv("DB_PATH", filepath.Join(t.TempDir(), "none.db"))
+	for _, args := range [][]string{{"version"}, {"--version"}} {
+		var out, errOut bytes.Buffer
+		if code := runCLI(args, &out, &errOut); code != exitOK {
+			t.Fatalf("%v: exit %d: %s", args, code, errOut.String())
+		}
+		if !strings.Contains(out.String(), "jim-dot-tennis "+version.Version) || !strings.Contains(out.String(), "commit") {
+			t.Errorf("%v: output %q", args, out.String())
+		}
+	}
 }

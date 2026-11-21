@@ -51,7 +51,6 @@ func (s *Service) handleGetVAPIDPublicKey(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	log.Printf("Returning VAPID public key: %s", publicKey)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"publicKey": publicKey,

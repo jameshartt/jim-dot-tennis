@@ -100,7 +100,6 @@ The application uses environment variables to identify your club:
 | `DB_TYPE` | Optional | Only `sqlite3` is supported; any other value fails at startup. |
 | `DB_PATH` | Optional | SQLite file path (default: `./tennis.db`; `/app/data/tennis.db` in Docker). |
 | `TEMPLATE_RELOAD` | Dev only | `true` re-parses templates on every request (hot reload). Leave unset in production. |
-| `MIGRATE_ALLOW_DIRTY_FORCE` | Dev only | `true` auto-forces a dirty migration version at startup. Never set in production: a dirty database should stop the deploy. |
 
 **iCal note.** Calendar files carry the UID `fixture-<id>@<host of PUBLIC_URL>`. The host is part of every event's identity, so changing it (for example `jim.tennis` to `www.jim.tennis`) makes calendar apps treat already-subscribed events as new and duplicate them. Set `PUBLIC_URL` to the host your players already use and keep it stable.
 

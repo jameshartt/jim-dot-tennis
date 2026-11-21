@@ -424,6 +424,10 @@ First-run setup
                                    any earlier code (including the one in the
                                    app's log) and works once.
 
+  version                          Show which version of the app this is, the
+                                   commit it was built from and when.
+                                   Needs no database.
+
   help                             Show this text.
 
 Good to know

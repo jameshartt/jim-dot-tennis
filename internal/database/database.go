@@ -117,22 +117,11 @@ func (db *DB) ExecuteMigrations(migrationsPath string) error {
 		return fmt.Errorf("failed to get migration version: %w", err)
 	}
 
-	// If the database is in a dirty state, a previous migration failed partway
-	// through and the schema may be inconsistent. Fail fast so the deploy stops
-	// and the state can be inspected, instead of silently "healing" into schema
-	// drift. Auto-forcing is only allowed in development, behind an explicit
-	// opt-in env flag.
+	// A dirty database means an earlier migration stopped part-way, so the
+	// schema may be half changed. Never carry on over that and never force the
+	// version to hide it: stop and say what to do (see MigrationError).
 	if dirty {
-		if os.Getenv("MIGRATE_ALLOW_DIRTY_FORCE") == "true" {
-			log.Printf("WARNING: database is dirty at version %d; MIGRATE_ALLOW_DIRTY_FORCE=true, forcing version (dev only).", version)
-			if err := m.Force(int(version)); err != nil {
-				return fmt.Errorf("failed to force migration version: %w", err)
-			}
-		} else {
-			return fmt.Errorf("database is in a dirty state at version %d: a previous migration did not complete. "+
-				"Inspect the schema, roll back to a clean version with cmd/migrate-down, then re-run. "+
-				"To auto-force the dirty version in development only, set MIGRATE_ALLOW_DIRTY_FORCE=true", version)
-		}
+		return &MigrationError{Version: version, Dirty: true}
 	}
 
 	// Run migrations
@@ -140,6 +129,11 @@ func (db *DB) ExecuteMigrations(migrationsPath string) error {
 		if err == migrate.ErrNoChange {
 			log.Println("No migrations to apply - database is up to date")
 			return nil
+		}
+		// After a failed migration golang-migrate leaves the version table
+		// dirty at the migration that failed; that is the one to name.
+		if v, d, verr := m.Version(); verr == nil && d {
+			return &MigrationError{Version: v, Cause: err}
 		}
 		return fmt.Errorf("failed to apply migrations: %w", err)
 	}

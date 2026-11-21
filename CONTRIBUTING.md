@@ -138,7 +138,6 @@ Set these environment variables to run jim.tennis for your club:
 | `DB_TYPE` | Optional | Only `sqlite3` is supported; any other value fails at startup. |
 | `DB_PATH` | Optional | SQLite file path (default: `./tennis.db`; `/app/data/tennis.db` in Docker). |
 | `TEMPLATE_RELOAD` | Dev only | `true` re-parses templates on every request (hot reload). Leave unset in production. |
-| `MIGRATE_ALLOW_DIRTY_FORCE` | Dev only | `true` auto-forces a dirty migration version at startup. Never set in production: a dirty database should stop the deploy. |
 
 You'll also want to update:
 - Domain name and Caddy configuration
