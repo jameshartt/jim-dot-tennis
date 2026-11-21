@@ -24,27 +24,50 @@ type BHPLTAClubIdentifiers struct {
 // BHPLTA does not publish these: they appear only on the club scores page
 // after signing in with the club password (data-clubid / data-clubname on the
 // page heading). Add a club here only once its values have been seen working.
+//
+// logo is the club's own logo bundled under /static, used only for that club
+// when no logo is uploaded and HOME_CLUB_LOGO_PATH is unset (so a deployment
+// that predates the settings page keeps its logo). It is never a default for
+// any other club.
 var knownBHPLTAClubs = []struct {
 	names []string
 	ids   BHPLTAClubIdentifiers
+	logo  string
 }{
-	{names: []string{"st anns", "st anns tennis", "st anns tennis club"}, ids: BHPLTAClubIdentifiers{Name: "St+Anns", ID: 10}},
+	{names: []string{"st anns", "st anns tennis", "st anns tennis club"}, ids: BHPLTAClubIdentifiers{Name: "St+Anns", ID: 10}, logo: "/static/st-anns-tennis.jpg"},
+}
+
+// knownClub returns the index of club's knownBHPLTAClubs entry, if any.
+func knownClub(club *models.Club) (int, bool) {
+	if club == nil {
+		return 0, false
+	}
+	name := normalize.ForComparison(club.Name)
+	for i, k := range knownBHPLTAClubs {
+		for _, n := range k.names {
+			if n == name {
+				return i, true
+			}
+		}
+	}
+	return 0, false
 }
 
 // KnownBHPLTAClub returns the known BHPLTA identifiers for club, if any.
 func KnownBHPLTAClub(club *models.Club) (BHPLTAClubIdentifiers, bool) {
-	if club == nil {
-		return BHPLTAClubIdentifiers{}, false
-	}
-	name := normalize.ForComparison(club.Name)
-	for _, k := range knownBHPLTAClubs {
-		for _, n := range k.names {
-			if n == name {
-				return k.ids, true
-			}
-		}
+	if i, ok := knownClub(club); ok {
+		return knownBHPLTAClubs[i].ids, true
 	}
 	return BHPLTAClubIdentifiers{}, false
+}
+
+// KnownClubLogo returns the bundled logo path for club, if it is a known club
+// with one.
+func KnownClubLogo(club *models.Club) (string, bool) {
+	if i, ok := knownClub(club); ok && knownBHPLTAClubs[i].logo != "" {
+		return knownBHPLTAClubs[i].logo, true
+	}
+	return "", false
 }
 
 // PrefillClubSettings stores whatever club settings can be derived from the

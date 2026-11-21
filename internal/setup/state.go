@@ -5,7 +5,7 @@
 //
 // An instance needs setup while no home club is in effect (neither
 // HOME_CLUB_ID / HOME_CLUB_NAME nor the stored home_club_id setting resolves to
-// a club). While it does, Gate sends every request except static assets, the uploaded logo, the
+// a club) or no administrator account exists. While it does, Gate sends every request except static assets, the uploaded logo, the
 // health endpoint and /setup... to the setup entry page.
 //
 // The setup flow (WI-117) completes setup by writing the completion settings
@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sync/atomic"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -42,6 +43,11 @@ const (
 	// example a database created before seeded accounts were removed, or a
 	// setup that stopped after creating the administrator).
 	StatusNeedsClub
+	// StatusNeedsAdmin: a home club is in effect (HOME_CLUB_ID / HOME_CLUB_NAME
+	// or a stored choice) but no administrator account exists, so nobody could
+	// sign in to run the instance. The code-protected setup flow creates the
+	// first administrator and then hands over to the dashboard (no club step).
+	StatusNeedsAdmin
 )
 
 // String returns a short name for the status (used in logs and templates).
@@ -53,15 +59,27 @@ func (s Status) String() string {
 		return "needs-setup"
 	case StatusNeedsClub:
 		return "needs-club"
+	case StatusNeedsAdmin:
+		return "needs-admin"
 	default:
 		return fmt.Sprintf("Status(%d)", int(s))
 	}
+}
+
+// NeedsFirstAdmin reports whether st is a state in which the first
+// administrator may be created (with the setup code): no administrator exists.
+func (s Status) NeedsFirstAdmin() bool {
+	return s == StatusNeedsSetup || s == StatusNeedsAdmin
 }
 
 // State answers "does this instance need setup?" and completes setup.
 type State struct {
 	db     *database.DB
 	holder *config.HomeClubHolder
+	// adminSeen latches once an administrator has been seen with a home club
+	// in effect, so the ready path stays a lock-only read. Removing every
+	// administrator later only takes effect at the next restart.
+	adminSeen atomic.Bool
 }
 
 // NewState returns the setup state for db, using holder as the live home club.
@@ -82,12 +100,34 @@ func (s *State) HasAdmin(ctx context.Context) (bool, error) {
 	return exists, nil
 }
 
-// Status returns the current setup status. Once a home club is in effect this
-// is a lock-only read; while unresolved it retries resolution and checks for
-// administrators. A database error while checking for administrators is
-// treated as StatusNeedsSetup (the app stays gated) and logged.
+// Status returns the current setup status:
+//
+//	home club   administrator   status
+//	yes         yes             StatusReady
+//	yes         no              StatusNeedsAdmin
+//	no          yes             StatusNeedsClub
+//	no          no              StatusNeedsSetup
+//
+// Other (captain, player) accounts do not count as administrators. Once a home
+// club and an administrator have been seen this is a lock-only read; until
+// then it retries resolution and checks for administrators. A database error
+// while checking is logged and treated as StatusReady when a home club is in
+// effect (as before: setup steps stay unavailable) and as StatusNeedsSetup
+// otherwise (the app stays gated).
 func (s *State) Status(ctx context.Context) Status {
 	if id, _ := s.holder.Current(ctx); id != 0 {
+		if s.adminSeen.Load() {
+			return StatusReady
+		}
+		hasAdmin, err := s.HasAdmin(ctx)
+		if err != nil {
+			log.Printf("setup: %v", err)
+			return StatusReady
+		}
+		if !hasAdmin {
+			return StatusNeedsAdmin
+		}
+		s.adminSeen.Store(true)
 		return StatusReady
 	}
 	hasAdmin, err := s.HasAdmin(ctx)

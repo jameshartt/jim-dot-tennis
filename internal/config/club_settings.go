@@ -215,13 +215,18 @@ func (c *ClubSettings) DisplayName(club *models.Club) string {
 	return DefaultDisplayName
 }
 
-// LogoPath is HOME_CLUB_LOGO_PATH if set, else the uploaded logo's URL, else "" (no logo).
-func (c *ClubSettings) LogoPath() string {
+// LogoPath is HOME_CLUB_LOGO_PATH if set, else the uploaded logo's URL, else
+// the bundled logo of a known home club (see KnownClubLogo), else "" (no
+// logo). club may be nil.
+func (c *ClubSettings) LogoPath(club *models.Club) string {
 	if v, ok := c.envValue(repository.SettingClubLogoFile); ok {
 		return v
 	}
 	if f := c.Stored(repository.SettingClubLogoFile); f != "" {
 		return LogoURLPrefix + f
+	}
+	if v, ok := KnownClubLogo(club); ok {
+		return v
 	}
 	return ""
 }
@@ -246,7 +251,7 @@ func (c *ClubSettings) SecondaryColour() string {
 func (c *ClubSettings) Branding(club *models.Club) Branding {
 	b := Branding{
 		Name:            c.DisplayName(club),
-		LogoPath:        c.LogoPath(),
+		LogoPath:        c.LogoPath(club),
 		PrimaryColour:   c.PrimaryColour(),
 		SecondaryColour: c.SecondaryColour(),
 	}

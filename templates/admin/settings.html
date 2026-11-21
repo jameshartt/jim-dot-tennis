@@ -73,6 +73,7 @@
                         <label style="font-weight: normal;"><input type="checkbox" name="remove_logo" id="remove_logo"> Remove the uploaded logo</label>
                         {{end}}
                     </div>
+                    {{if .LogoKnown}}<span class="hint" id="logo-known">This is your club's built-in logo, used until you upload one.</span>{{end}}
                     {{else}}
                     <span class="hint" id="no-logo">No logo yet.</span>
                     {{end}}

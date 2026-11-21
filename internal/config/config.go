@@ -124,7 +124,7 @@ func Load(ctx context.Context, clubRepo repository.ClubRepository, settings repo
 	}
 	logResolvedHomeClub(club, source)
 	cs := NewClubSettings(ctx, settings)
-	return &AppConfig{HomeClubID: club.ID, HomeClub: club, HomeClubLogoPath: cs.LogoPath(), BHPLTAClubCode: cs.BHPLTAClubCode()}, nil
+	return &AppConfig{HomeClubID: club.ID, HomeClub: club, HomeClubLogoPath: cs.LogoPath(club), BHPLTAClubCode: cs.BHPLTAClubCode()}, nil
 }
 
 // isHomeClubMismatch reports whether err is a "configured club not found" error.

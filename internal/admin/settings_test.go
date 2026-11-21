@@ -349,3 +349,26 @@ func TestMatchCardImportFormUsesStoredIdentifiers(t *testing.T) {
 		t.Errorf("import form still hardcodes St Ann's")
 	}
 }
+
+// The known club's bundled logo is shown, and labelled, when nothing is
+// uploaded; another club sees no logo.
+func TestSettingsShowsKnownClubLogo(t *testing.T) {
+	e := newSettingsTestEnv(t)
+	rec := e.do(httptest.NewRequest(http.MethodGet, settingsPath, nil), models.RoleAdmin)
+	if body := rec.Body.String(); !strings.Contains(body, `id="no-logo"`) || strings.Contains(body, `id="logo-known"`) {
+		t.Errorf("unknown club: want no logo")
+	}
+
+	if _, err := e.db.Exec(`UPDATE clubs SET name = 'St Ann''s Tennis Club' WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	e = newSettingsTestEnvOn(t, e.db)
+	if got := e.holder.LogoPath(); got != "/static/st-anns-tennis.jpg" {
+		t.Fatalf("known club LogoPath = %q", got)
+	}
+	rec = e.do(httptest.NewRequest(http.MethodGet, settingsPath, nil), models.RoleAdmin)
+	body := rec.Body.String()
+	if !strings.Contains(body, `src="/static/st-anns-tennis.jpg"`) || !strings.Contains(body, `id="logo-known"`) || strings.Contains(body, `id="remove_logo"`) {
+		t.Errorf("known club: bundled logo not shown as such")
+	}
+}

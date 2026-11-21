@@ -31,7 +31,7 @@
 <ol class="setup-steps" aria-label="Setup progress">
     <li class="{{if eq .Step 1}}current{{else if gt .Step 1}}complete{{end}}"{{if eq .Step 1}} aria-current="step"{{end}}>1. Setup code</li>
     <li class="{{if eq .Step 2}}current{{else if gt .Step 2}}complete{{end}}"{{if eq .Step 2}} aria-current="step"{{end}}>2. Your login</li>
-    <li class="{{if eq .Step 3}}current{{end}}"{{if eq .Step 3}} aria-current="step"{{end}}>3. Your club</li>
+    {{if ne .Status "needs-admin"}}<li class="{{if eq .Step 3}}current{{end}}"{{if eq .Step 3}} aria-current="step"{{end}}>3. Your club</li>{{end}}
 </ol>
 {{end}}
 

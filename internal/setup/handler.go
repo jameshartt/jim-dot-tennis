@@ -275,12 +275,13 @@ func (h *Handler) admin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	if h.svc.State().Status(ctx) != StatusNeedsSetup {
-		// An administrator exists (or setup is complete): this step is gone.
+	status := h.svc.State().Status(ctx)
+	if !status.NeedsFirstAdmin() {
+		// An administrator exists: this step is gone.
 		http.NotFound(w, r)
 		return
 	}
-	data := pageData{Step: 2, Status: StatusNeedsSetup.String(), MinPassword: auth.MinPasswordLength}
+	data := pageData{Step: 2, Status: status.String(), MinPassword: auth.MinPasswordLength}
 	if r.Method != http.MethodPost {
 		if !h.svc.TicketValid(ctx, h.ticket(r)) {
 			http.Redirect(w, r, Path, http.StatusSeeOther)
@@ -317,10 +318,6 @@ func (h *Handler) admin(w http.ResponseWriter, r *http.Request) {
 		data.Error = inputErr.Message
 		h.render(w, http.StatusUnprocessableEntity, "admin", data)
 		return
-	case errors.Is(err, ErrAccountsExist):
-		data.Error = "This database already has user accounts, so it is not a fresh install. Sign in with an existing account instead."
-		h.render(w, http.StatusConflict, "admin", data)
-		return
 	default:
 		log.Printf("setup: create administrator: %v", err)
 		data.Error = "Something went wrong creating your login. Please try again."
@@ -333,6 +330,11 @@ func (h *Handler) admin(w http.ResponseWriter, r *http.Request) {
 	if err := h.sessions.StartSession(w, r, userID); err != nil {
 		log.Printf("setup: sign in new administrator: %v", err)
 		http.Redirect(w, r, loginPath, http.StatusSeeOther)
+		return
+	}
+	if h.svc.State().Status(ctx) == StatusReady {
+		// A home club was already in effect: there is no club to choose.
+		http.Redirect(w, r, dashboardPath, http.StatusSeeOther)
 		return
 	}
 	http.Redirect(w, r, ClubPath, http.StatusSeeOther)
@@ -356,7 +358,7 @@ func (h *Handler) club(w http.ResponseWriter, r *http.Request) {
 		}
 		http.NotFound(w, r)
 		return
-	case StatusNeedsSetup:
+	case StatusNeedsSetup, StatusNeedsAdmin:
 		if r.Method == http.MethodPost {
 			http.NotFound(w, r)
 			return

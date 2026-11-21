@@ -274,22 +274,32 @@ func TestCreateAdmin(t *testing.T) {
 	}
 }
 
-func TestCreateAdminRefusesWhenOtherAccountsExist(t *testing.T) {
+// A database with captain or player accounts but no administrator still gets
+// its first administrator from the setup code; the existing accounts are kept.
+func TestCreateAdminAlongsideNonAdminAccounts(t *testing.T) {
 	ctx := context.Background()
 	s, db := newTestService(t)
 	ticket := redeemed(t, s)
 	if _, err := db.Exec(`INSERT INTO users (username, password_hash, role) VALUES ('captain', 'x', 'captain')`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.CreateAdmin(ctx, ticket, "first.admin", goodPassword); !errors.Is(err, ErrAccountsExist) {
-		t.Fatalf("CreateAdmin with an existing account: %v", err)
+	// A username already in use is refused like any other input problem, and
+	// nothing in the transaction is kept: the ticket still works.
+	var inputErr *InputError
+	if _, err := s.CreateAdmin(ctx, ticket, "Captain", goodPassword); !errors.As(err, &inputErr) || inputErr.Field != "username" {
+		t.Fatalf("CreateAdmin with a taken username: %v", err)
 	}
-	if userCount(t, db) != 1 {
-		t.Fatal("administrator created alongside an existing account")
-	}
-	// Nothing in the transaction was kept: the ticket still works.
 	if !s.TicketValid(ctx, ticket) {
 		t.Fatal("ticket consumed by a failed CreateAdmin")
+	}
+	if _, err := s.CreateAdmin(ctx, ticket, "first.admin", goodPassword); err != nil {
+		t.Fatalf("CreateAdmin with a captain account present: %v", err)
+	}
+	if userCount(t, db) != 2 {
+		t.Fatalf("%d users, want the captain and the new administrator", userCount(t, db))
+	}
+	if s.state.Status(ctx) != StatusNeedsClub {
+		t.Fatalf("status %v, want needs-club", s.state.Status(ctx))
 	}
 }
 
