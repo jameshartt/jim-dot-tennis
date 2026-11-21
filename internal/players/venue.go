@@ -5,6 +5,7 @@ package players
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/services"
@@ -145,7 +146,7 @@ func (s *Service) getSelectedPlayersForVenue(ctx context.Context, viewingPlayerI
 }
 
 // GenerateFixtureICal generates an iCal event for a fixture
-func (s *Service) GenerateFixtureICal(fixtureID uint) (string, error) {
+func (s *Service) GenerateFixtureICal(fixtureID uint, r *http.Request) (string, error) {
 	ctx := context.Background()
 
 	fixture, err := s.fixtureRepository.FindByID(ctx, fixtureID)
@@ -189,5 +190,6 @@ func (s *Service) GenerateFixtureICal(fixtureID uint) (string, error) {
 		resolution.Club,
 	)
 
+	event.UIDDomain = s.clubSettings().Host(r)
 	return services.GenerateICalEvent(event), nil
 }

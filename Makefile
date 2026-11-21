@@ -56,7 +56,7 @@ run-local: build-local
 	@echo "Starting $(PROJECT) locally..."
 	@echo "Database will be created at: ./tennis.db"
 	@echo "Server will be available at: http://localhost:8080"
-	DB_PATH=./tennis.db $(BINARY_PATH)
+	DEV_MODE=true DB_PATH=./tennis.db $(BINARY_PATH)
 
 # Combined local development command
 local: run-local

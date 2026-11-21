@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"jim-dot-tennis/internal/models"
@@ -51,7 +52,7 @@ func (m *Middleware) RequireAuth(next http.Handler) http.Handler {
 		if err != nil {
 			log.Printf("No session cookie found: %v", err)
 			// Redirect to login with the original URL as a redirect parameter
-			loginURL := "/login?redirect=" + r.URL.Path
+			loginURL := loginRedirectURL(r)
 			http.Redirect(w, r, loginURL, http.StatusSeeOther)
 			return
 		}
@@ -65,7 +66,7 @@ func (m *Middleware) RequireAuth(next http.Handler) http.Handler {
 			// Clear cookie if session is invalid or expired
 			m.service.ClearSessionCookie(w)
 			// Redirect to login with the original URL as a redirect parameter
-			loginURL := "/login?redirect=" + r.URL.Path
+			loginURL := loginRedirectURL(r)
 			http.Redirect(w, r, loginURL, http.StatusSeeOther)
 			return
 		}
@@ -207,4 +208,10 @@ func extractFantasyTokenFromPath(path string) string {
 		}
 	}
 	return ""
+}
+
+// loginRedirectURL is the login page URL that returns the user to the
+// requested page (path and query) after signing in.
+func loginRedirectURL(r *http.Request) string {
+	return "/login?redirect=" + url.QueryEscape(r.URL.RequestURI())
 }

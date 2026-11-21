@@ -42,7 +42,6 @@ var allowedHosts = map[string]string{
 
 	// Identifiers that are never contacted.
 	"www.w3.org": "identifier: XML/SVG namespace",
-	"jim.tennis": "identifier: VAPID subscriber sent to push services (to be replaced by the instance's public URL, WI-126)",
 }
 
 // placeholderHost reports hosts reserved for documentation and examples.

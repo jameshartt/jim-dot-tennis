@@ -518,7 +518,7 @@ func (h *AvailabilityHandler) handleFixtureCalendarDownload(w http.ResponseWrite
 		return
 	}
 
-	icalContent, err := h.service.GenerateFixtureICal(uint(fixtureID))
+	icalContent, err := h.service.GenerateFixtureICal(uint(fixtureID), r)
 	if err != nil {
 		log.Printf("Error generating iCal for fixture %d: %v", fixtureID, err)
 		http.Error(w, "Failed to generate calendar event", http.StatusInternalServerError)

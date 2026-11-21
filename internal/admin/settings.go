@@ -278,6 +278,9 @@ func (h *SettingsHandler) parseForm(r *http.Request, cs *config.ClubSettings) (m
 		if values[repository.SettingPublicURL], err = config.NormalizePublicURL(r.FormValue("public_url")); err != nil {
 			return nil, nil, err
 		}
+		if v := values[repository.SettingPublicURL]; config.Production() && !strings.HasPrefix(v, "https://") {
+			return nil, nil, fmt.Errorf("the public URL must start with https:// on a production instance, and cannot be cleared")
+		}
 	}
 	// Feature switches: each is a hidden "off" input followed by a checkbox
 	// "on", so a form that omits a switch leaves it as it is. A switch set by

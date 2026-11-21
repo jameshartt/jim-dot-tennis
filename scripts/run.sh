@@ -32,6 +32,7 @@ echo
 # Set environment variables
 export DB_PATH="./tennis.db"
 export APP_ENV="development"
+export DEV_MODE="true" # plain http on localhost: session cookies are not Secure
 
 echo -e "${YELLOW}Starting jim-dot-tennis...${NC}"
 echo -e "${BLUE}Database location: $PROJECT_ROOT/tennis.db${NC}"
