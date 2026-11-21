@@ -1,0 +1,263 @@
+name: Release
+
+# Pushing a version tag (vX.Y.Z, or vX.Y.Z-rc.1 for a pre-release) publishes:
+#   - linux/amd64 and linux/arm64 binaries, a checksum file and generated
+#     notes on GitHub Releases
+#   - a multi-architecture image on ghcr.io, tagged with the version (and
+#     `latest` only for a stable, non-pre-release version)
+#   - build provenance attestations for the image and the binaries
+# See RELEASING.md. No secrets are used: only the workflow's GITHUB_TOKEN.
+#
+# Why plain `docker buildx` and `gh` instead of GoReleaser: the Dockerfile
+# already is the one build definition (version stamping, CGO off, embedded
+# assets), and its `binary` stage exports the very binary the image contains.
+# GoReleaser would add a second build definition, a second toolchain version to
+# keep in step, and its own Docker/QEMU handling. Here the only third-party
+# actions are Docker's and GitHub's own, all pinned to commit SHAs.
+#
+# Why CI is called (workflow_call) rather than re-run or polled: tags do not
+# trigger ci.yml, and calling it makes the release jobs wait on exactly the same
+# required checks main uses, on the tagged commit, with no duplicated list of
+# jobs and no polling of the checks API.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+# Releases are never cancelled halfway.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/jameshartt/jim-dot-tennis
+
+jobs:
+  # Cheap checks first, before anything is built or published.
+  validate:
+    name: Validate tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.tag.outputs.version }}
+      prerelease: ${{ steps.tag.outputs.prerelease }}
+      commit: ${{ steps.tag.outputs.commit }}
+      date: ${{ steps.tag.outputs.date }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Validate the tag and work out the version
+        id: tag
+        env:
+          TAG: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$REF_TYPE" != "tag" ]; then
+            echo "::error::Not a tag push"; exit 1
+          fi
+          # Strict semantic version with an optional pre-release suffix.
+          re='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$'
+          if ! [[ "$TAG" =~ $re ]]; then
+            echo "::error::Tag is not vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-prerelease"
+            exit 1
+          fi
+          version="${TAG#v}"
+          # v0.x (before 1.0.0) and anything with a -suffix is a pre-release.
+          if [ "${BASH_REMATCH[1]}" = "0" ] || [ -n "${BASH_REMATCH[4]}" ]; then
+            prerelease=true
+          else
+            prerelease=false
+          fi
+          # Only commits that went through review and CI on main are released.
+          if ! git merge-base --is-ancestor "$SHA" origin/main; then
+            echo "::error::The tagged commit is not on main"; exit 1
+          fi
+          # CHANGELOG.md must have a section for this version.
+          if ! grep -qF "## [${version}]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [${version}]' section"; exit 1
+          fi
+          {
+            echo "version=$version"
+            echo "prerelease=$prerelease"
+            echo "commit=$SHA"
+            # The commit's own time, so rebuilding a tag gives the same stamp.
+            echo "date=$(git show -s --format=%cI "$SHA")"
+          } >> "$GITHUB_OUTPUT"
+          echo "Releasing $version (pre-release: $prerelease)"
+
+  ci:
+    name: CI
+    needs: validate
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  binaries:
+    name: Binary (${{ matrix.arch }})
+    needs: [validate, ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: true
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build the binary
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          COMMIT: ${{ needs.validate.outputs.commit }}
+          BUILD_DATE: ${{ needs.validate.outputs.date }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          docker buildx build --target binary --platform "linux/${ARCH}" \
+            --build-arg "VERSION=${VERSION}" --build-arg "COMMIT=${COMMIT}" --build-arg "BUILD_DATE=${BUILD_DATE}" \
+            --output "type=local,dest=out" .
+          # Published as jim-dot-tennis_<version>_linux_<arch>
+          mkdir -p dist
+          mv out/jim-dot-tennis "dist/jim-dot-tennis_${VERSION}_linux_${ARCH}"
+          chmod 0755 "dist/jim-dot-tennis_${VERSION}_linux_${ARCH}"
+      - name: Upload binary
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: binary-${{ matrix.arch }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  image:
+    name: Container image
+    needs: [validate, ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write # push to ghcr.io
+      id-token: write # keyless signing of the attestation
+      attestations: write # store the attestation
+      artifact-metadata: write # storage record that actions/attest creates
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up QEMU (runs the arm64 runtime-stage commands)
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to ghcr.io
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Work out the image tags
+        id: tags
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          PRERELEASE: ${{ needs.validate.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          # The exact version always; `latest` only for a stable release, so
+          # v0.x and -rc tags never move it.
+          {
+            echo "list<<EOF"
+            echo "${IMAGE}:${VERSION}"
+            if [ "$PRERELEASE" = "false" ]; then echo "${IMAGE}:latest"; fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - name: Build and push (amd64 and arm64)
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.list }}
+          build-args: |
+            VERSION=${{ needs.validate.outputs.version }}
+            COMMIT=${{ needs.validate.outputs.commit }}
+            BUILD_DATE=${{ needs.validate.outputs.date }}
+          # GitHub's attestation below is the provenance record; skip BuildKit's
+          # own so the index holds exactly the two platform images.
+          provenance: false
+          sbom: false
+      - name: Attest the image's build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+  github-release:
+    name: GitHub Release
+    needs: [validate, binaries, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # create the release
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: binary-*
+          path: dist
+          merge-multiple: true
+      - name: Write the checksum file
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum "jim-dot-tennis_${VERSION}_linux_"* > "jim-dot-tennis_${VERSION}_checksums.txt"
+          cat "jim-dot-tennis_${VERSION}_checksums.txt"
+      - name: Attest the binaries' build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: dist/jim-dot-tennis_*_linux_*
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          PRERELEASE: ${{ needs.validate.outputs.prerelease }}
+          IMAGE_DIGEST: ${{ needs.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          flags=(--verify-tag --generate-notes --title "$TAG")
+          if [ "$PRERELEASE" = "true" ]; then
+            flags+=(--prerelease)
+          else
+            flags+=(--latest)
+          fi
+          # Placed above GitHub's generated list of changes.
+          {
+            echo "Image: \`${IMAGE}:${VERSION}\` (\`${IMAGE_DIGEST}\`), linux/amd64 and linux/arm64."
+            echo "Binaries and a checksum file are attached below."
+            echo
+            echo "Read the **Upgrade notes** for this version in [CHANGELOG.md](https://github.com/${GH_REPO}/blob/${TAG}/CHANGELOG.md) before upgrading."
+            echo
+            echo "Verify provenance: \`gh attestation verify oci://${IMAGE}:${VERSION} --repo ${GH_REPO}\`"
+          } > notes-header.md
+          gh release create "$TAG" "${flags[@]}" --notes-file notes-header.md dist/*

@@ -1,4 +1,7 @@
-FROM golang:1.26-alpine AS builder
+# The builder always runs on the build machine's own architecture and
+# cross-compiles (pure-Go SQLite, CGO off), so a multi-architecture image
+# build never emulates the compiler.
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -15,20 +18,49 @@ COPY . .
 
 # Build identity, shown in the admin footer, at /version and by
 # `jim-dot-tennis version`. Pass with --build-arg; plain builds say "dev".
+# The release workflow passes the tag (without its leading "v"), the commit and
+# the commit's timestamp.
 ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_DATE=unknown
+
+# TARGETOS/TARGETARCH are set by BuildKit from --platform (default: the host).
+ARG TARGETOS
+ARG TARGETARCH
 
 # Build a static binary with no C toolchain: SQLite is the pure-Go
 # modernc.org/sqlite driver, so CGO is off. The build cache mount makes
 # incremental builds far faster on the 1-CPU server.
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags "-X jim-dot-tennis/internal/version.Version=${VERSION} -X jim-dot-tennis/internal/version.Commit=${COMMIT} -X jim-dot-tennis/internal/version.Date=${BUILD_DATE}" -o /app/bin/jim-dot-tennis ./cmd/jim-dot-tennis
+    CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build -trimpath -ldflags "-X jim-dot-tennis/internal/version.Version=${VERSION} -X jim-dot-tennis/internal/version.Commit=${COMMIT} -X jim-dot-tennis/internal/version.Date=${BUILD_DATE}" -o /app/bin/jim-dot-tennis ./cmd/jim-dot-tennis
+
+# Just the binary, for the release workflow's GitHub Release assets:
+#   docker buildx build --target binary --platform linux/arm64 -o type=local,dest=out .
+# It is the same build the image copies, so the file on the Releases page is
+# the binary inside the image.
+FROM scratch AS binary
+COPY --from=builder /app/bin/jim-dot-tennis /jim-dot-tennis
 
 # Use a smaller image for the final application. The binary is static and
 # links no C library, so the runtime image needs no SQLite package.
 FROM alpine:3.24
+
+# Standard OCI image labels. The release workflow passes the build arguments;
+# a plain local build gets "dev" and "unknown".
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILD_DATE=unknown
+LABEL org.opencontainers.image.title="jim.tennis" \
+      org.opencontainers.image.description="League management for BHPLTA tennis clubs: availability, team selection, fixtures and results. Self-hosted, one binary, SQLite." \
+      org.opencontainers.image.source="https://github.com/jameshartt/jim-dot-tennis" \
+      org.opencontainers.image.url="https://github.com/jameshartt/jim-dot-tennis" \
+      org.opencontainers.image.documentation="https://github.com/jameshartt/jim-dot-tennis/blob/main/README.md" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.vendor="jim.tennis" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${COMMIT}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
 
 # Install runtime dependencies (TLS roots for outbound HTTPS, zone data)
 RUN apk add --no-cache ca-certificates tzdata
