@@ -34,7 +34,7 @@ func TestClubSettingsDefaults(t *testing.T) {
 	if got := cs.DisplayName(nil); got != DefaultDisplayName {
 		t.Errorf("DisplayName(nil) = %q", got)
 	}
-	if got := cs.LogoPath(); got != "" {
+	if got := cs.LogoPath(nil); got != "" {
 		t.Errorf("LogoPath = %q, want no logo by default", got)
 	}
 	if cs.PrimaryColour() != DefaultPrimaryColour || cs.SecondaryColour() != DefaultSecondaryColour {
@@ -118,8 +118,8 @@ func TestEnvironmentOverridesStoredClubSettings(t *testing.T) {
 	t.Setenv(EnvPublicURL, "https://env.example.org/")
 	cs := NewClubSettings(ctx, e.settings)
 
-	if cs.LogoPath() != "/static/my-club.jpg" {
-		t.Errorf("LogoPath = %q, want the env value", cs.LogoPath())
+	if cs.LogoPath(nil) != "/static/my-club.jpg" {
+		t.Errorf("LogoPath = %q, want the env value", cs.LogoPath(nil))
 	}
 	if b := cs.Branding(nil); b.LogoType != "" || b.LogoPath != "/static/my-club.jpg" {
 		t.Errorf("Branding with env logo = %+v", b)
@@ -224,6 +224,62 @@ func TestKnownBHPLTAClubAndPrefill(t *testing.T) {
 	if cs.BHPLTAClubName(club) != "St+Anns" || cs.BHPLTAClubID(club) != 10 {
 		t.Errorf("fallback: %q %d", cs.BHPLTAClubName(club), cs.BHPLTAClubID(club))
 	}
+}
+
+// The known club keeps its bundled logo when nothing else is set; no other
+// club gets a default, and an upload or HOME_CLUB_LOGO_PATH wins.
+func TestKnownClubLogo(t *testing.T) {
+	ctx := context.Background()
+	clearClubSettingsEnv(t)
+	e := newTestEnv(t)
+	cs := NewClubSettings(ctx, e.settings)
+	known := &models.Club{Name: "St Ann’s Tennis Club"}
+	const bundled = "/static/st-anns-tennis.jpg"
+
+	if got := cs.LogoPath(known); got != bundled {
+		t.Errorf("known club LogoPath = %q, want %q", got, bundled)
+	}
+	if b := cs.Branding(known); b.LogoPath != bundled || b.LogoType != "" {
+		t.Errorf("known club Branding = %+v", b)
+	}
+	for _, other := range []*models.Club{nil, {Name: "Alpha Tennis Club"}, {Name: "St Ann's Wells"}} {
+		if got := cs.LogoPath(other); got != "" {
+			t.Errorf("LogoPath(%v) = %q, want no logo", other, got)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(findStaticDir(t), "st-anns-tennis.jpg")); err != nil {
+		t.Errorf("bundled logo missing: %v", err)
+	}
+
+	if err := e.settings.SetString(ctx, repository.SettingClubLogoFile, "logo-0123456789abcdef.png"); err != nil {
+		t.Fatal(err)
+	}
+	cs = NewClubSettings(ctx, e.settings)
+	if got := cs.LogoPath(known); got != LogoURLPrefix+"logo-0123456789abcdef.png" {
+		t.Errorf("uploaded logo does not win: %q", got)
+	}
+	t.Setenv(EnvLogoPath, "/static/my-club.jpg")
+	cs = NewClubSettings(ctx, e.settings)
+	if got := cs.LogoPath(known); got != "/static/my-club.jpg" {
+		t.Errorf("env logo does not win: %q", got)
+	}
+}
+
+// findStaticDir walks up from the package directory to the repository's static/.
+func findStaticDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 6; i++ {
+		if info, err := os.Stat(filepath.Join(dir, "static")); err == nil && info.IsDir() {
+			return filepath.Join(dir, "static")
+		}
+		dir = filepath.Dir(dir)
+	}
+	t.Fatal("could not locate static directory")
+	return ""
 }
 
 func TestNormalizeHelpers(t *testing.T) {

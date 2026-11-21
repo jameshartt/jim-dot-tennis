@@ -180,8 +180,9 @@ func (h *HomeClubHolder) Refresh(ctx context.Context) error {
 func (h *HomeClubHolder) ClubSettings() *ClubSettings { return h.clubSettings }
 
 // LogoPath returns the effective home club logo path: HOME_CLUB_LOGO_PATH if
-// set, else the uploaded logo, else "" (no logo).
-func (h *HomeClubHolder) LogoPath() string { return h.clubSettings.LogoPath() }
+// set, else the uploaded logo, else a known club's bundled logo, else "" (no
+// logo).
+func (h *HomeClubHolder) LogoPath() string { return h.clubSettings.LogoPath(h.Club()) }
 
 // BHPLTAClubCode returns the effective BHPLTA club code: BHPLTA_CLUB_CODE if
 // set, else the stored code.

@@ -64,6 +64,7 @@ type SettingsPageData struct {
 	LogoURL      string // effective logo shown on pages ("" for none)
 	LogoUploaded bool   // a logo has been uploaded
 	LogoEnv      string // env var overriding the logo, if set
+	LogoKnown    bool   // the logo is the known club's bundled logo (none uploaded, no env)
 	LogoMaxMB    int
 
 	PrimaryColour   string
@@ -129,7 +130,7 @@ func (h *SettingsHandler) pageData(r *http.Request, cs *config.ClubSettings) Set
 	d := SettingsPageData{
 		Message:         r.URL.Query().Get("message"),
 		DisplayName:     cs.Stored(repository.SettingClubDisplayName),
-		LogoURL:         cs.LogoPath(),
+		LogoURL:         cs.LogoPath(club),
 		LogoUploaded:    cs.Stored(repository.SettingClubLogoFile) != "",
 		LogoMaxMB:       branding.MaxLogoBytes >> 20,
 		PrimaryColour:   cs.PrimaryColour(),
@@ -144,6 +145,9 @@ func (h *SettingsHandler) pageData(r *http.Request, cs *config.ClubSettings) Set
 		d.ClubName = club.Name
 	}
 	d.LogoEnv, _ = cs.EnvOverride(repository.SettingClubLogoFile)
+	if known, ok := config.KnownClubLogo(club); ok && d.LogoEnv == "" && !d.LogoUploaded && d.LogoURL == known {
+		d.LogoKnown = true
+	}
 	d.BHPLTAClubCodeEnv, _ = cs.EnvOverride(repository.SettingBHPLTAClubCode)
 	d.PublicURLEnv, _ = cs.EnvOverride(repository.SettingPublicURL)
 	d.MyTennisEnvVar, _ = cs.EnvOverride(repository.SettingFeatureMyTennis)
