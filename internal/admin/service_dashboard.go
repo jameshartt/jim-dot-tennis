@@ -110,7 +110,7 @@ func (s *Service) getHomeClubTeamCount(ctx context.Context) (int, error) {
 	}
 
 	// Get teams for home club in the active season
-	teams, err := s.teamRepository.FindByClubAndSeason(ctx, s.homeClubID, activeSeason.ID)
+	teams, err := s.teamRepository.FindByClubAndSeason(ctx, s.homeClubID(), activeSeason.ID)
 	if err != nil {
 		return 0, err
 	}
@@ -121,7 +121,7 @@ func (s *Service) getHomeClubTeamCount(ctx context.Context) (int, error) {
 // getHomeClubFixtureCount gets the count of remaining fixtures for the home club
 func (s *Service) getHomeClubFixtureCount(ctx context.Context) (int, error) {
 	// Get all teams for home club
-	teams, err := s.teamRepository.FindByClub(ctx, s.homeClubID)
+	teams, err := s.teamRepository.FindByClub(ctx, s.homeClubID())
 	if err != nil {
 		return 0, err
 	}

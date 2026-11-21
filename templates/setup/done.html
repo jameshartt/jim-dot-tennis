@@ -1,0 +1,54 @@
+{{define "setup/done.html"}}
+{{template "layout" .}}
+{{end}}
+
+{{define "head"}}
+<title>Setup complete - Jim.Tennis</title>
+{{template "setup-head" .}}
+{{end}}
+
+{{define "user-controls"}}
+<a href="/logout" class="btn btn-sm">Sign out</a>
+{{end}}
+
+{{define "content"}}
+<div class="setup-container">
+    <div class="setup-card" data-setup-status="{{.Status}}" data-setup-step="done">
+        <h1>You're all set</h1>
+        <div class="alert alert-success" role="status">
+            Setup is complete{{if .ClubName}}: this app now belongs to {{.ClubName}}{{end}}.
+        </div>
+        {{with .Import}}
+        <h2 class="setup-subhead">What was set up</h2>
+        <ul class="setup-summary" data-setup-summary>
+            <li>League: {{.LeagueName}}</li>
+            {{if .SeasonID}}<li>Season: {{.SeasonName}}{{if .SeasonKept}} (already here, left as it was){{end}}</li>{{end}}
+            {{if not .SeasonKept}}{{if .SeasonID}}
+            <li data-count="divisions">{{.Divisions}} divisions</li>
+            <li data-count="teams">{{.Teams}} teams{{if .HomeTeams}}, {{.HomeTeams}} of them yours{{end}}</li>
+            <li data-count="weeks">{{.Weeks}} weeks</li>
+            <li data-count="fixtures">{{.Fixtures}} fixtures</li>
+            {{end}}{{end}}
+            <li data-count="clubs">{{.ClubsCreated}} clubs added{{if .ClubsMatched}}, {{.ClubsMatched}} already here{{end}}</li>
+        </ul>
+        {{if .Notes}}
+        <div class="alert alert-info" role="note">
+            {{range .Notes}}<p>{{.}}</p>{{end}}
+        </div>
+        {{end}}
+        {{if .Unmatched}}
+        <details class="setup-details" open data-setup-unmatched>
+            <summary>Things that could not be matched ({{len .Unmatched}})</summary>
+            <ul>{{range .Unmatched}}<li>{{.}}</li>{{end}}</ul>
+            <p>You can correct clubs and teams from the admin pages.</p>
+        </details>
+        {{end}}
+        {{end}}
+        <p>You are signed in as the administrator. The setup pages are now switched off for good.</p>
+        <p>Keep your login safe: nobody else, including whoever wrote this app, has a way in.</p>
+        <div class="form-actions">
+            <a href="{{.DashboardURL}}" class="btn btn-primary">Go to the dashboard</a>
+        </div>
+    </div>
+</div>
+{{end}}

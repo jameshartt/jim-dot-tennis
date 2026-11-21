@@ -1,0 +1,66 @@
+{{define "setup/club.html"}}
+{{template "layout" .}}
+{{end}}
+
+{{define "head"}}
+<title>Set up: choose your club - Jim.Tennis</title>
+{{if .Working}}<meta http-equiv="refresh" content="2;url=/setup/club?working=1">{{end}}
+{{template "setup-head" .}}
+{{end}}
+
+{{define "user-controls"}}
+<a href="/logout" class="btn btn-sm">Sign out</a>
+{{end}}
+
+{{define "content"}}
+<div class="setup-container">
+    <div class="setup-card" data-setup-status="{{.Status}}" data-setup-step="club">
+        {{template "setup-steps" .}}
+        {{if .Working}}
+        <h1>Setting up {{.ClubName}}</h1>
+        <div class="alert alert-info" role="status" aria-live="polite" data-setup-working>
+            <p><strong>Fetching your league from the BHPLTA website.</strong> This usually takes under a minute; this page updates by itself.</p>
+            <p class="setup-help" data-setup-progress>{{.ProgressText}}</p>
+        </div>
+        <noscript><p><a href="/setup/club?working=1">Check again</a></p></noscript>
+        {{else}}
+        <h1>Choose your club</h1>
+        <p>Pick the club this app is for. It becomes the home club: its teams, players and fixtures are the ones the app looks after.</p>
+        <p class="setup-help">The app then reads the league's divisions, clubs, teams and fixtures from the BHPLTA website, which takes up to a minute.</p>
+        {{template "setup-error" .}}
+        <form method="POST" action="/setup/club">
+            <fieldset class="setup-clubs" aria-describedby="club-help">
+                <legend class="setup-help" id="club-help">These are the clubs in the Brighton &amp; Hove Parks Tennis League (BHPLTA).</legend>
+                {{range .Clubs}}
+                <label>
+                    <input type="radio" name="club" value="{{.Slug}}" required{{if eq .Slug $.Selected}} checked{{end}}>
+                    {{.DisplayName}}
+                </label>
+                {{end}}
+            </fieldset>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">{{if .Retry}}Try again{{else}}Use this club{{end}}</button>
+            </div>
+        </form>
+        {{if .DemoOffered}}
+        <hr>
+        <h2 class="setup-subhead">Just looking?</h2>
+        <p class="setup-help">Explore with a fictional club, players and results first. Nothing real is stored, a "Demo data" banner shows on every page, and you can clear it all later and come back here to choose your club.</p>
+        <form method="POST" action="/setup/demo" data-setup-demo>
+            <div class="form-actions">
+                <button type="submit" class="btn">Explore with demo data</button>
+            </div>
+        </form>
+        {{end}}
+        {{end}}
+        <details class="setup-details">
+            <summary>My club isn't listed</summary>
+            <p>Jim.Tennis currently supports BHPLTA clubs only. If your club has joined the league recently, a newer version of the app will list it.</p>
+        </details>
+        <details class="setup-details">
+            <summary>Can I change this later?</summary>
+            <p>Yes. Your club's name, logo and other details can be edited from the admin pages once setup is finished.</p>
+        </details>
+    </div>
+</div>
+{{end}}

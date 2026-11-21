@@ -1,6 +1,7 @@
 /* Tennis Season Wrapped Styles */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+/* No web font is fetched from a third party (see docs/outbound_connections.md):
+   Inter is used if the device has it, otherwise the system font. */
 :root { color-scheme: light; }
 .wrapped-body { color-scheme: light; forced-color-adjust: none; }
 @media (prefers-color-scheme: dark) {

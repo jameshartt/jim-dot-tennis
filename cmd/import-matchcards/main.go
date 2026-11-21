@@ -73,7 +73,7 @@ func main() {
 	seasonRepo := repository.NewSeasonRepository(db)
 
 	// Load home club configuration
-	appCfg, err := appconfig.Load(context.Background(), clubRepo)
+	appCfg, err := appconfig.Load(context.Background(), clubRepo, repository.NewSettingsRepository(db))
 	if err != nil {
 		log.Fatalf("Home club config error: %v", err)
 	}

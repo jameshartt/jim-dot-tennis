@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/fixturefile"
 	"jim-dot-tennis/internal/models"
@@ -52,7 +53,7 @@ func newSeasonTestService(t *testing.T) (*Service, *database.DB) {
 		('p-active', 1, 1, 1), ('p-captain', 1, 1, 1), ('p-retired', 1, 1, 1)`)
 	exec(`INSERT INTO captains (player_id, team_id, role, season_id) VALUES ('p-captain', 1, 'Team', 1), ('p-retired', 1, 'Day', 1)`)
 
-	return NewService(db, "", 1, ""), db
+	return NewService(db, "", config.StaticHomeClubID(1), ""), db
 }
 
 func count(t *testing.T, db *database.DB, q string, args ...interface{}) int {
@@ -326,8 +327,13 @@ func TestImportFixtureFileRefusesWrongSeason(t *testing.T) {
 
 // A database whose clubs cannot be read must not be half-filled with a season.
 func TestImportFixtureFileStopsBeforeWritingWhenClubsUnreadable(t *testing.T) {
-	svc, db := newSeasonTestService(t) // seeded clubs have NULL contact fields, which the club reader rejects
+	svc, db := newSeasonTestService(t)
 	file := loadSampleFixtureFile(t)
+	// Make the club reader fail: its SELECT names this column. (This test used
+	// to rely on NULL contact fields failing to scan, which WI-116 fixed.)
+	if _, err := db.Exec(`ALTER TABLE clubs RENAME COLUMN website TO website_unreadable`); err != nil {
+		t.Fatalf("break clubs table: %v", err)
+	}
 
 	season := &models.Season{
 		Name: "2027 Season", Year: 2027,

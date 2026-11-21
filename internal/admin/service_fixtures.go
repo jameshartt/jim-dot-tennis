@@ -49,7 +49,7 @@ func (s *Service) GetHomeClubFixtures() (*models.Club, []FixtureWithRelations, e
 	ctx := context.Background()
 
 	// Get home club from config
-	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID)
+	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -142,7 +142,7 @@ func (s *Service) GetHomeClubPastFixtures() (*models.Club, []FixtureWithRelation
 	}
 
 	// Get home club from config
-	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID)
+	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -243,7 +243,7 @@ func (s *Service) GetHomeClubAwaitingRescheduleFixtures() (*models.Club, []Fixtu
 		return nil, nil, nil // No active season
 	}
 
-	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID)
+	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -293,7 +293,7 @@ func (s *Service) GetHomeClubTodaysFixtures() (*models.Club, []FixtureWithRelati
 	ctx := context.Background()
 
 	// Get home club from config
-	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID)
+	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -827,7 +827,7 @@ func (s *Service) GetHomeClubNextWeekFixturesByDivision() (map[string][]FixtureW
 	ctx := context.Background()
 
 	// Get home club from config
-	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID)
+	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID())
 	if err != nil {
 		return nil, err
 	}

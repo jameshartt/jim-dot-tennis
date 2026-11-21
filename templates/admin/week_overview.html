@@ -5,13 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{.HomeClubName}} - Week Overview</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --home-primary: #4cb04d;
-            --home-secondary: #1455a1;
+            --home-primary: {{.PrimaryColour}};
+            --home-secondary: {{.SecondaryColour}};
             --home-white: #ffffff;
         }
 
@@ -22,7 +19,7 @@
         }
 
         body {
-            font-family: 'Nunito', sans-serif;
+            font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: linear-gradient(135deg, var(--home-secondary) 0%, var(--home-primary) 100%);
             min-height: 100vh;
             display: flex;
@@ -334,9 +331,6 @@
 <body>
     <div class="week-container">
         <div class="header">
-            <div class="parks-logo">
-                <img src="/static/parks-league-tennis.jpg" alt="Parks League Brighton & Hove">
-            </div>
             {{if .HomeClubLogoPath}}
             <div class="logo">
                 <img src="{{.HomeClubLogoPath}}" alt="{{.HomeClubName}}">

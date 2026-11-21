@@ -83,8 +83,8 @@ for week in $(seq $START_WEEK $END_WEEK); do
     -club-code="$CLUB_CODE" \
     -week=$week \
     -year=2025 \
-    -club-id=10 \
-    -club-name="St+Anns" \
+    -club-id="${CLUB_ID:?set CLUB_ID (your club database id)}" \
+    -club-name="${CLUB_NAME:?set CLUB_NAME (URL-encoded, e.g. My+Club)}" \
     -verbose $DRY_RUN 2>&1 | tee "week_${week}_import.log"; then
     
     echo "✅ Week $week completed successfully"

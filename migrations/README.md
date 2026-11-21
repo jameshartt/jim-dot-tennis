@@ -92,7 +92,29 @@ To create a new migration:
   long time — now fixed.)
 - **Never reuse version 026.** It was assigned during Sprint 017 (`lineup_drafts`)
   but never committed, leaving a permanent gap in the sequence (…025, 027, 028…).
-  The next available version is **029**. Do not backfill 026.
+  The next available version is **032**. Do not backfill 026.
+
+### Edited migrations
+
+golang-migrate records only the version number of each applied migration, not
+a checksum of its contents, so editing an already-released migration changes
+what new databases get without touching databases that have already run it.
+This has been done deliberately once:
+
+- **004 (`create_auth_tables`) no longer inserts any user accounts** (Sprint 020,
+  WI-117). It used to create eight named administrator accounts sharing one
+  password hash in every new database. A new install now starts with no
+  accounts and the first administrator is created through first-run setup
+  (`/setup`, protected by a one-time code printed to the server log).
+  Databases migrated before the change keep whatever accounts they have; remove
+  or re-password any you do not recognise from the admin users page. The down
+  migration (dropping the three auth tables) is unchanged and still correct.
+  At every start the app logs a warning naming any account that still has a
+  password hash seeded by an old version of this migration (it compares
+  SHA-256 fingerprints of the old hashes, `internal/secrets/selfcheck.go`; it
+  never changes the account). `internal/secrets/isolation_test.go` checks that
+  a freshly migrated database has no rows in any table, and that upgrading an
+  old database leaves its accounts and sessions unchanged.
 
 ## Troubleshooting
 

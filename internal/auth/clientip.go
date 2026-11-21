@@ -8,6 +8,9 @@ import (
 	"strings"
 )
 
+// ClientIP returns the client address used for throttling (see clientIP).
+func ClientIP(r *http.Request) string { return clientIP(r) }
+
 // clientIP returns the address of the client behind a request, without the
 // per-connection port. In production every request arrives through Caddy on
 // the Docker network, so when the direct peer is a private or loopback

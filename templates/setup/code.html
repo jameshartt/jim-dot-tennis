@@ -1,0 +1,55 @@
+{{define "setup/code.html"}}
+{{template "layout" .}}
+{{end}}
+
+{{define "head"}}
+<title>Set up: enter your setup code - Jim.Tennis</title>
+{{template "setup-head" .}}
+{{end}}
+
+{{define "user-controls"}}{{end}}
+
+{{define "content"}}
+<div class="setup-container">
+    <div class="setup-card" data-setup-status="{{.Status}}" data-setup-step="code">
+        {{template "setup-steps" .}}
+        <h1>Welcome to Jim.Tennis</h1>
+        {{if eq .Status "needs-admin"}}
+        <p>This app is running but has no administrator account yet. Enter the setup code to create your own login.</p>
+        {{else}}
+        <p>This app is running but has not been set up yet. Setting up takes a few minutes: you will create your own login and choose your club.</p>
+        {{end}}
+        {{template "setup-error" .}}
+        {{if and .CodeUsed (not .Error)}}
+        <div class="alert alert-warning">
+            The setup code has already been used, in another browser or an earlier visit. If that was you, carry on in that browser.
+            Otherwise, restart the app to get a new code: this cancels the earlier one.
+        </div>
+        {{end}}
+        <form method="POST" action="/setup" autocomplete="off">
+            <div class="form-group">
+                <label for="code">Setup code</label>
+                <input type="text" id="code" name="code" class="setup-code-input" required autofocus
+                       inputmode="text" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX"
+                       aria-describedby="code-help">
+                <p class="setup-help" id="code-help">
+                    The app printed a one-time code in its server log when it started, in a box headed
+                    "SETUP CODE". Copy it here. Capitals, spaces and dashes don't matter.
+                </p>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Continue</button>
+            </div>
+        </form>
+        <details class="setup-details">
+            <summary>Where do I find the server log?</summary>
+            <p>Whoever installed the app can see its log. With Docker, run <code>docker compose logs app</code> in the folder the app was installed from.</p>
+            <p>Restarting the app prints a fresh code and cancels the old one.</p>
+        </details>
+        <details class="setup-details">
+            <summary>Why is there a code?</summary>
+            <p>The code proves you are the person running this app. Without it, anyone who found the web address first could make themselves its administrator.</p>
+        </details>
+    </div>
+</div>
+{{end}}

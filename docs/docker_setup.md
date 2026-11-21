@@ -157,8 +157,8 @@ Environment variables can be modified in the `docker-compose.yml` file or in a `
 environment:
   - HOME_CLUB_ID=10             # Database ID of the home club (required, or use HOME_CLUB_NAME)
   - HOME_CLUB_NAME=St Ann's     # Fallback: club name for fuzzy lookup
-  - HOME_CLUB_LOGO_PATH=/static/st-anns-tennis.jpg  # Optional: URL path to the club logo shown on points/week pages
-  - BHPLTA_CLUB_CODE=what-three-words  # Club code on the BHPLTA website (for match card imports)
+  - HOME_CLUB_LOGO_PATH=/static/my-club.jpg  # Optional: overrides the logo uploaded on the Club Settings page
+  - BHPLTA_CLUB_CODE=what-three-words  # Optional: overrides the BHPLTA club code stored on the Club Settings page
   - PORT=8080                   # Web server port
   - DB_TYPE=sqlite3             # Database type
   - DB_PATH=/app/data/tennis.db # Database file location
@@ -166,12 +166,9 @@ environment:
 
 ### Using your own club logo
 
-The app ships with St Ann's logo at `/static/st-anns-tennis.jpg`. To swap in your own without rebuilding the image:
+Upload the logo on **Admin Dashboard → Club Settings** (PNG, JPEG or WebP, up to 2 MB). It is stored in `/app/data/branding/`, on the data volume next to the database, so it survives image upgrades. Back it up with the database if you copy the volume by hand (the SQLite `.backup` job covers only the database file).
 
-1. Mount your logo into the container's static directory — e.g. add `- ./my-club.jpg:/app/static/my-club.jpg:ro` to the service's `volumes:` block.
-2. Set `HOME_CLUB_LOGO_PATH=/static/my-club.jpg`.
-
-Leave `HOME_CLUB_LOGO_PATH` unset to keep the St Ann's default, or set it to an empty string to hide the logo altogether.
+Alternatively, mount an image into the container (e.g. `- ./my-club.jpg:/app/static/my-club.jpg:ro`) and set `HOME_CLUB_LOGO_PATH=/static/my-club.jpg`; that takes precedence over an uploaded logo.
 
 ## Deployment
 
@@ -230,7 +227,8 @@ BHPLTA_CLUB_CODE=what-three-words
 PORT=8080
 DB_TYPE=sqlite3
 DB_PATH=./tennis.db
-WRAPPED_ACCESS_PASSWORD=example
+# Optional: WRAPPED_ACCESS_PASSWORD=<a code of your own>. Leave it out and the app
+# generates a code for this instance (shown on the admin Club Settings page).
 ```
 
 Docker Compose can reference variables using `${VAR}` syntax. The `docker-compose.yml` is set up to read `HOME_CLUB_ID`, `BHPLTA_CLUB_CODE`, and `WRAPPED_ACCESS_PASSWORD` from your environment so you don't commit secrets.
@@ -240,6 +238,5 @@ Alternatively, you can export variables for a session:
 ```
 export HOME_CLUB_ID=10
 export BHPLTA_CLUB_CODE="what-three-words"
-export WRAPPED_ACCESS_PASSWORD="your-password"
 ./scripts/run.sh
 ```

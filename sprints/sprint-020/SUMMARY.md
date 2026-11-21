@@ -4,9 +4,9 @@
 
 **Goal**: A BHPLTA club with no prior knowledge starts the app on an empty database, is walked through creating its first administrator and choosing its club, has the league, divisions, clubs and current season pulled in from BHPLTA, and ends up on a working dashboard - with no SQL, no CLI import tools, no inherited accounts and no secrets shared with any other instance.
 
-**Duration**: dates TBD
+**Duration**: 2026-11-21
 
-**Status**: Planned
+**Status**: Completed
 
 **Programme**: Part of the club-readiness programme (Sprints 019-024). Agreed constraints: BHPLTA clubs only; each club hosts its own instance; the original author has no access to any other club's instance; passkeys by default with passwords as an optional fallback; a real captain role; SQLite only; CourtHive bundled as an opt-in so clubs can run their own championships.
 
@@ -82,3 +82,20 @@ Each work item's JSON carries a `recommended_model` with the reason. In short:
 - Support for leagues other than BHPLTA
 - Several clubs sharing one database
 - Full theming beyond logo and two colours
+
+## Outcome (2026-11-21)
+
+All ten work items completed and merged on `sprint-020/fresh-install`.
+
+- `make check` passes; `make test-e2e` 212 passed, 1 failed (pre-existing `workflows/match-results.spec.ts:46`); `make test-e2e-fresh` 13 passed.
+- Migrations added: 030 (`app_settings`), 031 (drop `trg_set_managing_team_id`). Next free: 032.
+- Added beyond the plan: a `needs-admin` setup state (home club in effect but no administrator), St Ann's bundled logo kept as known-club reference data, htmx served locally and Google Fonts removed, push subscriptions restricted to browser push services, login redirect restricted to same-origin paths, per-instance Club Wrapped grant cookie.
+
+Known leftovers:
+
+- BHPLTA's fixtures page lists only upcoming fixtures: setup between seasons creates league and clubs but no season; mid-season imports only the remaining weeks.
+- `multi-club.spec.ts:19` expects the home club name on the admin dashboard, which the dashboard has never shown.
+- BHPLTA club-id lookup is untested against the live site (needs a club code).
+- Admin users page does not enforce the setup password policy; `/wrapped-auth` has no throttle; OpenStreetMap iframes still load on venue pages; the backup job does not copy the `branding/` folder.
+- Databases created before this sprint keep their seeded admin accounts (a startup warning names them).
+- VAPID subscriber and iCal UID domain still say jim.tennis (WI-126).

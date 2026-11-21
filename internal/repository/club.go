@@ -13,15 +13,24 @@ import (
 	"jim-dot-tennis/internal/models"
 )
 
-// clubColumns is the standard set of columns for club queries
-const clubColumns = `id, name, address, website, phone_number,
+// clubColumns is the standard set of columns for club queries.
+//
+// address, website and phone_number are nullable in the schema (migration 001)
+// but plain strings on models.Club, so they are COALESCEd to the empty string here: a clubs
+// row created with only a name must still scan.
+const clubColumns = `id, name, COALESCE(address, '') AS address, COALESCE(website, '') AS website,
+	COALESCE(phone_number, '') AS phone_number,
 	latitude, longitude, postcode, address_line_1, address_line_2, city,
 	court_surface, court_count, parking_info, transport_info, tips, google_maps_url,
 	created_at, updated_at`
 
 // clubColumnsWithPrefix returns club columns prefixed with a table alias
+// (with the same COALESCE handling as clubColumns).
 func clubColumnsWithPrefix(prefix string) string {
-	return prefix + ".id, " + prefix + ".name, " + prefix + ".address, " + prefix + ".website, " + prefix + ".phone_number, " +
+	return prefix + ".id, " + prefix + ".name, " +
+		"COALESCE(" + prefix + ".address, '') AS address, " +
+		"COALESCE(" + prefix + ".website, '') AS website, " +
+		"COALESCE(" + prefix + ".phone_number, '') AS phone_number, " +
 		prefix + ".latitude, " + prefix + ".longitude, " + prefix + ".postcode, " + prefix + ".address_line_1, " + prefix + ".address_line_2, " + prefix + ".city, " +
 		prefix + ".court_surface, " + prefix + ".court_count, " + prefix + ".parking_info, " + prefix + ".transport_info, " + prefix + ".tips, " + prefix + ".google_maps_url, " +
 		prefix + ".created_at, " + prefix + ".updated_at"

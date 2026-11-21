@@ -13,6 +13,7 @@ import (
 
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/secrets"
 )
 
 // ClubWrappedHandler handles club-wide season wrapped requests
@@ -255,10 +256,10 @@ func (h *ClubWrappedHandler) HandlePublicWrapped(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Check simple access cookie
-	const cookieName = "wrapped_access"
-	cookie, err := r.Cookie(cookieName)
-	if err != nil || cookie.Value != "granted" {
+	// Check the access cookie: derived from this instance's access code, so it
+	// cannot be forged from the source and stops working when the code changes.
+	cookie, err := r.Cookie(secrets.WrappedCookieName)
+	if err != nil || !secrets.NewWrappedAccess(h.service.db).CookieValid(r.Context(), cookie.Value) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -599,10 +600,7 @@ func (h *ClubWrappedHandler) renderClubWrapped(w http.ResponseWriter, user inter
 // generateClubWrappedData generates all wrapped statistics for the entire club,
 // scoped to the active season.
 func (h *ClubWrappedHandler) generateClubWrappedData(ctx context.Context) (*ClubWrappedData, error) {
-	clubName := "Tennis Club"
-	if club := config.GetHomeClub(ctx); club != nil {
-		clubName = club.Name
-	}
+	clubName := config.GetBranding(ctx).Name
 
 	season, err := h.service.seasonRepository.FindActive(ctx)
 	if err != nil {

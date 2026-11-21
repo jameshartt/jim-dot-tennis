@@ -64,17 +64,32 @@ make logs             # View logs
 
 See [docs/PRODUCTION_QUICK_REFERENCE.md](docs/PRODUCTION_QUICK_REFERENCE.md) and [docs/digitalocean_deployment.md](docs/digitalocean_deployment.md) for full deployment details.
 
+### First run
+
+A new install has no accounts and no club. On startup the app prints a one-time
+**setup code** to its log (`make app-logs`, or `docker compose logs app`). Open
+the app in a browser, enter the code, create your administrator login and choose
+your club. The code works once; restarting the app before setup is finished
+prints a new one and cancels the old. Once an administrator exists the setup
+pages are gone.
+
+Your instance is yours alone: it ships with no accounts and no shared or default
+secrets (anything it needs, such as the Club Wrapped code and push keys, is
+generated on first start), and it sends nothing to the software's author. See
+[What this instance connects to](docs/outbound_connections.md#what-this-instance-connects-to)
+for every outbound connection it makes.
+
 ### Configuration
 
 The application uses environment variables to identify your club:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `HOME_CLUB_ID` | Yes (or `HOME_CLUB_NAME`) | Database ID of your club |
+| `HOME_CLUB_ID` | Unless chosen in setup | Database ID of your club. Overrides `HOME_CLUB_NAME` and the club stored by first-run setup; with none of the three the app starts in setup mode (`/setup`) |
 | `HOME_CLUB_NAME` | Fallback | Club name for fuzzy lookup if `HOME_CLUB_ID` is not set |
-| `HOME_CLUB_LOGO_PATH` | Optional | URL path to your club logo image (default: `/static/st-anns-tennis.jpg`). Drop the image into `static/` or mount it via Docker volume, then point this at its URL. |
-| `BHPLTA_CLUB_CODE` | For imports | Your club's code on the BHPLTA website (e.g. `STANN001`) |
-| `WRAPPED_ACCESS_PASSWORD` | For "club wrapped" | Password that unlocks the club wrapped pages. If unset, the unlock form always rejects. |
+| `HOME_CLUB_LOGO_PATH` | Optional | URL path to a club logo image. Normally you upload the logo on the admin Club Settings page instead; when set, this wins over the uploaded logo. |
+| `BHPLTA_CLUB_CODE` | Optional | Your club's code on the BHPLTA website, for match card imports. Can be set on the Club Settings page instead; when set, this wins. |
+| `WRAPPED_ACCESS_PASSWORD` | Optional | Code that unlocks the club wrapped pages. When unset (recommended) each instance generates its own code on first start; administrators see it on the Club Settings page. A placeholder value such as `change-me` stops the app starting with `APP_ENV=production`. |
 | `MY_TENNIS_ENABLED` | Optional | `true`/`1` shows the "My Tennis" call-to-action. Off when unset. |
 | `LEAGUE_TABLES_URL` | Optional | Source page for the public fixture generator's league tables (default: the BHPLTA league tables page). |
 | `COURTHIVE_API_URL` | Optional | CourtHive API URL (default: `http://courthive-server:8383`). |

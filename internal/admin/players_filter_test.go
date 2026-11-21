@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"jim-dot-tennis/internal/auth"
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 
@@ -44,7 +45,7 @@ func TestPlayersFilterEscapesNames(t *testing.T) {
 	exec(`INSERT INTO players (id, first_name, last_name, club_id, is_active) VALUES
 		('p-1', '<img src=x onerror=alert(1)>', 'O''Brien "Bob"', 1, 1)`)
 
-	h := NewPlayersHandler(NewService(db, "", 1, ""), "")
+	h := NewPlayersHandler(NewService(db, "", config.StaticHomeClubID(1), ""), "")
 	filter := func(query string) string {
 		t.Helper()
 		req := httptest.NewRequest(http.MethodGet, "/admin/league/players/filter?"+query, nil)

@@ -506,7 +506,7 @@ func (s *Service) GetClubTeams(clubID uint) ([]ClubTeamsBySeason, error) {
 		return nil, err
 	}
 
-	homeClubID := s.homeClubID
+	homeClubID := s.homeClubID()
 
 	activeSeason, _ := s.seasonRepository.FindActive(ctx)
 

@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"jim-dot-tennis/internal/auth"
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/webpush"
 )
@@ -36,11 +37,12 @@ type Handler struct {
 	planning          *PlanningHandler
 	planningLink      *PlanningLinkHandler
 	captainNotes      *CaptainNotesHandler
+	settings          *SettingsHandler
 }
 
 // New creates a new admin handler
-func New(db *database.DB, templateDir string, courthiveAPIURL string, homeClubID uint, bhpltaClubCode string, pushService ...*webpush.Service) *Handler {
-	service := NewService(db, courthiveAPIURL, homeClubID, bhpltaClubCode, pushService...)
+func New(db *database.DB, templateDir string, courthiveAPIURL string, homeClub config.HomeClubSource, bhpltaClubCode string, pushService ...*webpush.Service) *Handler {
+	service := NewService(db, courthiveAPIURL, homeClub, bhpltaClubCode, pushService...)
 
 	var ps *webpush.Service
 	if len(pushService) > 0 {
@@ -69,6 +71,7 @@ func New(db *database.DB, templateDir string, courthiveAPIURL string, homeClubID
 		planning:          NewPlanningHandler(service, templateDir),
 		planningLink:      NewPlanningLinkHandler(service, templateDir),
 		captainNotes:      NewCaptainNotesHandler(service, templateDir),
+		settings:          NewSettingsHandler(service, templateDir),
 	}
 }
 
@@ -113,8 +116,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/league/points-table/", h.points.HandlePointsTable)
 
 	// Season wrapped routes
-	adminMux.HandleFunc("/admin/league/wrapped", h.clubWrapped.HandleWrapped)
-	adminMux.HandleFunc("/admin/league/wrapped/", h.clubWrapped.HandleWrapped)
+	adminMux.HandleFunc("/admin/league/wrapped", h.wrappedOnly(h.clubWrapped.HandleWrapped))
+	adminMux.HandleFunc("/admin/league/wrapped/", h.wrappedOnly(h.clubWrapped.HandleWrapped))
 
 	// Season management routes
 	adminMux.HandleFunc("/admin/league/seasons", h.seasons.HandleSeasons)
@@ -125,6 +128,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/league/seasons/move-team", h.seasonSetup.HandleMoveTeam)
 	adminMux.HandleFunc("/admin/league/seasons/copy-from-previous", h.seasonSetup.HandleCopyFromPreviousSeason)
 	adminMux.HandleFunc("/admin/league/seasons/copy", h.seasonSetup.HandleSeasonCopy)
+	adminMux.HandleFunc("/admin/league/seasons/from-bhplta", h.seasonSetup.HandleStartFromBHPLTA)
 	adminMux.HandleFunc("/admin/league/seasons/review-away-teams", h.seasonSetup.HandleReviewAwayTeams)
 
 	// Division management routes
@@ -132,12 +136,12 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/league/divisions/review", h.teams.HandleDivisionReview)
 
 	// Tournament management routes
-	adminMux.HandleFunc("/admin/league/tournaments", h.tournaments.HandleTournaments)
-	adminMux.HandleFunc("/admin/league/tournaments/providers", h.tournaments.HandleProviders)
-	adminMux.HandleFunc("/admin/league/tournaments/providers/", h.tournaments.HandleProviderEdit)
-	adminMux.HandleFunc("/admin/league/tournaments/edit/", h.tournaments.HandleTournamentEdit)
-	adminMux.HandleFunc("/admin/league/tournaments/toggle-visibility/", h.tournaments.HandleToggleVisibility)
-	adminMux.HandleFunc("/admin/league/tournaments/sync/", h.tournaments.HandleSync)
+	adminMux.HandleFunc("/admin/league/tournaments", h.tournamentsOnly(h.tournaments.HandleTournaments))
+	adminMux.HandleFunc("/admin/league/tournaments/providers", h.tournamentsOnly(h.tournaments.HandleProviders))
+	adminMux.HandleFunc("/admin/league/tournaments/providers/", h.tournamentsOnly(h.tournaments.HandleProviderEdit))
+	adminMux.HandleFunc("/admin/league/tournaments/edit/", h.tournamentsOnly(h.tournaments.HandleTournamentEdit))
+	adminMux.HandleFunc("/admin/league/tournaments/toggle-visibility/", h.tournamentsOnly(h.tournaments.HandleToggleVisibility))
+	adminMux.HandleFunc("/admin/league/tournaments/sync/", h.tournamentsOnly(h.tournaments.HandleSync))
 
 	// Captain planning dashboard (Sprint 017)
 	adminMux.HandleFunc("/admin/league/planning", h.planning.HandleDashboard)
@@ -163,6 +167,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/league/preferred-names/approve/", h.service.HandleApprovePreferredName)
 	adminMux.HandleFunc("/admin/league/preferred-names/reject/", h.service.HandleRejectPreferredName)
 
+	// Club settings (admin role only, checked again in the handler)
+	adminMux.HandleFunc(settingsPath, h.settings.HandleSettings)
+	adminMux.HandleFunc(settingsPath+"/", h.settings.HandleSettings)
+
 	// Register admin routes with authentication middleware
 	mux.Handle("/admin/league", authMiddleware.RequireAuth(
 		authMiddleware.RequireRole("admin")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -179,5 +187,28 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 // RegisterPublicRoutes registers public-facing admin-related routes (no admin auth)
 func (h *Handler) RegisterPublicRoutes(mux *http.ServeMux) {
 	// Public Season Wrapped route protected by a lightweight access cookie
-	mux.HandleFunc("/club/wrapped", h.clubWrapped.HandlePublicWrapped)
+	mux.HandleFunc("/club/wrapped", h.wrappedOnly(h.clubWrapped.HandlePublicWrapped))
+}
+
+// tournamentsOnly serves next only while the tournaments switch is on; with it
+// off the route does not exist (404).
+func (h *Handler) tournamentsOnly(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !h.service.clubSettings.TournamentsEnabled() {
+			http.NotFound(w, r)
+			return
+		}
+		next(w, r)
+	}
+}
+
+// wrappedOnly serves next only while the Club Wrapped switch is on (404 otherwise).
+func (h *Handler) wrappedOnly(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !h.service.clubSettings.ClubWrappedEnabled() {
+			http.NotFound(w, r)
+			return
+		}
+		next(w, r)
+	}
 }

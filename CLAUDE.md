@@ -72,10 +72,11 @@ make test-e2e-failed               # Re-run only previously failed tests
 make test-e2e-report               # Open HTML test report
 make test-e2e-results              # Formatted test summary (Claude-friendly)
 make test-e2e-multiclub            # Run multi-club verification tests
+make test-e2e-fresh                # Fresh-install suite: EMPTY volumes, setup flow, saved BHPLTA pages (own compose project)
 make test-e2e-clean                # Tear down E2E containers, delete the E2E volume and artifacts
 
 # Test infrastructure:
-# - tests/e2e/              Playwright project root (146 tests across 19 spec files)
+# - tests/e2e/              Playwright project root (213 tests across 30 spec files)
 # - tests/e2e/helpers/      Reusable helpers (auth, htmx, navigation, assertions)
 # - tests/e2e/fixtures/     Seed data (seed.sql) and test fixtures (test-fixtures.ts)
 # - tests/e2e/admin/        Admin page specs (dashboard, navigation, CRUD, points, wrapped)
@@ -86,7 +87,8 @@ make test-e2e-clean                # Tear down E2E containers, delete the E2E vo
 # - tests/e2e/smoke.spec.ts Smoke tests validating the full stack
 # - tests/e2e/auth.spec.ts  Authentication flow tests (login, logout, rate limit)
 # - tests/e2e/scripts/parse-results.mjs  JSON results → Claude-friendly summary
-# - tests/e2e/global-setup.ts  Shared auth session via storageState
+# - tests/e2e/global-setup.ts  Shared auth session via storageState (skipped when FRESH_INSTALL is set)
+# - tests/e2e/fresh-install*.spec.ts  `fresh-install` project (only with `make test-e2e-fresh`; excluded from `make test-e2e`)
 # - Dockerfile.e2e          Playwright container (includes sqlite3 for seeding)
 # - E2E runs against its own `app-e2e` service and `jim-dot-tennis-e2e-data` volume (never the dev/prod
 #   data volume or the port-8080 app); `make test-e2e-bootstrap` prepares a fresh volume automatically
@@ -134,7 +136,9 @@ The codebase follows a clean layered architecture:
 - `generate-fantasy-matches/`: Fantasy match generation utility
 
 **internal/**: Core application logic
-- `config/`: Home club configuration (`AppConfig`), context helpers, and middleware for injecting config into request context
+- `config/`: Home club resolution and the live `HomeClubHolder`, `AppConfig` snapshot for CLI tools, context helpers, and middleware for injecting the home club into request context
+- `setup/`: First-run "needs setup" state, the setup gate middleware and the setup pages
+- `secrets/`: Per-instance secrets (generated Club Wrapped code) and the startup self-check; `outbound/` holds only a test that fails on any URL host not in its allowlist (keep `docs/outbound_connections.md` in step)
 - `normalize/`: Centralised apostrophe/Unicode normalisation utilities
 - `database/`: Database connection and migration handling
 - `models/`: Data structures (Player, Team, Fixture, etc.)
@@ -146,12 +150,13 @@ The codebase follows a clean layered architecture:
 - `webpush/`: Push notification service
 - `fixturegen/`: Public fixture generator page (`/fixture-generator`) and its league-tables feed
 - `fixturefile/`: Reader/validator for the shareable season fixture file (`jim.tennis/fixtures`)
+- `bhplta/`: Season bootstrap from the BHPLTA website: `Source.Fetch` (network, no DB) then `Import` in a caller-owned transaction; `Bootstrapper.Run` does both
 
 **static/fixture-generator/**: The fixture generator itself, which runs in the browser. `engine.js` holds the promotion/relegation rules, the scheduler and the file format (no DOM, tested by `tests/fixture-generator`); `app.js`/`app.css` are the interface. See `docs/fixture_generator.md`.
 
 **migrations/**: SQL migration files (up/down pairs)
 
-**tests/e2e/**: Playwright E2E browser tests (146 tests across 19 spec files)
+**tests/e2e/**: Playwright E2E browser tests (213 tests across 30 spec files)
 - `helpers/`: Reusable test helpers (auth, htmx, navigation, assertions)
 - `fixtures/`: SQL seed data and Playwright test fixtures
 - `admin/`, `players/`: Page-level spec files
@@ -241,16 +246,20 @@ Each major handler (Admin, Players) delegates to domain-specific sub-handlers:
 
 ### Configuration
 
-**Home Club (required):**
+**Home Club:** resolved in the order `HOME_CLUB_ID` env, `HOME_CLUB_NAME` env, then the `home_club_id` row in `app_settings` (written by first-run setup). With none of them the server still starts, in setup mode: `internal/setup` gates every request except `/static/`, `/branding/`, `/healthz` and `/setup...` to the setup page. The setup flow (`/setup` code, `/setup/admin`, `/setup/club`, `/setup/done`) is protected by a one-time code printed to the log at startup (only its hash is stored); code entry and administrator creation are 404 once any administrator exists. A home club in effect with no administrator account (captain/player accounts do not count) is also gated (`setup.StatusNeedsAdmin`): a code is printed and the flow creates the administrator, then goes straight to the dashboard. The club step calls `setup.HomeClubProvisioner`; the server uses `setup.NewBHPLTAProvisioner`, which runs in the background (the page polls) and imports the league, all clubs (with venue details), and the current season's weeks, divisions, teams and fixtures from BHPLTA via `internal/bhplta` in one transaction with the completion settings. The same import is the admin "Start a new season from BHPLTA" action (`/admin/league/seasons/from-bhplta`) and `cmd/import-season`. No migration seeds user accounts. An env value matching none of the clubs in a non-empty clubs table is fatal at startup (lists the available clubs). The home club is held in a live `config.HomeClubHolder`, never a startup-frozen value.
 - `HOME_CLUB_ID`: Database ID of the home club (preferred)
 - `HOME_CLUB_NAME`: Club name for fuzzy lookup (fallback if `HOME_CLUB_ID` is not set)
-- `HOME_CLUB_LOGO_PATH`: Optional URL path to the club logo image (default: `/static/st-anns-tennis.jpg`). Used by the points table and weekly overview. Set to an empty string to hide the logo.
-- `BHPLTA_CLUB_CODE`: Club code on the BHPLTA website (e.g. `STANN001`) — used for match card imports
+- `HOME_CLUB_LOGO_PATH`: Optional URL path to a club logo image; overrides the logo uploaded on the settings page. Unset (or empty) means the uploaded logo, else the bundled logo of a club in `config.KnownBHPLTAClub`'s list (St Ann's: `/static/st-anns-tennis.jpg`), else no logo.
+- `BHPLTA_CLUB_CODE`: Club code on the BHPLTA website — used for match card imports; overrides the code stored on the settings page
+- `PUBLIC_URL`: Optional public base URL of the instance; overrides the stored one
+
+**Club settings page** (`/admin/league/settings`, admin role only): display name, logo, primary/secondary colours, BHPLTA club code/name/id and public URL, stored in `app_settings` and held live in `config.ClubSettings` (`HomeClubHolder.ClubSettings()`); changes apply without a restart. A non-empty env variable above always wins over the stored value and the page says so. Uploaded logos (PNG/JPEG/WebP, sniffed by content, max 2 MB, no SVG) are stored in `branding/` next to the SQLite database (`DB_PATH`'s directory, i.e. the data volume) and served only at `/branding/<content-hash name>`. `internal/branding` also serves `/static/manifest.json`, `/api/manifest` and `/static/service-worker.js` with the stored name, logo and colours. BHPLTA's club name and id are not published: the page can look them up from the club code, `config.KnownBHPLTAClub` covers clubs whose values are known, and `config.PrefillClubSettings` stores them during setup.
 
 **Features:**
-- `WRAPPED_ACCESS_PASSWORD`: Password for the club wrapped unlock form (if unset the form always rejects)
-- `MY_TENNIS_ENABLED`: `true`/`1` shows the My Tennis call-to-action (off when unset)
+- `WRAPPED_ACCESS_PASSWORD`: Optional override for the Club Wrapped access code. Unset (the default) means a code generated with crypto/rand on first start and stored in `app_settings` (`wrapped_access_code`), shown to admins on the Club Settings page (`internal/secrets`). The grant cookie is derived from the code, so it is per instance.
+- `MY_TENNIS_ENABLED`: `true`/`1` (or `false`/`0`) overrides the stored My Tennis switch on the settings page (Features section, with Tournaments and Club Wrapped). Defaults with nothing stored: My Tennis off, Club Wrapped on, Tournaments on unless setup_completed_at exists (new installs). A switch that is off hides its links and its routes return 404; with Tournaments off the home page is a club page.
 - `LEAGUE_TABLES_URL`: Optional source page for the fixture generator's league tables (default: BHPLTA league tables page)
+- `BHPLTA_BASE_URL`: Testing only; site root the BHPLTA season import reads the fixtures and club pages from (default `https://www.bhplta.co.uk`). Saved pages for tests are in `tests/e2e/fixtures/bhplta/`
 - `COURTHIVE_API_URL`: Optional CourtHive API URL (default: `http://courthive-server:8383`)
 
 **Database:**
@@ -259,7 +268,7 @@ Each major handler (Admin, Players) delegates to domain-specific sub-handlers:
 
 **Application:**
 - `PORT`: HTTP server port (default: "8080")
-- `APP_ENV`: Set to "production" to enforce secure cookies (the reference compose sets it)
+- `APP_ENV`: Set to "production" to enforce secure cookies (the reference compose sets it). In production the startup self-check (`secrets.StartupCheck`) refuses to start if a secret variable holds a known placeholder such as `change-me`. It also warns (in every mode) about accounts whose password hash is one seeded by old migrations or the e2e seed.
 - `TEMPLATE_RELOAD`: Development only; `true` re-parses templates on every request (root `docker-compose.yml` defaults it to true)
 - `MIGRATE_ALLOW_DIRTY_FORCE`: Development only; `true` auto-forces a dirty migration version at startup. Never set in production.
 
@@ -303,7 +312,10 @@ Club names extracted from team names (e.g., "Dyke A" → Club: "Dyke").
 ## Key Files
 
 - `cmd/jim-dot-tennis/main.go`: Application entry point, routing setup
-- `internal/config/config.go`: Home club configuration (`AppConfig` loaded from env vars)
+- `internal/config/config.go`: Home club resolution order (`ResolveHomeClub`) and `AppConfig` for CLI tools
+- `internal/config/holder.go`: Live, concurrency-safe home club (`HomeClubHolder`) used by the server
+- `internal/setup/`: Setup state (`State`, `Gate`, `MarkComplete`) and the setup entry page
+- `internal/repository/settings.go`: Typed access to the `app_settings` key/value table
 - `internal/config/context.go`: Context helpers for passing config through request context
 - `internal/config/middleware.go`: Middleware that injects config into every request
 - `internal/normalize/normalize.go`: Centralised apostrophe/Unicode normalisation

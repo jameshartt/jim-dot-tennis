@@ -5,20 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Match Card Importation - Jim.Tennis Admin</title>
     <link rel="stylesheet" href="/static/css/main.css">
-    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
-    <script>
-        // Fallback HTMX loader in case CDN fails (common on mobile)
-        if (typeof htmx === 'undefined') {
-            console.warn('HTMX failed to load from CDN, loading fallback...');
-            var script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/htmx.org@1.9.4/dist/htmx.min.js';
-            script.onerror = function() {
-                console.error('Both HTMX CDNs failed, form will use standard submission');
-            };
-            document.head.appendChild(script);
-        }
-    </script>
-    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <script src="/static/js/htmx-1.9.4.min.js"></script>
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#2c3e50">
     <style>
@@ -327,13 +314,18 @@
                                     <div class="form-group">
                                         <label for="club_name">Club Name</label>
                                         <input type="text" class="form-control" id="club_name" name="club_name" 
-                                               value="St+Anns" required>
+                                               value="{{.DefaultClubName}}" required>
                                     </div>
 
                                     <div class="form-group">
                                         <label for="club_id">Club ID</label>
                                         <input type="number" class="form-control" id="club_id" name="club_id" 
-                                               value="10" required>
+                                               value="{{if .DefaultClubID}}{{.DefaultClubID}}{{end}}" min="1" required>
+                                        {{if or (not .DefaultClubName) (not .DefaultClubID)}}
+                                        <small class="form-text text-muted">
+                                            Set your club's BHPLTA name and id once in <a href="/admin/league/settings">Club settings</a> and they will be filled in here.
+                                        </small>
+                                        {{end}}
                                     </div>
 
                                     <div class="form-group">

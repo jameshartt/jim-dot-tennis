@@ -49,7 +49,7 @@ func main() {
 	flag.BoolVar(&config.DryRun, "dry-run", false, "Print what would be done without making changes")
 	flag.BoolVar(&config.Verbose, "verbose", false, "Enable verbose logging")
 	flag.StringVar(&config.PlayersFile, "players-file", "players-import/players.html", "Path to the players HTML file")
-	flag.StringVar(&config.ProTennisPlayersFile, "tennis-players-file", "cmd/collect_tennis_data/tennis_players.json", "Path to the tennis players JSON file")
+	flag.StringVar(&config.ProTennisPlayersFile, "tennis-players-file", "internal/repository/data/tennis_players.json", "Path to the tennis players JSON file")
 	flag.Parse()
 
 	if config.Verbose {
@@ -767,7 +767,7 @@ func importPlayers(ctx context.Context, filePath string, clubRepo repository.Clu
 		}
 	} else {
 		// Load home club configuration
-		appCfg, err := appconfig.Load(ctx, clubRepo)
+		appCfg, err := appconfig.Load(ctx, clubRepo, nil) // env only (HOME_CLUB_ID / HOME_CLUB_NAME)
 		if err != nil {
 			return fmt.Errorf("home club config error: %w", err)
 		}

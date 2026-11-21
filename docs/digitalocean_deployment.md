@@ -38,8 +38,8 @@ You'll also need a `.env` file on the server (at `$REMOTE_PATH/.env`) with the h
 HOME_CLUB_ID=10                       # Database ID of your club
 BHPLTA_CLUB_CODE=what-three-words     # BHPLTA club code (for match card imports)
 
-# Other secrets
-WRAPPED_ACCESS_PASSWORD=your-password
+# Optional: WRAPPED_ACCESS_PASSWORD. Leave it unset and the instance generates its
+# own Club Wrapped code (shown on the admin Club Settings page).
 ```
 
 ### Step 2: Run the Deployment Script

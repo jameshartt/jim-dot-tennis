@@ -5,6 +5,8 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -13,6 +15,7 @@ import (
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/secrets"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -85,7 +88,7 @@ func newWrappedTestHandler(t *testing.T) (*ClubWrappedHandler, context.Context) 
 	}
 
 	ctx := config.WithHomeClub(context.Background(), 1, &models.Club{ID: 1, Name: "St Ann's"}, "")
-	return NewClubWrappedHandler(NewService(db, "", 1, ""), ""), ctx
+	return NewClubWrappedHandler(NewService(db, "", config.StaticHomeClubID(1), ""), ""), ctx
 }
 
 // Wrapped is a per-season recap: once a second season has results, stats
@@ -153,5 +156,34 @@ func TestPersonalWrappedScopedToActiveSeason(t *testing.T) {
 	if old != nil && (old.MatchesPlayed != 0 || old.FixturesPlayed != 0) {
 		t.Fatalf("2025-only player: got %d matches in %d fixtures this season, want 0",
 			old.MatchesPlayed, old.FixturesPlayed)
+	}
+}
+
+// The public wrapped view needs this instance's grant cookie: the constant
+// value older versions used ("granted") must not open it.
+func TestPublicWrappedRequiresInstanceCookie(t *testing.T) {
+	h, ctx := newWrappedTestHandler(t)
+	t.Setenv(secrets.EnvWrappedAccess, "")
+
+	get := func(cookie string) int {
+		req := httptest.NewRequest(http.MethodGet, "/club/wrapped", nil).WithContext(ctx)
+		if cookie != "" {
+			req.AddCookie(&http.Cookie{Name: secrets.WrappedCookieName, Value: cookie})
+		}
+		rec := httptest.NewRecorder()
+		h.HandlePublicWrapped(rec, req)
+		return rec.Code
+	}
+	for _, c := range []string{"", "granted"} {
+		if code := get(c); code != http.StatusUnauthorized {
+			t.Errorf("cookie %q: status %d, want 401", c, code)
+		}
+	}
+	grant, err := secrets.NewWrappedAccess(h.service.db).CookieValue(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code := get(grant); code == http.StatusUnauthorized {
+		t.Errorf("instance grant cookie rejected (status %d)", code)
 	}
 }

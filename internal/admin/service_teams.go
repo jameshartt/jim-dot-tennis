@@ -52,7 +52,7 @@ func (s *Service) GetHomeClubTeams() (*models.Club, []TeamWithRelations, error) 
 	ctx := context.Background()
 
 	// Get home club from config
-	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID)
+	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -382,14 +382,14 @@ func (s *Service) DeleteTeam(teamID uint) error {
 
 // IsHomeClub checks if a club ID belongs to the home club
 func (s *Service) IsHomeClub(clubID uint) bool {
-	return clubID == s.homeClubID
+	return clubID == s.homeClubID()
 }
 
 // GetAwayTeams retrieves all non-home-club teams grouped by club
 func (s *Service) GetAwayTeams() ([]AwayTeamGroupedByClub, error) {
 	ctx := context.Background()
 
-	homeClubID := s.homeClubID
+	homeClubID := s.homeClubID()
 
 	// Get active season
 	activeSeason, _ := s.seasonRepository.FindActive(ctx)
@@ -475,7 +475,7 @@ type AwayTeamReviewData struct {
 func (s *Service) GetAwayTeamReviewData(seasonID uint) (*AwayTeamReviewData, error) {
 	ctx := context.Background()
 
-	homeClubID := s.homeClubID
+	homeClubID := s.homeClubID()
 
 	// Get the season to find previous year
 	season, err := s.seasonRepository.FindByID(ctx, seasonID)

@@ -18,13 +18,13 @@ services:
       - TEMPLATE_RELOAD=${TEMPLATE_RELOAD:-true} # re-parse templates per request (hot reload)
       - DB_TYPE=sqlite3
       - DB_PATH=/app/data/tennis.db
-      - WRAPPED_ACCESS_PASSWORD=${WRAPPED_ACCESS_PASSWORD}
+      - WRAPPED_ACCESS_PASSWORD=${WRAPPED_ACCESS_PASSWORD:-}
       - HOME_CLUB_ID=${HOME_CLUB_ID:-}
-      - HOME_CLUB_NAME=${HOME_CLUB_NAME:-St Ann}
+      - HOME_CLUB_NAME=${HOME_CLUB_NAME:-}
       - BHPLTA_CLUB_CODE=${BHPLTA_CLUB_CODE}
       - MY_TENNIS_ENABLED=${MY_TENNIS_ENABLED:-}
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -34,8 +34,9 @@ services:
   # data volume, no published host port and no fixed container name, so
   # `make test-e2e*` can never touch the dev/prod database or collide with the
   # `app` service above. Seed data is written to this volume by the e2e service.
-  # On a brand-new volume run `make test-e2e-bootstrap` first (the make test-e2e
-  # targets do this automatically): the app refuses to start with zero clubs.
+  # On a brand-new volume the app starts in setup mode (healthy via /healthz);
+  # once the e2e service has seeded club HOME_CLUB_ID it is picked up on the next
+  # request, so no pre-seeded placeholder club is needed.
   app-e2e:
     build:
       context: .
@@ -55,13 +56,14 @@ services:
       - HOME_CLUB_NAME=${HOME_CLUB_NAME:-}
       - BHPLTA_CLUB_CODE=${BHPLTA_CLUB_CODE:-}
       - MY_TENNIS_ENABLED=${MY_TENNIS_ENABLED:-}
+      - BHPLTA_BASE_URL=${BHPLTA_BASE_URL:-}
     # The E2E suite reaches this service as http://app-e2e:8080. Do not give it
     # a shared alias such as "webapp": a dev `app` container on the same network
     # could answer to it too and the tests would hit the wrong database.
     # (A bare "app" hostname is unusable: .app is an HSTS-preloaded TLD and
     # Chromium upgrades http://app:* to HTTPS.)
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
       interval: 10s
       timeout: 10s
       retries: 6
@@ -96,6 +98,73 @@ services:
       - PLAYWRIGHT_BASE_URL=http://app-e2e:8080
     # Default: seed database and run chromium project tests (excludes multi-club)
     command: sh -c "sh /app/tests/fixtures/seed.sh && npx playwright test --project=chromium"
+
+  # --- Fresh-install suite (`make test-e2e-fresh`, profile "fresh") -----------
+  # Two instances on EMPTY volumes: no seed.sql, no HOME_CLUB_* variables, so
+  # they start in setup mode and print a setup code to their log. The runner
+  # (e2e-fresh) serves the saved BHPLTA pages itself, as `fresh-fixtures`, so
+  # the apps never contact the real BHPLTA site. scripts/test-e2e-fresh.sh runs
+  # these under a unique compose project name with unique volume names, and
+  # removes everything afterwards.
+  app-fresh: &app-fresh
+    image: jim-dot-tennis-fresh-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: ["fresh"]
+    restart: "no"
+    volumes:
+      - fresh-data:/app/data
+      - ./templates:/app/templates
+      - ./static:/app/static
+    environment:
+      - PORT=8080
+      - DB_TYPE=sqlite3
+      - DB_PATH=/app/data/tennis.db
+      - BHPLTA_BASE_URL=http://fresh-fixtures:9099
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 10s
+      retries: 12
+      start_period: 5s
+
+  app-fresh-demo:
+    <<: *app-fresh
+    volumes:
+      - fresh-demo-data:/app/data
+      - ./templates:/app/templates
+      - ./static:/app/static
+
+  e2e-fresh:
+    image: jim-dot-tennis-e2e-fresh:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    profiles: ["fresh"]
+    depends_on:
+      app-fresh:
+        condition: service_healthy
+      app-fresh-demo:
+        condition: service_healthy
+    networks:
+      default:
+        aliases:
+          - fresh-fixtures
+    volumes:
+      - fresh-data:/data
+      - fresh-demo-data:/demo-data
+      - ${FRESH_LOG_DIR:-/dev/null}:/fresh-logs:ro
+      - ./tests/e2e/test-results:/app/tests/test-results
+      - ./tests/e2e/playwright-report:/app/tests/playwright-report
+    environment:
+      - FRESH_INSTALL=1
+      - PLAYWRIGHT_BASE_URL=http://app-fresh:8080
+      - FRESH_DEMO_URL=http://app-fresh-demo:8080
+      - FRESH_LOG_DIR=/fresh-logs
+      - FRESH_DB=/data/tennis.db
+      - FRESH_FIXTURE_PORT=9099
+    command: npx playwright test --project=fresh-install
 
   backup:
     image: alpine:latest
@@ -134,3 +203,9 @@ volumes:
   # E2E_DATA_VOLUME lets you point at a throwaway volume (e.g. for a parallel run).
   e2e-data:
     name: ${E2E_DATA_VOLUME:-jim-dot-tennis-e2e-data}
+  # Fresh-install suite: always EMPTY at the start of a run (the script gives
+  # them unique names and deletes them afterwards).
+  fresh-data:
+    name: ${FRESH_DATA_VOLUME:-jim-dot-tennis-fresh-data}
+  fresh-demo-data:
+    name: ${FRESH_DEMO_VOLUME:-jim-dot-tennis-fresh-demo-data}

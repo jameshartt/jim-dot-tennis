@@ -21,8 +21,8 @@ if [ -z "$1" ]; then
     echo -e "${YELLOW}Usage: $0 <club-code> [week] [year]${NC}"
     echo ""
     echo "Examples:"
-    echo "  $0 STANN001        # Extract nonce for St Ann's"
-    echo "  $0 STANN001 1 2024 # Extract nonce and import week 1 of 2024"
+    echo "  $0 CLUB001        # Extract nonce for your club"
+    echo "  $0 CLUB001 1 2024 # Extract nonce and import week 1 of 2024"
     echo ""
     exit 1
 fi

@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - Jim.Tennis</title>
     <link rel="stylesheet" href="/static/css/main.css">
-    <script src="https://unpkg.com/htmx.org@1.9.4"></script>
-    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <script src="/static/js/htmx-1.9.4.min.js"></script>
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#2c3e50">
     <style>
@@ -406,9 +405,11 @@
                             <a href="/admin/league/seasons" class="action-link">
                                 <span class="action-link-icon">&#9728;</span> Manage Seasons
                             </a>
+                            {{if .Features.Tournaments}}
                             <a href="/admin/league/tournaments" class="action-link">
                                 <span class="action-link-icon">&#127941;</span> Manage Tournaments
                             </a>
+                            {{end}}
                         </div>
                     </div>
 
@@ -433,9 +434,11 @@
                     <div class="action-category">
                         <h3>Season Tools</h3>
                         <div class="action-list">
+                            {{if .Features.ClubWrapped}}
                             <a href="/admin/league/wrapped" class="action-link">
                                 <span class="action-link-icon">&#10024;</span> Season Wrapped
                             </a>
+                            {{end}}
                             <a href="/admin/league/preferred-names" class="action-link">
                                 <span class="action-link-icon">&#128221;</span> Preferred Name Approvals
                             </a>
@@ -453,6 +456,9 @@
                             </a>
                             <a href="/admin/league/sessions" class="action-link">
                                 <span class="action-link-icon">&#128274;</span> View Sessions
+                            </a>
+                            <a href="/admin/league/settings" class="action-link">
+                                <span class="action-link-icon">&#9881;</span> Club Settings
                             </a>
                         </div>
                     </div>

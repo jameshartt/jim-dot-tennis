@@ -5,9 +5,8 @@ package admin
 import (
 	"fmt"
 
+	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/models"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 // SessionWithUser represents a session joined with its user info
@@ -100,13 +99,9 @@ func (s *Service) CleanupExpiredSessions() error {
 	return err
 }
 
-// hashPassword generates a bcrypt hash for a password
+// hashPassword generates a bcrypt hash for a password at the app-wide cost.
 func hashPassword(password string) (string, error) {
-	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return "", err
-	}
-	return string(hashed), nil
+	return auth.HashPassword(password)
 }
 
 // GetRecentLoginAttempts retrieves recent login attempts

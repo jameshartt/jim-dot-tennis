@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"jim-dot-tennis/internal/auth"
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/models"
 )
 
@@ -21,7 +22,7 @@ import (
 // derby "Managing:" banner and carried its own stylesheet.
 func TestTeamSelectionSwapMatchesFullPage(t *testing.T) {
 	db := seedTeamSelectionFixture(t)
-	h := NewFixturesHandler(NewService(db, "", 1, ""), findTemplatesPathAdmin(t), nil)
+	h := NewFixturesHandler(NewService(db, "", config.StaticHomeClubID(1), ""), findTemplatesPathAdmin(t), nil)
 	pagePath := fmt.Sprintf("/admin/league/fixtures/%d/team-selection", selectionFixtureID)
 
 	serve := func(r *http.Request) *httptest.ResponseRecorder {

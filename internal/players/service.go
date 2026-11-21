@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
@@ -16,7 +17,7 @@ import (
 // Service provides business logic for player operations
 type Service struct {
 	db                         *database.DB
-	homeClubID                 uint
+	homeClub                   config.HomeClubSource
 	playerRepository           repository.PlayerRepository
 	fantasyRepository          repository.FantasyMixedDoublesRepository
 	tennisPlayerRepository     repository.ProTennisPlayerRepository
@@ -32,11 +33,31 @@ type Service struct {
 	tennisPreferenceRepository repository.PlayerTennisPreferenceRepository
 }
 
-// NewService creates a new players service
-func NewService(db *database.DB, homeClubID uint) *Service {
+// homeClubID returns the current home club ID (0 while the instance is still
+// in setup), read live on every call.
+func (s *Service) homeClubID() uint {
+	if s.homeClub == nil {
+		return 0
+	}
+	return s.homeClub.ID()
+}
+
+// clubSettings returns the live club settings (feature switches, colours), or
+// nil when the home club source carries none (tests). A nil *ClubSettings is
+// safe to read and reports the defaults.
+func (s *Service) clubSettings() *config.ClubSettings {
+	if p, ok := s.homeClub.(config.ClubSettingsProvider); ok {
+		return p.ClubSettings()
+	}
+	return nil
+}
+
+// NewService creates a new players service. homeClub is normally the server's
+// *config.HomeClubHolder.
+func NewService(db *database.DB, homeClub config.HomeClubSource) *Service {
 	return &Service{
 		db:                         db,
-		homeClubID:                 homeClubID,
+		homeClub:                   homeClub,
 		playerRepository:           repository.NewPlayerRepository(db),
 		fantasyRepository:          repository.NewFantasyMixedDoublesRepository(db),
 		tennisPlayerRepository:     repository.NewProTennisPlayerRepository(db),
@@ -418,7 +439,7 @@ func (s *Service) determinePlayerTeamContext(ctx context.Context, playerID strin
 		for _, fp := range allFixturePlayers {
 			if fp.PlayerID == playerID {
 				// Determine which teams are home club first - this is the source of truth
-				homeClubID := s.homeClubID
+				homeClubID := s.homeClubID()
 				if homeClubID > 0 {
 					homeTeam, homeErr := s.teamRepository.FindByID(ctx, homeTeamID)
 					awayTeam, awayErr := s.teamRepository.FindByID(ctx, awayTeamID)

@@ -14,6 +14,8 @@ import (
 
 	"jim-dot-tennis/internal/admin"
 	"jim-dot-tennis/internal/auth"
+	"jim-dot-tennis/internal/bhplta"
+	"jim-dot-tennis/internal/branding"
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/fixturegen"
@@ -21,6 +23,8 @@ import (
 	"jim-dot-tennis/internal/players"
 	"jim-dot-tennis/internal/render"
 	"jim-dot-tennis/internal/repository"
+	"jim-dot-tennis/internal/secrets"
+	"jim-dot-tennis/internal/setup"
 	"jim-dot-tennis/internal/webpush"
 )
 
@@ -45,11 +49,33 @@ func main() {
 		log.Printf("Warning: Failed to run migrations: %v", err)
 	}
 
-	// Load home club configuration
+	// Load the embedded fantasy name list on first run (also in setup mode).
+	if n, err := repository.NewProTennisPlayerRepository(db).SeedIfEmpty(context.Background()); err != nil {
+		log.Fatalf("Failed to load tennis players: %v", err)
+	} else if n > 0 {
+		log.Printf("Loaded %d tennis players into an empty tennis_players table", n)
+	}
+
+	// Instance secrets: refuse known placeholders in production and make sure
+	// this instance has its own generated Club Wrapped access code.
+	if err := secrets.StartupCheck(context.Background(), db); err != nil {
+		log.Fatalf("Startup self-check failed: %v", err)
+	}
+
+	// Resolve the home club (HOME_CLUB_ID, then HOME_CLUB_NAME, then the stored
+	// setting). With nothing configured the server still starts, in setup mode.
 	clubRepo := repository.NewClubRepository(db)
-	appConfig, err := config.Load(context.Background(), clubRepo)
+	homeClub, err := config.NewHomeClubHolder(context.Background(), clubRepo, repository.NewSettingsRepository(db))
 	if err != nil {
 		log.Fatalf("Home club configuration error: %v", err)
+	}
+	setupState := setup.NewState(db, homeClub)
+	// The club step imports the league, clubs and current season from BHPLTA.
+	setupService := setup.NewService(setupState, setup.NewBHPLTAProvisioner(bhplta.NewBootstrapper(db)))
+	if code, err := setupService.IssueCode(context.Background()); err != nil {
+		log.Printf("Warning: could not issue a setup code: %v", err)
+	} else if code != "" {
+		setup.LogCode(code)
 	}
 
 	// Initialize web push service
@@ -99,10 +125,10 @@ func main() {
 	if courthiveAPIURL == "" {
 		courthiveAPIURL = "http://courthive-server:8383"
 	}
-	adminHandler := admin.New(db, templateDir, courthiveAPIURL, appConfig.HomeClubID, appConfig.BHPLTAClubCode, pushService)
+	adminHandler := admin.New(db, templateDir, courthiveAPIURL, homeClub, homeClub.BHPLTAClubCode(), pushService)
 
 	// Set up players handlers
-	playersHandler := players.New(db, templateDir, appConfig.HomeClubID)
+	playersHandler := players.New(db, templateDir, homeClub)
 
 	// Set up template functions
 	templateFuncs := template.FuncMap{
@@ -125,6 +151,19 @@ func main() {
 		return authMiddleware.RequireAuth(authMiddleware.RequireRole("admin")(next))
 	})
 
+	// Health check (used by the container health check; served even in setup mode)
+	mux.HandleFunc(setup.HealthPath, func(w http.ResponseWriter, r *http.Request) {
+		if err := db.PingContext(r.Context()); err != nil {
+			http.Error(w, "database unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		fmt.Fprintln(w, "ok")
+	})
+
+	// First-run setup (the rest of the app is gated behind it until a home club is in effect)
+	setup.NewHandler(setupService, authService, templateDir).RegisterRoutes(mux)
+
 	// Auth routes
 	authHandler.RegisterRoutes(mux)
 
@@ -140,30 +179,11 @@ func main() {
 	// Public player-facing routes (standings, etc.)
 	playersHandler.RegisterPublicRoutes(mux)
 
-	// Dynamic manifest — allows per-player start_url for PWA install
-	mux.HandleFunc("/api/manifest", func(w http.ResponseWriter, r *http.Request) {
-		startURL := r.URL.Query().Get("start")
-		if startURL == "" {
-			startURL = "/"
-		}
-		w.Header().Set("Content-Type", "application/manifest+json")
-		fmt.Fprintf(w, `{
-  "name": "Jim Dot Tennis",
-  "short_name": "My Tennis",
-  "description": "Tennis league management and notifications",
-  "id": "%s",
-  "start_url": "%s",
-  "scope": "/",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#006400",
-  "icons": [
-    {"src": "/static/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any"},
-    {"src": "/static/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any"},
-    {"src": "/static/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "maskable"}
-  ]
-}`, startURL, startURL)
-	})
+	// Club logo, web app manifests (/static/manifest.json, /api/manifest?start=
+	// for per-player PWA install) and the service worker, using the stored
+	// club name, logo and colours
+	staticDir := filepath.Join(projectRoot, "static")
+	branding.NewHandler(homeClub.ClubSettings(), staticDir).RegisterRoutes(mux)
 
 	// Fixture generator (public: reads the league tables, writes nothing)
 	fixturegen.New(templates).RegisterRoutes(mux)
@@ -184,6 +204,15 @@ func main() {
 			return
 		}
 
+		// With tournaments off the home page is the club's own page and
+		// nothing links to the tournament software
+		if !homeClub.ClubSettings().TournamentsEnabled() {
+			if err := render.Execute(w, templates, "club_home.html", map[string]interface{}{"Branding": homeClub.Branding()}); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
+		}
+
 		var visibleTournaments []models.Tournament
 		if tournaments, err := tournamentRepo.FindVisible(r.Context()); err == nil {
 			visibleTournaments = tournaments
@@ -197,18 +226,10 @@ func main() {
 		}
 	})
 
-	// Serve static files with special handling for service worker
-	staticDir := filepath.Join(projectRoot, "static")
+	// Serve static files (the service worker and manifest are served by the branding handler)
 	fs := http.FileServer(http.Dir(staticDir))
 	mux.Handle("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Static file request: %s", r.URL.Path)
-
-		// Add Service-Worker-Allowed header for service worker file
-		if r.URL.Path == "/static/service-worker.js" {
-			log.Printf("Service worker request detected, setting Service-Worker-Allowed header")
-			w.Header().Set("Service-Worker-Allowed", "/")
-		}
-
 		http.StripPrefix("/static/", fs).ServeHTTP(w, r)
 	}))
 
@@ -216,7 +237,7 @@ func main() {
 	port := getPort()
 	server := &http.Server{
 		Addr:         ":" + port,
-		Handler:      auth.CrossOriginGuard(config.HomeClubMiddleware(appConfig, mux)),
+		Handler:      auth.CrossOriginGuard(setupState.Gate(setupService.DemoBanner(config.HomeClubMiddleware(homeClub, mux)))),
 		ReadTimeout:  30 * time.Second,  // Generous for mobile
 		WriteTimeout: 30 * time.Second,  // Generous for mobile
 		IdleTimeout:  120 * time.Second, // Keep connections alive
