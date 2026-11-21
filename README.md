@@ -93,12 +93,16 @@ The application uses environment variables to identify your club:
 | `MY_TENNIS_ENABLED` | Optional | `true`/`1` shows the "My Tennis" call-to-action. Off when unset. |
 | `LEAGUE_TABLES_URL` | Optional | Source page for the public fixture generator's league tables (default: the BHPLTA league tables page). |
 | `COURTHIVE_API_URL` | Optional | CourtHive API URL (default: `http://courthive-server:8383`). |
-| `APP_ENV` | Production | Set to `production` to mark session cookies Secure. The reference compose sets it. |
+| `PUBLIC_URL` | Production | The instance's public address, e.g. `https://tennis.example.org`. Overrides the Public URL stored on the Club Settings page. Required (https only) when `APP_ENV=production`: the app refuses to start without it. Used for links sent to players, the push-notification contact, calendar-file UIDs and (later) passkeys. In the reference stack set it in `deploy/.env` (normally `https://` plus `DOMAIN`). |
+| `APP_ENV` | Production | Set to `production` for a live instance: requires a valid https `PUBLIC_URL` and refuses `DEV_MODE`. The reference compose sets it. |
+| `DEV_MODE` | Dev only | `true`/`1` stops session cookies being marked Secure, so the app works over plain http (local runs, the e2e containers; set by the root `docker-compose.yml`, `make run-local` and `scripts/run.sh`). Session cookies are Secure by default. Never set in production. |
 | `PORT` | Optional | HTTP listen port (default: `8080`). |
 | `DB_TYPE` | Optional | Only `sqlite3` is supported; any other value fails at startup. |
 | `DB_PATH` | Optional | SQLite file path (default: `./tennis.db`; `/app/data/tennis.db` in Docker). |
 | `TEMPLATE_RELOAD` | Dev only | `true` re-parses templates on every request (hot reload). Leave unset in production. |
 | `MIGRATE_ALLOW_DIRTY_FORCE` | Dev only | `true` auto-forces a dirty migration version at startup. Never set in production: a dirty database should stop the deploy. |
+
+**iCal note.** Calendar files carry the UID `fixture-<id>@<host of PUBLIC_URL>`. The host is part of every event's identity, so changing it (for example `jim.tennis` to `www.jim.tennis`) makes calendar apps treat already-subscribed events as new and duplicate them. Set `PUBLIC_URL` to the host your players already use and keep it stable.
 
 The production stack (app, CourtHive, Caddy) is defined in [`deploy/`](deploy/): `deploy/docker-compose.yml`, `deploy/Caddyfile` and `deploy/.env.example`, which lists every variable the stack and the app read. See [docs/docker_setup.md](docs/docker_setup.md) for more.
 

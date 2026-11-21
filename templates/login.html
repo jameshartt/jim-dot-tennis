@@ -18,6 +18,7 @@
         {{end}}
         
         <form method="POST" action="/login">
+            {{if .Redirect}}<input type="hidden" name="redirect" value="{{.Redirect}}">{{end}}
             <div class="form-group">
                 <label for="username">Username</label>
                 <input type="text" id="username" name="username" value="{{.Username}}" required autofocus>

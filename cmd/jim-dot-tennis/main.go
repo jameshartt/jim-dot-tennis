@@ -69,6 +69,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Home club configuration error: %v", err)
 	}
+	// Production needs a valid https public URL (and no DEV_MODE).
+	if err := config.ValidateStartup(homeClub.ClubSettings()); err != nil {
+		log.Fatalf("Configuration error: %v", err)
+	}
 	setupState := setup.NewState(db, homeClub)
 	// The club step imports the league, clubs and current season from BHPLTA.
 	setupService := setup.NewService(setupState, setup.NewBHPLTAProvisioner(bhplta.NewBootstrapper(db)))
@@ -80,6 +84,7 @@ func main() {
 
 	// Initialize web push service
 	pushService := webpush.New(db)
+	pushService.SetSubscriberSource(func() string { return homeClub.ClubSettings().PushSubscriber() })
 
 	// List existing VAPID keys
 	if err := pushService.ListVAPIDKeys(); err != nil {
@@ -103,10 +108,8 @@ func main() {
 
 	// Set up auth service
 	authConfig := auth.DefaultConfig()
-	// In development, we can allow insecure cookies
-	if os.Getenv("APP_ENV") != "production" {
-		authConfig.CookieSecure = false
-	}
+	// Cookies are Secure unless DEV_MODE is explicitly enabled
+	authConfig.CookieSecure = config.SecureCookies()
 	authService := auth.NewService(db, authConfig)
 
 	// Set up repositories for fantasy token auth

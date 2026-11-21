@@ -49,12 +49,26 @@ type SubscriptionRequest struct {
 
 // Service manages web push operations
 type Service struct {
-	db *database.DB
+	db         *database.DB
+	subscriber func() string
 }
 
 // New creates a new WebPush service
 func New(db *database.DB) *Service {
 	return &Service{db: db}
+}
+
+// SetSubscriberSource sets where the VAPID subscriber (a contact URL for the
+// push services) comes from; it is read on every send so a changed public URL
+// applies at once.
+func (s *Service) SetSubscriberSource(f func() string) { s.subscriber = f }
+
+// vapidSubscriber is the VAPID subscriber claim.
+func (s *Service) vapidSubscriber() string {
+	if s.subscriber != nil {
+		return s.subscriber()
+	}
+	return ""
 }
 
 // GenerateVAPIDKeys generates a new pair of VAPID keys if none exist
@@ -270,7 +284,7 @@ func (s *Service) sendRawNotification(sub Subscription, payload []byte) error {
 		VAPIDPublicKey:  vapidPublic,
 		VAPIDPrivateKey: vapidPrivate,
 		TTL:             30,
-		Subscriber:      "https://jim.tennis",
+		Subscriber:      s.vapidSubscriber(),
 	}
 
 	resp, err := webpush.SendNotification(

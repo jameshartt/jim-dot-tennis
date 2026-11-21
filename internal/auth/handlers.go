@@ -33,6 +33,9 @@ func NewHandler(service *Service, templateDir string, redirectPath string) *Hand
 type loginData struct {
 	Error    string
 	Username string
+	// Redirect is the validated same-site path to return to after signing in
+	// ("" when there is none); the form carries it as a hidden field.
+	Redirect string
 }
 
 // loginTemplates caches the parsed login page.
@@ -74,9 +77,13 @@ func (h *Handler) LoginHandler() http.HandlerFunc {
 			// Validate the session
 			_, err := h.service.ValidateSession(cookie.Value, r)
 			if err == nil {
-				log.Printf("Valid session found, redirecting to: %s", h.redirectPath)
+				target := safeRedirectPath(r.URL.Query().Get("redirect"))
+				if target == "" {
+					target = h.redirectPath
+				}
+				log.Printf("Valid session found, redirecting to: %s", target)
 				// Valid session, redirect to the target page
-				http.Redirect(w, r, h.redirectPath, http.StatusSeeOther)
+				http.Redirect(w, r, target, http.StatusSeeOther)
 				return
 			}
 			log.Printf("Invalid session: %v, clearing cookie", err)
@@ -89,7 +96,7 @@ func (h *Handler) LoginHandler() http.HandlerFunc {
 		// GET request - show login form
 		if r.Method == http.MethodGet {
 			log.Printf("Processing GET request for login page")
-			h.renderLogin(w, loginData{})
+			h.renderLogin(w, loginData{Redirect: safeRedirectPath(r.URL.Query().Get("redirect"))})
 			return
 		}
 
@@ -113,6 +120,7 @@ func (h *Handler) LoginHandler() http.HandlerFunc {
 				data := loginData{
 					Error:    err.Error(),
 					Username: username,
+					Redirect: safeRedirectPath(r.FormValue("redirect")),
 				}
 
 				h.renderLogin(w, data)
@@ -126,8 +134,12 @@ func (h *Handler) LoginHandler() http.HandlerFunc {
 			// Ensure cookie is actually set before redirecting
 			log.Printf("Session cookie set with value: %s, expires: %v", redactToken(session.ID), session.ExpiresAt)
 
-			// Check for redirect parameter from URL
-			redirectTo := safeRedirectPath(r.URL.Query().Get("redirect"))
+			// The form posts the redirect as a hidden field; the URL query is
+			// accepted too. Only same-site paths survive safeRedirectPath.
+			redirectTo := safeRedirectPath(r.PostFormValue("redirect"))
+			if redirectTo == "" {
+				redirectTo = safeRedirectPath(r.URL.Query().Get("redirect"))
+			}
 			if redirectTo == "" {
 				redirectTo = h.redirectPath
 			}

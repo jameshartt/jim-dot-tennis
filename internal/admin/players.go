@@ -763,7 +763,7 @@ func (h *PlayersHandler) handleGenerateAvailabilityURL(w http.ResponseWriter, r 
 	}
 
 	// Construct the availability URL
-	availabilityURL := fmt.Sprintf("%s/my-availability/%s", getBaseURL(r), fantasyDetail.Match.AuthToken)
+	availabilityURL := fmt.Sprintf("%s/my-availability/%s", h.service.baseURL(r), fantasyDetail.Match.AuthToken)
 
 	// Return the URL as JSON
 	w.Header().Set("Content-Type", "application/json")
@@ -821,7 +821,7 @@ func (h *PlayersHandler) handleGetAvailabilityURL(w http.ResponseWriter, r *http
 	}
 
 	// Construct the availability URL
-	availabilityURL := fmt.Sprintf("%s/my-availability/%s", getBaseURL(r), fantasyDetail.Match.AuthToken)
+	availabilityURL := fmt.Sprintf("%s/my-availability/%s", h.service.baseURL(r), fantasyDetail.Match.AuthToken)
 
 	// Return the URL as JSON
 	w.Header().Set("Content-Type", "application/json")
@@ -1032,15 +1032,6 @@ func (h *PlayersHandler) handleReactivate(w http.ResponseWriter, r *http.Request
 	w.Header().Set("HX-Trigger", "playerReactivated")
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprintf(w, `<div class="deactivate-success" style="color: #155724; padding: 1rem; background: #d4edda; border-radius: 6px; margin: 1rem 0;">Player reactivated. Remember to add them back to teams manually.</div>`)
-}
-
-// getBaseURL extracts the base URL from the request
-func getBaseURL(r *http.Request) string {
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	return fmt.Sprintf("%s://%s", scheme, r.Host)
 }
 
 // handleRemindAllPlayers sends availability reminders to ALL active players who haven't set availability for next week

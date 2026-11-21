@@ -4,6 +4,7 @@ package admin
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"jim-dot-tennis/internal/config"
@@ -61,6 +62,10 @@ func (s *Service) currentBHPLTAClubCode() string {
 	}
 	return s.bhpltaClubCode
 }
+
+// baseURL is the prefix for absolute links in messages: the public URL, with
+// the request host only as a development fallback (see config.ClubSettings.BaseURL).
+func (s *Service) baseURL(r *http.Request) string { return s.clubSettings.BaseURL(r) }
 
 // NewService creates a new admin service. homeClub is normally the server's
 // *config.HomeClubHolder, which also provides the live club settings; then

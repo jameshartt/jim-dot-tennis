@@ -48,7 +48,7 @@ updating that allowlist and this page together.
 | `www.bhplta.co.uk` (BHPLTA) | When an administrator imports match cards, imports or copies a season's fixtures, imports club details, or looks up the club's BHPLTA name and id; when someone opens the public fixture generator (league tables, `LEAGUE_TABLES_URL` can point elsewhere) | Ordinary page requests; for match cards and the club lookup, the club's own BHPLTA club code and club name/id, as the BHPLTA website itself asks for them. The fixture generator's requests carry a User-Agent naming this software and its public source repository. |
 | A fixtures page URL an administrator types in | When that administrator imports a season from it (default: the BHPLTA fixtures page) | A page request |
 | `api.open-meteo.com` (Open-Meteo) | When an administrator opens a fixture detail page for a fixture within the forecast window; cached for an hour | The venue's latitude and longitude and the date range. No key, no account. |
-| Browser push services: `fcm.googleapis.com` / `android.googleapis.com` (Google: Chrome, Android, Edge on Android, Samsung Internet, Opera, Brave), `*.push.services.mozilla.com` (Firefox), `*.push.apple.com` (Safari), `*.notify.windows.com` (Edge on Windows) | When a notification is sent to someone who turned notifications on | The notification, end-to-end encrypted to the subscriber's browser, and a VAPID token whose subscriber field is currently `https://jim.tennis` (to become the instance's public URL, WI-126). Subscriptions to any other host are refused. |
+| Browser push services: `fcm.googleapis.com` / `android.googleapis.com` (Google: Chrome, Android, Edge on Android, Samsung Internet, Opera, Brave), `*.push.services.mozilla.com` (Firefox), `*.push.apple.com` (Safari), `*.notify.windows.com` (Edge on Windows) | When a notification is sent to someone who turned notifications on | The notification, end-to-end encrypted to the subscriber's browser, and a VAPID token whose subscriber field is the instance's own public URL (`PUBLIC_URL`). Subscriptions to any other host are refused. |
 | `courthive-server` | Inside the instance's own Docker network, when an administrator syncs tournaments from CourtHive | The provider abbreviation |
 
 The server makes no other outbound connection. There is no telemetry,
@@ -87,7 +87,7 @@ codebase and is not covered by the scan above.
 ### What the author can see
 
 Nothing from a running instance reaches the author. The remaining references to
-`jim.tennis` are labels, not connections: the VAPID subscriber above (seen
-only by the push services), calendar event UIDs (`fixture-N@jim.tennis`, never
-contacted), the fixture file format name, and the About page text. WI-126
-replaces the first two with the instance's public URL.
+`jim.tennis` are labels, not connections: the fixture file format name and the
+About page text. The VAPID subscriber and the calendar event UIDs
+(`fixture-N@<host of PUBLIC_URL>`, never contacted) use the instance's own
+public URL.

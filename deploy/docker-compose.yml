@@ -47,7 +47,9 @@ services:
       - PORT=8080
       - DB_TYPE=sqlite3
       - DB_PATH=/app/data/tennis.db
-      - APP_ENV=production # marks session cookies Secure
+      - APP_ENV=production # session cookies are Secure; requires a valid https PUBLIC_URL to start
+      # The instance's public address (passkeys, links, calendar UIDs); required, set it in .env.
+      - PUBLIC_URL=${PUBLIC_URL:-}
       # Optional: unset means the app generates this instance's own code.
       - WRAPPED_ACCESS_PASSWORD=${WRAPPED_ACCESS_PASSWORD:-}
       # Set HOME_CLUB_ID (preferred) or HOME_CLUB_NAME; the app refuses to start with neither.
