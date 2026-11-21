@@ -767,7 +767,7 @@ func importPlayers(ctx context.Context, filePath string, clubRepo repository.Clu
 		}
 	} else {
 		// Load home club configuration
-		appCfg, err := appconfig.Load(ctx, clubRepo)
+		appCfg, err := appconfig.Load(ctx, clubRepo, nil) // env only (HOME_CLUB_ID / HOME_CLUB_NAME)
 		if err != nil {
 			return fmt.Errorf("home club config error: %w", err)
 		}

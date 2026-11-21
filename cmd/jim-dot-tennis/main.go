@@ -21,6 +21,7 @@ import (
 	"jim-dot-tennis/internal/players"
 	"jim-dot-tennis/internal/render"
 	"jim-dot-tennis/internal/repository"
+	"jim-dot-tennis/internal/setup"
 	"jim-dot-tennis/internal/webpush"
 )
 
@@ -45,12 +46,14 @@ func main() {
 		log.Printf("Warning: Failed to run migrations: %v", err)
 	}
 
-	// Load home club configuration
+	// Resolve the home club (HOME_CLUB_ID, then HOME_CLUB_NAME, then the stored
+	// setting). With nothing configured the server still starts, in setup mode.
 	clubRepo := repository.NewClubRepository(db)
-	appConfig, err := config.Load(context.Background(), clubRepo)
+	homeClub, err := config.NewHomeClubHolder(context.Background(), clubRepo, repository.NewSettingsRepository(db))
 	if err != nil {
 		log.Fatalf("Home club configuration error: %v", err)
 	}
+	setupState := setup.NewState(db, homeClub)
 
 	// Initialize web push service
 	pushService := webpush.New(db)
@@ -99,10 +102,10 @@ func main() {
 	if courthiveAPIURL == "" {
 		courthiveAPIURL = "http://courthive-server:8383"
 	}
-	adminHandler := admin.New(db, templateDir, courthiveAPIURL, appConfig.HomeClubID, appConfig.BHPLTAClubCode, pushService)
+	adminHandler := admin.New(db, templateDir, courthiveAPIURL, homeClub, homeClub.BHPLTAClubCode(), pushService)
 
 	// Set up players handlers
-	playersHandler := players.New(db, templateDir, appConfig.HomeClubID)
+	playersHandler := players.New(db, templateDir, homeClub)
 
 	// Set up template functions
 	templateFuncs := template.FuncMap{
@@ -124,6 +127,19 @@ func main() {
 	pushService.SetupHandlers(mux, func(next http.Handler) http.Handler {
 		return authMiddleware.RequireAuth(authMiddleware.RequireRole("admin")(next))
 	})
+
+	// Health check (used by the container health check; served even in setup mode)
+	mux.HandleFunc(setup.HealthPath, func(w http.ResponseWriter, r *http.Request) {
+		if err := db.PingContext(r.Context()); err != nil {
+			http.Error(w, "database unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		fmt.Fprintln(w, "ok")
+	})
+
+	// First-run setup (the rest of the app is gated behind it until a home club is in effect)
+	setup.NewHandler(setupState, templateDir).RegisterRoutes(mux)
 
 	// Auth routes
 	authHandler.RegisterRoutes(mux)
@@ -216,7 +232,7 @@ func main() {
 	port := getPort()
 	server := &http.Server{
 		Addr:         ":" + port,
-		Handler:      auth.CrossOriginGuard(config.HomeClubMiddleware(appConfig, mux)),
+		Handler:      auth.CrossOriginGuard(setupState.Gate(config.HomeClubMiddleware(homeClub, mux))),
 		ReadTimeout:  30 * time.Second,  // Generous for mobile
 		WriteTimeout: 30 * time.Second,  // Generous for mobile
 		IdleTimeout:  120 * time.Second, // Keep connections alive

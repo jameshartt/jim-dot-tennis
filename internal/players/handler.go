@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"jim-dot-tennis/internal/auth"
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 )
 
@@ -21,8 +22,8 @@ type Handler struct {
 }
 
 // New creates a new players handler
-func New(db *database.DB, templateDir string, homeClubID uint) *Handler {
-	service := NewService(db, homeClubID)
+func New(db *database.DB, templateDir string, homeClub config.HomeClubSource) *Handler {
+	service := NewService(db, homeClub)
 
 	return &Handler{
 		service:      service,

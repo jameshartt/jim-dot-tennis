@@ -6,6 +6,7 @@ import (
 	"context"
 	"time"
 
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
@@ -16,7 +17,7 @@ import (
 // Service handles admin business logic
 type Service struct {
 	db                           *database.DB
-	homeClubID                   uint
+	homeClub                     config.HomeClubSource
 	bhpltaClubCode               string
 	loginAttemptRepository       repository.LoginAttemptRepository
 	playerRepository             repository.PlayerRepository
@@ -42,11 +43,22 @@ type Service struct {
 	courthiveAPIURL              string
 }
 
-// NewService creates a new admin service
-func NewService(db *database.DB, courthiveAPIURL string, homeClubID uint, bhpltaClubCode string, pushService ...*webpush.Service) *Service {
+// homeClubID returns the current home club ID (0 while the instance is still
+// in setup). It is read live on every call: the home club can change at
+// runtime when setup completes.
+func (s *Service) homeClubID() uint {
+	if s.homeClub == nil {
+		return 0
+	}
+	return s.homeClub.ID()
+}
+
+// NewService creates a new admin service. homeClub is normally the server's
+// *config.HomeClubHolder.
+func NewService(db *database.DB, courthiveAPIURL string, homeClub config.HomeClubSource, bhpltaClubCode string, pushService ...*webpush.Service) *Service {
 	service := &Service{
 		db:                           db,
-		homeClubID:                   homeClubID,
+		homeClub:                     homeClub,
 		bhpltaClubCode:               bhpltaClubCode,
 		loginAttemptRepository:       repository.NewLoginAttemptRepository(db),
 		playerRepository:             repository.NewPlayerRepository(db),

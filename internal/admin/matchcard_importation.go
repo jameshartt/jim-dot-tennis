@@ -154,7 +154,7 @@ func (h *MatchCardImportationHandler) processImport(w http.ResponseWriter, r *ht
 		h.service.playerRepository,
 		h.service.divisionRepository,
 		h.service.seasonRepository,
-		h.service.homeClubID,
+		h.service.homeClubID(),
 	)
 
 	// Create import configuration

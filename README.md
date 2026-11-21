@@ -70,7 +70,7 @@ The application uses environment variables to identify your club:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `HOME_CLUB_ID` | Yes (or `HOME_CLUB_NAME`) | Database ID of your club |
+| `HOME_CLUB_ID` | Unless chosen in setup | Database ID of your club. Overrides `HOME_CLUB_NAME` and the club stored by first-run setup; with none of the three the app starts in setup mode (`/setup`) |
 | `HOME_CLUB_NAME` | Fallback | Club name for fuzzy lookup if `HOME_CLUB_ID` is not set |
 | `HOME_CLUB_LOGO_PATH` | Optional | URL path to your club logo image (default: `/static/st-anns-tennis.jpg`). Drop the image into `static/` or mount it via Docker volume, then point this at its URL. |
 | `BHPLTA_CLUB_CODE` | For imports | Your club's code on the BHPLTA website (e.g. `STANN001`) |

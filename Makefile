@@ -216,17 +216,13 @@ check: vet fmt lint deadcode test test-js
 # (jim-dot-tennis-e2e-data); they never touch the dev/prod `jim-dot-tennis-data`
 # volume or the `jim-dot-tennis` container on port 8080.
 #
-# One-off bootstrap for a fresh E2E volume. The app refuses to start with zero
-# clubs, and the clubs are only seeded once the app is healthy, so: (1) run the
-# app once to apply migrations, (2) insert a placeholder home club that
-# seed.sql then replaces. Idempotent; a no-op on an already-bootstrapped volume.
-test-e2e-bootstrap: export HOME_CLUB_ID=1
+# Build the E2E images. Nothing needs seeding before the app can start: on a
+# brand-new volume app-e2e applies migrations and comes up healthy (/healthz) in
+# setup mode, because HOME_CLUB_ID points at a club the empty database does not
+# have yet. The e2e service then seeds the volume (seed.sql inserts club 1) and
+# the app resolves HOME_CLUB_ID on the next request, with no restart.
 test-e2e-bootstrap:
 	$(DOCKER_COMPOSE) --profile test build app-e2e e2e
-	$(DOCKER_COMPOSE) --profile test run --rm --no-deps app-e2e \
-		sh -c 'timeout 8 ./jim-dot-tennis >/dev/null 2>&1; exit 0'
-	$(DOCKER_COMPOSE) --profile test run --rm --no-deps e2e \
-		sh -c "sqlite3 /data/tennis.db \"INSERT OR IGNORE INTO clubs (id, name, address, website, phone_number, created_at, updated_at) VALUES (1, 'Bootstrap', '', '', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);\""
 
 # Run the full E2E test suite (usage: make test-e2e [WORKERS=4])
 # Sets MY_TENNIS_ENABLED=1 so the My Tennis CTA is visible in tests regardless

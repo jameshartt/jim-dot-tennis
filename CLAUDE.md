@@ -134,7 +134,8 @@ The codebase follows a clean layered architecture:
 - `generate-fantasy-matches/`: Fantasy match generation utility
 
 **internal/**: Core application logic
-- `config/`: Home club configuration (`AppConfig`), context helpers, and middleware for injecting config into request context
+- `config/`: Home club resolution and the live `HomeClubHolder`, `AppConfig` snapshot for CLI tools, context helpers, and middleware for injecting the home club into request context
+- `setup/`: First-run "needs setup" state, the setup gate middleware and the setup pages
 - `normalize/`: Centralised apostrophe/Unicode normalisation utilities
 - `database/`: Database connection and migration handling
 - `models/`: Data structures (Player, Team, Fixture, etc.)
@@ -241,7 +242,7 @@ Each major handler (Admin, Players) delegates to domain-specific sub-handlers:
 
 ### Configuration
 
-**Home Club (required):**
+**Home Club:** resolved in the order `HOME_CLUB_ID` env, `HOME_CLUB_NAME` env, then the `home_club_id` row in `app_settings` (written by first-run setup). With none of them the server still starts, in setup mode: `internal/setup` gates every request except `/static/`, `/healthz` and `/setup...` to the setup page. An env value matching none of the clubs in a non-empty clubs table is fatal at startup (lists the available clubs). The home club is held in a live `config.HomeClubHolder`, never a startup-frozen value.
 - `HOME_CLUB_ID`: Database ID of the home club (preferred)
 - `HOME_CLUB_NAME`: Club name for fuzzy lookup (fallback if `HOME_CLUB_ID` is not set)
 - `HOME_CLUB_LOGO_PATH`: Optional URL path to the club logo image (default: `/static/st-anns-tennis.jpg`). Used by the points table and weekly overview. Set to an empty string to hide the logo.
@@ -303,7 +304,10 @@ Club names extracted from team names (e.g., "Dyke A" → Club: "Dyke").
 ## Key Files
 
 - `cmd/jim-dot-tennis/main.go`: Application entry point, routing setup
-- `internal/config/config.go`: Home club configuration (`AppConfig` loaded from env vars)
+- `internal/config/config.go`: Home club resolution order (`ResolveHomeClub`) and `AppConfig` for CLI tools
+- `internal/config/holder.go`: Live, concurrency-safe home club (`HomeClubHolder`) used by the server
+- `internal/setup/`: Setup state (`State`, `Gate`, `MarkComplete`) and the setup entry page
+- `internal/repository/settings.go`: Typed access to the `app_settings` key/value table
 - `internal/config/context.go`: Context helpers for passing config through request context
 - `internal/config/middleware.go`: Middleware that injects config into every request
 - `internal/normalize/normalize.go`: Centralised apostrophe/Unicode normalisation

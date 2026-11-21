@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 
@@ -86,7 +87,7 @@ func TestUpdateFixtureScheduleRejectsWrongYear(t *testing.T) {
 	exec(`INSERT INTO fixtures (id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, venue_location, status, notes)
 		VALUES (900, 1, 2, 1, 1, 8, ?, '', 'Scheduled', '')`, time.Date(2026, 6, 2, 18, 0, 0, 0, time.UTC))
 
-	svc := NewService(db, "", 1, "")
+	svc := NewService(db, "", config.StaticHomeClubID(1), "")
 
 	// Wrong year (the year-8 fat-finger) must be rejected and the fixture left as-is.
 	badDate := time.Date(8, 9, 22, 14, 0, 0, 0, time.UTC)

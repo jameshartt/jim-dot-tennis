@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 
@@ -56,7 +57,7 @@ func newResultsTestService(t *testing.T) (*Service, *database.DB) {
 		(21, 901, 'Mens', 'Pending', 3, ''), (22, 901, 'Womens', 'Pending', 3, ''),
 		(99, 902, 'Mens', 'Pending', NULL, '')`)
 
-	return NewService(db, "", 1, ""), db
+	return NewService(db, "", config.StaticHomeClubID(1), ""), db
 }
 
 // saveResults is the save path the results handler drives.

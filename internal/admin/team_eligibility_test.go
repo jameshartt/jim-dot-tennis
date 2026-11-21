@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -124,7 +125,7 @@ func TestPlayDownEligibilitySecondHalf(t *testing.T) {
 	exec(`INSERT INTO fixtures (id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, venue_location, status, notes)
 		VALUES (?, 2, 5, 1, 1, 9, ?, '', 'Completed', '')`, firstHalfFixtureID, fixtureDate(9))
 
-	svc := NewService(db, "", 1, "")
+	svc := NewService(db, "", config.StaticHomeClubID(1), "")
 	elig := svc.teamEligibilityService
 
 	check := func(name string, fixtureID uint, want PlayerEligibilityInfo) {
@@ -256,7 +257,7 @@ func TestPlayDownIgnoresUnplayedHigherTeamFixtures(t *testing.T) {
 	exec(`INSERT INTO fixtures (id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, venue_location, status, notes)
 		VALUES (?, 2, 5, 1, 1, 15, ?, '', 'Scheduled', '')`, targetFixtureID, fixtureDate(15))
 
-	svc := NewService(db, "", 1, "")
+	svc := NewService(db, "", config.StaticHomeClubID(1), "")
 	elig := svc.teamEligibilityService
 
 	remaining := func(name string) *PlayerEligibilityInfo {
@@ -377,7 +378,7 @@ func TestPlayDownRescheduledFixtureCountsLaterWeeks(t *testing.T) {
 	exec(`INSERT INTO fixtures (id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, venue_location, status, notes)
 		VALUES (?, 2, 5, 1, 1, 11, ?, '', 'Rescheduled', '')`, targetFixtureID, lateDate)
 
-	svc := NewService(db, "", 1, "")
+	svc := NewService(db, "", config.StaticHomeClubID(1), "")
 	elig := svc.teamEligibilityService
 
 	get := func(name string) *PlayerEligibilityInfo {
@@ -509,7 +510,7 @@ func TestPlayDownFirstHalfWeekRescheduledToSecondHalf(t *testing.T) {
 	exec(`INSERT INTO fixtures (id, home_team_id, away_team_id, division_id, season_id, week_id, scheduled_date, venue_location, status, notes)
 		VALUES (?, 2, 5, 1, 1, 8, ?, '', 'Rescheduled', '')`, rescheduledFixtureID, lateDate)
 
-	svc := NewService(db, "", 1, "")
+	svc := NewService(db, "", config.StaticHomeClubID(1), "")
 	elig := svc.teamEligibilityService
 
 	// On-time first-half fixture: Rule 16 does not apply despite 5 higher-team plays.

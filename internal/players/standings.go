@@ -109,7 +109,7 @@ func (h *StandingsHandler) HandleStandings(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Get home club ID from config
-	homeClubID := h.service.homeClubID
+	homeClubID := h.service.homeClubID()
 
 	// Calculate standings for each division
 	var divisionStandings []DivisionStandings

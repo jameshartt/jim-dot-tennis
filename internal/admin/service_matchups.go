@@ -116,7 +116,7 @@ func (s *Service) determineManagingTeamID(ctx context.Context, fixtureID uint) (
 		return 0, err
 	}
 
-	homeClubID := s.homeClubID
+	homeClubID := s.homeClubID()
 
 	// Get home and away teams
 	homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
@@ -176,7 +176,7 @@ func (s *Service) UpdateHomeClubMatchupPlayers(matchupID uint, fixtureID uint, h
 		return err
 	}
 
-	homeClubID := s.homeClubID
+	homeClubID := s.homeClubID()
 
 	// Get home and away teams
 	homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
@@ -302,7 +302,7 @@ func (s *Service) AddPlayerToMatchup(matchupID uint, playerID string, fixtureID 
 		return err
 	}
 
-	homeClubID := s.homeClubID
+	homeClubID := s.homeClubID()
 
 	// Get home and away teams
 	homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)

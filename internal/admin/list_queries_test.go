@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 
 	"github.com/jmoiron/sqlx"
@@ -127,7 +128,7 @@ func seedPlayedSeason(t *testing.T, played, upcoming int) string {
 func TestPointsTableQueriesDoNotScaleWithMatchups(t *testing.T) {
 	const played = 12
 	db, queries := countingDB(t, seedPlayedSeason(t, played, 0))
-	h := NewPointsHandler(NewService(db, "", 1, ""), "")
+	h := NewPointsHandler(NewService(db, "", config.StaticHomeClubID(1), ""), "")
 
 	men, _, err := h.calculatePlayerPoints()
 	if err != nil {
@@ -160,7 +161,7 @@ func TestPointsTableQueriesDoNotScaleWithMatchups(t *testing.T) {
 func TestFixtureListQueriesDoNotScaleWithFixtures(t *testing.T) {
 	const played, upcoming = 12, 6
 	db, queries := countingDB(t, seedPlayedSeason(t, played, upcoming))
-	svc := NewService(db, "", 1, "")
+	svc := NewService(db, "", config.StaticHomeClubID(1), "")
 
 	for name, list := range map[string]func() (int, error){
 		"past": func() (int, error) {

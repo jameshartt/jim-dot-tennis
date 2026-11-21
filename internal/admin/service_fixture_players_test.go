@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 
@@ -19,7 +20,7 @@ import (
 // per-player eligibility rules, as seen through the page's service call.
 func TestTeamSelectionAvailabilityAndEligibility(t *testing.T) {
 	db := seedTeamSelectionFixture(t)
-	svc := NewService(db, "", 1, "")
+	svc := NewService(db, "", config.StaticHomeClubID(1), "")
 	team, others, err := svc.GetAvailablePlayersWithEligibilityForTeamSelection(selectionFixtureID, 0)
 	if err != nil {
 		t.Fatalf("load selection: %v", err)

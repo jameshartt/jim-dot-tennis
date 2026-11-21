@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"jim-dot-tennis/internal/auth"
+	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/webpush"
 )
@@ -39,8 +40,8 @@ type Handler struct {
 }
 
 // New creates a new admin handler
-func New(db *database.DB, templateDir string, courthiveAPIURL string, homeClubID uint, bhpltaClubCode string, pushService ...*webpush.Service) *Handler {
-	service := NewService(db, courthiveAPIURL, homeClubID, bhpltaClubCode, pushService...)
+func New(db *database.DB, templateDir string, courthiveAPIURL string, homeClub config.HomeClubSource, bhpltaClubCode string, pushService ...*webpush.Service) *Handler {
+	service := NewService(db, courthiveAPIURL, homeClub, bhpltaClubCode, pushService...)
 
 	var ps *webpush.Service
 	if len(pushService) > 0 {

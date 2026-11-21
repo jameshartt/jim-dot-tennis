@@ -31,7 +31,7 @@ func (s *Service) SetPlayerIDOnUser(ctx context.Context, userID int64, playerID 
 // ListHomeClubPlayersForLink returns active home-club players, alphabetised
 // by last name for the 'I am…' picker.
 func (s *Service) ListHomeClubPlayersForLink(ctx context.Context) ([]models.Player, error) {
-	players, err := s.playerRepository.FindByClub(ctx, s.homeClubID)
+	players, err := s.playerRepository.FindByClub(ctx, s.homeClubID())
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (s *Service) ListHomeClubPlayersForLink(ctx context.Context) ([]models.Play
 // home-club team; non-empty input ⇒ only the subset that actually belongs
 // to the home club (IDs from other clubs are silently dropped).
 func (s *Service) ResolveTeamSelection(ctx context.Context, selected []uint, seasonID uint) (*ResolvedScope, error) {
-	allTeams, err := s.teamRepository.FindByClubAndSeason(ctx, s.homeClubID, seasonID)
+	allTeams, err := s.teamRepository.FindByClubAndSeason(ctx, s.homeClubID(), seasonID)
 	if err != nil {
 		return nil, fmt.Errorf("load home-club season teams: %w", err)
 	}

@@ -24,7 +24,7 @@ services:
       - BHPLTA_CLUB_CODE=${BHPLTA_CLUB_CODE}
       - MY_TENNIS_ENABLED=${MY_TENNIS_ENABLED:-}
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -34,8 +34,9 @@ services:
   # data volume, no published host port and no fixed container name, so
   # `make test-e2e*` can never touch the dev/prod database or collide with the
   # `app` service above. Seed data is written to this volume by the e2e service.
-  # On a brand-new volume run `make test-e2e-bootstrap` first (the make test-e2e
-  # targets do this automatically): the app refuses to start with zero clubs.
+  # On a brand-new volume the app starts in setup mode (healthy via /healthz);
+  # once the e2e service has seeded club HOME_CLUB_ID it is picked up on the next
+  # request, so no pre-seeded placeholder club is needed.
   app-e2e:
     build:
       context: .
@@ -61,7 +62,7 @@ services:
     # (A bare "app" hostname is unusable: .app is an HSTS-preloaded TLD and
     # Chromium upgrades http://app:* to HTTPS.)
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
       interval: 10s
       timeout: 10s
       retries: 6

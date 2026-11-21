@@ -45,7 +45,7 @@ func (s *Service) GetFilteredPlayersWithAvailability(query string, activeFilter 
 			}
 		}
 		if len(divisionIDs) > 0 {
-			clubID := s.homeClubID
+			clubID := s.homeClubID()
 			if clubID > 0 {
 				for _, dID := range divisionIDs {
 					pls, e := s.playerRepository.FindPlayersWhoPlayedForClubDivisionInSeason(ctx, clubID, dID, activeSeason.ID)
@@ -69,10 +69,10 @@ func (s *Service) GetFilteredPlayersWithAvailability(query string, activeFilter 
 		if seasonErr != nil {
 			return nil, seasonErr
 		}
-		if s.homeClubID == 0 {
+		if s.homeClubID() == 0 {
 			players = []models.Player{}
 		} else {
-			players, err = s.playerRepository.FindPlayersWhoPlayedForClubInSeason(ctx, s.homeClubID, activeSeason.ID)
+			players, err = s.playerRepository.FindPlayersWhoPlayedForClubInSeason(ctx, s.homeClubID(), activeSeason.ID)
 			if err != nil {
 				return nil, err
 			}
@@ -170,7 +170,7 @@ func (s *Service) GetFilteredPlayersWithAvailability(query string, activeFilter 
 					}
 				}
 				if len(divisionIDs) > 0 {
-					clubID := s.homeClubID
+					clubID := s.homeClubID()
 					if clubID > 0 {
 						for _, dID := range divisionIDs {
 							if c, err := s.playerRepository.CountPlayerAppearancesForClubDivisionInSeason(ctx, player.ID, clubID, dID, activeSeason.ID); err == nil {

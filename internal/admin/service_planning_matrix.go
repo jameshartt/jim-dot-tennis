@@ -248,8 +248,8 @@ func (s *Service) ResolveAvailabilityMatrix(ctx context.Context, scope *Resolved
 	// the in-scope teams this season — gives captains a single place to reach
 	// the whole pool (e.g. a new joiner not yet rostered). Default rank leaves
 	// them sorted below every ranked team via the 9999 sentinel.
-	if s.homeClubID > 0 {
-		allHomeClubPlayers, err := s.playerRepository.FindByClub(ctx, s.homeClubID)
+	if s.homeClubID() > 0 {
+		allHomeClubPlayers, err := s.playerRepository.FindByClub(ctx, s.homeClubID())
 		if err == nil {
 			for i := range allHomeClubPlayers {
 				p := &allHomeClubPlayers[i]

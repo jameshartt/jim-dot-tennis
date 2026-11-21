@@ -1,0 +1,26 @@
+{{define "setup/welcome.html"}}
+{{template "layout" .}}
+{{end}}
+
+{{define "head"}}
+<title>Set up - Jim.Tennis</title>
+<meta name="robots" content="noindex">
+{{end}}
+
+{{define "user-controls"}}{{end}}
+
+{{define "content"}}
+<div class="auth-container">
+    <div class="auth-form" data-setup-status="{{.Status}}">
+        <h1>Welcome to Jim.Tennis</h1>
+        {{if .NeedsClub}}
+        <p>This app is running, but no home club has been chosen yet.</p>
+        <p>Once the club is chosen, everything else in the app becomes available.</p>
+        {{else}}
+        <p>This app is running, but it has not been set up yet.</p>
+        <p>Setting up takes a few minutes: you will create your own administrator login and choose your club.</p>
+        {{end}}
+        <p>Guided setup is not available in this version yet.</p>
+    </div>
+</div>
+{{end}}

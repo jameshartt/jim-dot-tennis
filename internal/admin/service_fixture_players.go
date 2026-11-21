@@ -43,7 +43,7 @@ func (s *Service) GetAvailablePlayersForFixture(fixtureID uint) ([]models.Player
 		return nil, nil, err
 	}
 
-	homeClubID := s.homeClubID
+	homeClubID := s.homeClubID()
 
 	// Find the home club team
 	var homeClubTeam *models.Team
@@ -112,7 +112,7 @@ func (s *Service) GetAvailablePlayersForFixtureWithTeamContext(fixtureID uint, m
 		return nil, nil, err
 	}
 
-	homeClubID := s.homeClubID
+	homeClubID := s.homeClubID()
 
 	// Get home and away teams
 	homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)
@@ -302,7 +302,7 @@ func (s *Service) GetAvailablePlayersWithEligibilityForTeamSelection(fixtureID u
 		teamID = managingTeamID
 	} else {
 		// For non-derby matches, determine the home club team
-		homeClubID := s.homeClubID
+		homeClubID := s.homeClubID()
 
 		// Check if home team is the home club
 		homeTeam, err := s.teamRepository.FindByID(ctx, fixture.HomeTeamID)

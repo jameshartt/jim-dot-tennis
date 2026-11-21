@@ -71,7 +71,7 @@ func (h *PlanningHandler) HandleCellToggle(w http.ResponseWriter, r *http.Reques
 	// managing_team_id column discriminates the two selections.
 	home, _ := h.service.teamRepository.FindByID(ctx, fixture.HomeTeamID)
 	away, _ := h.service.teamRepository.FindByID(ctx, fixture.AwayTeamID)
-	isDerby := home != nil && away != nil && home.ClubID == h.service.homeClubID && away.ClubID == h.service.homeClubID
+	isDerby := home != nil && away != nil && home.ClubID == h.service.homeClubID() && away.ClubID == h.service.homeClubID()
 
 	// Toggle: look up current membership by column key.
 	current, err := h.service.fixtureRepository.FindSelectedPlayers(ctx, uint(fxID))
@@ -321,7 +321,7 @@ func (h *PlanningHandler) buildDashboardView(ctx context.Context, r *http.Reques
 	for _, id := range selectedTeamIDs {
 		selectedSet[id] = true
 	}
-	teams, err := h.service.teamRepository.FindByClubAndSeason(ctx, h.service.homeClubID, season.ID)
+	teams, err := h.service.teamRepository.FindByClubAndSeason(ctx, h.service.homeClubID(), season.ID)
 	if err != nil {
 		return nil, err
 	}

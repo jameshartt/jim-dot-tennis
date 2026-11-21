@@ -78,7 +78,7 @@ func (s *Service) GetWeekSelectionOverview(weekID uint, filteredDivisionIDs []ui
 	}
 
 	// Get home club from config
-	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID)
+	homeClub, err := s.clubRepository.FindByID(ctx, s.homeClubID())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get home club: %w", err)
 	}

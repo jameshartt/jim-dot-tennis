@@ -151,6 +151,10 @@ The test database is seeded with:
 
 Fixture 1 (Div 1) is used for read-only tests. Fixture 2 (Div 2) is used for destructive operations (result submission).
 
+### Fresh volumes
+
+No pre-seeding is needed before the app can start. On a brand-new `jim-dot-tennis-e2e-data` volume, `app-e2e` applies the migrations and comes up healthy (the compose health check calls `/healthz`) in setup mode, because `HOME_CLUB_ID` points at a club the empty database does not have yet. The `e2e` service then runs `seed.sh`, which inserts that club, and the app resolves `HOME_CLUB_ID` on the next request without a restart. `make test-e2e-bootstrap` now only builds the images.
+
 ## Writing New Tests
 
 1. Create a `.spec.ts` file in the appropriate directory

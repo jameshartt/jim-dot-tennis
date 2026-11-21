@@ -85,7 +85,7 @@ func newWrappedTestHandler(t *testing.T) (*ClubWrappedHandler, context.Context) 
 	}
 
 	ctx := config.WithHomeClub(context.Background(), 1, &models.Club{ID: 1, Name: "St Ann's"}, "")
-	return NewClubWrappedHandler(NewService(db, "", 1, ""), ""), ctx
+	return NewClubWrappedHandler(NewService(db, "", config.StaticHomeClubID(1), ""), ""), ctx
 }
 
 // Wrapped is a per-season recap: once a second season has results, stats
