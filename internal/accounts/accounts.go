@@ -21,7 +21,6 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 )
@@ -34,9 +33,9 @@ var (
 	ErrInvalidRole   = errors.New("the role must be admin or captain")
 	// ErrLastAdmin: the change would leave no active administrator.
 	ErrLastAdmin = errors.New("this is the last active administrator: make another account an active administrator first")
-	// ErrWrongPassword: the current password given to ChangeOwnPassword is wrong.
+	// ErrWrongPassword: the current password given to SetOwnPassword is wrong.
 	ErrWrongPassword = errors.New("your current password is not right")
-	// ErrNoPassword: ChangeOwnPassword on an account that has no password.
+	// ErrNoPassword: RemoveOwnPassword on an account that has no password.
 	ErrNoPassword = errors.New("this account has no password to change")
 	// ErrPlayerNotFound: the player to link the account to does not exist.
 	ErrPlayerNotFound = errors.New("there is no player with that id to link the account to")
@@ -217,55 +216,6 @@ func (s *Service) createAccount(ctx context.Context, tx *sqlx.Tx, actor Actor, u
 		TargetUserID: id, TargetUsername: username, Detail: detail})
 }
 
-// ChangeOwnPassword lets user id replace their password after giving the
-// current one. It ends all of the user's sessions (the caller signs the
-// browser in again with a fresh session). An account with no password gets
-// ErrNoPassword.
-func (s *Service) ChangeOwnPassword(ctx context.Context, id int64, current, newPassword string) error {
-	var u struct {
-		Username     string              `db:"username"`
-		PasswordHash models.PasswordHash `db:"password_hash"`
-	}
-	err := s.db.GetContext(ctx, &u, `SELECT username, password_hash FROM users WHERE id = ? AND is_active = TRUE`, id)
-	if errors.Is(err, sql.ErrNoRows) {
-		return ErrNotFound
-	}
-	if err != nil {
-		return fmt.Errorf("look up account: %w", err)
-	}
-	if u.PasswordHash == "" {
-		return ErrNoPassword
-	}
-	if !auth.PasswordMatches(string(u.PasswordHash), current) {
-		return ErrWrongPassword
-	}
-	if current == newPassword {
-		return fmt.Errorf("%w: Choose a password different from the current one.", auth.ErrPasswordPolicy)
-	}
-	if err := auth.ValidatePassword(newPassword, u.Username); err != nil {
-		return err
-	}
-	hash, err := auth.HashPassword(newPassword)
-	if err != nil {
-		return fmt.Errorf("hash password: %w", err)
-	}
-	return s.inTx(ctx, func(tx *sqlx.Tx) error {
-		res, err := tx.ExecContext(ctx, `UPDATE users SET password_hash = ? WHERE id = ?`, hash, id)
-		if err != nil {
-			return fmt.Errorf("set password: %w", err)
-		}
-		if n, _ := res.RowsAffected(); n == 0 {
-			return ErrNotFound
-		}
-		ended, err := endSessions(ctx, tx, id)
-		if err != nil {
-			return err
-		}
-		return recordAudit(ctx, tx, Record{Time: s.now(), Actor: UserActor(id, u.Username), Action: ActionChangePassword,
-			TargetUserID: id, TargetUsername: u.Username, Detail: fmt.Sprintf("sessions_ended=%d", ended)})
-	})
-}
-
 // SetActive enables or disables account id. Disabling ends all of the
 // account's sessions and is refused (ErrLastAdmin) for the last active
 // administrator. It returns the account as it is afterwards.
@@ -333,12 +283,20 @@ func (s *Service) SetRole(ctx context.Context, actor Actor, id int64, role model
 		if role != models.RoleAdmin {
 			query += ` AND NOT (` + lastActiveAdminCondition + `)`
 			args = append(args, id, id)
+		} else {
+			// admin_passkeys.go: no promotion without a passkey while
+			// administrators must use one.
+			query += ` AND ` + promoteNeedsPasskeyCondition
+			args = append(args, id)
 		}
 		res, err := tx.ExecContext(ctx, query, args...)
 		if err != nil {
 			return fmt.Errorf("change role: %w", err)
 		}
 		if n, _ := res.RowsAffected(); n == 0 {
+			if role == models.RoleAdmin {
+				return ErrAdminNeedsPasskey
+			}
 			return ErrLastAdmin
 		}
 		return recordAudit(ctx, tx, Record{Time: s.now(), Actor: actor, Action: ActionRoleChange,

@@ -332,6 +332,10 @@ type Redemption struct {
 	// passkey is added alongside what was there, and a new password replaces
 	// the old password and leaves the passkeys.
 	RemoveOtherMethods bool
+	// PasskeysUnavailable: passkeys cannot be used where the link was
+	// opened, so the administrator passkey requirement does not apply (see
+	// admin_passkeys.go). Leave it false unless that is so.
+	PasskeysUnavailable bool
 }
 
 // Redeemed says what using a link did.
@@ -400,6 +404,15 @@ func (s *Service) RedeemLink(ctx context.Context, token string, how Redemption) 
 			return ErrLinkInvalid
 		}
 		out.Link = l
+		if how.Passkey == nil && l.Role == models.RoleAdmin && !how.PasskeysUnavailable {
+			// An administrator sets up a passkey, not a password, while the
+			// club requires it (rolled back: the link stays unused).
+			if required, err := repository.AdminPasskeysRequired(ctx, tx); err != nil {
+				return err
+			} else if required {
+				return ErrAdminPasskeyRequired
+			}
+		}
 
 		remove := how.RemoveOtherMethods && l.Kind == LinkRecovery
 		if remove {

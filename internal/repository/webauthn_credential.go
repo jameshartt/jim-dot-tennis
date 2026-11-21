@@ -69,7 +69,9 @@ type WebAuthnCredentialRepository interface {
 	// Rename renames userID's passkey id; ErrPasskeyNotFound when it is not theirs.
 	Rename(ctx context.Context, userID, id int64, name string) error
 	// Delete removes userID's passkey id unless it is their last sign-in
-	// method (ErrLastSignInMethod); ErrPasskeyNotFound when it is not theirs.
+	// method (ErrLastSignInMethod) or an administrator's last usable passkey
+	// while passkeys are required for administrators (ErrAdminNeedsPasskey);
+	// ErrPasskeyNotFound when it is not theirs.
 	Delete(ctx context.Context, userID, id int64) error
 }
 
@@ -217,6 +219,14 @@ func (r *webAuthnCredentialRepository) Delete(ctx context.Context, userID, id in
 	}
 	if left == 0 {
 		return ErrLastSignInMethod
+	}
+	// While passkeys are required for administrators, an administrator keeps
+	// at least one usable passkey (checked after the delete, in the same
+	// transaction, like the count above).
+	if lacks, err := AdminLacksRequiredPasskey(ctx, tx, userID); err != nil {
+		return err
+	} else if lacks {
+		return ErrAdminNeedsPasskey
 	}
 	return tx.Commit()
 }

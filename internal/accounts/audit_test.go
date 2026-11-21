@@ -51,7 +51,7 @@ func TestAuditRowsAreWrittenAndHoldNoSecrets(t *testing.T) {
 	}
 	secrets = append(secrets, bobPassword, passwordHash(t, db, invite.UserID))
 	const newPassword = "second secret phrase here"
-	if err := s.ChangeOwnPassword(ctx, invite.UserID, bobPassword, newPassword); err != nil {
+	if _, err := s.SetOwnPassword(ctx, invite.UserID, PasswordChange{Current: bobPassword, New: newPassword}); err != nil {
 		t.Fatal(err)
 	}
 	secrets = append(secrets, newPassword, passwordHash(t, db, invite.UserID))

@@ -93,9 +93,16 @@
                             data-link-remove="#remove_other_methods">Create a passkey and sign in</button>
                 </div>
             </section>
+            {{if .PasswordAllowed}}
             <p class="link-help" data-passkey-unsupported hidden>This browser can't use passkeys, so set a password below.</p>
+            {{else}}
+            <p class="link-help" data-passkey-unsupported hidden>This browser can't use passkeys. Open this link in a browser that can (a current Safari, Chrome, Edge or Firefox).</p>
+            {{end}}
             {{end}}
 
+            {{if not .PasswordAllowed}}
+            <p class="link-help" data-link-admin-passkey-only>The club requires administrators to sign in with a passkey, so this account can't use a password.</p>
+            {{else}}
             <details class="link-password" data-passkey-fallback{{if or (not .PasskeysAvailable) .Error}} open{{end}}>
                 <summary>{{if .PasskeysAvailable}}Use a password instead{{else}}Choose a password{{end}}</summary>
                 <input type="text" name="username" value="{{.Username}}" autocomplete="username" hidden>
@@ -103,7 +110,7 @@
                     <label for="new_password">Password</label>
                     <input type="password" id="new_password" name="new_password" minlength="{{.MinPassword}}" maxlength="72"
                            autocomplete="new-password" aria-describedby="new-password-help">
-                    <p id="new-password-help" class="link-help">At least {{.MinPassword}} characters. A few unrelated words strung together is easy to remember and hard to guess.</p>
+                    <p id="new-password-help" class="link-help">At least {{.MinPassword}} characters. A few unrelated words strung together are easy to remember and hard to guess.</p>
                 </div>
                 <div class="form-group">
                     <label for="new_password_confirm">Type the password again</label>
@@ -114,6 +121,7 @@
                     <button type="submit" class="btn {{if .PasskeysAvailable}}btn-secondary{{else}}btn-primary{{end}}" id="link-password-submit">Save this password and sign in</button>
                 </div>
             </details>
+            {{end}}
         </form>
     </div>
 {{end}}

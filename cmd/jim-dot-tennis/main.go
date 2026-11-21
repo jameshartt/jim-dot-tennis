@@ -198,7 +198,8 @@ func main() {
 
 	// Auth routes
 	authHandler.RegisterRoutes(mux)
-	accounts.NewPasswordPage(accounts.New(db), authService, templateDir, "/admin/league").RegisterRoutes(mux)
+	// A user's own password (forms on the sign-in methods page)
+	accounts.NewPasswordPage(accounts.New(db), authService, passkeys).RegisterRoutes(mux)
 	// Invite and recovery links (no session needed: the link is the authorisation)
 	accounts.NewLinkPage(accounts.New(db), authService, passkeys, templateDir, "/admin/league").RegisterRoutes(mux)
 

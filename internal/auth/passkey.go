@@ -86,6 +86,7 @@ type Passkeys struct {
 	displayName func() string
 
 	ceremonies *ceremonyStore
+	reauth     *reauthStore // passkey re-authentication proofs (reauth.go)
 	begins     *windowLimiter
 	failures   *windowLimiter
 	now        func() time.Time
@@ -126,17 +127,22 @@ func (p *Passkeys) event(ctx context.Context, actor *models.User, action, detail
 // NewPasskeys returns the passkey service. displayName is the club name shown
 // in the browser's passkey prompt.
 func NewPasskeys(service *Service, publicURL PublicURLSource, displayName func() string) *Passkeys {
-	return &Passkeys{
+	p := &Passkeys{
 		service:     service,
 		creds:       repository.NewWebAuthnCredentialRepository(service.db),
 		settings:    repository.NewSettingsRepository(service.db),
 		publicURL:   publicURL,
 		displayName: displayName,
 		ceremonies:  newCeremonyStore(),
+		reauth:      newReauthStore(),
 		begins:      newWindowLimiter(passkeyBeginLimit, passkeyBeginWindow),
 		failures:    newWindowLimiter(passkeyFailureLimit, passkeyFailureWindow),
 		now:         time.Now,
 	}
+	// The administrator passkey requirement only applies where passkeys can
+	// be used (see Service.adminPasswordRefused).
+	service.passkeysAvailable = p.Available
+	return p
 }
 
 // relyingPartyAddress decides the origin and relying-party ID passkeys are

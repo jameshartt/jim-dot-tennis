@@ -310,6 +310,8 @@ func redirectUsersError(w http.ResponseWriter, r *http.Request, err error, fallb
 		msg = upperFirst(err.Error())
 	case errors.As(err, &invalidName):
 		msg = upperFirst(err.Error())
+	case errors.Is(err, accounts.ErrAdminNeedsPasskey):
+		msg = upperFirst(err.Error())
 	}
 	http.Redirect(w, r, "/admin/league/users?error="+url.QueryEscape(msg), http.StatusSeeOther)
 }

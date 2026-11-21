@@ -190,6 +190,32 @@
                 </form>
             </section>
 
+            <section class="content-section" id="signin" style="margin-top: 1.5rem;" data-admin-passkeys="{{if .AdminPasskeys.Required}}on{{else}}off{{end}}">
+                <h2>Sign-in for administrators</h2>
+                <p class="section-intro">Passkeys can't be guessed, reused from another site or typed into a fake page, so they protect administrator accounts far better than passwords. You can require them: administrators then can't sign in with a password, and anyone made an administrator must have a passkey first.</p>
+                {{if .AdminPasskeys.Error}}<div class="alert alert-error" role="alert" data-admin-passkeys-error>{{.AdminPasskeys.Error}}</div>{{end}}
+                {{if not .AdminPasskeys.PublicURLSet}}
+                <span class="env-note" data-admin-passkeys-no-url>Passkeys need the public URL above. Until it is set, passkeys can't be used and this setting has no effect (administrators can still use passwords).</span>
+                {{end}}
+                {{if .AdminPasskeys.Required}}
+                <p data-admin-passkeys-state>Passkeys are <strong>required</strong> for administrators.</p>
+                <form method="POST" action="/admin/league/settings/admin-passkeys">
+                    <input type="hidden" name="require" value="off">
+                    <button type="submit" class="btn btn-secondary" id="admin-passkeys-off" data-admin-passkeys-toggle>Stop requiring passkeys</button>
+                </form>
+                {{else}}
+                <p data-admin-passkeys-state>Administrators may sign in with a passkey or a password.</p>
+                {{if .AdminPasskeys.AdminsWithoutPasskey}}
+                <p class="hint" data-admin-passkeys-missing>Before you can require passkeys, these administrators must each add one on their Sign-in methods page: <strong>{{range $i, $n := .AdminPasskeys.AdminsWithoutPasskey}}{{if $i}}, {{end}}{{$n}}{{end}}</strong>.</p>
+                {{end}}
+                <form method="POST" action="/admin/league/settings/admin-passkeys">
+                    <input type="hidden" name="require" value="on">
+                    <button type="submit" class="btn" id="admin-passkeys-on" data-admin-passkeys-toggle>Require passkeys for administrators</button>
+                </form>
+                {{end}}
+                <span class="hint">If every administrator is locked out, the person who looks after the server can turn this off with <code>jim-dot-tennis admin-passkeys off</code>, or make a recovery link with <code>jim-dot-tennis user reset &lt;username&gt;</code> and add a new passkey.</span>
+            </section>
+
             <section class="content-section" id="wrapped-code" style="margin-top: 1.5rem;">
                 <h2>Club Wrapped access code</h2>
                 <p class="section-intro">Members type this code to open Club Wrapped from their availability page. Share it with your members however you like.</p>

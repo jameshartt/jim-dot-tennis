@@ -17,8 +17,6 @@ import (
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -67,7 +65,8 @@ type Service struct {
 	db                     *database.DB
 	config                 Config
 	loginAttemptRepository repository.LoginAttemptRepository
-	signInAudit            SignInAudit // see SetSignInAudit (throttle.go)
+	signInAudit            SignInAudit              // see SetSignInAudit (throttle.go)
+	passkeysAvailable      func(*http.Request) bool // set by NewPasskeys; nil: no passkeys (admin_passkeys.go)
 }
 
 // NewService creates a new auth service
@@ -110,7 +109,9 @@ func (s *Service) Login(username, password string, r *http.Request) (*models.Ses
 		s.recordLoginAttempt(username, r, false)
 		return nil, ErrInvalidCredentials
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+	// checkPassword (admin_passkeys.go) also refuses administrators while
+	// passkeys are required for them, and upgrades an older hash.
+	if !s.checkPassword(r, &user, password) {
 		s.recordLoginAttempt(username, r, false)
 		return nil, ErrInvalidCredentials
 	}

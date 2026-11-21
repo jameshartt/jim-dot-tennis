@@ -7,12 +7,8 @@ import (
 	"context"
 	"errors"
 	"log"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"jim-dot-tennis/internal/auth"
@@ -170,94 +166,5 @@ func TestDisableEndsSessions(t *testing.T) {
 	}
 	if n := validSessions(t, db, p.ID); n != 0 {
 		t.Fatalf("%d sessions still valid after disable", n)
-	}
-}
-
-// TestChangeOwnPasswordPage: a signed-in user with a password changes it at
-// /account/password; nobody is sent there by force any more.
-func TestChangeOwnPasswordPage(t *testing.T) {
-	s, db := newTestService(t)
-	a := mustCreate(t, s, "alice", models.RoleAdmin)
-	// A leftover must-change mark (retired by migration 034) is ignored.
-	if _, err := db.Exec(`UPDATE users SET must_change_password = TRUE WHERE id = ?`, a.ID); err != nil {
-		t.Fatal(err)
-	}
-
-	authService := auth.NewService(db, auth.DefaultConfig())
-	rec := httptest.NewRecorder()
-	if err := authService.StartSession(rec, httptest.NewRequest(http.MethodGet, "/", nil), a.ID); err != nil {
-		t.Fatal(err)
-	}
-	cookies := rec.Result().Cookies()
-	withCookies := func(r *http.Request) *http.Request {
-		for _, c := range cookies {
-			r.AddCookie(c)
-		}
-		return r
-	}
-
-	mw := auth.NewMiddleware(authService, nil, nil)
-	protected := mw.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusTeapot) }))
-	rec = httptest.NewRecorder()
-	protected.ServeHTTP(rec, withCookies(httptest.NewRequest(http.MethodGet, "/admin/league/dashboard", nil)))
-	if rec.Code != http.StatusTeapot {
-		t.Fatalf("protected page: %d %q, want it served (no forced password change)", rec.Code, rec.Header().Get("Location"))
-	}
-
-	page := NewPasswordPage(s, authService, repoDir(t, "templates"), "/admin/league")
-	mux := http.NewServeMux()
-	page.RegisterRoutes(mux)
-
-	rec = httptest.NewRecorder()
-	mux.ServeHTTP(rec, withCookies(httptest.NewRequest(http.MethodGet, auth.ChangePasswordPath, nil)))
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Current password") {
-		t.Fatalf("GET page: %d", rec.Code)
-	}
-
-	post := func(current, next, confirm string) *httptest.ResponseRecorder {
-		form := url.Values{"current_password": {current}, "new_password": {next}, "new_password_confirm": {confirm}}
-		r := httptest.NewRequest(http.MethodPost, auth.ChangePasswordPath, strings.NewReader(form.Encode()))
-		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		rec := httptest.NewRecorder()
-		mux.ServeHTTP(rec, withCookies(r))
-		return rec
-	}
-	if rec := post("wrong password", "a brand new secret", "a brand new secret"); rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("wrong current password: %d", rec.Code)
-	}
-	if rec := post(goodPassword, goodPassword, goodPassword); rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("same password again: %d", rec.Code)
-	}
-	if rec := post(goodPassword, "short", "short"); rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("weak password: %d", rec.Code)
-	}
-	rec = post(goodPassword, "a brand new secret", "a brand new secret")
-	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/admin/league" {
-		t.Fatalf("change password: %d %q", rec.Code, rec.Header().Get("Location"))
-	}
-	if !auth.PasswordMatches(passwordHash(t, db, a.ID), "a brand new secret") {
-		t.Fatal("password not changed")
-	}
-
-	// The old session was ended; the new cookie gets through.
-	rec2 := httptest.NewRecorder()
-	protected.ServeHTTP(rec2, withCookies(httptest.NewRequest(http.MethodGet, "/admin/league/dashboard", nil)))
-	if rec2.Code == http.StatusTeapot {
-		t.Fatal("old session still works after the password change")
-	}
-	cookies = rec.Result().Cookies()
-	rec2 = httptest.NewRecorder()
-	protected.ServeHTTP(rec2, withCookies(httptest.NewRequest(http.MethodGet, "/admin/league/dashboard", nil)))
-	if rec2.Code != http.StatusTeapot {
-		t.Fatalf("new session after password change: %d %q", rec2.Code, rec2.Header().Get("Location"))
-	}
-
-	// An account with no password has nothing to change here.
-	_, link, err := s.Invite(context.Background(), cli, "keyonly", models.RoleCaptain, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := s.ChangeOwnPassword(context.Background(), link.UserID, "", "a brand new secret"); !errors.Is(err, ErrNoPassword) {
-		t.Fatalf("change password of a passwordless account: %v, want ErrNoPassword", err)
 	}
 }
