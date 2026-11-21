@@ -13,7 +13,7 @@ import (
 	"jim-dot-tennis/internal/database"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/sqlite3"
+	migratesqlite "github.com/golang-migrate/migrate/v4/database/sqlite"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
@@ -54,7 +54,7 @@ func main() {
 	defer db.Close()
 
 	// Create migration driver
-	driver, err := sqlite3.WithInstance(db.DB.DB, &sqlite3.Config{})
+	driver, err := migratesqlite.WithInstance(db.DB.DB, &migratesqlite.Config{})
 	if err != nil {
 		log.Fatalf("Failed to create migration driver: %v", err)
 	}

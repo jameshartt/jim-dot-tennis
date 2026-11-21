@@ -9,8 +9,6 @@ import (
 	"testing"
 
 	"jim-dot-tennis/internal/database"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 // Sprint 018 WI-108 + WI-111 backfill regression.

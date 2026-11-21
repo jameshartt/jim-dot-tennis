@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/sqlite3"
+	migratesqlite "github.com/golang-migrate/migrate/v4/database/sqlite"
 )
 
 // migrateTo moves db to exactly version, through the same golang-migrate
@@ -17,7 +17,7 @@ import (
 // at startup.
 func migrateTo(t *testing.T, db *DB, version uint) {
 	t.Helper()
-	driver, err := sqlite3.WithInstance(db.DB.DB, &sqlite3.Config{})
+	driver, err := migratesqlite.WithInstance(db.DB.DB, &migratesqlite.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -12,8 +12,6 @@ import (
 	"testing"
 
 	"jim-dot-tennis/internal/database"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 // repoDir walks up from the package directory to find a top-level directory.

@@ -24,8 +24,6 @@ import (
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/repository"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func testImage(w, h int) image.Image {

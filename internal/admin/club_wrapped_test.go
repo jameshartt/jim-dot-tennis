@@ -16,8 +16,6 @@ import (
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/secrets"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 // newWrappedTestHandler seeds two seasons of St Ann's results:

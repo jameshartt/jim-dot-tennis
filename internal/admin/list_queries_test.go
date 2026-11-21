@@ -16,7 +16,7 @@ import (
 	"jim-dot-tennis/internal/database"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/mattn/go-sqlite3"
+	"modernc.org/sqlite"
 )
 
 // countingConnector opens sqlite connections whose statements are counted.
@@ -40,7 +40,7 @@ func (c countingConnector) Connect(context.Context) (driver.Conn, error) {
 	return countingConn{Conn: conn, queries: c.queries}, nil
 }
 
-func (countingConnector) Driver() driver.Driver { return &sqlite3.SQLiteDriver{} }
+func (countingConnector) Driver() driver.Driver { return &sqlite.Driver{} }
 
 func (c countingConn) Prepare(query string) (driver.Stmt, error) {
 	c.queries.Add(1)
@@ -52,7 +52,7 @@ func (c countingConn) Prepare(query string) (driver.Stmt, error) {
 func countingDB(t *testing.T, path string) (*database.DB, *atomic.Int64) {
 	t.Helper()
 	var n atomic.Int64
-	db := sqlx.NewDb(sql.OpenDB(countingConnector{dsn: "file:" + path + "?_foreign_keys=on", queries: &n}), "sqlite3")
+	db := sqlx.NewDb(sql.OpenDB(countingConnector{dsn: database.DSN(path), queries: &n}), database.SQLDriverName)
 	t.Cleanup(func() { db.Close() })
 	return &database.DB{DB: db}, &n
 }

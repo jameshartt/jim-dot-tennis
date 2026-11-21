@@ -1,8 +1,5 @@
 FROM golang:1.26-alpine AS builder
 
-# Install build dependencies
-RUN apk add --no-cache gcc musl-dev sqlite-dev build-base bash
-
 # Set working directory
 WORKDIR /app
 
@@ -16,17 +13,17 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # Copy source code
 COPY . .
 
-# Build all the import binaries
+# Build all the import binaries (pure Go, no C toolchain needed)
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=1 GOOS=linux go build -o /app/bin/import-matchcards ./cmd/import-matchcards \
-    && CGO_ENABLED=1 GOOS=linux go build -o /app/bin/import-tennis-players ./cmd/import-tennis-players
+    CGO_ENABLED=0 GOOS=linux go build -o /app/bin/import-matchcards ./cmd/import-matchcards \
+    && CGO_ENABLED=0 GOOS=linux go build -o /app/bin/import-tennis-players ./cmd/import-tennis-players
 
 # Final stage - lightweight image with pre-built binaries (pinned Alpine)
 FROM alpine:3.24
 
 # Install runtime dependencies
-RUN apk add --no-cache bash sqlite-libs ca-certificates
+RUN apk add --no-cache bash ca-certificates
 
 # Copy binaries from builder
 COPY --from=builder /app/bin/ /usr/local/bin/

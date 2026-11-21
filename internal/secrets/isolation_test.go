@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/golang-migrate/migrate/v4"
-	migratesqlite "github.com/golang-migrate/migrate/v4/database/sqlite3"
+	migratesqlite "github.com/golang-migrate/migrate/v4/database/sqlite"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 
 	"jim-dot-tennis/internal/database"

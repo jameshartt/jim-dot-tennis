@@ -276,17 +276,13 @@ Also update the Go tooling image in the Makefile:
 GO_IMAGE = golang:1.26-alpine
 ```
 
-### Step 2: Handle SQLite Compatibility (if using CGO)
+### Step 2: No SQLite build step
 
-For Go versions 1.20+ with SQLite, you may need to add compatibility fixes:
-
-```dockerfile
-# Install additional build dependencies
-RUN apk add --no-cache gcc musl-dev sqlite-dev build-base
-
-# Use compatibility build flags
-RUN CGO_ENABLED=1 GOOS=linux CGO_CFLAGS="-D_LARGEFILE64_SOURCE" go build -a -ldflags '-extldflags "-static"' -tags 'sqlite_omit_load_extension' -o /app/bin/jim-dot-tennis ./cmd/jim-dot-tennis
-```
+The SQLite driver is pure Go (`modernc.org/sqlite`, since Sprint 022 WI-136), so the
+build needs no C toolchain, no SQLite packages and no CGO flags; the Dockerfile builds
+with `CGO_ENABLED=0 go build`. (Before WI-136 the CGO driver needed
+`gcc musl-dev sqlite-dev build-base` and `CGO_CFLAGS="-D_LARGEFILE64_SOURCE"`; none of
+that applies any more.)
 
 ### Step 3: Force Rebuild and Deploy
 
@@ -315,10 +311,10 @@ Sprint 004 added 9 Makefile targets that run Go tooling inside Docker containers
 ### Read-only Checks
 
 ```bash
-make vet          # Run go vet (static analysis, requires CGO for SQLite)
+make vet          # Run go vet (static analysis)
 make fmt          # Check formatting (list unformatted files)
-make lint         # Run golangci-lint (comprehensive linting, requires CGO)
-make deadcode     # Run dead code detection (requires CGO)
+make lint         # Run golangci-lint (comprehensive linting)
+make deadcode     # Run dead code detection
 make check        # Run all read-only checks (vet + fmt + lint + deadcode)
 ```
 
@@ -333,10 +329,10 @@ make imports-fix  # Fix import ordering in-place
 ### Module Management
 
 ```bash
-make tidy         # Run go mod tidy (requires CGO for SQLite dependency resolution)
+make tidy         # Run go mod tidy
 ```
 
-Tools that need to compile code with SQLite (vet, deadcode, lint, tidy) run with CGO enabled and install `gcc musl-dev sqlite-dev build-base` inside the container. Text-only tools (fmt, imports) run without CGO for speed.
+All of them run with `CGO_ENABLED=0`: the SQLite driver is pure Go, so no C toolchain is installed in the container.
 
 ## Useful Management Commands
 
@@ -470,19 +466,12 @@ If Docker Compose fails to start the application:
    ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose down && docker-compose up -d"
    ```
 
-### SQLite/CGO Build Issues
+### SQLite Build Issues
 
-If you encounter SQLite compilation errors with newer Go versions:
-
-1. Ensure build dependencies are installed:
-   ```dockerfile
-   RUN apk add --no-cache gcc musl-dev sqlite-dev build-base
-   ```
-
-2. Use compatibility flags:
-   ```dockerfile
-   RUN CGO_ENABLED=1 GOOS=linux CGO_CFLAGS="-D_LARGEFILE64_SOURCE" go build -a -ldflags '-extldflags "-static"' -tags 'sqlite_omit_load_extension' -o /app/bin/jim-dot-tennis ./cmd/jim-dot-tennis
-   ```
+The build no longer compiles any C (pure-Go `modernc.org/sqlite`). If a build fails
+mentioning `gcc`, `cgo` or `sqlite3.h`, something still imports the old CGO driver
+`github.com/mattn/go-sqlite3`: remove that import (the driver is registered by
+`internal/database`).
 
 ### Application Not Responding
 
@@ -553,7 +542,7 @@ ssh -i $SSH_KEY $SERVER \
 
 ### Docker Build Hangs / Server Unresponsive
 
-The production droplet is **1 CPU / 1GB RAM**. Docker builds (especially Go compilation with CGO and Node.js `pnpm install`) are extremely resource-intensive and can make the server completely unresponsive.
+The production droplet is **1 CPU / 1GB RAM**. Docker builds (especially Go compilation and Node.js `pnpm install`) are extremely resource-intensive and can make the server completely unresponsive.
 
 **Symptoms:** SSH connections time out, the site goes down, CPU pegged at 100% for 10-30+ minutes.
 
