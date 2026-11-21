@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"time"
 
@@ -126,7 +127,7 @@ func (h *Handler) LoginHandler() http.HandlerFunc {
 			log.Printf("Session cookie set with value: %s, expires: %v", redactToken(session.ID), session.ExpiresAt)
 
 			// Check for redirect parameter from URL
-			redirectTo := r.URL.Query().Get("redirect")
+			redirectTo := safeRedirectPath(r.URL.Query().Get("redirect"))
 			if redirectTo == "" {
 				redirectTo = h.redirectPath
 			}
@@ -147,6 +148,29 @@ func (h *Handler) LoginHandler() http.HandlerFunc {
 		log.Printf("Method not allowed: %s", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+// safeRedirectPath returns target if it is a same-origin path ("/admin/...",
+// optionally with a query), otherwise "". Absolute URLs, scheme-relative
+// "//host" and "/\host" forms, and anything with control characters are
+// rejected so a login link cannot send someone to another site.
+func safeRedirectPath(target string) string {
+	if target == "" || target[0] != '/' || len(target) > 2048 {
+		return ""
+	}
+	if len(target) > 1 && (target[1] == '/' || target[1] == '\\') {
+		return ""
+	}
+	for _, c := range target {
+		if c < 0x20 || c == 0x7f || c == '\\' {
+			return ""
+		}
+	}
+	u, err := url.Parse(target)
+	if err != nil || u.Scheme != "" || u.Host != "" || u.User != nil {
+		return ""
+	}
+	return target
 }
 
 // LogoutHandler handles user logout
