@@ -25,8 +25,10 @@ import (
 //	files/branding/<logo name>    uploaded logos (zero or more)
 //
 // Restore accepts nothing else: any other name, a directory, a link, a
-// device, an absolute or ".." path, a duplicate, or an entry over its size
-// limit is refused before anything is written outside the staging folder.
+// device, an absolute or ".." path, a duplicate, an entry over its size
+// limit, or an entry the manifest does not list at exactly the size it
+// lists is refused before anything is written outside the staging folder
+// (and before any of that entry is written inside it).
 const (
 	FormatVersion    = 1
 	appName          = "jim-dot-tennis"
@@ -165,7 +167,10 @@ func badArchive(format string, args ...any) error {
 // layout and its size limit and every checksum against the manifest. Once
 // the manifest is read it calls onManifest (if set), whose error stops the
 // read. For each file after the manifest it calls store (if set) with the
-// entry's name and its content. It returns the manifest once every file was
+// entry's name and its content, but only for an entry the manifest lists
+// with the size its header gives, and never handing over more than that
+// size, so what onManifest saw bounds what store can be asked to write.
+// It returns the manifest once every file was
 // read and matched it; nothing a caller stored may be trusted before then.
 func readArchive(r io.Reader, onManifest func(Manifest) error, store func(name string, content io.Reader) error) (Manifest, error) {
 	var m Manifest
@@ -208,12 +213,7 @@ func readArchive(r io.Reader, onManifest func(Manifest) error, store func(name s
 			if hdr.Name != manifestName {
 				return m, badArchive("the first entry is %q, not %s", hdr.Name, manifestName)
 			}
-			dec := json.NewDecoder(io.LimitReader(tr, limit))
-			dec.DisallowUnknownFields()
-			if err := dec.Decode(&m); err != nil {
-				return m, badArchive("the manifest cannot be read (%v)", err)
-			}
-			if err := checkManifest(m); err != nil {
+			if m, err = decodeManifest(tr); err != nil {
 				return m, err
 			}
 			if onManifest != nil {
@@ -224,9 +224,20 @@ func readArchive(r io.Reader, onManifest func(Manifest) error, store func(name s
 			continue
 		}
 
-		// Count and hash exactly what is read; never more than the limit.
+		// Nothing is stored that the manifest does not list, at the size it
+		// lists: a hostile archive cannot make restore write more than the
+		// manifest declared (which onManifest has already seen).
+		listed, ok := listedEntry(m, hdr.Name)
+		if !ok {
+			return m, badArchive("entry %q is not listed in the manifest", hdr.Name)
+		}
+		if hdr.Size != listed.Size {
+			return m, badArchive("entry %q is %d bytes but the manifest says %d", hdr.Name, hdr.Size, listed.Size)
+		}
+
+		// Count and hash exactly what is read; never more than listed.
 		h := sha256.New()
-		counted := &countingReader{r: io.LimitReader(tr, limit+1)}
+		counted := &countingReader{r: io.LimitReader(tr, listed.Size+1)}
 		content := io.TeeReader(counted, h)
 		if store != nil {
 			if err := store(hdr.Name, content); err != nil {
@@ -236,8 +247,8 @@ func readArchive(r io.Reader, onManifest func(Manifest) error, store func(name s
 		if _, err := io.Copy(io.Discard, content); err != nil {
 			return m, badArchive("entry %q is damaged (%v)", hdr.Name, err)
 		}
-		if counted.n > limit {
-			return m, badArchive("entry %q is larger than allowed", hdr.Name)
+		if counted.n != listed.Size {
+			return m, badArchive("entry %q is not the size the manifest says", hdr.Name)
 		}
 		got[hdr.Name] = FileEntry{Path: hdr.Name, Size: counted.n, SHA256: hex.EncodeToString(h.Sum(nil))}
 	}
@@ -263,6 +274,41 @@ func readArchive(r io.Reader, onManifest func(Manifest) error, store func(name s
 	return m, nil
 }
 
+// decodeManifest reads the manifest entry from r (at most maxManifestBytes)
+// and checks it.
+func decodeManifest(r io.Reader) (Manifest, error) {
+	var m Manifest
+	dec := json.NewDecoder(io.LimitReader(r, maxManifestBytes))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&m); err != nil {
+		return m, badArchive("the manifest cannot be read (%v)", err)
+	}
+	return m, checkManifest(m)
+}
+
+// listedEntry is the manifest's entry for name.
+func listedEntry(m Manifest, name string) (FileEntry, bool) {
+	if name == m.Database.Path {
+		return m.Database, true
+	}
+	for _, f := range m.Files {
+		if f.Path == name {
+			return f, true
+		}
+	}
+	return FileEntry{}, false
+}
+
+// TotalSize is the number of bytes the manifest says the archive's files
+// unpack to.
+func (m Manifest) TotalSize() int64 {
+	n := m.Database.Size
+	for _, f := range m.Files {
+		n += f.Size
+	}
+	return n
+}
+
 // checkManifest checks the manifest's own fields.
 func checkManifest(m Manifest) error {
 	if m.App != appName {
@@ -278,10 +324,19 @@ func checkManifest(m Manifest) error {
 	if m.Database.Path != databaseName {
 		return badArchive("the manifest does not list the database")
 	}
+	if m.Database.Size < 0 || m.Database.Size > maxDatabaseBytes {
+		return badArchive("the manifest lists a database of %d bytes", m.Database.Size)
+	}
+	if len(m.Files) >= maxEntries {
+		return badArchive("the manifest lists more than %d files", maxEntries)
+	}
 	seen := map[string]bool{databaseName: true}
 	for _, f := range m.Files {
 		if err := validEntryName(f.Path); err != nil || f.Path == manifestName || seen[f.Path] {
 			return badArchive("the manifest lists an unexpected file %q", f.Path)
+		}
+		if f.Size < 0 || f.Size > maxUploadBytes {
+			return badArchive("the manifest lists %q at %d bytes, more than the %d allowed", f.Path, f.Size, maxUploadBytes)
 		}
 		seen[f.Path] = true
 	}

@@ -576,7 +576,7 @@ func TestPruneRetention(t *testing.T) {
 	partial := tmpPrefix + "abc" + archiveExtension
 	os.WriteFile(filepath.Join(dir, partial), []byte("x"), 0o600)
 
-	removed, err := Prune(cfg)
+	removed, err := prune(cfg, "", time.Now())
 	if err != nil || len(removed) != 2 {
 		t.Fatalf("removed %v, %v", removed, err)
 	}
@@ -592,7 +592,7 @@ func TestPruneRetention(t *testing.T) {
 	}
 
 	cfg.Keep = 0 // never below one
-	Prune(cfg)
+	prune(cfg, "", time.Now())
 	list, _ = List(dir)
 	regular := 0
 	for _, a := range list {

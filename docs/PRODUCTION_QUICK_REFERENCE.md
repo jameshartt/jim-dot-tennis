@@ -313,7 +313,14 @@ database version, when it was made, and a SHA-256 checksum of every file).
   admin Backups page (`/admin/league/backups`, administrators only; it asks for
   your password or a passkey and is recorded in the audit log). The page also
   shows when the last backup was made and warns when it is more than two
-  scheduled runs old.
+  scheduled runs old. While **Require passkeys for administrators** is on,
+  the download takes only a passkey confirmation, not the password.
+- The "last backup" (for the schedule and the page's warning) is the newest
+  file in the folder that opens as a backup with a readable manifest and whose
+  name is not dated more than a few minutes in the future; a file copied in
+  from a machine with a wrong clock is ignored (the log says so once) and is
+  the first to go when old backups are removed. The newest backup the app has
+  just made is never removed by that tidying.
 
 **A backup holds everyone's personal details, every password hash and
 passkey record, and the app's own secrets** (for example the push
@@ -354,38 +361,77 @@ dashboard and press **Download backup**, then store the file the same way.
 #### Restore a backup
 
 Restore only runs while the app is stopped (it checks: the running app holds
-a lock on the data folder, and restore refuses while anything holds it). It
-checks the whole file against its manifest first, refuses a backup made by a
+a lock on the data folder, and restore refuses while anything holds it).
+While it runs, the account commands and `backup` refuse too (they would
+change a database that is about to be replaced), and it will not start while
+one of them is still working. It checks the backup's size against the free
+space and every file against the manifest first, refuses a backup made by a
 newer version of the app, upgrades one made by an older version, keeps the
 database it replaces beside it as `tennis.db.replaced-<date>` (and the old logo
 folder as `branding.replaced-<date>`) instead of deleting it, and ends every
 session: everyone signs in again. Accounts, passwords and passkeys come back as
-they were when the backup was made.
+they were when the backup was made. Ctrl-C (or `docker stop`) while it is
+checking and unpacking stops it cleanly with nothing changed; once it has
+started putting files in place it finishes first.
+
+Step 3 runs the restore in a one-off container of **exactly the image the app
+container runs** (`{{.Image}}`, its image ID: the version tag may have been
+pulled to a newer image since), with **the app container's environment and
+volumes** (`--env-file` from `docker inspect`, `--volumes-from`), so a changed
+`DB_PATH` or `BACKUP_DIR` is honoured and the right volume is used. It needs
+bash on the server (`<(...)`); the environment never touches the disk.
 
 ```bash
-# 1. Put the backup in the data volume (skip if it is already in /app/data/backups)
+# 1. Put the backup in the data volume (skip if it is already in /app/data/backups;
+#    with a changed DB_PATH or BACKUP_DIR use that folder here and in step 3)
 scp -i $SSH_KEY ~/club-backups/<file> $SERVER:/tmp/<file>
 ssh -i $SSH_KEY $SERVER "docker cp /tmp/<file> jim-dot-tennis:/app/data/backups/<file> && docker exec -u root jim-dot-tennis chown appuser:appuser /app/data/backups/<file> && rm /tmp/<file>"
 
 # 2. Stop the app
 ssh -i $SSH_KEY $SERVER "docker stop jim-dot-tennis"
 
-# 3. Restore, in a one-off container of the same image on the same volume
-ssh -i $SSH_KEY $SERVER 'docker run --rm -v jim-dot-tennis-data:/app/data "$(docker inspect -f "{{.Config.Image}}" jim-dot-tennis)" ./jim-dot-tennis restore /app/data/backups/<file>'
+# 3. Restore, with the app container's image, environment and volumes
+ssh -i $SSH_KEY $SERVER 'bash -c '\''docker run --rm --volumes-from jim-dot-tennis --env-file <(docker inspect -f "{{range .Config.Env}}{{println .}}{{end}}" jim-dot-tennis) "$(docker inspect -f "{{.Image}}" jim-dot-tennis)" ./jim-dot-tennis restore /app/data/backups/<file>'\'''
 
 # 4. Start the app and check it
 ssh -i $SSH_KEY $SERVER "docker start jim-dot-tennis && sleep 5 && docker exec jim-dot-tennis wget -qO- http://localhost:8080/healthz"
 ```
 
-If step 3 says "Not restored", nothing was changed; start the app again and
-read the message. If it cannot read the file ("permission denied"), add
-`--user root` after `docker run` in step 3 (restore then gives the restored
-files to the data folder's owner, the app's user). When you are sure the restore is right,
-delete the `.replaced-` copies from `/app/data`.
+If step 3 says "Not restored", nothing was changed (unless it says putting
+things back did not fully work: see below); start the app again and read the
+message. If it cannot read the file ("permission denied"), add `--user root`
+after `docker run` in step 3 (restore then gives the restored files to the
+owner of the database it replaces, the app's user, or to the data folder's
+owner if there was no database).
+
+**The `.replaced-` copies are not removed automatically**: every restore adds
+a `tennis.db.replaced-<date>` (with its `-wal`/`-journal`, if it had them) and
+a `branding.replaced-<date>` folder, each a full copy of what was there. Once
+you are sure the restore is right (the app starts, the data is what you
+expected), remove them:
+
+```bash
+ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis sh -c 'ls -ld /app/data/*.replaced-*'"   # see what is there
+ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis sh -c 'rm -rf /app/data/*.replaced-*'"   # remove them
+```
+
+#### If a restore stops part-way
+
+The swap is ordered so that the database in place always has the logos it
+uses: until the restored database is renamed into place the old one is
+untouched, and a staging folder (`/app/data/.restore-*`, a full copy of the
+database) left by a restore that was killed is removed by the next restore and
+when the app starts. If restore reports that **putting the data folder back
+did not fully work**, look in `/app/data` before starting the app:
+`tennis.db` should still be the old database. If it is missing, copy
+`tennis.db.replaced-<date>` back to `tennis.db` (and `tennis.db.replaced-<date>-wal`
+to `tennis.db-wal`, if there is one); if a logo is missing, copy it from
+`branding.replaced-<date>/` back into `branding/`. Then start the app.
 
 **After a failed upgrade** (the app stops with "migration NNN failed"):
 restore the newest `jim-dot-tennis-pre-migration-*.tar.gz` using the image of
-the **previous** version in step 3 (a backup of the old database restored with
+the **previous** version in step 3 (put `ghcr.io/jameshartt/jim-dot-tennis:<previous version>`
+in place of `"$(docker inspect -f "{{.Image}}" jim-dot-tennis)"`; a backup of the old database restored with
 the new version would only be upgraded again), then start the previous
 version. A version from before backups existed has no `restore` command: with
 the app stopped, take `database/tennis.db` out of the backup
@@ -530,8 +576,10 @@ Backups
                                    version is upgraded; one from a newer
                                    version is refused. The database it replaces
                                    is kept beside it (tennis.db.replaced-...),
-                                   not deleted. Everyone has to sign in again
-                                   afterwards.
+                                   not deleted: remove those copies yourself
+                                   once the restore is confirmed good. While
+                                   it runs, the other commands refuse.
+                                   Everyone has to sign in again afterwards.
 
   version                          Show which version of the app this is, the
                                    commit it was built from and when.

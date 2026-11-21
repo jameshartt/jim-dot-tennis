@@ -118,16 +118,14 @@ func (s *Service) RunIfDue(ctx context.Context) bool {
 	return true
 }
 
+// due reports whether a scheduled backup is due: the newest regular backup
+// that can be believed (Newest: not dated in the future, manifest readable)
+// is older than the interval, or there is none.
 func (s *Service) due() bool {
-	list, err := List(s.cfg.Dir)
-	if err != nil {
+	now := s.now()
+	a, ok, err := Newest(s.cfg.Dir, now, false)
+	if err != nil || !ok {
 		return true
 	}
-	for _, a := range list {
-		if a.PreMigration {
-			continue
-		}
-		return s.now().Sub(a.CreatedAt) >= s.cfg.Interval-dueSlack
-	}
-	return true
+	return now.Sub(a.CreatedAt) >= s.cfg.Interval-dueSlack
 }

@@ -15,6 +15,7 @@ import (
 
 	jimdottennis "jim-dot-tennis"
 	"jim-dot-tennis/internal/accounts"
+	"jim-dot-tennis/internal/backup"
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/repository"
@@ -94,8 +95,10 @@ Backups
                                    version is upgraded; one from a newer
                                    version is refused. The database it replaces
                                    is kept beside it (tennis.db.replaced-...),
-                                   not deleted. Everyone has to sign in again
-                                   afterwards.
+                                   not deleted: remove those copies yourself
+                                   once the restore is confirmed good. While
+                                   it runs, the other commands refuse.
+                                   Everyone has to sign in again afterwards.
 
   version                          Show which version of the app this is, the
                                    commit it was built from and when.
@@ -182,11 +185,20 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 	}
 
 	ctx := context.Background()
-	switch cmd.name {
-	case cmdBackup:
-		return runBackup(ctx, c, stderr)
-	case cmdRestore:
+	if cmd.name == cmdRestore {
 		return runRestore(ctx, c, stderr, cmd.args[0])
+	}
+	// Every other command uses the database: not while a restore is
+	// replacing it.
+	release, ok := holdCommandLock()
+	if !ok {
+		fmt.Fprintf(stderr, "Not done: a restore is in progress in %s. Run this command again once the restore has finished and the app has started.\n",
+			backup.Config{DBPath: getEnv("DB_PATH", "./tennis.db")}.DataDir())
+		return exitError
+	}
+	defer release()
+	if cmd.name == cmdBackup {
+		return runBackup(ctx, c, stderr)
 	}
 	db, err := openCLIDatabase(ctx)
 	if err != nil {
@@ -348,6 +360,26 @@ func parseCommand(args []string) (command, error) {
 		return command{}, fmt.Errorf("%w: unknown command \"user %s\"", errUsage, words[1])
 	}
 	return command{}, fmt.Errorf("%w: unknown command %q", errUsage, words[0])
+}
+
+// holdCommandLock takes the data folder's restore lock shared
+// (backup.AcquireCommandLock) for as long as the command runs, and returns
+// how to give it up; ok is false while a restore holds it. Then the command
+// is refused,
+// rather than writing to a database that is about to be replaced; the
+// running server does not hold it, so the commands still work alongside the
+// server. Where the lock file cannot be opened at all (no data folder yet)
+// the command goes on and reports what is really wrong (no database).
+func holdCommandLock() (release func(), ok bool) {
+	cfg := backup.Config{DBPath: getEnv("DB_PATH", "./tennis.db")}
+	lock, err := backup.AcquireCommandLock(cfg.RestoreLockPath())
+	if errors.Is(err, backup.ErrLocked) {
+		return nil, false
+	}
+	if err != nil {
+		return func() {}, true
+	}
+	return lock.Release, true
 }
 
 // openCLIDatabase opens the database the server uses (DB_PATH, as the server
