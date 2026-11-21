@@ -218,4 +218,4 @@ docker logs jim-dot-tennis
 - Frontend dist/ folders are mounted as volumes, not copied into images
 - Redis data persists in Docker volume `courthive-redis-data`
 - CourtHive tournament data persists in `courthive-data` volume
-- jim-dot-tennis database auto-backed up daily to `jim-dot-tennis-backups` volume
+- jim-dot-tennis backs itself up daily into `backups/` on its data volume (`jim-dot-tennis backup`; see docs/PRODUCTION_QUICK_REFERENCE.md section 9)

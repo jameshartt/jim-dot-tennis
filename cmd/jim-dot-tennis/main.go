@@ -21,6 +21,7 @@ import (
 	"jim-dot-tennis/internal/accounts"
 	"jim-dot-tennis/internal/admin"
 	"jim-dot-tennis/internal/auth"
+	"jim-dot-tennis/internal/backup"
 	"jim-dot-tennis/internal/bhplta"
 	"jim-dot-tennis/internal/branding"
 	"jim-dot-tennis/internal/config"
@@ -55,6 +56,24 @@ func main() {
 		log.Fatalf("Cannot start: %v", err)
 	}
 
+	backupConfig, err := backup.FromEnv()
+	if err != nil {
+		log.Fatalf("Cannot start: %v", err)
+	}
+	// Hold the data folder's lock for as long as the server runs: `restore`
+	// refuses while it is held, and a second server (or a server started
+	// during a restore) stops here. The kernel releases it when the process
+	// ends, however it ends.
+	dataLock, err := backup.AcquireLock(backupConfig.LockPath())
+	if errors.Is(err, backup.ErrLocked) {
+		log.Fatalf("Cannot start: another copy of the app, or a restore, is using the data folder %s. "+
+			"Wait for the restore to finish, or stop the other copy, then start the app again", backupConfig.DataDir())
+	}
+	if err != nil {
+		log.Fatalf("Cannot start: %v", err)
+	}
+	defer dataLock.Release()
+
 	// Initialize database
 	db, err := setupDatabase()
 	if err != nil {
@@ -62,8 +81,9 @@ func main() {
 	}
 	defer db.Close()
 
-	// Execute migrations (always the copies built into this binary)
-	migrateOrStop(db, jimdottennis.Migrations(), "migrations built into this binary", log.Fatalf)
+	// Execute migrations (always the copies built into this binary), after
+	// a backup if they are going to change anything
+	backupThenMigrate(db, backupConfig, jimdottennis.Migrations(), "migrations built into this binary", log.Fatalf)
 
 	// Templates and static files: built in, or from disk with TEMPLATE_RELOAD
 	files := loadFiles(projectRoot)
@@ -199,6 +219,10 @@ func main() {
 	auth.NewPasskeyHandler(passkeys, templateDir, "/admin/league").RegisterRoutes(mux, authMiddleware)
 	authHandler.SetPasskeys(passkeys)
 	adminHandler.SetPasskeysAvailable(passkeys.Available)
+	// Backups: the page, the download (administrators, with the current
+	// password or a passkey confirmation) and the schedule.
+	backups := backup.NewService(db, backupConfig)
+	adminHandler.SetBackups(backups, passkeys)
 	setupHandler.OfferPasskeys(passkeys.Available)
 
 	// Auth routes
@@ -278,14 +302,39 @@ func main() {
 		WriteTimeout: 30 * time.Second,  // Generous for mobile
 		IdleTimeout:  120 * time.Second, // Keep connections alive
 	}
+	// Started successfully: older pre-migration backups have done their job
+	// (the newest is kept until a later upgrade replaces it).
+	if removed, err := backup.KeepLatestPreMigration(backupConfig); err != nil {
+		log.Printf("Warning: could not remove old pre-upgrade backups: %v", err)
+	} else if len(removed) > 0 {
+		log.Printf("Removed %d older pre-upgrade backup(s)", len(removed))
+	}
 	log.Printf("jim-dot-tennis %s ready: %s, database %s, %s mode",
 		version.Long(), "http://localhost"+server.Addr, getEnv("DB_PATH", "./tennis.db"), runMode())
-	if err := serve(server, authService.StartCleanup); err != nil {
+	if err := serve(server, authService.StartCleanup, backups.Start); err != nil {
 		db.Close()
 		log.Fatalf("Server stopped: %v", err)
 	}
 	// Normal shutdown: the deferred db.Close() runs and the process exits 0.
 	log.Printf("Stopped cleanly")
+}
+
+// backupThenMigrate takes the pre-migration backup (backup.BeforeMigrations:
+// only when the migrations will change an existing database) and then runs
+// migrateOrStop. If the backup cannot be made, the migrations are not run and
+// the server stops through fatalf.
+func backupThenMigrate(db *database.DB, cfg backup.Config, migrations fs.FS, label string, fatalf func(format string, args ...any)) {
+	path, err := backup.BeforeMigrations(context.Background(), db, cfg, migrations)
+	if err != nil {
+		fatalf("Cannot start: the database needs upgrading, and the backup that is always taken first could not be made, "+
+			"so nothing was changed: %v. Check that %s exists and has free space (or set %s to another folder), then start the app again",
+			err, cfg.Dir, backup.EnvDir)
+		return
+	}
+	if path != "" {
+		log.Printf("Backed up the database before upgrading it: %s (kept until a later upgrade replaces it)", path)
+	}
+	migrateOrStop(db, migrations, label, fatalf)
 }
 
 // migrateOrStop applies the migrations and stops the server (through fatalf,
@@ -314,14 +363,21 @@ func migrateOrStop(db *database.DB, migrations fs.FS, label string, fatalf func(
 // killing the container.
 const shutdownTimeout = 8 * time.Second
 
-// serve runs the server and the scheduled cleanup (expired sessions, old
-// login attempts, finished links: auth.Service.Cleanup) until SIGINT or
-// SIGTERM, then stops both: the cleanup first, then the server, letting
-// requests in flight finish. It returns nil after a signal-driven shutdown.
-func serve(server *http.Server, startCleanup func(ctx context.Context, firstDelay, interval time.Duration) func()) error {
+// serve runs the server, the scheduled cleanup (expired sessions, old login
+// attempts, finished links: auth.Service.Cleanup) and the scheduled backup
+// (backup.Service) until SIGINT or SIGTERM, then stops them: the cleanup and
+// the backup first (a backup in progress is cancelled and leaves nothing
+// behind), then the server, letting requests in flight finish. It returns
+// nil after a signal-driven shutdown.
+func serve(server *http.Server, startCleanup, startBackups func(ctx context.Context, firstDelay, interval time.Duration) func()) error {
 	ctx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stopSignals()
-	stopCleanup := startCleanup(ctx, auth.CleanupFirstDelay, auth.CleanupInterval)
+	stopJobs := startCleanup(ctx, auth.CleanupFirstDelay, auth.CleanupInterval)
+	stopBackups := startBackups(ctx, backup.SchedulerFirstDelay, backup.SchedulerCheckEvery)
+	stopCleanup := func() {
+		stopJobs()
+		stopBackups()
+	}
 	ln, err := net.Listen("tcp", server.Addr)
 	if err != nil {
 		stopCleanup()

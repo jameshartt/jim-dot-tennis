@@ -34,7 +34,8 @@ Run them on the server, inside the app's container, for example:
 
     docker exec -it jim-dot-tennis ./jim-dot-tennis user list
 
-They work while the app is running; there is no need to stop it.
+They work while the app is running; there is no need to stop it. The one
+exception is "restore", which only runs while the app is stopped.
 
 Accounts
   user list                        Show every account: its role, whether it can
@@ -76,6 +77,26 @@ First-run setup
                                    any earlier code (including the one in the
                                    app's log) and works once.
 
+Backups
+  backup                           Make a backup now: the database and the
+                                   uploaded club logo in one file, in the
+                                   backups folder (BACKUP_DIR; normally
+                                   backups/ next to the database). Safe while
+                                   the app is running. The app also makes one
+                                   on its own every day (BACKUP_INTERVAL) and
+                                   before every upgrade, and keeps the newest
+                                   14 (BACKUP_KEEP).
+  restore <file>                   Put a backup back: its database and logo
+                                   replace the current ones. Refused while the
+                                   app is running, so stop the app and run it
+                                   in a one-off container (the operations
+                                   guide shows how). A backup from an older
+                                   version is upgraded; one from a newer
+                                   version is refused. The database it replaces
+                                   is kept beside it (tennis.db.replaced-...),
+                                   not deleted. Everyone has to sign in again
+                                   afterwards.
+
   version                          Show which version of the app this is, the
                                    commit it was built from and when.
                                    Needs no database.
@@ -97,7 +118,12 @@ Good to know
     anyone powers they did not already have.
   - Each command records what it did: the time, the command and the account.
   - If the app was upgraded but has not started since, the commands refuse to
-    run until it has (starting the app upgrades the database).
+    run until it has (starting the app upgrades the database). "backup" and
+    "restore" are the exceptions.
+  - A backup holds everyone's personal details, password hashes and passkey
+    details, and the app's own secrets. Keep backups where only the people who
+    run the app can read them, and keep a copy off this server: a backup on
+    the same disk is lost with the server.
 `
 
 // Exit codes for the command line.
@@ -110,6 +136,13 @@ const (
 // errUsage marks a mistake in how a command was typed; the help is shown.
 // cmdVersion is the command that prints the build identity; it needs no database.
 const cmdVersion = "version"
+
+// cmdBackup and cmdRestore make and restore backups (cli_backup.go); they
+// open the database themselves.
+const (
+	cmdBackup  = "backup"
+	cmdRestore = "restore"
+)
 
 var errUsage = errors.New("usage")
 
@@ -149,6 +182,12 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 	}
 
 	ctx := context.Background()
+	switch cmd.name {
+	case cmdBackup:
+		return runBackup(ctx, c, stderr)
+	case cmdRestore:
+		return runRestore(ctx, c, stderr, cmd.args[0])
+	}
 	db, err := openCLIDatabase(ctx)
 	if err != nil {
 		fmt.Fprintf(stderr, "%v\n", err)
@@ -235,6 +274,16 @@ func parseCommand(args []string) (command, error) {
 		}
 		cmd.name = "setup code"
 		return cmd, noRole()
+	case cmdBackup:
+		if len(words) != 1 {
+			return command{}, fmt.Errorf("%w: usage: jim-dot-tennis backup", errUsage)
+		}
+		return command{name: cmdBackup}, noRole()
+	case cmdRestore:
+		if len(words) != 2 {
+			return command{}, fmt.Errorf("%w: usage: jim-dot-tennis restore <backup file>", errUsage)
+		}
+		return command{name: cmdRestore, args: words[1:]}, noRole()
 	case "admin-passkeys":
 		if len(words) != 2 {
 			return command{}, fmt.Errorf("%w: usage: jim-dot-tennis admin-passkeys status|on|off", errUsage)

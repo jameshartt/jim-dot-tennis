@@ -14,7 +14,6 @@ The production deployment (reference definition: `deploy/docker-compose.yml`) ru
 | courthive-public | (static, served by Caddy) | — | Static files |
 | Redis | `courthive-redis` | 6379 | Cache (used by courthive-server) |
 | Caddy | `tennis-caddy` | 80, 443 | Reverse proxy / TLS |
-| backup | `jim-dot-tennis-backup` | — | Scheduled SQLite backup |
 
 All services are networked via the `tennis-network` bridge.
 
@@ -201,23 +200,13 @@ DigitalOcean offers built-in backup options:
 
 ### Database Backup Options
 
-In addition to the built-in backup container, consider:
+The app makes its own backups (daily, before upgrades, and with
+`jim-dot-tennis backup`) into `/app/data/backups`, on the same disk. Copy them
+off the server as `docs/PRODUCTION_QUICK_REFERENCE.md` section 9 describes; the app itself uploads nothing anywhere.
+A backup holds personal data and password hashes, so any off-site copy must be
+private (and preferably encrypted).
 
-1. **DigitalOcean Spaces**: Use DigitalOcean's S3-compatible storage for offsite backups:
-
-```bash
-# Install AWS CLI
-apt-get install -y awscli
-
-# Configure with Spaces credentials
-aws configure
-
-# Update the backup script to use Spaces
-# Add to scripts/backup-manager.sh:
-aws s3 cp "$BACKUP_DIR/$BACKUP_FILENAME.gz" s3://your-space-name/backups/
-```
-
-2. **Scheduled DigitalOcean Snapshots**: Create a script to take automatic snapshots:
+1. **Scheduled DigitalOcean Snapshots**: Create a script to take automatic snapshots:
 
 ```bash
 #!/bin/bash
@@ -317,14 +306,9 @@ curl -X POST \
    docker-compose down
    ```
 
-2. Restore from the latest backup:
-   ```bash
-   # Find the latest backup
-   ls -la $REMOTE_PATH/external-backups
-   
-   # Restore it
-   cp $REMOTE_PATH/external-backups/latest-backup.db /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db
-   ```
+2. Restore the latest backup with `jim-dot-tennis restore` in a one-off
+   container, as `docs/PRODUCTION_QUICK_REFERENCE.md` section 9 describes (it checks the backup, keeps the damaged
+   database aside and refuses to run while the app is up).
 
 3. Restart the application:
    ```bash

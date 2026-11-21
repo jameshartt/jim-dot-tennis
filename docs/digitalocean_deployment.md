@@ -71,7 +71,7 @@ The deployment sets up:
 - Fail2ban for SSH protection
 - A dedicated user account for the application
 - HTTPS configuration with Caddy (if domain provided)
-- Automatic database backups
+- Automatic database backups (made by the app itself)
 
 ### Services
 
@@ -80,7 +80,6 @@ The production deployment comprises multiple services orchestrated via Docker Co
 | Service | Description | Compose File |
 |---------|-------------|--------------|
 | **jim-dot-tennis** (app) | Go 1.25 web application serving the league management UI | `docker-compose.yml` |
-| **backup** | Alpine-based container performing daily SQLite backups with 30-day retention | `docker-compose.yml` |
 | **import** | On-demand tools container for match card and club data imports | `docker-compose.yml` (tools profile) |
 | **competition-factory-server** | CourtHive API server (Node.js) for tournament management | `deploy/docker-compose.yml` |
 | **TMX frontend** | Static tournament management UI served via Caddy | `deploy/docker-compose.yml` |
@@ -187,32 +186,19 @@ The script will detect the existing installation and update only the necessary f
 
 ## Backup Management
 
-The deployment includes an automatic backup system that:
-
-1. Creates daily backups within Docker
-2. Exports backups to `$REMOTE_PATH/external-backups`
-3. Runs a cron job daily at 3 AM
-
-### Manual Backup
-
-To manually trigger a backup:
+The app backs itself up: a daily archive (database, club logo, manifest with
+checksums) in `/app/data/backups` on its data volume, one before every upgrade,
+and one whenever you run `jim-dot-tennis backup`. Those copies are on the same
+disk as the app, so copy them off the server too. Making, copying off and
+restoring backups are described step by step in `docs/PRODUCTION_QUICK_REFERENCE.md` section 9.
 
 ```bash
-ssh user@your-droplet-ip "cd $REMOTE_PATH && docker exec jim-dot-tennis-backup sh -c 'sqlite3 /data/tennis.db \".backup /backups/tennis-\$(date +%Y-%m-%d-%H%M%S)-manual.db\"'"
+# Make a backup now
+ssh user@your-droplet-ip "docker exec jim-dot-tennis ./jim-dot-tennis backup"
 ```
 
-### Restoring from Backup
-
-```bash
-# Stop the application
-ssh user@your-droplet-ip "cd $REMOTE_PATH && docker-compose down"
-
-# Restore the database from backup
-ssh user@your-droplet-ip "cp $REMOTE_PATH/external-backups/tennis-backup-file.db /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db"
-
-# Start the application
-ssh user@your-droplet-ip "cd $REMOTE_PATH && docker-compose up -d"
-```
+Restore only runs while the app is stopped, in a one-off container
+(`jim-dot-tennis restore <file>`); never copy a database file over the live one.
 
 ## Upgrading Go Version
 
@@ -511,7 +497,7 @@ If you're experiencing database problems:
    ssh root@your-droplet-ip "docker exec jim-dot-tennis sqlite3 /app/data/tennis.db 'PRAGMA integrity_check;'"
    ```
 
-3. If the database is missing or corrupted, restore from a backup as described above
+3. If the database is missing or corrupted, restore from a backup (`docs/PRODUCTION_QUICK_REFERENCE.md` section 9)
 
 ### Migration Mismatches ("no such column" errors)
 
@@ -620,8 +606,7 @@ ssh root@your-droplet-ip "cd $REMOTE_PATH && rm -f ./internal/repository/*_repos
 # If running out of disk space
 ssh root@your-droplet-ip "docker system prune -af"
 
-# If need to restore from backup (replace backup-file.db with actual backup)
-ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose down && cp external-backups/backup-file.db /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db && docker-compose up -d"
+# If you need to restore from a backup: see `docs/PRODUCTION_QUICK_REFERENCE.md` section 9 (jim-dot-tennis restore, app stopped)
 ```
 
 ### Health Check URLs
