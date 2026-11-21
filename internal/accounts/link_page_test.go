@@ -72,8 +72,10 @@ func checkHeaders(t *testing.T, what string, rec *httptest.ResponseRecorder) {
 	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
 		t.Errorf("%s: Cache-Control %q, want no-store", what, got)
 	}
-	if got := rec.Header().Get("Referrer-Policy"); got != "no-referrer" {
-		t.Errorf("%s: Referrer-Policy %q, want no-referrer", what, got)
+	// same-origin keeps the link out of every other site's Referer and lets
+	// the page's own form post with a real Origin (WI-134 I7).
+	if got := rec.Header().Get("Referrer-Policy"); got != "same-origin" {
+		t.Errorf("%s: Referrer-Policy %q, want same-origin", what, got)
 	}
 }
 

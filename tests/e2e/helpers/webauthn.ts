@@ -34,6 +34,40 @@ export class VirtualAuthenticator {
     return new VirtualAuthenticator(cdp, authenticatorId);
   }
 
+  /**
+   * An authenticator holding the given credentials (as `credentials()`
+   * returned them): the same device brought back after `remove()`.
+   */
+  static async restore(page: Page, credentials: unknown[]): Promise<VirtualAuthenticator> {
+    const authenticator = await VirtualAuthenticator.add(page);
+    for (const credential of credentials) {
+      await authenticator.cdp.send("WebAuthn.addCredential", {
+        authenticatorId: authenticator.authenticatorId,
+        credential: credential as never,
+      });
+    }
+    return authenticator;
+  }
+
+  /** The credentials this authenticator holds, to bring it back with `restore()`. */
+  async credentials(): Promise<unknown[]> {
+    const { credentials } = await this.cdp.send("WebAuthn.getCredentials", {
+      authenticatorId: this.authenticatorId,
+    });
+    return credentials;
+  }
+
+  /**
+   * Put the device away: forget the authenticator but keep what it held, so
+   * `restore()` can bring it back. Only one device at a time is attached to a
+   * page here, as only one would be in someone's hand.
+   */
+  async putAway(): Promise<unknown[]> {
+    const held = await this.credentials();
+    await this.remove();
+    return held;
+  }
+
   /** Number of credentials this authenticator currently holds. */
   async credentialCount(): Promise<number> {
     const { credentials } = await this.cdp.send("WebAuthn.getCredentials", {

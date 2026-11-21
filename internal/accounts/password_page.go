@@ -7,17 +7,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"time"
 
 	"jim-dot-tennis/internal/auth"
-)
-
-// Wrong current passwords typed on the password form are limited per client
-// address (in memory), so a stolen session cannot be used to guess the
-// password at leisure.
-const (
-	currentPasswordFailureLimit  = 5
-	currentPasswordFailureWindow = 15 * time.Minute
 )
 
 // PasswordPage handles a signed-in user's own password. The form lives in
@@ -28,16 +19,16 @@ const (
 //	POST /account/password         add or change the password
 //	POST /account/password/remove  remove the password
 //
-// Adding or changing needs the current password or a passkey confirmation
-// made in this session (auth.Passkeys.ConsumeReauthProof); a session alone is
-// never enough. Changing signs the account out everywhere else and keeps this
-// browser signed in with a new session.
+// Each needs the current password or a passkey confirmation made in this
+// session (auth.Passkeys.ConsumeReauthProof); a session alone is never
+// enough. Each signs the account out everywhere else and keeps this browser
+// signed in with a new session. Wrong current passwords are limited per
+// client address by the auth service's one limiter for them
+// (auth.Service.CurrentPasswordBlocked).
 type PasswordPage struct {
 	accounts *Service
 	auth     *auth.Service
 	passkeys *auth.Passkeys // nil: no passkey confirmation
-	failures *auth.AttemptLimiter
-	now      func() time.Time
 }
 
 // NewPasswordPage returns the password endpoints. passkeys may be nil.
@@ -46,8 +37,6 @@ func NewPasswordPage(accounts *Service, authService *auth.Service, passkeys *aut
 		accounts: accounts,
 		auth:     authService,
 		passkeys: passkeys,
-		failures: auth.NewAttemptLimiter(currentPasswordFailureLimit, currentPasswordFailureWindow),
-		now:      time.Now,
 	}
 }
 
@@ -97,7 +86,7 @@ func (p *PasswordPage) set(w http.ResponseWriter, r *http.Request) {
 		back(w, r, "perror", auth.PasswordErrMismatch)
 		return
 	}
-	if current != "" && p.failures.Blocked(r, p.now()) {
+	if current != "" && p.auth.CurrentPasswordBlocked(r) {
 		back(w, r, "perror", auth.PasswordErrWrong)
 		return
 	}
@@ -113,7 +102,7 @@ func (p *PasswordPage) set(w http.ResponseWriter, r *http.Request) {
 		case errors.As(err, &pe):
 			code = pe.Code
 		case errors.Is(err, ErrWrongPassword):
-			p.failures.Fail(r, p.now())
+			p.auth.CurrentPasswordFailed(r)
 			code = auth.PasswordErrWrong
 		case errors.Is(err, ErrReauthRequired):
 			code = auth.PasswordErrReauth
@@ -123,31 +112,51 @@ func (p *PasswordPage) set(w http.ResponseWriter, r *http.Request) {
 		back(w, r, "perror", code)
 		return
 	}
-	if res.Added {
-		back(w, r, "done", "password-added")
-		return
-	}
 	// Every session ended with the change; this browser carries on with a
 	// fresh one, so only the other devices are signed out.
 	if err := p.auth.StartSession(w, r, userID); err != nil {
-		log.Printf("change password: start new session for user %d: %v", userID, err)
+		log.Printf("set password: start new session for user %d: %v", userID, err)
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if res.Added {
+		back(w, r, "done", "password-added")
 		return
 	}
 	back(w, r, "done", "password-changed")
 }
 
 // remove removes the signed-in user's password, never their last working
-// way to sign in.
+// way to sign in, and only with proof of ownership.
 func (p *PasswordPage) remove(w http.ResponseWriter, r *http.Request) {
 	userID, ok := p.signedIn(w, r)
 	if !ok {
 		return
 	}
-	err := p.accounts.RemoveOwnPassword(r.Context(), userID)
+	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
+	current := r.PostFormValue("current_password")
+	if current != "" && p.auth.CurrentPasswordBlocked(r) {
+		back(w, r, "perror", auth.PasswordErrWrong)
+		return
+	}
+	proof := Proof{Current: current}
+	if current == "" && p.passkeys != nil {
+		proof.ConsumePasskeyProof = func() bool { return p.passkeys.ConsumeReauthProof(w, r, userID) }
+	}
+	_, err := p.accounts.RemoveOwnPassword(r.Context(), userID, proof)
 	switch {
 	case err == nil:
+		if err := p.auth.StartSession(w, r, userID); err != nil {
+			log.Printf("remove password: start new session for user %d: %v", userID, err)
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
 		back(w, r, "done", "password-removed")
+	case errors.Is(err, ErrWrongPassword):
+		p.auth.CurrentPasswordFailed(r)
+		back(w, r, "perror", auth.PasswordErrWrong)
+	case errors.Is(err, ErrReauthRequired):
+		back(w, r, "perror", auth.PasswordErrReauth)
 	case errors.Is(err, ErrLastSignInMethod):
 		back(w, r, "perror", auth.PasswordErrLast)
 	case errors.Is(err, ErrNoPassword):

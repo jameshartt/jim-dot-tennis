@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"jim-dot-tennis/internal/database"
@@ -66,6 +67,10 @@ type Service struct {
 	config                 Config
 	loginAttemptRepository repository.LoginAttemptRepository
 	signInAudit            SignInAudit              // see SetSignInAudit (throttle.go)
+	loginLocks             *addressLocks            // one password sign-in at a time per address (login_gate.go)
+	compareQueue           compareWaiters           // sign-ins waiting for a bcrypt slot
+	compares               atomic.Int64             // password compares made by sign-in (tests read it)
+	currentPassword        *AttemptLimiter          // wrong current passwords, per address (ownership.go)
 	passkeysAvailable      func(*http.Request) bool // set by NewPasskeys; nil: no passkeys (admin_passkeys.go)
 }
 
@@ -75,6 +80,8 @@ func NewService(db *database.DB, config Config) *Service {
 		db:                     db,
 		config:                 config,
 		loginAttemptRepository: repository.NewLoginAttemptRepository(db),
+		loginLocks:             newAddressLocks(),
+		currentPassword:        NewAttemptLimiter(currentPasswordFailureLimit, currentPasswordFailureWindow),
 	}
 }
 
@@ -82,43 +89,67 @@ func NewService(db *database.DB, config Config) *Service {
 // and failure reasons are not logged (a username field often receives a
 // password typed in the wrong box); they are in login_attempts, which
 // administrators can see.
+//
+// The whole attempt (throttle check, password compare, record) runs under
+// the client address's lock, so attempts sent at the same moment cannot all
+// pass the throttle before any of them is recorded; see login_gate.go. A
+// password is always compared, against a fixed dummy hash when the account
+// does not exist, is inactive or has no password, so the time taken does not
+// reveal which usernames are real.
 func (s *Service) Login(username, password string, r *http.Request) (*models.Session, error) {
+	ctx, cancel := context.WithTimeout(r.Context(), loginWait)
+	defer cancel()
+	release, ok := s.loginLocks.acquire(ctx, ThrottleKey(r))
+	if !ok {
+		return nil, ErrLoginBusy
+	}
+	defer release()
+
 	// Throttled attempts are refused without being recorded, so hammering a
 	// locked-out pair does not extend the lockout (see loginThrottled).
-	if throttled, err := s.loginThrottled(username, r); err != nil {
+	if throttled, err := s.loginThrottled(ClipUsername(username), r); err != nil {
 		log.Printf("Error checking login attempts: %v", err)
 	} else if throttled {
 		log.Printf("Password sign-in throttled for %s", ThrottleKey(r))
 		return nil, ErrTooManyAttempts
 	}
 
-	// Get user by username
-	var user models.User
-	err := s.db.Get(&user, `
-		SELECT * FROM users
-		WHERE username = ? AND is_active = true
-	`, username)
-	if err != nil {
+	// No account has a name this long: refuse without spending a compare.
+	if len(username) > MaxUsernameBytes {
 		s.recordLoginAttempt(username, r, false)
 		return nil, ErrInvalidCredentials
 	}
 
-	// Verify password. An account with no password (passkeys only, or an
-	// invite not yet accepted) can never sign in this way.
-	if user.PasswordHash == "" {
+	// An account with no password (passkeys only, or an invite not yet
+	// accepted) can never sign in this way, and neither can an inactive or
+	// unknown one; all three still cost a compare.
+	var user models.User
+	hash := dummyPasswordHash
+	found := s.db.Get(&user, `
+		SELECT * FROM users
+		WHERE username = ? AND is_active = true
+	`, username) == nil && user.PasswordHash != ""
+	if found {
+		hash = string(user.PasswordHash)
+	}
+	matches, err := s.comparePasswordBounded(ctx, hash, password)
+	if err != nil {
+		return nil, err
+	}
+	// passwordSignInAllowed (admin_passkeys.go) refuses administrators while
+	// passkeys are required for them, after the compare.
+	if !found || !matches || !s.passwordSignInAllowed(r, &user) {
 		s.recordLoginAttempt(username, r, false)
 		return nil, ErrInvalidCredentials
 	}
-	// checkPassword (admin_passkeys.go) also refuses administrators while
-	// passkeys are required for them, and upgrades an older hash.
-	if !s.checkPassword(r, &user, password) {
-		s.recordLoginAttempt(username, r, false)
-		return nil, ErrInvalidCredentials
+	if NeedsRehash(hash) {
+		s.rehash(r.Context(), user.ID, hash, password)
 	}
 
 	// Record successful login attempt
 	s.recordLoginAttempt(username, r, true)
 
+	s.endCarriedSession(r)
 	return s.completeLogin(&user, r, SignInPassword)
 }
 
@@ -184,7 +215,7 @@ func (s *Service) createSession(user *models.User, r *http.Request) (*models.Ses
 		ExpiresAt:      now.Add(s.config.SessionDuration),
 		LastActivityAt: now,
 		IP:             clientIP(r),
-		UserAgent:      r.UserAgent(),
+		UserAgent:      ClipUserAgent(r.UserAgent()),
 		DeviceInfo:     extractDeviceInfo(r),
 		IsValid:        true,
 	}
@@ -215,11 +246,7 @@ func (s *Service) createSession(user *models.User, r *http.Request) (*models.Ses
 // carries is invalidated first, so a session ID planted before sign-in is
 // never promoted (session fixation); the new session always has a fresh ID.
 func (s *Service) StartSession(w http.ResponseWriter, r *http.Request, userID int64) error {
-	if cookie, err := r.Cookie(s.config.CookieName); err == nil && cookie.Value != "" {
-		if err := s.InvalidateSession(cookie.Value); err != nil {
-			log.Printf("Failed to invalidate the previous session: %v", err)
-		}
-	}
+	s.endCarriedSession(r)
 	var user models.User
 	if err := s.db.Get(&user, `SELECT * FROM users WHERE id = ? AND is_active = true`, userID); err != nil {
 		return fmt.Errorf("start session: load user %d: %w", userID, err)
@@ -230,6 +257,16 @@ func (s *Service) StartSession(w http.ResponseWriter, r *http.Request, userID in
 	}
 	s.SetSessionCookie(w, session)
 	return nil
+}
+
+// endCarriedSession ends the session the request's cookie names, if any.
+// Every sign-in does this before it makes the new session.
+func (s *Service) endCarriedSession(r *http.Request) {
+	if cookie, err := r.Cookie(s.config.CookieName); err == nil && cookie.Value != "" {
+		if err := s.InvalidateSession(cookie.Value); err != nil {
+			log.Printf("Failed to invalidate the previous session: %v", err)
+		}
+	}
 }
 
 // SignedInUser returns the active user behind the request's session cookie,
@@ -343,11 +380,14 @@ func (s *Service) ClearSessionCookie(w http.ResponseWriter) {
 
 // recordLoginAttempt records a login attempt. The address stored is the
 // throttle key (ThrottleKey: the IPv4 address, or the /64 of an IPv6 one).
+// The username and User-Agent come from the client, so both are cut to a
+// fixed length: a failed sign-in can never store more than a few hundred
+// bytes.
 func (s *Service) recordLoginAttempt(username string, r *http.Request, success bool) {
 	attempt := &models.LoginAttempt{
-		Username:  username,
+		Username:  ClipUsername(username),
 		IP:        ThrottleKey(r),
-		UserAgent: r.UserAgent(),
+		UserAgent: ClipUserAgent(r.UserAgent()),
 		Success:   success,
 		CreatedAt: time.Now(),
 	}
@@ -368,5 +408,5 @@ func generateSecureToken(length int) (string, error) {
 
 // extractDeviceInfo extracts basic device info from the user agent
 func extractDeviceInfo(r *http.Request) string {
-	return r.UserAgent() // For simplicity; could use a UA parsing library for more details
+	return ClipUserAgent(r.UserAgent()) // For simplicity; could use a UA parsing library for more details
 }

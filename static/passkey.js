@@ -7,9 +7,11 @@
 //   [data-passkey-status]       where messages are written (role="alert")
 //   [data-passkey-signin]       button: sign in with a passkey
 //       data-redirect="/path"       where to go afterwards (the server validates it)
-//       data-passkey-username="#id" input whose value is sent as the username
 //   [data-passkey-add]          button: add a passkey to the signed-in account
 //       data-passkey-name="#id"     input holding the name for the new passkey
+//       data-passkey-password="#id" input holding the current password, which
+//                                   proves it's the owner (without one, the page
+//                                   must have confirmed with a passkey first)
 //       data-next="/path"           where to go afterwards (default: reload)
 //   [data-passkey-setup]        button (first-run setup): submit its form with
 //                               the hidden field named by data-field set to "passkey"
@@ -19,7 +21,9 @@
 //       data-passkey-name="#id"     input holding the name for the new passkey
 //       data-link-remove="#id"      checkbox: also remove the old sign-in methods
 //   [data-passkey-reauth]       button (sign-in methods page): confirm it's you
-//                               with a passkey before setting a password
+//                               with a passkey you already have, before changing
+//                               a sign-in method
+//       data-reauth-for="password"  come back to the password section afterwards
 //   details[data-passkey-fallback]  opened when this browser cannot use passkeys
 (function () {
     'use strict';
@@ -196,18 +200,11 @@
     }
 
     function signIn(button) {
-        var usernameField = button.getAttribute('data-passkey-username');
-        var body = {};
-        if (usernameField) {
-            body.username = inputValue(usernameField);
-            if (!body.username) {
-                setStatus('Type your username first.');
-                return;
-            }
-        }
         setStatus('');
         busy(button, true);
-        postJSON('/login/passkey/begin', body).then(function (options) {
+        // No username is sent: the browser offers the passkeys it holds for
+        // this site and the server learns who it is from the signed answer.
+        postJSON('/login/passkey/begin').then(function (options) {
             return navigator.credentials.get(decodeRequestOptions(options));
         }).then(function (cred) {
             var url = '/login/passkey/finish';
@@ -226,13 +223,23 @@
 
     function addPasskey(button) {
         var name = inputValue(button.getAttribute('data-passkey-name'));
+        var passwordSelector = button.getAttribute('data-passkey-password');
+        var passwordInput = passwordSelector ? document.querySelector(passwordSelector) : null;
+        var body = {};
+        if (passwordInput && passwordInput.value) {
+            // Proof that the owner is adding it; a session alone is not enough.
+            body.current_password = passwordInput.value;
+        }
         setStatus('');
         busy(button, true);
-        postJSON('/account/passkeys/begin').then(function (options) {
+        postJSON('/account/passkeys/begin', body).then(function (options) {
             return navigator.credentials.create(decodeCreationOptions(options));
         }).then(function (cred) {
             return postJSON('/account/passkeys/finish?name=' + encodeURIComponent(name), encodeCredential(cred));
         }).then(function () {
+            if (passwordInput) {
+                passwordInput.value = '';
+            }
             window.location.assign(button.getAttribute('data-next') || '/account/signin-methods?done=added');
         }).catch(function (err) {
             busy(button, false);
@@ -266,16 +273,20 @@
         });
     }
 
-    // Confirm it's you with one of your own passkeys before changing your
-    // password. The server keeps the confirmation (5 minutes, single use);
-    // the page reloads to show the password form without the current password.
+    // Confirm it's you with one of your own passkeys before changing a
+    // sign-in method. The server keeps the confirmation (5 minutes, single
+    // use); the page reloads to show the forms without the current password.
     function reauthPasskey(button) {
         setStatus('');
         busy(button, true);
         postJSON('/account/reauth/passkey/begin').then(function (options) {
             return navigator.credentials.get(decodeRequestOptions(options));
         }).then(function (cred) {
-            return postJSON('/account/reauth/passkey/finish', encodeCredential(cred));
+            var url = '/account/reauth/passkey/finish';
+            if (button.getAttribute('data-reauth-for') === 'password') {
+                url += '?for=password';
+            }
+            return postJSON(url, encodeCredential(cred));
         }).then(function (result) {
             window.location.assign(result.redirect || '/account/signin-methods');
         }).catch(function (err) {

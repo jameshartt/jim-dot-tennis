@@ -246,7 +246,7 @@ func TestAdminCannotRemoveLastPasskeyWhenRequired(t *testing.T) {
 	setAdminPasskeysRequired(t, env, true)
 	// The account still has a password, so this is not its last sign-in
 	// method, but it is its last passkey.
-	rec := b.postForm("/account/passkeys/1/delete", nil)
+	rec := b.postForm("/account/passkeys/1/delete", pwForm)
 	if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "error=adminpasskey") {
 		t.Fatalf("delete last admin passkey: %d %q", rec.Code, rec.Header().Get("Location"))
 	}

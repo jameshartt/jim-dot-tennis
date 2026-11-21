@@ -1,5 +1,6 @@
 import { test, expect } from "./fixtures/test-fixtures";
 import {
+  addSecondPasskey,
   createUser,
   enrolPasskeyFromLink,
   newDevice,
@@ -73,29 +74,41 @@ test.describe("Managing passkeys", () => {
       await expect(items).toHaveCount(1);
       // The only way to sign in cannot be removed.
       await expect(page.locator("[data-passkey-last-method]")).toBeVisible();
-      await expect(page.locator("[data-passkey-remove]")).toHaveCount(0);
+      await expect(page.locator("[data-passkey-remove-open]")).toHaveCount(0);
+      // Being signed in is not enough to add a passkey: there is no Add
+      // button until it is confirmed that this is the account's owner.
+      await expect(page.locator("#passkey-add")).toHaveCount(0);
 
-      // A second device: the first one already holds a credential for this
-      // account, so it would refuse; use a clean authenticator.
-      await authenticator.remove();
-      const second = await VirtualAuthenticator.add(page);
-      await page.locator("#new-passkey-name").fill("Second device");
-      await page.locator("#passkey-add").click();
+      // Confirm with the first device, then add a second one.
+      const { second, firstHeld } = await addSecondPasskey(page, authenticator, "Second device");
       await expect(items).toHaveCount(2);
       await expect(page.locator("[data-passkey-last-method]")).toHaveCount(0);
-      await expect(items.filter({ hasText: "Second device" })).toHaveCount(1);
       expect(await second.credentialCount()).toBe(1);
 
-      // Rename the second one.
+      // Rename the second one (no confirmation needed for a name).
       const secondItem = items.filter({ hasText: "Second device" });
       await secondItem.locator('input[name="name"]').fill("Renamed device");
       await secondItem.locator("[data-passkey-rename]").click();
       await expect(items.filter({ hasText: "Renamed device" })).toHaveCount(1);
       await expect(items.filter({ hasText: "Second device" })).toHaveCount(0);
 
-      // Remove the first one (the page asks first).
+      // Removing one needs a confirmation too, and the passkey added a moment
+      // ago cannot give it: only one the account already had.
       const firstItem = items.filter({ hasText: "First device" });
-      page.once("dialog", (d) => d.accept());
+      await firstItem.locator("[data-passkey-remove-open]").click();
+      await expect(firstItem.locator("[data-passkey-remove]")).toHaveCount(0);
+      await firstItem.locator("[data-passkey-reauth]").click();
+      await expect(page.locator("#passkey-status")).toContainText("only just added");
+      await expect(items).toHaveCount(2);
+
+      // The first device can.
+      const secondHeld = await second.putAway();
+      const firstAgain = await VirtualAuthenticator.restore(page, firstHeld);
+      await page.reload();
+      await firstItem.locator("[data-passkey-remove-open]").click();
+      await firstItem.locator("[data-passkey-reauth]").click();
+      await expect(page.locator("[data-signin-notice]")).toBeVisible();
+      await firstItem.locator("[data-passkey-remove-open]").click();
       await firstItem.locator("[data-passkey-remove]").click();
       await expect(items).toHaveCount(1);
       await expect(items.filter({ hasText: "Renamed device" })).toHaveCount(1);
@@ -103,6 +116,8 @@ test.describe("Managing passkeys", () => {
       await expect(page.locator("[data-passkey-last-method]")).toBeVisible();
 
       // The remaining passkey still signs in.
+      await firstAgain.remove();
+      await VirtualAuthenticator.restore(page, secondHeld);
       await signOut(page);
       await signInWithPasskey(page);
       await page.goto("/account/signin-methods");
@@ -112,25 +127,95 @@ test.describe("Managing passkeys", () => {
     }
   });
 
-  test("declining the remove confirmation keeps the passkey", async ({ adminPage, browser }) => {
+  test("opening the remove box without confirming keeps the passkey", async ({ adminPage, browser }) => {
     const username = uniqueUsername("pk.cancel");
     const link = await createUser(adminPage, username, "captain");
     const { context, page, authenticator } = await newDevice(browser);
     try {
       await enrolPasskeyFromLink(page, link, "Only device");
-      await page.goto("/account/signin-methods");
-      await authenticator.remove();
-      await VirtualAuthenticator.add(page);
-      await page.locator("#new-passkey-name").fill("Extra");
-      await page.locator("#passkey-add").click();
+      await addSecondPasskey(page, authenticator, "Extra");
       const items = page.locator("[data-passkey-list] > li");
       await expect(items).toHaveCount(2);
-      page.once("dialog", (d) => d.dismiss());
-      await items.first().locator("[data-passkey-remove]").click();
+      // No Remove button is offered until ownership is confirmed, and a
+      // request without proof changes nothing.
+      await items.first().locator("[data-passkey-remove-open]").click();
+      await expect(items.first().locator("[data-passkey-remove]")).toHaveCount(0);
+      const id = await items.first().getAttribute("data-passkey-id");
+      const response = await page.request.post(`/account/passkeys/${id}/delete`, {
+        form: {},
+        headers: { Origin: new URL(page.url()).origin },
+        maxRedirects: 0,
+      });
+      expect(response.status()).toBe(303);
+      expect(response.headers()["location"]).toContain("error=reauth");
       await page.reload();
       await expect(items).toHaveCount(2);
     } finally {
       await context.close();
+    }
+  });
+
+  test("a password-only account adds a passkey by typing its password; adding one signs other devices out", async ({
+    adminPage,
+    browser,
+  }) => {
+    const username = uniqueUsername("pk.first");
+    const password = "amber thistle canyon rowboat";
+    const link = await createUser(adminPage, username, "captain");
+    const { context, page } = await newDevice(browser);
+    const other = await browser.newContext();
+    try {
+      // Set the account up with a password only.
+      await page.goto(link);
+      await page.locator("details[data-passkey-fallback] summary").click();
+      await page.locator("#new_password").fill(password);
+      await page.locator("#new_password_confirm").fill(password);
+      await page.locator("#link-password-submit").click();
+      await page.waitForURL((u) => !u.pathname.startsWith("/account/link/"));
+
+      // A second device signed in to the same account.
+      const otherPage = await other.newPage();
+      await signInWithPassword(otherPage, username, password);
+      await otherPage.waitForURL((u) => u.pathname !== "/login");
+      await otherPage.goto("/account/signin-methods");
+      await expect(otherPage.locator('[data-page="signin-methods"]')).toBeVisible();
+
+      await page.goto("/account/signin-methods");
+      await expect(page.locator("#sessions")).toHaveAttribute("data-other-sessions", "1");
+      const items = page.locator("[data-passkey-list] > li");
+      // Without the password: refused, nothing added.
+      await page.locator("#new-passkey-name").fill("My phone");
+      await page.locator("#passkey-add").click();
+      await expect(page.locator("#passkey-status")).toContainText("confirm it's you");
+      await expect(items).toHaveCount(0);
+      // With a wrong one: refused.
+      await page.locator("#passkey-add-current-password").fill("not the password at all");
+      await page.locator("#passkey-add").click();
+      await expect(page.locator("#passkey-status")).toContainText("not right");
+      await expect(items).toHaveCount(0);
+      // With the right one: added.
+      await page.locator("#passkey-add-current-password").fill(password);
+      await page.locator("#passkey-add").click();
+      await expect(items).toHaveCount(1);
+
+      // The other device was signed out by that; this one was not.
+      await expect(page.locator("#sessions")).toHaveAttribute("data-other-sessions", "0");
+      await otherPage.goto("/account/signin-methods");
+      await expect(otherPage).toHaveURL(/\/login/);
+
+      // "Sign out everywhere else" does the same on request.
+      await signInWithPassword(otherPage, username, password);
+      await otherPage.waitForURL((u) => u.pathname !== "/login");
+      await page.reload();
+      await expect(page.locator("#sessions")).toHaveAttribute("data-other-sessions", "1");
+      await page.locator("[data-signout-elsewhere]").click();
+      await expect(page.locator("[data-signin-notice]")).toBeVisible();
+      await expect(page.locator("#sessions")).toHaveAttribute("data-other-sessions", "0");
+      await otherPage.goto("/account/signin-methods");
+      await expect(otherPage).toHaveURL(/\/login/);
+    } finally {
+      await context.close();
+      await other.close();
     }
   });
 });
@@ -154,7 +239,7 @@ test.describe("Password as a fallback", () => {
       await expect(page.locator("[data-password-remove]")).toHaveCount(0);
 
       // Adding a password first needs a passkey confirmation.
-      await page.locator("[data-passkey-reauth]").click();
+      await page.locator("#password-confirm-passkey").click();
       const addForm = page.locator('form[data-password-form="add"]');
       await expect(page.locator("[data-password-confirmed]")).toBeVisible();
 
@@ -170,7 +255,7 @@ test.describe("Password as a fallback", () => {
       // A well-known password is refused too, even though it is long enough.
       let form = page.locator('form[data-password-form="add"]');
       if (!(await page.locator("[data-password-confirmed]").isVisible())) {
-        await page.locator("[data-passkey-reauth]").click();
+        await page.locator("#password-confirm-passkey").click();
         await expect(page.locator("[data-password-confirmed]")).toBeVisible();
       }
       form = page.locator('form[data-password-form="add"]');
@@ -182,7 +267,7 @@ test.describe("Password as a fallback", () => {
 
       // A good password is accepted.
       if (!(await page.locator("[data-password-confirmed]").isVisible())) {
-        await page.locator("[data-passkey-reauth]").click();
+        await page.locator("#password-confirm-passkey").click();
         await expect(page.locator("[data-password-confirmed]")).toBeVisible();
       }
       form = page.locator('form[data-password-form="add"]');
@@ -217,10 +302,18 @@ test.describe("Password as a fallback", () => {
       await expect(thirdPage.locator('[data-testid="dashboard-title"]')).toBeVisible();
       await third.close();
 
-      // Remove it: back to passkey only.
+      // Remove it: back to passkey only. That needs the current password (or
+      // a passkey confirmation) as well.
       await page.goto("/account/signin-methods");
-      page.once("dialog", (d) => d.accept());
-      await page.locator("[data-password-remove]").click();
+      const removeBox = page.locator("[data-password-remove-box]");
+      await removeBox.locator("[data-password-remove-open]").click();
+      await removeBox.locator("[data-proof-password]").fill("not the right password");
+      await removeBox.locator("[data-password-remove]").click();
+      await expect(page.locator("[data-password-error]")).toBeVisible();
+      await expect(page.locator("#password")).toHaveAttribute("data-signin-password", "set");
+      await removeBox.locator("[data-password-remove-open]").click();
+      await removeBox.locator("[data-proof-password]").fill(PASSWORD_2);
+      await removeBox.locator("[data-password-remove]").click();
       await expect(page.locator("#password")).toHaveAttribute("data-signin-password", "none");
     } finally {
       await context.close();

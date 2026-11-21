@@ -145,10 +145,10 @@ func TestCLIUserCommands(t *testing.T) {
 	}
 
 	// last-administrator guard from the command line
-	if r := runCLITest(t, "user", "disable", "alice"); r.code != exitError || !strings.Contains(r.stderr, "last active administrator") {
+	if r := runCLITest(t, "user", "disable", "alice"); r.code != exitError || !strings.Contains(r.stderr, "last administrator who can sign in") {
 		t.Errorf("disable last admin: %+v", r)
 	}
-	if r := runCLITest(t, "user", "role", "alice", "captain"); r.code != exitError || !strings.Contains(r.stderr, "last active administrator") {
+	if r := runCLITest(t, "user", "role", "alice", "captain"); r.code != exitError || !strings.Contains(r.stderr, "last administrator who can sign in") {
 		t.Errorf("demote last admin: %+v", r)
 	}
 	if !loadUser(t, db, "alice").IsActive {
@@ -208,6 +208,14 @@ func TestCLIUserCommands(t *testing.T) {
 	// role, disable, enable, sessions revoke
 	if r := runCLITest(t, "user", "role", "bob", "admin"); r.code != exitOK || loadUser(t, db, "bob").Role != models.RoleAdmin {
 		t.Fatalf("promote bob: %+v", r)
+	}
+	// bob never used his invite, so he cannot sign in: alice is still the last
+	// administrator who can (WI-134 F5).
+	if r := runCLITest(t, "user", "disable", "alice"); r.code != exitError || !loadUser(t, db, "alice").IsActive {
+		t.Fatalf("disable alice while the other administrator cannot sign in: %+v", r)
+	}
+	if _, err := db.Exec(`UPDATE users SET password_hash = ? WHERE username = 'bob'`, mustHashForTest(t)); err != nil {
+		t.Fatal(err)
 	}
 	if r := runCLITest(t, "user", "disable", "alice"); r.code != exitOK || loadUser(t, db, "alice").IsActive {
 		t.Fatalf("disable alice with bob admin: %+v", r)
@@ -386,4 +394,14 @@ func TestHelpTextInOperationsDoc(t *testing.T) {
 	if !strings.Contains(string(doc), cliHelp) {
 		t.Fatal("docs/PRODUCTION_QUICK_REFERENCE.md does not contain the current help text; copy cliHelp into section 10")
 	}
+}
+
+// mustHashForTest is a password hash, for giving an account a way to sign in.
+func mustHashForTest(t *testing.T) string {
+	t.Helper()
+	h, err := auth.HashPassword("a perfectly fine secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return h
 }

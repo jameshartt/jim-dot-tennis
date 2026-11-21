@@ -42,6 +42,20 @@ const AdminLacksRequiredPasskeySQL = `(` + adminPasskeysRequiredSQL + `
 	AND EXISTS (SELECT 1 FROM users WHERE id = ? AND role = 'admin' AND is_active = TRUE)
 	AND ` + UsablePasskeysSQL + ` = 0)`
 
+// UsableAdminSQL is true for the users row aliased u when it is an
+// administrator who can actually sign in: active, with a usable passkey, or
+// with a password while passwords are allowed for administrators (the
+// requirement is off). An administrator whose invite was never accepted, or
+// who has only a password while passkeys are required, is not one.
+//
+// Where passkeys cannot be used at all (no public URL; never in production)
+// a password does sign an administrator in even with the requirement on.
+// This does not know that and so errs on the side of counting fewer usable
+// administrators, which only makes the last-administrator guard stricter.
+const UsableAdminSQL = `(u.role = 'admin' AND u.is_active = TRUE AND (
+	EXISTS (SELECT 1 FROM webauthn_credentials c WHERE c.user_id = u.id AND c.clone_warning_at IS NULL)
+	OR (COALESCE(u.password_hash, '') <> '' AND NOT ` + adminPasskeysRequiredSQL + `)))`
+
 // AdminPasskeysRequired reports whether the setting is on. q may be a
 // transaction.
 func AdminPasskeysRequired(ctx context.Context, q sqlx.QueryerContext) (bool, error) {

@@ -51,22 +51,14 @@ func (s *Service) AdminPasswordSignInBlocked(r *http.Request, user *models.User)
 	return user.Role == models.RoleAdmin && s.PasskeysAvailable(r) && s.AdminPasskeysRequired(r.Context())
 }
 
-// checkPassword reports whether password signs user in: it matches the
-// stored hash and the account is not an administrator barred from password
-// sign-in. On success a hash made with a lower cost than BcryptCost is
-// replaced, transparently.
-func (s *Service) checkPassword(r *http.Request, user *models.User, password string) bool {
-	hash := string(user.PasswordHash)
-	if !PasswordMatches(hash, password) {
-		log.Printf("Password verification failed for user %s", user.Username)
-		return false
-	}
+// passwordSignInAllowed reports whether user, whose password has just been
+// found right, may sign in with it: not an administrator while passkeys are
+// required for administrators. Login asks only after the compare, so the
+// refusal takes as long as a wrong password.
+func (s *Service) passwordSignInAllowed(r *http.Request, user *models.User) bool {
 	if s.AdminPasswordSignInBlocked(r, user) {
-		log.Printf("Password sign-in refused for administrator %s: passkeys are required for administrators", user.Username)
+		log.Printf("Password sign-in refused for administrator ID %d: passkeys are required for administrators", user.ID)
 		return false
-	}
-	if NeedsRehash(hash) {
-		s.rehash(r.Context(), user.ID, hash, password)
 	}
 	return true
 }

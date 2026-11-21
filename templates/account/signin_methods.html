@@ -34,7 +34,35 @@
     .password-form { border: 1px solid var(--border-color); border-radius: 6px; padding: 0.85rem; margin-bottom: 0.8rem; }
     .password-form-title { font-size: 1rem; margin: 0 0 0.6rem; }
     .password-remove { margin: 0; }
+    .proof-box { border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem 0.75rem; }
+    .proof-box > summary { cursor: pointer; color: #a12; font-size: 0.9rem; }
+    .proof-box[open] > summary { margin-bottom: 0.6rem; }
+    .proof-box form { display: block; margin: 0; }
+    .proof-box label { display: block; font-size: 0.9rem; margin-bottom: 0.5rem; }
+    .proof-box input[type="password"] { display: block; width: 16rem; max-width: 100%; margin: 0.2rem 0 0; padding: 0.35rem 0.5rem; }
 </style>
+{{end}}
+
+{{/* What a form that changes a sign-in method asks for, so that being signed
+     in is not enough: the current password, or a passkey confirmation made a
+     moment ago ("Confirm with a passkey" reloads the page with one). */}}
+{{define "ownership-proof"}}
+{{if .PasskeyConfirmed}}
+<p class="methods-help" data-proof-confirmed>Confirmed with your passkey. This lasts 5 minutes and works once.</p>
+{{else}}
+{{if .HasPassword}}
+<label>Your current password, to confirm it's you
+    <input type="password" name="current_password" autocomplete="current-password"{{if not .CanConfirmWithPasskey}} required{{end}} data-proof-password>
+</label>
+{{end}}
+{{if .CanConfirmWithPasskey}}
+<p class="methods-help" data-passkey-ui hidden>{{if .HasPassword}}Or confirm it's you with a passkey you already have:{{else}}First confirm it's you with a passkey you already have:{{end}}
+    <button type="button" class="btn btn-sm" data-passkey-reauth>Confirm with a passkey</button></p>
+{{end}}
+{{if .NoProofPossible}}
+<p class="methods-help" data-proof-impossible>You have no working way to confirm it's you here (no password, and no passkey that works at this address). Ask a club administrator for a recovery link.</p>
+{{end}}
+{{end}}
 {{end}}
 
 {{define "user-controls"}}
@@ -91,12 +119,17 @@
                             <input type="text" id="passkey-name-{{.ID}}" name="name" value="{{.Name}}" maxlength="{{$.MaxNameLength}}" required aria-label="Name for this passkey">
                             <button type="submit" class="btn btn-sm" data-passkey-rename>Rename</button>
                         </form>
-                        {{if $.CanRemove}}
-                        <form method="POST" action="/account/passkeys/{{.ID}}/delete" onsubmit="return confirm('Remove this passkey? You will no longer be able to sign in with it.');">
-                            <button type="submit" class="btn btn-sm btn-danger" data-passkey-remove>Remove</button>
-                        </form>
+                        {{if .CanRemove}}
+                        <details class="proof-box" data-passkey-remove-box>
+                            <summary data-passkey-remove-open>Remove this passkey...</summary>
+                            <form method="POST" action="/account/passkeys/{{.ID}}/delete">
+                                <p class="methods-help">You will no longer be able to sign in with it, and you will be signed out on your other devices.</p>
+                                {{template "ownership-proof" $}}
+                                {{if or $.HasPassword $.PasskeyConfirmed}}<button type="submit" class="btn btn-sm btn-danger" data-passkey-remove>Remove</button>{{end}}
+                            </form>
+                        </details>
                         {{else}}
-                        <span class="methods-help" data-passkey-last-method>This is your only way to sign in, so it can't be removed.</span>
+                        <span class="methods-help" data-passkey-last-method>{{if .Blocked}}This is your only passkey, so it can't be removed. Ask an administrator to check it, or for a recovery link.{{else}}This is your only working way to sign in, so it can't be removed.{{end}}</span>
                         {{end}}
                     </div>
                 </li>
@@ -121,7 +154,26 @@
                     <label for="new-passkey-name">Name for the new passkey (optional)</label>
                     <input type="text" id="new-passkey-name" maxlength="{{.MaxNameLength}}" placeholder="For example: Sam's phone" autocomplete="off">
                 </div>
-                <button type="button" class="btn btn-primary" id="passkey-add" data-passkey-add data-passkey-name="#new-passkey-name"{{if .Next}} data-next="{{.Next}}"{{end}}{{if .Enrol}} autofocus{{end}}>Add a passkey</button>
+                {{if and .HasPassword (not .PasskeyConfirmed)}}
+                <div class="form-group">
+                    <label for="passkey-add-current-password">Your current password, to confirm it's you</label>
+                    <input type="password" id="passkey-add-current-password" autocomplete="current-password" data-proof-password>
+                </div>
+                {{end}}
+                {{if or .HasPassword .PasskeyConfirmed}}
+                <button type="button" class="btn btn-primary" id="passkey-add" data-passkey-add data-passkey-name="#new-passkey-name"{{if and .HasPassword (not .PasskeyConfirmed)}} data-passkey-password="#passkey-add-current-password"{{end}}{{if .Next}} data-next="{{.Next}}"{{end}}{{if .Enrol}} autofocus{{end}}>Add a passkey</button>
+                {{end}}
+            </div>
+            <div data-passkey-add-proof>
+                {{if .PasskeyConfirmed}}
+                <p class="methods-help" data-proof-confirmed>Confirmed with your passkey. This lasts 5 minutes and works once.</p>
+                {{else if .CanConfirmWithPasskey}}
+                <p class="methods-help" data-passkey-ui hidden>{{if .HasPassword}}Or, instead of your password, confirm it's you with a passkey you already have:{{else}}To add another passkey, first confirm it's you with one you already have:{{end}}
+                    <button type="button" class="btn btn-sm" id="passkey-add-confirm" data-passkey-reauth>Confirm with a passkey</button></p>
+                {{else if .NoProofPossible}}
+                <p class="methods-help" data-proof-impossible>To add a passkey you first confirm it's you, and this account has no working way to do that (no password, and no passkey that works). Ask a club administrator for a recovery link.</p>
+                {{end}}
+                <p class="methods-help">Adding a passkey signs you out on your other devices.</p>
             </div>
             {{end}}
         </section>
@@ -154,7 +206,7 @@
                 {{end}}
                 {{if .CanConfirmWithPasskey}}
                 <p class="methods-help">{{if .HasPassword}}Or, instead of typing your current password, confirm it's you with a passkey first:{{else}}First confirm it's you with one of your passkeys:{{end}}</p>
-                <p data-passkey-ui hidden><button type="button" class="btn btn-sm" id="password-confirm-passkey" data-passkey-reauth>Confirm with a passkey</button></p>
+                <p data-passkey-ui hidden><button type="button" class="btn btn-sm" id="password-confirm-passkey" data-passkey-reauth data-reauth-for="password">Confirm with a passkey</button></p>
                 {{end}}
                 {{end}}
                 <div class="form-group">
@@ -167,7 +219,7 @@
                     <label for="new_password_confirm">Type the new password again</label>
                     <input type="password" id="new_password_confirm" name="new_password_confirm" required minlength="{{.MinPassword}}" maxlength="{{.MaxPasswordBytes}}" autocomplete="new-password">
                 </div>
-                {{if .HasPassword}}<p class="methods-help">Changing your password signs you out on your other devices.</p>{{end}}
+                <p class="methods-help">{{if .HasPassword}}Changing your password{{else}}Adding a password{{end}} signs you out on your other devices.</p>
                 <button type="submit" class="btn btn-primary" data-password-submit>{{if .HasPassword}}Change password{{else}}Add password{{end}}</button>
             </form>
             {{else}}
@@ -176,13 +228,27 @@
 
             {{if .HasPassword}}
             {{if .CanRemovePassword}}
-            <form method="POST" action="/account/password/remove" class="password-remove" onsubmit="return confirm('Remove your password? You will sign in with a passkey only.');">
-                <button type="submit" class="btn btn-sm btn-danger" data-password-remove>Remove my password</button>
-            </form>
+            <details class="proof-box password-remove" data-password-remove-box>
+                <summary data-password-remove-open>Remove my password...</summary>
+                <form method="POST" action="/account/password/remove">
+                    <p class="methods-help">You will sign in with a passkey only, and you will be signed out on your other devices.</p>
+                    {{template "ownership-proof" .}}
+                    <button type="submit" class="btn btn-sm btn-danger" data-password-remove>Remove my password</button>
+                </form>
+            </details>
             {{else}}
             <p class="methods-help" data-password-last-method>Your password is your only working way to sign in, so it can't be removed. Add a passkey first.</p>
             {{end}}
             {{end}}
+        </section>
+
+        <section id="sessions" aria-labelledby="sessions-heading" data-other-sessions="{{.OtherSessions}}">
+            <h2 id="sessions-heading">Other devices</h2>
+            <p>{{if eq .OtherSessions 0}}This is the only browser signed in to your account.{{else if eq .OtherSessions 1}}Your account is signed in on 1 other browser or device.{{else}}Your account is signed in on {{.OtherSessions}} other browsers or devices.{{end}}
+               If you left yourself signed in somewhere, or think someone else is using your account, sign out everywhere else. You stay signed in here.</p>
+            <form method="POST" action="{{.SignOutElsewhere}}" style="margin:0">
+                <button type="submit" class="btn btn-sm" data-signout-elsewhere>Sign out everywhere else</button>
+            </form>
         </section>
 
         {{if and .IsAdmin .Warnings}}

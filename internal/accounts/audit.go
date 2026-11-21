@@ -96,6 +96,11 @@ func recordAudit(ctx context.Context, db sqlx.ExtContext, rec Record) error {
 	if rec.TargetUserID != 0 {
 		targetUserID = rec.TargetUserID
 	}
+	// Whatever the caller passed, a row is small.
+	rec.Detail = clipText(rec.Detail, maxAuditDetail)
+	rec.TargetUsername = clipText(rec.TargetUsername, maxAuditName)
+	rec.Actor.Username = clipText(rec.Actor.Username, maxAuditName)
+	rec.Actor.Command = clipText(rec.Actor.Command, maxAuditName)
 	if _, err := db.ExecContext(ctx, `
 		INSERT INTO account_audit_log
 			(created_at, actor_kind, actor_user_id, actor, action, target_user_id, target_username, detail)
@@ -106,6 +111,20 @@ func recordAudit(ctx context.Context, db sqlx.ExtContext, rec Record) error {
 	}
 	log.Print(formatRecord(rec))
 	return nil
+}
+
+// Bounds on what one audit row stores.
+const (
+	maxAuditDetail = 512
+	maxAuditName   = 128
+)
+
+// clipText cuts s to at most max bytes without splitting a character.
+func clipText(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return strings.ToValidUTF8(s[:max], "")
 }
 
 // kind is the actor_kind column value.

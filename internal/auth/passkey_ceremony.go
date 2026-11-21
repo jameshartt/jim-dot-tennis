@@ -42,6 +42,7 @@ type ceremony struct {
 	origin  string // the origin the ceremony was begun for
 	userID  int64  // registration: the signed-in user who began it
 	session string // registration: fingerprint of that user's session cookie
+	proof   string // registration: how ownership was proven at the start (passkey.go)
 	expires time.Time
 }
 

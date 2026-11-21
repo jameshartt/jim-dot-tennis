@@ -33,6 +33,9 @@ const (
 	passkeyLoginFinishPath    = "/login/passkey/finish"
 	passkeyRegisterBeginPath  = PasskeysPathPrefix + "begin"
 	passkeyRegisterFinishPath = PasskeysPathPrefix + "finish"
+
+	// SignOutElsewherePath ends the signed-in user's other sessions (POST).
+	SignOutElsewherePath = "/account/sessions/end-others"
 )
 
 // PasskeyHandler serves passkey sign-in, enrolment and the sign-in methods page.
@@ -72,6 +75,7 @@ func (h *PasskeyHandler) RegisterRoutes(mux *http.ServeMux, m *Middleware) {
 		m.RequireAuth(m.RequireRole(models.RoleAdmin)(http.HandlerFunc(h.clearWarning))))
 	h.registerReauthRoutes(mux, signedIn)
 	mux.Handle("POST "+PasskeyPromptDismissPath, signedIn(h.dismissPasskeyPrompt))
+	mux.Handle("POST "+SignOutElsewherePath, signedIn(h.signOutElsewhere))
 }
 
 // passkeyError is the JSON body of a failed passkey request.
@@ -107,6 +111,16 @@ func writePasskeyFailure(w http.ResponseWriter, err error) {
 		status, msg = http.StatusConflict, "This account already has the most passkeys it can hold. Remove one first."
 	case errors.Is(err, repository.ErrPasskeyExists):
 		status, msg = http.StatusConflict, "That passkey is already registered."
+	case errors.Is(err, ErrProofRequired):
+		status, msg = http.StatusForbidden, "First confirm it's you: type your current password, or confirm with a passkey you already have."
+	case errors.Is(err, ErrWrongCurrentPassword):
+		status, msg = http.StatusForbidden, "Your current password is not right."
+	case errors.Is(err, ErrProofThrottled):
+		status, msg = http.StatusTooManyRequests, "Too many wrong passwords. Wait a few minutes and try again."
+	case errors.Is(err, ErrPasskeyTooNew):
+		status, msg = http.StatusForbidden, "That passkey was only just added, so it can't confirm it's you yet. Use your password or a passkey you have had for longer."
+	case errors.Is(err, ErrUserVerificationRequired):
+		status, msg = http.StatusForbidden, "Administrators need a passkey that checks it's really you. Set a PIN on your security key, or a screen lock, fingerprint or face unlock on your device, then try again."
 	default:
 		log.Printf("passkey: %v", err)
 	}
@@ -134,23 +148,15 @@ func (h *PasskeyHandler) takeCeremonyCookie(w http.ResponseWriter, r *http.Reque
 	return h.passkeys.takeCeremonyCookie(w, r)
 }
 
-// loginBegin starts a passkey sign-in. The optional JSON body carries a
-// username for the username-first path.
+// loginBegin starts a passkey sign-in. It takes no input: the body is read
+// (up to a small limit) and ignored, so a request that names a username gets
+// exactly the answer one without does.
 func (h *PasskeyHandler) loginBegin(w http.ResponseWriter, r *http.Request) {
 	if !requireJSON(w, r) {
 		return
 	}
-	var req struct {
-		Username string `json:"username"`
-	}
-	if err := json.NewDecoder(io.LimitReader(r.Body, 4<<10)).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
-		writePasskeyJSON(w, http.StatusBadRequest, passkeyError{Error: "The request could not be read."})
-		return
-	}
-	if len(req.Username) > 256 {
-		req.Username = req.Username[:256]
-	}
-	options, ticket, err := h.passkeys.BeginLogin(r, req.Username)
+	_, _ = io.Copy(io.Discard, http.MaxBytesReader(w, r.Body, 4<<10))
+	options, ticket, err := h.passkeys.BeginLogin(r)
 	if err != nil {
 		writePasskeyFailure(w, err)
 		return
@@ -160,16 +166,19 @@ func (h *PasskeyHandler) loginBegin(w http.ResponseWriter, r *http.Request) {
 }
 
 // loginFinish verifies the passkey response and signs the user in with the
-// same session a password sign-in creates.
+// same session a password sign-in creates. A session the browser already
+// carries is ended first, as StartSession does, so signing in never leaves
+// an older session of this browser alive behind the new one.
 func (h *PasskeyHandler) loginFinish(w http.ResponseWriter, r *http.Request) {
 	if !requireJSON(w, r) {
 		return
 	}
-	user, err := h.passkeys.FinishLogin(r, h.takeCeremonyCookie(w, r), r.Body)
+	user, err := h.passkeys.FinishLogin(r, h.takeCeremonyCookie(w, r), http.MaxBytesReader(w, r.Body, maxPasskeyBody))
 	if err != nil {
 		writePasskeyFailure(w, err)
 		return
 	}
+	h.service.endCarriedSession(r)
 	session, err := h.service.completeLogin(user, r, SignInPasskey)
 	if err != nil {
 		writePasskeyFailure(w, err)
@@ -193,13 +202,36 @@ func contextUser(w http.ResponseWriter, r *http.Request) (*models.User, bool) {
 	return &user, true
 }
 
-// registerBegin starts enrolling a passkey for the signed-in user.
+// registerBegin starts enrolling a passkey for the signed-in user. Being
+// signed in is not enough (ownership.go): the JSON body carries the current
+// password ({"current_password": "..."}), or the browser holds a passkey
+// confirmation made in this session, which is used up when the ceremony
+// finishes.
 func (h *PasskeyHandler) registerBegin(w http.ResponseWriter, r *http.Request) {
 	user, ok := contextUser(w, r)
 	if !ok || !requireJSON(w, r) {
 		return
 	}
-	options, ticket, err := h.passkeys.BeginRegistration(r, user, h.service.sessionFingerprint(r))
+	var req struct {
+		CurrentPassword string `json:"current_password"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		writePasskeyJSON(w, http.StatusBadRequest, passkeyError{Error: "The request could not be read."})
+		return
+	}
+	proof := proofAtFinish
+	switch {
+	case req.CurrentPassword != "":
+		if err := h.service.CheckCurrentPassword(r, user.ID, req.CurrentPassword); err != nil {
+			writePasskeyFailure(w, err)
+			return
+		}
+		proof = ProofPassword
+	case !h.passkeys.HasReauthProof(r, user.ID):
+		writePasskeyFailure(w, ErrProofRequired)
+		return
+	}
+	options, ticket, err := h.passkeys.BeginRegistration(r, user, h.service.sessionFingerprint(r), proof)
 	if err != nil {
 		writePasskeyFailure(w, err)
 		return
@@ -215,8 +247,9 @@ func (h *PasskeyHandler) registerFinish(w http.ResponseWriter, r *http.Request) 
 	if !ok || !requireJSON(w, r) {
 		return
 	}
-	cred, err := h.passkeys.FinishRegistration(r, user, h.service.sessionFingerprint(r),
-		h.takeCeremonyCookie(w, r), r.Body, r.URL.Query().Get("name"))
+	cred, err := h.passkeys.FinishRegistration(w, r, user, h.service.sessionFingerprint(r),
+		h.takeCeremonyCookie(w, r), http.MaxBytesReader(w, r.Body, maxPasskeyBody), r.URL.Query().Get("name"),
+		SessionIDFromContext(r.Context()))
 	if err != nil {
 		writePasskeyFailure(w, err)
 		return
@@ -260,7 +293,8 @@ func (h *PasskeyHandler) rename(w http.ResponseWriter, r *http.Request) {
 }
 
 // remove deletes one of the signed-in user's own passkeys, never their last
-// sign-in method.
+// usable sign-in method. It needs proof of ownership: the current password in
+// the form, or a passkey confirmation made in this session.
 func (h *PasskeyHandler) remove(w http.ResponseWriter, r *http.Request) {
 	user, ok := contextUser(w, r)
 	if !ok {
@@ -271,10 +305,20 @@ func (h *PasskeyHandler) remove(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	err := h.passkeys.Remove(r.Context(), user, id)
+	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
+	proof, err := h.passkeys.ProveOwnership(w, r, user, r.PostFormValue("current_password"))
+	if err == nil {
+		err = h.passkeys.Remove(r.Context(), user, id, proof, SessionIDFromContext(r.Context()))
+	}
 	switch {
 	case err == nil:
 		backToSignInMethods(w, r, "done", "removed")
+	case errors.Is(err, ErrProofRequired):
+		backToSignInMethods(w, r, "error", "reauth")
+	case errors.Is(err, ErrWrongCurrentPassword):
+		backToSignInMethods(w, r, "error", "wrong")
+	case errors.Is(err, ErrProofThrottled):
+		backToSignInMethods(w, r, "error", "throttled")
 	case errors.Is(err, repository.ErrLastSignInMethod):
 		backToSignInMethods(w, r, "error", "last")
 	case errors.Is(err, repository.ErrAdminNeedsPasskey):
@@ -285,6 +329,21 @@ func (h *PasskeyHandler) remove(w http.ResponseWriter, r *http.Request) {
 		log.Printf("passkey: remove %d for user %d: %v", id, user.ID, err)
 		backToSignInMethods(w, r, "error", "failed")
 	}
+}
+
+// signOutElsewhere ends every other session of the signed-in user ("Sign out
+// everywhere else"); this browser stays signed in.
+func (h *PasskeyHandler) signOutElsewhere(w http.ResponseWriter, r *http.Request) {
+	user, ok := contextUser(w, r)
+	if !ok {
+		return
+	}
+	if _, err := h.passkeys.SignOutEverywhereElse(r.Context(), user, SessionIDFromContext(r.Context())); err != nil {
+		log.Printf("sign out everywhere else for user %d: %v", user.ID, err)
+		backToSignInMethods(w, r, "error", "failed")
+		return
+	}
+	backToSignInMethods(w, r, "done", "signed-out-elsewhere")
 }
 
 // clearWarning (administrators only) lets a passkey with a clone warning
@@ -319,6 +378,8 @@ type passkeyRow struct {
 	LastUsedAt *time.Time
 	Synced     bool // backed up by its provider (iCloud Keychain, Google Password Manager...)
 	Blocked    bool // has a clone warning
+	// CanRemove: removing this one leaves a usable way to sign in.
+	CanRemove bool
 }
 
 // signInMethodsData is what templates/account/signin_methods.html renders.
@@ -332,8 +393,10 @@ type signInMethodsData struct {
 	// HasPassword: the account has a password (an invited or recovered
 	// account may have passkeys only).
 	HasPassword bool
-	// CanRemove: the account has more than one sign-in method, so one can go.
-	CanRemove bool
+	// OtherSessions: how many other sessions the account has (other
+	// browsers and devices signed in).
+	OtherSessions    int
+	SignOutElsewhere string
 	// PasskeysAvailable: passkeys can be enrolled at this web address.
 	PasskeysAvailable bool
 	AtLimit           bool
@@ -351,14 +414,18 @@ type signInMethodsData struct {
 }
 
 var signInMethodsNotices = map[string]string{
-	"added":   "Passkey added. You can use it the next time you sign in.",
-	"renamed": "Passkey renamed.",
-	"removed": "Passkey removed. Also delete it from your device or password manager, so it is not offered again.",
-	"cleared": "Warning cleared. That passkey can sign in again.",
+	"added":                "Passkey added. You can use it the next time you sign in. You have been signed out on your other devices.",
+	"signed-out-elsewhere": "Done. This is now the only browser signed in to your account.",
+	"renamed":              "Passkey renamed.",
+	"removed":              "Passkey removed, and you have been signed out on your other devices. Also delete it from your device or password manager, so it is not offered again.",
+	"cleared":              "Warning cleared. That passkey can sign in again.",
 }
 
 var signInMethodsErrors = map[string]string{
-	"last":         "That is your only way to sign in, so it can't be removed. Add another sign-in method first.",
+	"last":         "That is your only working way to sign in, so it can't be removed. Add another sign-in method first.",
+	"reauth":       "First confirm it's you: type your current password, or confirm with a passkey you already have. A passkey confirmation lasts 5 minutes and works once.",
+	"wrong":        "Your current password is not right. Nothing was changed.",
+	"throttled":    "Too many wrong passwords. Wait a few minutes and try again.",
 	"adminpasskey": "The club requires administrators to sign in with a passkey, so you must keep at least one that works. Add another passkey before removing this one.",
 	"failed":       "Something went wrong. Nothing was changed; please try again.",
 }
@@ -376,17 +443,27 @@ func (h *PasskeyHandler) signInMethods(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	methods, err := h.service.CountSignInMethods(ctx, user.ID)
+	hasPassword, err := h.service.HasPassword(ctx, user.ID)
 	if err != nil {
-		log.Printf("sign-in methods: count for user %d: %v", user.ID, err)
+		log.Printf("sign-in methods: read password state of user %d: %v", user.ID, err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
+	}
+	// Usable ways to sign in: a blocked passkey is not one.
+	usable := 0
+	if hasPassword {
+		usable++
+	}
+	for _, c := range creds {
+		if c.CloneWarningAt == nil {
+			usable++
+		}
 	}
 	q := r.URL.Query()
 	data := signInMethodsData{
 		Username:          user.Username,
-		HasPassword:       methods > len(creds), // the context user carries no hash; methods = passkeys + password
-		CanRemove:         methods > 1,
+		HasPassword:       hasPassword, // the context user carries no hash
+		SignOutElsewhere:  SignOutElsewherePath,
 		PasskeysAvailable: h.passkeys.Available(r),
 		AtLimit:           len(creds) >= MaxPasskeysPerUser,
 		MaxNameLength:     MaxPasskeyNameLength,
@@ -398,10 +475,21 @@ func (h *PasskeyHandler) signInMethods(w http.ResponseWriter, r *http.Request) {
 		HomePath:          h.redirectPath,
 	}
 	for _, c := range creds {
+		blocked := c.CloneWarningAt != nil
+		left := usable
+		if !blocked {
+			left--
+		}
 		data.Passkeys = append(data.Passkeys, passkeyRow{
 			ID: c.ID, Name: c.Name, CreatedAt: c.CreatedAt, LastUsedAt: c.LastUsedAt,
-			Synced: c.BackupState, Blocked: c.CloneWarningAt != nil,
+			Synced: c.BackupState, Blocked: blocked, CanRemove: left > 0,
 		})
+	}
+	if err := h.service.db.GetContext(ctx, &data.OtherSessions, `
+		SELECT COUNT(*) FROM sessions
+		WHERE user_id = ? AND id <> ? AND is_valid = TRUE AND expires_at > CURRENT_TIMESTAMP`,
+		user.ID, SessionIDFromContext(ctx)); err != nil {
+		log.Printf("sign-in methods: count other sessions of user %d: %v", user.ID, err)
 	}
 	if data.IsAdmin {
 		if data.Warnings, err = h.passkeys.CloneWarnings(ctx); err != nil {

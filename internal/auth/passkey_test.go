@@ -66,6 +66,10 @@ type passkeyEnv struct {
 	mu      sync.Mutex
 	clock   time.Time
 	events  []string
+	// keepQuarantine: leave a passkey added by enrol quarantined (it cannot
+	// confirm changes for a while). Off by default, so the many tests that
+	// enrol a passkey and then use it behave as if it had been there a while.
+	keepQuarantine bool
 }
 
 func (e *passkeyEnv) now() time.Time {
@@ -189,10 +193,33 @@ func (b *browser) passwordSignIn(username string) {
 	}
 }
 
-// enrol adds a passkey to the signed-in account with authenticator a.
+// pwForm is a form that proves ownership with the current password.
+var pwForm = url.Values{"current_password": {testPassword}}
+
+// enrolWithPasskey adds a passkey to the signed-in account, proving
+// ownership with a confirmation from the existing passkey cred of authenticator have.
+func (b *browser) enrolWithPasskey(a *softAuthenticator, name string, have *softAuthenticator, cred *softCredential) *softCredential {
+	b.env.t.Helper()
+	reauth(b.env.t, b, have, cred)
+	begin := b.postJSON("/account/passkeys/begin", []byte("{}"))
+	wantStatus(b.env.t, begin, http.StatusOK)
+	body, added := a.create(begin.Body.Bytes(), false)
+	wantStatus(b.env.t, b.postJSON("/account/passkeys/finish?name="+url.QueryEscape(name), body), http.StatusOK)
+	if !b.env.keepQuarantine {
+		b.env.pk.enrolments = newEnrolmentLog()
+	}
+	return added
+}
+
+// enrolBody is what the page posts to begin adding a passkey: the current
+// password, as proof of ownership.
+var enrolBody = []byte(`{"current_password":"` + testPassword + `"}`)
+
+// enrol adds a passkey to the signed-in account with authenticator a,
+// proving ownership with testPassword.
 func (b *browser) enrol(a *softAuthenticator, name string, counts bool) *softCredential {
 	b.env.t.Helper()
-	begin := b.postJSON("/account/passkeys/begin", []byte("{}"))
+	begin := b.postJSON("/account/passkeys/begin", enrolBody)
 	if begin.Code != http.StatusOK {
 		b.env.t.Fatalf("begin registration: status %d, body %s", begin.Code, begin.Body.String())
 	}
@@ -200,6 +227,9 @@ func (b *browser) enrol(a *softAuthenticator, name string, counts bool) *softCre
 	finish := b.postJSON("/account/passkeys/finish?name="+url.QueryEscape(name), body)
 	if finish.Code != http.StatusOK {
 		b.env.t.Fatalf("finish registration: status %d, body %s", finish.Code, finish.Body.String())
+	}
+	if !b.env.keepQuarantine {
+		b.env.pk.enrolments = newEnrolmentLog()
 	}
 	return cred
 }
@@ -251,7 +281,7 @@ func TestPasskeyEnrolAndDiscoverableSignIn(t *testing.T) {
 	b.passwordSignIn("alice")
 
 	// The creation options ask for what the work item specifies.
-	begin := b.postJSON("/account/passkeys/begin", []byte("{}"))
+	begin := b.postJSON("/account/passkeys/begin", enrolBody)
 	wantStatus(t, begin, http.StatusOK)
 	var opts creationOptions
 	if err := json.Unmarshal(begin.Body.Bytes(), &opts); err != nil {
@@ -262,7 +292,7 @@ func TestPasskeyEnrolAndDiscoverableSignIn(t *testing.T) {
 		t.Errorf("rp = %+v", pk.RP)
 	}
 	if pk.AuthenticatorSelection.ResidentKey != "required" || !pk.AuthenticatorSelection.RequireResidentKey ||
-		pk.AuthenticatorSelection.UserVerification != "preferred" || pk.Attestation != "none" {
+		pk.AuthenticatorSelection.UserVerification != "required" || pk.Attestation != "none" { // alice is an administrator (F7)
 		t.Errorf("selection = %+v, attestation %q", pk.AuthenticatorSelection, pk.Attestation)
 	}
 	if pk.Timeout != int(ceremonyLifetime/time.Millisecond) {
@@ -426,7 +456,7 @@ func TestPasskeyChallengeExpires(t *testing.T) {
 
 	// Registration challenges expire too.
 	b.passwordSignIn("alice")
-	begin := b.postJSON("/account/passkeys/begin", []byte("{}"))
+	begin := b.postJSON("/account/passkeys/begin", enrolBody)
 	wantStatus(t, begin, http.StatusOK)
 	created, _ := newAuthenticator(t).create(begin.Body.Bytes(), false)
 	env.advance(ceremonyLifetime + time.Second)
@@ -495,11 +525,11 @@ func TestPasskeyOriginAndRelyingPartyAreVerified(t *testing.T) {
 	// Registration checks them as well.
 	rogue := newAuthenticator(t)
 	rogue.origin = "https://evil.example.com"
-	begin := b.postJSON("/account/passkeys/begin", []byte("{}"))
+	begin := b.postJSON("/account/passkeys/begin", enrolBody)
 	body, _ := rogue.create(begin.Body.Bytes(), false)
 	wantStatus(t, b.postJSON("/account/passkeys/finish", body), http.StatusUnauthorized)
 	rogue.origin, rogue.rpID = testOrigin, "evil.example.com"
-	begin = b.postJSON("/account/passkeys/begin", []byte("{}"))
+	begin = b.postJSON("/account/passkeys/begin", enrolBody)
 	body, _ = rogue.create(begin.Body.Bytes(), false)
 	wantStatus(t, b.postJSON("/account/passkeys/finish", body), http.StatusUnauthorized)
 	if n := env.count(`SELECT COUNT(*) FROM webauthn_credentials`); n != 1 {
@@ -603,111 +633,72 @@ func TestRelyingPartyAddress(t *testing.T) {
 	}
 }
 
-func TestPasskeyUsernameFirstDoesNotRevealAccounts(t *testing.T) {
+// F8 (WI-134): there is no username-first passkey sign-in. Naming a
+// username when beginning a sign-in changes nothing: the answer has the same
+// shape and content (apart from the random challenge) as one without, lists
+// no account's passkeys, and nothing is stored for the name.
+func TestPasskeySignInTakesNoUsername(t *testing.T) {
 	env := newPasskeyEnv(t)
 	a, cred, _ := env.enrolledUser("alice", false)
 	env.addUser("nopasskeys", models.RoleCaptain)
-	inactiveA, _, inactiveID := env.enrolledUser("inactive", false)
-	if _, err := env.svc.db.Exec(`UPDATE users SET is_active = false WHERE id = ?`, inactiveID); err != nil {
-		t.Fatal(err)
+	// A leftover decoy key from the removed path is deleted at startup.
+	env.svc.db.MustExec(`INSERT INTO app_settings (key, value, updated_at) VALUES ('passkey_decoy_key', 'aa', CURRENT_TIMESTAMP)`)
+	NewPasskeys(env.svc, env.src, func() string { return "x" })
+	if n := env.count(`SELECT COUNT(*) FROM app_settings WHERE key = 'passkey_decoy_key'`); n != 0 {
+		t.Errorf("the retired decoy key is still stored")
 	}
 
 	b := env.browser("198.51.100.1")
-	shape := func(username string) (requestOptions, []string) {
+	normalised := func(body []byte) string {
 		t.Helper()
-		raw := b.beginSignIn(username)
-		var opts requestOptions
-		if err := json.Unmarshal(raw, &opts); err != nil {
-			t.Fatal(err)
-		}
-		// The set of JSON keys, at both levels, with values blanked.
+		rec := b.postJSON("/login/passkey/begin", body)
+		wantStatus(t, rec, http.StatusOK)
 		var generic map[string]map[string]any
-		if err := json.Unmarshal(raw, &generic); err != nil {
+		if err := json.Unmarshal(rec.Body.Bytes(), &generic); err != nil {
 			t.Fatal(err)
 		}
-		var keys []string
-		for k := range generic["publicKey"] {
-			keys = append(keys, k)
-		}
-		for _, c := range generic["publicKey"]["allowCredentials"].([]any) {
-			for k := range c.(map[string]any) {
-				keys = append(keys, "allow."+k)
+		pk := generic["publicKey"]
+		if allow, ok := pk["allowCredentials"]; ok && allow != nil {
+			if list, _ := allow.([]any); len(list) != 0 {
+				t.Errorf("body %s: the answer lists credentials: %v", body, allow)
 			}
 		}
-		return opts, keys
+		if ch, _ := pk["challenge"].(string); len(ch) < 20 {
+			t.Errorf("body %s: challenge %q", body, ch)
+		}
+		pk["challenge"] = "x" // random per request
+		out, _ := json.Marshal(generic)
+		return string(out)
 	}
-	sorted := func(s []string) string {
-		m := map[string]bool{}
-		for _, k := range s {
-			m[k] = true
-		}
-		out := ""
-		for _, k := range []string{"challenge", "timeout", "rpId", "allowCredentials", "userVerification", "allow.type", "allow.id", "allow.transports", "hints", "extensions"} {
-			if m[k] {
-				out += k + " "
-				delete(m, k)
-			}
-		}
-		for k := range m {
-			out += "UNEXPECTED:" + k + " "
-		}
-		return out
-	}
-
-	real, realKeys := shape("alice")
-	if len(real.PublicKey.AllowCredentials) != 1 || real.PublicKey.AllowCredentials[0].ID != b64(cred.id) {
-		t.Fatalf("alice's allow list = %+v", real.PublicKey.AllowCredentials)
-	}
-	for _, username := range []string{"nobody", "nopasskeys", "inactive", "ALICE "} {
-		got, keys := shape(username)
-		if sorted(keys) != sorted(realKeys) {
-			t.Errorf("%q: response keys %q differ from a real account's %q", username, sorted(keys), sorted(realKeys))
-		}
-		allow := got.PublicKey.AllowCredentials
-		if len(allow) != 1 || allow[0].Type != "public-key" || len(allow[0].Transports) != 0 {
-			t.Fatalf("%q: allow list = %+v", username, allow)
-		}
-		if n := len(unb64(t, allow[0].ID)); n != 16 && n != 20 && n != 32 {
-			t.Errorf("%q: decoy id is %d bytes", username, n)
-		}
-		// Asking again gives the same decoy, as a real account would.
-		again, _ := shape(username)
-		if again.PublicKey.AllowCredentials[0].ID != allow[0].ID {
-			t.Errorf("%q: decoy id changes between requests", username)
-		}
-		if allow[0].ID == b64(cred.id) {
-			t.Errorf("%q: decoy equals a real credential id", username)
+	plain := normalised([]byte("{}"))
+	for _, body := range []string{
+		`{"username":"alice"}`, `{"username":"nopasskeys"}`, `{"username":"nobody"}`, `{"username":"ALICE "}`, ``,
+	} {
+		if got := normalised([]byte(body)); got != plain {
+			t.Errorf("begin with body %s answered\n%s\nwithout a username it answers\n%s", body, got, plain)
 		}
 	}
-	// Different usernames get different decoys, and an inactive account's
-	// real credential ids are never disclosed.
-	nobody, _ := shape("nobody")
-	someone, _ := shape("someone-else")
-	if nobody.PublicKey.AllowCredentials[0].ID == someone.PublicKey.AllowCredentials[0].ID {
-		t.Error("every unknown username gets the same decoy")
+	if strings.Contains(plain, b64(cred.id)) {
+		t.Error("a credential id is disclosed to an anonymous caller")
 	}
-	inactive, _ := shape("inactive")
-	if inactive.PublicKey.AllowCredentials[0].ID == b64(inactiveA.creds[0].id) {
-		t.Error("an inactive account's credential id was disclosed")
+	if n := env.count(`SELECT COUNT(*) FROM app_settings WHERE key = 'passkey_decoy_key'`); n != 0 {
+		t.Errorf("a decoy key was stored")
 	}
 
-	// The decoy key is per instance, random and persisted.
-	var stored string
-	if err := env.svc.db.Get(&stored, `SELECT value FROM app_settings WHERE key = 'passkey_decoy_key'`); err != nil || len(stored) != 64 {
-		t.Errorf("stored decoy key length %d, %v", len(stored), err)
+	// Discoverable sign-in still works, whatever name was sent at the start.
+	begin := b.postJSON("/login/passkey/begin", []byte(`{"username":"nobody"}`))
+	wantStatus(t, begin, http.StatusOK)
+	wantStatus(t, b.postJSON("/login/passkey/finish", a.get(begin.Body.Bytes(), cred)), http.StatusOK)
+	if !b.signedIn() {
+		t.Fatal("not signed in")
 	}
 
-	// The username-first path really signs the named account in...
-	wantStatus(t, b.postJSON("/login/passkey/finish", a.get(b.beginSignIn("alice"), nil)), http.StatusOK)
-
-	// ...and a ceremony begun for one username cannot be finished with
-	// another account's passkey, or begun with a decoy by anyone.
-	bobAuth, bobCred, _ := env.enrolledUser("bob", false)
-	c := env.browser("198.51.100.8")
-	wantStatus(t, c.postJSON("/login/passkey/finish", bobAuth.get(c.beginSignIn("alice"), bobCred)), http.StatusUnauthorized)
-	wantStatus(t, c.postJSON("/login/passkey/finish", bobAuth.get(c.beginSignIn("nobody"), bobCred)), http.StatusUnauthorized)
-	if c.signedIn() {
-		t.Fatal("signed in through a ceremony begun for another username")
+	// The login page and the script offer no username control for passkeys.
+	page := env.browser("198.51.100.2").do(http.MethodGet, "/login", "", nil).Body.String()
+	for _, gone := range []string{"passkey-signin-username", "data-passkey-username"} {
+		if strings.Contains(page, gone) {
+			t.Errorf("login page still has %s", gone)
+		}
 	}
 }
 
@@ -720,7 +711,7 @@ func TestPasskeyCredentialIDsAreUniqueAcrossUsers(t *testing.T) {
 	b.passwordSignIn("bob")
 	rogue := newAuthenticator(t)
 	rogue.nextID = aliceCred.id // an authenticator that claims alice's credential id
-	begin := b.postJSON("/account/passkeys/begin", []byte("{}"))
+	begin := b.postJSON("/account/passkeys/begin", enrolBody)
 	body, _ := rogue.create(begin.Body.Bytes(), false)
 	wantStatus(t, b.postJSON("/account/passkeys/finish", body), http.StatusConflict)
 	if n := env.count(`SELECT COUNT(*) FROM webauthn_credentials WHERE user_id = ?`, bobID); n != 0 {
@@ -731,7 +722,7 @@ func TestPasskeyCredentialIDsAreUniqueAcrossUsers(t *testing.T) {
 	// either (the browser is told to exclude it, and the server refuses).
 	a := newAuthenticator(t)
 	first := b.enrol(a, "one", false)
-	begin = b.postJSON("/account/passkeys/begin", []byte("{}"))
+	begin = b.postJSON("/account/passkeys/begin", enrolBody)
 	var opts creationOptions
 	_ = json.Unmarshal(begin.Body.Bytes(), &opts)
 	if len(opts.PublicKey.ExcludeCredentials) != 1 || opts.PublicKey.ExcludeCredentials[0].ID != b64(first.id) {
@@ -934,7 +925,7 @@ func TestPasskeyManagementNeedsASessionAndOwnership(t *testing.T) {
 	bob := env.browser("198.51.100.2")
 	bob.passwordSignIn("bob")
 	wantStatus(t, bob.postForm("/account/passkeys/1/rename", url.Values{"name": {"mine now"}}), http.StatusNotFound)
-	wantStatus(t, bob.postForm("/account/passkeys/1/delete", nil), http.StatusNotFound)
+	wantStatus(t, bob.postForm("/account/passkeys/1/delete", pwForm), http.StatusNotFound)
 	creds, _ := env.pk.List(context.Background(), aliceID)
 	if len(creds) != 1 || creds[0].Name != "alice's phone" {
 		t.Fatalf("alice's passkeys after bob's attempts: %+v", creds)
@@ -956,7 +947,7 @@ func TestPasskeyManagementNeedsASessionAndOwnership(t *testing.T) {
 
 	// A registration begun in one session cannot be finished from another
 	// session, or by another user.
-	begin := alice.postJSON("/account/passkeys/begin", []byte("{}"))
+	begin := alice.postJSON("/account/passkeys/begin", enrolBody)
 	wantStatus(t, begin, http.StatusOK)
 	ticket := alice.cookies[ceremonyCookie]
 	body, _ := newAuthenticator(t).create(begin.Body.Bytes(), false)
@@ -964,7 +955,7 @@ func TestPasskeyManagementNeedsASessionAndOwnership(t *testing.T) {
 	bob.cookies[ceremonyCookie] = ticket
 	wantStatus(t, bob.postJSON("/account/passkeys/finish", body), http.StatusBadRequest)
 
-	begin = alice.postJSON("/account/passkeys/begin", []byte("{}"))
+	begin = alice.postJSON("/account/passkeys/begin", enrolBody)
 	ticket = alice.cookies[ceremonyCookie]
 	body, _ = newAuthenticator(t).create(begin.Body.Bytes(), false)
 	aliceElsewhere := env.browser("198.51.100.4")
@@ -978,7 +969,7 @@ func TestPasskeyManagementNeedsASessionAndOwnership(t *testing.T) {
 	// A sign-in ceremony cannot be finished as a registration or vice versa.
 	alice.beginSignIn("")
 	wantStatus(t, alice.postJSON("/account/passkeys/finish", body), http.StatusBadRequest)
-	begin = alice.postJSON("/account/passkeys/begin", []byte("{}"))
+	begin = alice.postJSON("/account/passkeys/begin", enrolBody)
 	wantStatus(t, begin, http.StatusOK)
 	wantStatus(t, alice.postJSON("/login/passkey/finish", body), http.StatusBadRequest)
 }
@@ -997,12 +988,23 @@ func TestPasskeyLastSignInMethodCannotBeRemoved(t *testing.T) {
 	}
 	b := env.browser("198.51.100.1")
 	wantStatus(t, b.passkeySignIn(a, cred), http.StatusOK)
-	b.enrol(newAuthenticator(t), "second", false)
+	b.enrolWithPasskey(newAuthenticator(t), "second", a, cred)
 	if n, _ := env.svc.CountSignInMethods(ctx, userID); n != 2 {
 		t.Fatalf("methods = %d, want 2 passkeys", n)
 	}
 
-	wantStatus(t, b.postForm("/account/passkeys/2/delete", nil), http.StatusSeeOther)
+	// Being signed in is not enough to remove one (F2)...
+	if rec := b.postForm("/account/passkeys/2/delete", nil); !strings.Contains(rec.Header().Get("Location"), "error=reauth") {
+		t.Fatalf("removal without proof: Location %q", rec.Header().Get("Location"))
+	}
+	if n, _ := env.svc.CountSignInMethods(ctx, userID); n != 2 {
+		t.Fatalf("methods = %d after a removal without proof, want 2", n)
+	}
+	// ...a passkey confirmation is.
+	reauth(t, b, a, cred)
+	if rec := b.postForm("/account/passkeys/2/delete", nil); !strings.Contains(rec.Header().Get("Location"), "done=removed") {
+		t.Fatalf("removal with proof: Location %q", rec.Header().Get("Location"))
+	}
 	page := b.do(http.MethodGet, SignInMethodsPath, "", nil)
 	if !strings.Contains(page.Body.String(), "data-passkey-last-method") || strings.Contains(page.Body.String(), "data-passkey-remove") {
 		t.Error("page offers to remove the only sign-in method")
@@ -1010,6 +1012,7 @@ func TestPasskeyLastSignInMethodCannotBeRemoved(t *testing.T) {
 	if !strings.Contains(page.Body.String(), `data-signin-password="none"`) {
 		t.Error("page does not show the account has no password")
 	}
+	reauth(t, b, a, cred)
 	rec := b.postForm("/account/passkeys/1/delete", nil)
 	if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "error=last") {
 		t.Fatalf("removing the last method: status %d, Location %q", rec.Code, rec.Header().Get("Location"))
@@ -1023,6 +1026,7 @@ func TestPasskeyLastSignInMethodCannotBeRemoved(t *testing.T) {
 	if _, err := env.svc.db.Exec(`UPDATE users SET password_hash = 'x' WHERE id = ?`, userID); err != nil {
 		t.Fatal(err)
 	}
+	reauth(t, b, a, cred)
 	rec = b.postForm("/account/passkeys/1/delete", nil)
 	if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "done=removed") {
 		t.Fatalf("removing a passkey with a password set: status %d, Location %q", rec.Code, rec.Header().Get("Location"))
@@ -1090,7 +1094,7 @@ func TestLoginAndSignInMethodsPages(t *testing.T) {
 	}
 	for _, want := range []string{
 		`name="username"`, `name="password"`, `data-passkey-signin data-redirect="/admin/league/players"`,
-		`data-passkey-unsupported`, `data-passkey-status`, `id="passkey-signin-username"`, `<script src="/static/passkey.js">`,
+		`data-passkey-unsupported`, `data-passkey-status`, `<script src="/static/passkey.js">`,
 	} {
 		if !strings.Contains(page, want) {
 			t.Errorf("login page lacks %s", want)
@@ -1143,7 +1147,7 @@ func TestPasskeyLimitPerAccount(t *testing.T) {
 	}
 	b := env.browser("198.51.100.1")
 	b.passwordSignIn("alice")
-	wantStatus(t, b.postJSON("/account/passkeys/begin", []byte("{}")), http.StatusConflict)
+	wantStatus(t, b.postJSON("/account/passkeys/begin", enrolBody), http.StatusConflict)
 }
 
 func TestPasskeyName(t *testing.T) {

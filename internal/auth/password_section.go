@@ -46,6 +46,9 @@ type passwordSection struct {
 	// CanSetPassword: there is a way to confirm a new password (the current
 	// password, or a passkey here).
 	CanSetPassword bool
+	// NoProofPossible: the account has neither a password nor a passkey
+	// usable here, so it cannot confirm any change to its sign-in methods.
+	NoProofPossible bool
 	// AdminPasswordUnusable: the user is an administrator and passkeys are
 	// required for administrators, so a password cannot be used to sign in.
 	AdminPasswordUnusable bool
@@ -60,15 +63,14 @@ type passwordSection struct {
 }
 
 var passwordNotices = map[string]string{
-	"password-added":   "Password added. You can now sign in with it as well.",
+	"password-added":   "Password added. You can now sign in with it as well. You have been signed out on your other devices.",
 	"password-changed": "Password changed. You have been signed out on your other devices.",
-	"password-removed": "Password removed. You sign in with a passkey.",
-	"verified":         "Thanks, that's you. Now set your new password below (within 5 minutes).",
+	"password-removed": "Password removed. You sign in with a passkey. You have been signed out on your other devices.",
 }
 
 var passwordErrors = map[string]string{
 	PasswordErrWrong:    "Your current password is not right.",
-	PasswordErrReauth:   "First confirm it's you: type your current password, or confirm with a passkey. A passkey confirmation lasts 5 minutes and works once.",
+	PasswordErrReauth:   "First confirm it's you: type your current password, or confirm with a passkey you already have. A passkey confirmation lasts 5 minutes and works once.",
 	PasswordErrMismatch: "The two new passwords are not the same. Type them again.",
 	PasswordErrLast:     "Your password is your only working way to sign in, so it can't be removed. Add a passkey first.",
 	PasswordErrNone:     "You have no password to remove.",
@@ -92,7 +94,7 @@ func (h *PasskeyHandler) fillPasswordSection(r *http.Request, user *models.User,
 		}
 	}
 	done := q.Get("done")
-	if strings.HasPrefix(done, "password-") || done == "verified" {
+	if strings.HasPrefix(done, "password-") {
 		data.PasswordNotice = passwordNotices[done]
 	}
 	data.PasswordError = passwordErrorMessage(q.Get("perror"))
@@ -100,6 +102,12 @@ func (h *PasskeyHandler) fillPasswordSection(r *http.Request, user *models.User,
 	data.CanConfirmWithPasskey = data.PasskeysAvailable && usable > 0
 	data.PasskeyConfirmed = h.passkeys.HasReauthProof(r, user.ID)
 	data.CanSetPassword = data.HasPassword || data.CanConfirmWithPasskey
+	// NoProofPossible: nothing here can confirm it's the owner (no password,
+	// and no usable passkey or no passkeys at this address).
+	data.NoProofPossible = !data.CanSetPassword
+	if done == "verified" && data.PasskeyConfirmed {
+		data.Notice = "Thanks, that's you. For the next 5 minutes you can make one change to your sign-in methods without confirming again."
+	}
 	data.AdminPasswordUnusable = data.IsAdmin && data.PasskeysAvailable && h.service.AdminPasskeysRequired(r.Context())
 	data.MinPassword = MinPasswordLength
 	data.MaxPasswordBytes = MaxPasswordBytes

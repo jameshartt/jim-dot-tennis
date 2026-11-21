@@ -23,9 +23,10 @@ import (
 
 // Re-authentication with a passkey.
 //
-// Setting or changing a password needs proof that the person at the keyboard
-// is the account's owner, not just someone holding its session. The proof is
-// either the current password (checked by the accounts service) or a fresh
+// Changing how an account signs in (adding or removing a passkey; adding,
+// changing or removing the password) needs proof that the person at the
+// keyboard is the account's owner, not just someone holding its session
+// (ownership.go). The proof is either the current password or a fresh
 // passkey assertion, made here:
 //
 //  1. POST ReauthBeginPath (signed in, JSON) starts an assertion limited to
@@ -37,9 +38,14 @@ import (
 //     memory by hash, bound to the user and the session's fingerprint, valid
 //     for ReauthProofLifetime, and given to the browser as an HttpOnly,
 //     SameSite=Strict cookie limited to /account/.
-//  3. The password form consumes the proof (ConsumeReauthProof): it is
-//     removed on that first use whatever the outcome, and only counts for the
-//     same user and the same session.
+//  3. The change consumes the proof (ConsumeReauthProof): it is removed on
+//     that first use whatever the outcome, and only counts for the same user
+//     and the same session.
+//
+// A passkey that was itself added from a session a moment ago, or in this
+// session, mints nothing (ErrPasskeyTooNew) unless it is the account's only
+// usable sign-in method. An administrator's assertion must carry the
+// user-verified flag (ErrUserVerificationRequired).
 //
 // A sign-in, however recent, is never proof by itself: only a ceremony run
 // for this purpose mints one.
@@ -142,7 +148,7 @@ func (p *Passkeys) BeginReauth(r *http.Request, user *models.User, sessionFP str
 		return nil, "", err
 	}
 	now := p.now()
-	ip := clientIP(r)
+	ip := ThrottleKey(r)
 	if p.failures.blocked(ip, now) || !p.begins.hit(ip, now) {
 		return nil, "", ErrPasskeyThrottled
 	}
@@ -153,7 +159,12 @@ func (p *Passkeys) BeginReauth(r *http.Request, user *models.User, sessionFP str
 	if len(wu.creds) == 0 {
 		return nil, "", ErrNoPasskeys
 	}
-	options, data, err := wa.BeginLogin(wu, webauthn.WithLoginOrigin(origin))
+	opts := []webauthn.LoginOption{webauthn.WithLoginOrigin(origin)}
+	if requireUserVerification(user) {
+		// The library then refuses an assertion without the user-verified flag.
+		opts = append(opts, webauthn.WithUserVerification(protocol.VerificationRequired))
+	}
+	options, data, err := wa.BeginLogin(wu, opts...)
 	if err != nil {
 		return nil, "", fmt.Errorf("begin passkey re-authentication: %w", err)
 	}
@@ -171,7 +182,7 @@ func (p *Passkeys) BeginReauth(r *http.Request, user *models.User, sessionFP str
 // count towards the client address's passkey throttle.
 func (p *Passkeys) FinishReauth(r *http.Request, user *models.User, sessionFP, ticket string, body io.Reader) (string, error) {
 	now := p.now()
-	ip := clientIP(r)
+	ip := ThrottleKey(r)
 	c, ok := p.ceremonies.take(ticket, ceremonyReauth, now)
 	if p.failures.blocked(ip, now) {
 		return "", ErrPasskeyThrottled
@@ -203,7 +214,14 @@ func (p *Passkeys) FinishReauth(r *http.Request, user *models.User, sessionFP, t
 	// when the authenticator sends one, is wu's).
 	cred, err := wa.ValidateLogin(wu, c.data, parsed)
 	if err != nil {
+		if requireUserVerification(user) && !parsed.Response.AuthenticatorData.Flags.UserVerified() {
+			logPasskeyError("re-authentication", err)
+			return "", ErrUserVerificationRequired
+		}
 		return reject("re-authentication", err)
+	}
+	if requireUserVerification(user) && !parsed.Response.AuthenticatorData.Flags.UserVerified() {
+		return "", ErrUserVerificationRequired
 	}
 	var used *models.WebAuthnCredential
 	for i := range stored {
@@ -233,6 +251,19 @@ func (p *Passkeys) FinishReauth(r *http.Request, user *models.User, sessionFP, t
 	used.BackupState = cred.Flags.BackupState
 	if err := p.creds.RecordUse(r.Context(), used, now); err != nil {
 		return "", fmt.Errorf("record passkey use: %w", err)
+	}
+	// A passkey added from a session a moment ago (or in this one) proves
+	// only that the session could add it. The one exception is a passkey
+	// that is the account's only usable way in: there is nothing older to
+	// ask for, and removing the others needed proof too.
+	if p.enrolments.quarantined(used.ID, sessionFP, now) {
+		methods, err := p.service.CountSignInMethods(r.Context(), user.ID)
+		if err != nil {
+			return "", err
+		}
+		if methods > 1 {
+			return "", ErrPasskeyTooNew
+		}
 	}
 	return p.reauth.put(reauthProof{userID: user.ID, session: sessionFP, expires: now.Add(ReauthProofLifetime)}, now)
 }
@@ -317,13 +348,19 @@ func (h *PasskeyHandler) reauthFinish(w http.ResponseWriter, r *http.Request) {
 	if !ok || !requireJSON(w, r) {
 		return
 	}
-	token, err := h.passkeys.FinishReauth(r, user, h.service.sessionFingerprint(r), h.takeCeremonyCookie(w, r), r.Body)
+	token, err := h.passkeys.FinishReauth(r, user, h.service.sessionFingerprint(r), h.takeCeremonyCookie(w, r),
+		http.MaxBytesReader(w, r.Body, maxPasskeyBody))
 	if err != nil {
 		writePasskeyFailure(w, err)
 		return
 	}
 	h.passkeys.setReauthCookie(w, token)
-	writePasskeyJSON(w, http.StatusOK, map[string]string{"redirect": SignInMethodsPath + "?done=verified#password"})
+	// Back to the part of the page the person was in.
+	anchor := "#passkeys"
+	if r.URL.Query().Get("for") == "password" {
+		anchor = "#password"
+	}
+	writePasskeyJSON(w, http.StatusOK, map[string]string{"redirect": SignInMethodsPath + "?done=verified" + anchor})
 }
 
 // registerReauthRoutes adds the re-authentication endpoints (RegisterRoutes calls it).

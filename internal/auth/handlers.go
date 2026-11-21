@@ -106,19 +106,26 @@ func (h *Handler) LoginHandler() http.HandlerFunc {
 
 		// POST request - process login
 		if r.Method == http.MethodPost {
+			// Nobody's sign-in form is more than a few hundred bytes.
+			r.Body = http.MaxBytesReader(w, r.Body, MaxLoginBody)
 			if err := r.ParseForm(); err != nil {
 				http.Error(w, "Invalid form data", http.StatusBadRequest)
 				return
 			}
 
-			username := r.Form.Get("username")
-			password := r.Form.Get("password")
+			username := r.PostForm.Get("username")
+			password := r.PostForm.Get("password")
 
 			session, err := h.service.Login(username, password, r)
 			if err != nil {
+				// An over-long "username" is not echoed back.
+				shown := username
+				if len(shown) > MaxUsernameBytes {
+					shown = ""
+				}
 				data := loginData{
 					Error:    err.Error(),
-					Username: username,
+					Username: shown,
 					Redirect: safeRedirectPath(r.FormValue("redirect")),
 				}
 

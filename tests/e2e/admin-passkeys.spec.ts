@@ -45,7 +45,7 @@ test("require passkeys for administrators: refused until every admin has one, th
   try {
     await enrolPasskeyFromLink(page, invite, "Admin laptop");
     await page.goto("/account/signin-methods");
-    await page.locator("[data-passkey-reauth]").click();
+    await page.locator("#password-confirm-passkey").click();
     const form = page.locator('form[data-password-form="add"]');
     await expect(page.locator("[data-password-confirmed]")).toBeVisible();
     await form.locator("#new_password").fill(password);

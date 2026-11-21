@@ -25,8 +25,8 @@ const (
 )
 
 var (
-	// ErrReauthRequired: adding or changing a password needs the current
-	// password or a fresh passkey confirmation, and neither was given.
+	// ErrReauthRequired: adding, changing or removing a password needs the
+	// current password or a fresh passkey confirmation, and neither was given.
 	ErrReauthRequired = errors.New("confirm it's you first, with your current password or a passkey")
 	// ErrLastSignInMethod: removing the password would leave the account
 	// without a working way to sign in.
@@ -51,7 +51,7 @@ type PasswordChange struct {
 // PasswordSet says what SetOwnPassword did.
 type PasswordSet struct {
 	Added         bool  // the account had no password before
-	SessionsEnded int64 // a change ends every session (the caller signs this browser in again)
+	SessionsEnded int64 // every session is ended (the caller signs this browser in again)
 	Reauth        string
 }
 
@@ -60,9 +60,9 @@ type PasswordSet struct {
 // account that has one), or a passkey confirmation (ConsumePasskeyProof). A
 // session alone is never enough.
 //
-// Changing an existing password ends every session of the account (the
+// Adding or changing a password ends every session of the account (the
 // caller starts a new one for this browser, so the person stays signed in
-// here and is signed out everywhere else). Adding one ends nothing.
+// here and is signed out everywhere else).
 func (s *Service) SetOwnPassword(ctx context.Context, id int64, ch PasswordChange) (PasswordSet, error) {
 	var u struct {
 		Username     string              `db:"username"`
@@ -121,9 +121,9 @@ func (s *Service) SetOwnPassword(ctx context.Context, id int64, ch PasswordChang
 		action := ActionAddPassword
 		if had {
 			action = ActionChangePassword
-			if out.SessionsEnded, err = endSessions(ctx, tx, id); err != nil {
-				return err
-			}
+		}
+		if out.SessionsEnded, err = endSessions(ctx, tx, id); err != nil {
+			return err
 		}
 		return recordAudit(ctx, tx, Record{Time: s.now(), Actor: UserActor(id, u.Username), Action: action,
 			TargetUserID: id, TargetUsername: u.Username, Detail: fmt.Sprintf("reauth=%s sessions_ended=%d", out.Reauth, out.SessionsEnded)})
@@ -134,17 +134,72 @@ func (s *Service) SetOwnPassword(ctx context.Context, id int64, ch PasswordChang
 	return out, nil
 }
 
-// RemoveOwnPassword removes user id's password. It is refused
+// Proof is what the signed-in user offers to show a change to their sign-in
+// methods comes from the account's owner (auth/ownership.go).
+type Proof struct {
+	// Current is the current password, when the person typed it.
+	Current string
+	// ConsumePasskeyProof, when not nil, uses up a passkey confirmation made
+	// in this session and reports whether it was valid. It is called only
+	// when Current is empty and the change is otherwise going ahead.
+	ConsumePasskeyProof func() bool
+}
+
+// PasswordRemoved says what RemoveOwnPassword did.
+type PasswordRemoved struct {
+	SessionsEnded int64 // every session is ended (the caller signs this browser in again)
+	Reauth        string
+}
+
+// RemoveOwnPassword removes user id's password. Like every change to how an
+// account signs in it needs proof of ownership: the current password or a
+// passkey confirmation (ErrWrongPassword, ErrReauthRequired). It is refused
 // (ErrLastSignInMethod) unless the account keeps a usable passkey (one
 // without a clone warning): the check is part of the UPDATE, so two
 // concurrent removals of the last methods cannot both succeed. An account
-// with no password gets ErrNoPassword.
-func (s *Service) RemoveOwnPassword(ctx context.Context, id int64) error {
-	return s.inTx(ctx, func(tx *sqlx.Tx) error {
+// with no password gets ErrNoPassword. Every session of the account is ended;
+// the caller starts a new one for this browser.
+func (s *Service) RemoveOwnPassword(ctx context.Context, id int64, proof Proof) (PasswordRemoved, error) {
+	var u struct {
+		PasswordHash models.PasswordHash `db:"password_hash"`
+		Usable       int                 `db:"usable"`
+	}
+	err := s.db.GetContext(ctx, &u, `
+		SELECT password_hash, `+repository.UsablePasskeysSQL+` AS usable
+		FROM users WHERE id = ? AND is_active = TRUE`, id, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return PasswordRemoved{}, ErrNotFound
+	}
+	if err != nil {
+		return PasswordRemoved{}, fmt.Errorf("look up account: %w", err)
+	}
+	oldHash := string(u.PasswordHash)
+	// Refusals that need no proof come first, so a passkey confirmation is
+	// not used up on a removal that could never happen.
+	if oldHash == "" {
+		return PasswordRemoved{}, ErrNoPassword
+	}
+	if u.Usable == 0 {
+		return PasswordRemoved{}, ErrLastSignInMethod
+	}
+	out := PasswordRemoved{Reauth: auth.ProofPassword}
+	switch {
+	case proof.Current != "":
+		if !auth.PasswordMatches(oldHash, proof.Current) {
+			return PasswordRemoved{}, ErrWrongPassword
+		}
+	case proof.ConsumePasskeyProof != nil && proof.ConsumePasskeyProof():
+		out.Reauth = auth.ProofPasskey
+	default:
+		return PasswordRemoved{}, ErrReauthRequired
+	}
+	err = s.inTx(ctx, func(tx *sqlx.Tx) error {
+		// Only the password that was checked, and only while a usable
+		// passkey remains.
 		res, err := tx.ExecContext(ctx, `
 			UPDATE users SET password_hash = NULL
-			WHERE id = ? AND is_active = TRUE AND COALESCE(password_hash, '') <> ''
-			  AND `+repository.UsablePasskeysSQL+` > 0`, id, id)
+			WHERE id = ? AND is_active = TRUE AND password_hash = ?
+			  AND `+repository.UsablePasskeysSQL+` > 0`, id, oldHash, id)
 		if err != nil {
 			return fmt.Errorf("remove password: %w", err)
 		}
@@ -158,7 +213,15 @@ func (s *Service) RemoveOwnPassword(ctx context.Context, id int64) error {
 			}
 			return ErrLastSignInMethod
 		}
+		if out.SessionsEnded, err = endSessions(ctx, tx, id); err != nil {
+			return err
+		}
 		return recordAudit(ctx, tx, Record{Time: s.now(), Actor: UserActor(id, a.Username), Action: ActionRemovePassword,
-			TargetUserID: id, TargetUsername: a.Username, Detail: fmt.Sprintf("passkeys=%d", a.Passkeys)})
+			TargetUserID: id, TargetUsername: a.Username,
+			Detail: fmt.Sprintf("passkeys=%d reauth=%s sessions_ended=%d", a.Passkeys, out.Reauth, out.SessionsEnded)})
 	})
+	if err != nil {
+		return PasswordRemoved{}, err
+	}
+	return out, nil
 }

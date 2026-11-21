@@ -71,7 +71,7 @@ func (p *Passkeys) BeginLinkRegistration(w http.ResponseWriter, r *http.Request,
 	if binding == "" {
 		return nil, ErrPasskeyCeremony
 	}
-	options, ticket, err := p.BeginRegistration(r, user, binding)
+	options, ticket, err := p.BeginRegistration(r, user, binding, proofLink)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +89,14 @@ func (p *Passkeys) VerifyLinkRegistration(w http.ResponseWriter, r *http.Request
 	if binding == "" {
 		return nil, ErrPasskeyCeremony
 	}
-	return p.verifyRegistration(r, user, binding, ticket, r.Body, name)
+	m, proof, err := p.verifyRegistration(r, user, binding, ticket, http.MaxBytesReader(w, r.Body, maxPasskeyBody), name)
+	if err != nil {
+		return nil, err
+	}
+	if proof != proofLink {
+		return nil, ErrPasskeyCeremony
+	}
+	return m, nil
 }
 
 // WritePasskeyFailure writes err as the JSON error body the passkey script

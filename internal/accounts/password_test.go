@@ -115,11 +115,13 @@ func TestAddPasswordToPasskeyOnlyAccount(t *testing.T) {
 	}
 	p := &proof{valid: true}
 	res, err := s.SetOwnPassword(ctx, link.UserID, PasswordChange{ConsumePasskeyProof: p.consume, New: "a brand new secret"})
-	if err != nil || !res.Added || res.SessionsEnded != 0 {
+	// Adding a sign-in method ends the account's sessions too (WI-134 F2); the
+	// page starts a new one for the browser that did it.
+	if err != nil || !res.Added || res.SessionsEnded != 1 {
 		t.Fatalf("add password: %+v, %v", res, err)
 	}
-	if validSessions(t, db, link.UserID) != 1 {
-		t.Fatal("adding a password ended sessions")
+	if validSessions(t, db, link.UserID) != 0 {
+		t.Fatal("adding a password left the account's sessions alive")
 	}
 }
 
@@ -128,22 +130,23 @@ func TestRemovePasswordNeverLeavesNoWayIn(t *testing.T) {
 	s, db := newTestService(t)
 	a := mustCreate(t, s, "alice", models.RoleCaptain)
 
-	if err := s.RemoveOwnPassword(ctx, a.ID); !errors.Is(err, ErrLastSignInMethod) {
+	pw := Proof{Current: goodPassword}
+	if _, err := s.RemoveOwnPassword(ctx, a.ID, pw); !errors.Is(err, ErrLastSignInMethod) {
 		t.Fatalf("password only: %v, want ErrLastSignInMethod", err)
 	}
 	// A blocked passkey cannot sign in, so it does not count.
 	blocked := storePasskey(t, db, a.ID, "blocked", true)
-	if err := s.RemoveOwnPassword(ctx, a.ID); !errors.Is(err, ErrLastSignInMethod) {
+	if _, err := s.RemoveOwnPassword(ctx, a.ID, pw); !errors.Is(err, ErrLastSignInMethod) {
 		t.Fatalf("password and a blocked passkey: %v, want ErrLastSignInMethod", err)
 	}
 	storePasskey(t, db, a.ID, "good", false)
-	if err := s.RemoveOwnPassword(ctx, a.ID); err != nil {
+	if _, err := s.RemoveOwnPassword(ctx, a.ID, pw); err != nil {
 		t.Fatalf("remove with a usable passkey: %v", err)
 	}
 	if passwordHash(t, db, a.ID) != "" {
 		t.Fatal("password still set")
 	}
-	if err := s.RemoveOwnPassword(ctx, a.ID); !errors.Is(err, ErrNoPassword) {
+	if _, err := s.RemoveOwnPassword(ctx, a.ID, pw); !errors.Is(err, ErrNoPassword) {
 		t.Fatalf("remove again: %v, want ErrNoPassword", err)
 	}
 	_ = blocked
@@ -156,7 +159,7 @@ func TestRemovePasswordNeverLeavesNoWayIn(t *testing.T) {
 		var wg sync.WaitGroup
 		var errPw, errKey error
 		wg.Add(2)
-		go func() { defer wg.Done(); errPw = s.RemoveOwnPassword(ctx, b.ID) }()
+		go func() { defer wg.Done(); _, errPw = s.RemoveOwnPassword(ctx, b.ID, Proof{Current: goodPassword}) }()
 		go func() { defer wg.Done(); errKey = creds.Delete(ctx, b.ID, key) }()
 		wg.Wait()
 		n, err := repository.CountSignInMethods(ctx, db, b.ID)
@@ -399,7 +402,7 @@ func TestPasswordPageChangeKeepsThisBrowserSignedIn(t *testing.T) {
 	}
 
 	// Wrong current passwords are throttled per address.
-	for i := 0; i < currentPasswordFailureLimit+1; i++ {
+	for i := 0; i < 5+1; i++ {
 		change("wrong again", "another brand new one", "another brand new one")
 	}
 	if rec := change("a brand new secret", "another brand new one", "another brand new one"); !strings.Contains(rec.Header().Get("Location"), "perror=wrong") {

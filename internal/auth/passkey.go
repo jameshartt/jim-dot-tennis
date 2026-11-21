@@ -5,9 +5,6 @@ package auth
 import (
 	"context"
 	"crypto/hmac"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -16,7 +13,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -81,18 +77,15 @@ type PublicURLSource interface {
 type Passkeys struct {
 	service     *Service
 	creds       repository.WebAuthnCredentialRepository
-	settings    repository.SettingsRepository
 	publicURL   PublicURLSource
 	displayName func() string
 
 	ceremonies *ceremonyStore
-	reauth     *reauthStore // passkey re-authentication proofs (reauth.go)
+	reauth     *reauthStore  // passkey re-authentication proofs (reauth.go)
+	enrolments *enrolmentLog // passkeys added from a session (ownership.go)
 	begins     *windowLimiter
 	failures   *windowLimiter
 	now        func() time.Time
-
-	decoyMu  sync.Mutex
-	decoyKey []byte
 
 	audit PasskeyAudit
 }
@@ -109,6 +102,8 @@ const (
 	PasskeyActionRemove       = "passkey.remove"
 	PasskeyActionCloneWarning = "passkey.clone_warning" // sign counter went backwards; sign-in refused
 	PasskeyActionClearWarning = "passkey.clear_warning" // an administrator cleared a clone warning
+	// SessionsActionEndOthers: the user pressed "Sign out everywhere else".
+	SessionsActionEndOthers = "user.sessions_end_others"
 )
 
 // SetAudit sets where passkey changes are recorded. Without it they are
@@ -130,11 +125,11 @@ func NewPasskeys(service *Service, publicURL PublicURLSource, displayName func()
 	p := &Passkeys{
 		service:     service,
 		creds:       repository.NewWebAuthnCredentialRepository(service.db),
-		settings:    repository.NewSettingsRepository(service.db),
 		publicURL:   publicURL,
 		displayName: displayName,
 		ceremonies:  newCeremonyStore(),
 		reauth:      newReauthStore(),
+		enrolments:  newEnrolmentLog(),
 		begins:      newWindowLimiter(passkeyBeginLimit, passkeyBeginWindow),
 		failures:    newWindowLimiter(passkeyFailureLimit, passkeyFailureWindow),
 		now:         time.Now,
@@ -142,6 +137,12 @@ func NewPasskeys(service *Service, publicURL PublicURLSource, displayName func()
 	// The administrator passkey requirement only applies where passkeys can
 	// be used (see Service.adminPasswordRefused).
 	service.passkeysAvailable = p.Available
+	// Sign-in by username was removed (it let anyone ask which usernames
+	// have passkeys); the key behind its decoy answers is no longer used.
+	// Drop the leftover row so nothing of it stays in the database.
+	if _, err := service.db.Exec(`DELETE FROM app_settings WHERE key = ?`, repository.RetiredSettingPasskeyDecoyKey); err != nil {
+		log.Printf("Could not remove the retired %s setting: %v", repository.RetiredSettingPasskeyDecoyKey, err)
+	}
 	return p
 }
 
@@ -216,7 +217,10 @@ func (p *Passkeys) relyingParty(r *http.Request) (*webauthn.WebAuthn, string, er
 			// Discoverable credentials, so sign-in needs no username.
 			ResidentKey:        protocol.ResidentKeyRequirementRequired,
 			RequireResidentKey: &required,
-			UserVerification:   protocol.VerificationPreferred,
+			// Preferred, not required: a security key with no PIN set
+			// still works for an ordinary account. Administrators are
+			// held to "required" (requireUserVerification).
+			UserVerification: protocol.VerificationPreferred,
 		},
 		Timeouts: webauthn.TimeoutsConfig{Login: timeout, Registration: timeout},
 	})
@@ -304,11 +308,33 @@ func (p *Passkeys) List(ctx context.Context, userID int64) ([]models.WebAuthnCre
 	return p.creds.ListByUser(ctx, userID)
 }
 
-// BeginRegistration starts enrolling a passkey for the signed-in user. It
-// returns the options for navigator.credentials.create() and the ceremony
-// ticket to set as the browser's ceremony cookie. sessionFP ties the ceremony
-// to the session that began it.
-func (p *Passkeys) BeginRegistration(r *http.Request, user *models.User, sessionFP string) (*protocol.CredentialCreation, string, error) {
+// requireUserVerification reports whether user's passkeys must verify the
+// person (PIN, fingerprint, face, screen lock) and not just their presence.
+// Administrators' must: a security key with no PIN proves only that someone
+// holds the key. Ordinary accounts keep "preferred", so such keys still work
+// for them.
+func requireUserVerification(user *models.User) bool {
+	return user != nil && user.Role == models.RoleAdmin
+}
+
+// Registration ceremony proofs: how the person proved the account is theirs
+// when the ceremony began.
+const (
+	// proofAtFinish: a passkey confirmation was waiting when the ceremony
+	// began; it is used up when the ceremony finishes.
+	proofAtFinish = ""
+	// proofLink: the ceremony was begun with an invite or recovery link.
+	proofLink = "link"
+)
+
+// BeginRegistration starts enrolling a passkey for user. It returns the
+// options for navigator.credentials.create() and the ceremony ticket to set
+// as the browser's ceremony cookie. binding ties the ceremony to the session
+// that began it (its fingerprint) or to an account link. proof says how
+// ownership was proven (ProofPassword, proofLink, or proofAtFinish when a
+// passkey confirmation is to be used up at the end); the caller has checked
+// it.
+func (p *Passkeys) BeginRegistration(r *http.Request, user *models.User, binding, proof string) (*protocol.CredentialCreation, string, error) {
 	wa, origin, err := p.relyingParty(r)
 	if err != nil {
 		return nil, "", err
@@ -330,15 +356,22 @@ func (p *Passkeys) BeginRegistration(r *http.Request, user *models.User, session
 	for _, c := range wu.creds {
 		exclude = append(exclude, c.Descriptor())
 	}
-	options, data, err := wa.BeginRegistration(wu,
+	opts := []webauthn.RegistrationOption{
 		webauthn.WithExclusions(exclude),
 		webauthn.WithRegistrationOrigin(origin),
-	)
+	}
+	if requireUserVerification(user) {
+		// The library then refuses a response without the user-verified flag.
+		selection := wa.Config.AuthenticatorSelection
+		selection.UserVerification = protocol.VerificationRequired
+		opts = append(opts, webauthn.WithAuthenticatorSelection(selection))
+	}
+	options, data, err := wa.BeginRegistration(wu, opts...)
 	if err != nil {
 		return nil, "", fmt.Errorf("begin passkey registration: %w", err)
 	}
 	ticket, err := p.ceremonies.put(ceremony{
-		kind: ceremonyRegister, data: *data, origin: origin, userID: user.ID, session: sessionFP,
+		kind: ceremonyRegister, data: *data, origin: origin, userID: user.ID, session: binding, proof: proof,
 	}, now)
 	if err != nil {
 		return nil, "", err
@@ -347,60 +380,94 @@ func (p *Passkeys) BeginRegistration(r *http.Request, user *models.User, session
 }
 
 // FinishRegistration verifies the browser's response to BeginRegistration and
-// stores the new passkey for user. The ceremony is consumed whatever the
-// outcome.
-func (p *Passkeys) FinishRegistration(r *http.Request, user *models.User, sessionFP, ticket string, body io.Reader, name string) (*models.WebAuthnCredential, error) {
-	m, err := p.verifyRegistration(r, user, sessionFP, ticket, body, name)
+// stores the new passkey for the signed-in user. The ceremony is consumed
+// whatever the outcome. A ceremony begun on the strength of a passkey
+// confirmation uses that confirmation up here (ErrProofRequired when it is
+// gone). Afterwards the account's other sessions are ended (keepSessionID is
+// the one making the request) and the new passkey is quarantined: it cannot
+// confirm further changes for a while (ownership.go).
+func (p *Passkeys) FinishRegistration(w http.ResponseWriter, r *http.Request, user *models.User, sessionFP, ticket string, body io.Reader, name string, keepSessionID int64) (*models.WebAuthnCredential, error) {
+	m, proof, err := p.verifyRegistration(r, user, sessionFP, ticket, body, name)
 	if err != nil {
 		return nil, err
+	}
+	switch proof {
+	case ProofPassword:
+	case proofAtFinish:
+		if !p.ConsumeReauthProof(w, r, user.ID) {
+			return nil, ErrProofRequired
+		}
+		proof = ProofPasskey
+	default:
+		// A link ceremony is finished by the link page, never here.
+		return nil, ErrPasskeyCeremony
 	}
 	if err := p.creds.Create(r.Context(), m); err != nil {
 		return nil, err
 	}
-	p.event(r.Context(), user, PasskeyActionAdd, fmt.Sprintf("passkey_id=%d", m.ID))
+	p.enrolments.add(m.ID, sessionFP, p.now())
+	p.event(r.Context(), user, PasskeyActionAdd, fmt.Sprintf("passkey_id=%d reauth=%s %s", m.ID, proof, p.endOtherSessions(r.Context(), user.ID, keepSessionID)))
 	return m, nil
 }
 
+// endOtherSessions ends userID's other sessions after a change to its
+// sign-in methods and returns the audit detail for it.
+func (p *Passkeys) endOtherSessions(ctx context.Context, userID, keepSessionID int64) string {
+	ended, err := p.service.EndOtherSessions(ctx, userID, keepSessionID)
+	if err != nil {
+		log.Printf("Failed to end the other sessions of user ID %d: %v", userID, err)
+		return "sessions_ended=failed"
+	}
+	return fmt.Sprintf("sessions_ended=%d", ended)
+}
+
 // verifyRegistration verifies the browser's response to BeginRegistration and
-// returns the new passkey for user without storing it. The ceremony is
-// consumed whatever the outcome. binding must be the value the ceremony was
-// begun with (the session fingerprint, or an account link's binding).
-func (p *Passkeys) verifyRegistration(r *http.Request, user *models.User, binding, ticket string, body io.Reader, name string) (*models.WebAuthnCredential, error) {
+// returns the new passkey for user without storing it, with the proof the
+// ceremony was begun with. The ceremony is consumed whatever the outcome.
+// binding must be the value the ceremony was begun with (the session
+// fingerprint, or an account link's binding).
+func (p *Passkeys) verifyRegistration(r *http.Request, user *models.User, binding, ticket string, body io.Reader, name string) (*models.WebAuthnCredential, string, error) {
 	now := p.now()
 	c, ok := p.ceremonies.take(ticket, ceremonyRegister, now)
 	if !ok {
-		return nil, ErrPasskeyCeremony
+		return nil, "", ErrPasskeyCeremony
 	}
 	// The ceremony belongs to the user and the session (or account link)
 	// that began it.
 	if c.userID != user.ID || c.session == "" || !hmac.Equal([]byte(c.session), []byte(binding)) {
-		return nil, ErrPasskeyCeremony
+		return nil, "", ErrPasskeyCeremony
 	}
 	wa, origin, err := p.relyingParty(r)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	// The public address may have changed since the ceremony began; only the
 	// current one counts.
 	if c.origin != origin || c.data.RelyingPartyID != wa.Config.RPID {
-		return nil, ErrPasskeyCeremony
+		return nil, "", ErrPasskeyCeremony
 	}
 	wu, stored, err := p.loadUser(r.Context(), user)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if len(stored) >= MaxPasskeysPerUser {
-		return nil, ErrPasskeyLimit
+		return nil, "", ErrPasskeyLimit
 	}
 	parsed, err := protocol.ParseCredentialCreationResponseBody(io.LimitReader(body, maxPasskeyBody))
 	if err != nil {
 		logPasskeyError("registration response", err)
-		return nil, ErrPasskeyRejected
+		return nil, "", ErrPasskeyRejected
 	}
 	cred, err := wa.CreateCredential(wu, c.data, parsed)
 	if err != nil {
 		logPasskeyError("registration", err)
-		return nil, ErrPasskeyRejected
+		if requireUserVerification(user) && !parsed.Response.AttestationObject.AuthData.Flags.UserVerified() {
+			return nil, "", ErrUserVerificationRequired
+		}
+		return nil, "", ErrPasskeyRejected
+	}
+	if requireUserVerification(user) && !cred.Flags.UserVerified {
+		return nil, "", ErrUserVerificationRequired
 	}
 
 	transports := make([]string, 0, len(cred.Transport))
@@ -427,15 +494,18 @@ func (p *Passkeys) verifyRegistration(r *http.Request, user *models.User, bindin
 		Name:              PasskeyName(name, now),
 		CreatedAt:         now,
 	}
-	return m, nil
+	return m, c.proof, nil
 }
 
-// BeginLogin starts a passkey sign-in. With an empty username the browser
-// offers any passkey it holds for this site (discoverable sign-in). With a
-// username the options also list that account's passkeys, which helps
-// browsers that cannot list them; the response has the same shape whether or
-// not the username exists or has passkeys (see decoyDescriptors).
-func (p *Passkeys) BeginLogin(r *http.Request, username string) (*protocol.CredentialAssertion, string, error) {
+// BeginLogin starts a passkey sign-in. It is always a discoverable sign-in:
+// the browser offers whichever passkeys it holds for this site and the
+// account is resolved at the end from the user handle inside the signed
+// response. No username is taken and no account's passkeys are ever listed
+// to an anonymous caller (there used to be a username-first path; asking it
+// about a name revealed whether that account had passkeys, and how many).
+// Someone whose authenticator cannot hold a discoverable passkey signs in
+// with a password or gets a recovery link.
+func (p *Passkeys) BeginLogin(r *http.Request) (*protocol.CredentialAssertion, string, error) {
 	wa, origin, err := p.relyingParty(r)
 	if err != nil {
 		return nil, "", err
@@ -445,18 +515,7 @@ func (p *Passkeys) BeginLogin(r *http.Request, username string) (*protocol.Crede
 	if p.failures.blocked(ip, now) || !p.begins.hit(ip, now) {
 		return nil, "", ErrPasskeyThrottled
 	}
-	opts := []webauthn.LoginOption{webauthn.WithLoginOrigin(origin)}
-	if username = strings.TrimSpace(username); username != "" {
-		allowed, err := p.allowedDescriptors(r.Context(), username)
-		if err != nil {
-			return nil, "", err
-		}
-		opts = append(opts, webauthn.WithAllowedCredentials(allowed))
-	}
-	// Always begun as a discoverable sign-in: the account is resolved at the
-	// end from the user handle the authenticator returns, never from the
-	// username typed here.
-	options, data, err := wa.BeginDiscoverableLogin(opts...)
+	options, data, err := wa.BeginDiscoverableLogin(webauthn.WithLoginOrigin(origin))
 	if err != nil {
 		return nil, "", fmt.Errorf("begin passkey sign-in: %w", err)
 	}
@@ -465,81 +524,6 @@ func (p *Passkeys) BeginLogin(r *http.Request, username string) (*protocol.Crede
 		return nil, "", err
 	}
 	return options, ticket, nil
-}
-
-// allowedDescriptors is the allow list for a username-first sign-in: the
-// account's passkeys, or decoys when there is no such active account or it
-// has no passkeys. Only the type and id are sent (no transport hints), so
-// real and decoy entries look alike.
-func (p *Passkeys) allowedDescriptors(ctx context.Context, username string) ([]protocol.CredentialDescriptor, error) {
-	var user models.User
-	if err := p.service.db.GetContext(ctx, &user, `SELECT * FROM users WHERE username = ? AND is_active = true`, username); err == nil {
-		stored, err := p.creds.ListByUser(ctx, user.ID)
-		if err != nil {
-			return nil, err
-		}
-		if len(stored) > 0 {
-			out := make([]protocol.CredentialDescriptor, 0, len(stored))
-			for _, m := range stored {
-				out = append(out, protocol.CredentialDescriptor{Type: protocol.PublicKeyCredentialType, CredentialID: m.CredentialID})
-			}
-			return out, nil
-		}
-	}
-	return p.decoyDescriptors(ctx, username)
-}
-
-// decoyDescriptors returns a made-up credential id for username, so that
-// asking about a username that does not exist, is inactive or has no
-// passkeys gets an answer shaped like a real one. The id is derived from the
-// username with a per-instance random key, so it is the same every time the
-// same username is asked about (a fresh random id each time would give the
-// game away) and cannot be told from a real id without the key. No
-// authenticator holds it, and a ceremony begun with it can never succeed:
-// the library requires the signing account to own every id in the allow
-// list. What this does not hide: an account with several passkeys returns
-// several ids, a decoy always one.
-func (p *Passkeys) decoyDescriptors(ctx context.Context, username string) ([]protocol.CredentialDescriptor, error) {
-	key, err := p.decoyKeyBytes(ctx)
-	if err != nil {
-		return nil, err
-	}
-	mac := hmac.New(sha256.New, key)
-	mac.Write([]byte("passkey-decoy:" + username))
-	sum := mac.Sum(nil)
-	// Real ids vary in length by authenticator; pick a common one.
-	length := []int{16, 20, 32}[int(sum[len(sum)-1])%3]
-	mac = hmac.New(sha256.New, key)
-	mac.Write([]byte("passkey-decoy-id:" + username))
-	id := mac.Sum(nil)[:length]
-	return []protocol.CredentialDescriptor{{Type: protocol.PublicKeyCredentialType, CredentialID: id}}, nil
-}
-
-// decoyKeyBytes returns the instance's decoy key, generating and storing it
-// on first use.
-func (p *Passkeys) decoyKeyBytes(ctx context.Context) ([]byte, error) {
-	p.decoyMu.Lock()
-	defer p.decoyMu.Unlock()
-	if p.decoyKey != nil {
-		return p.decoyKey, nil
-	}
-	if stored, found, err := p.settings.GetString(ctx, repository.SettingPasskeyDecoyKey); err != nil {
-		return nil, err
-	} else if found {
-		if key, err := hex.DecodeString(stored); err == nil && len(key) >= 16 {
-			p.decoyKey = key
-			return key, nil
-		}
-	}
-	key := make([]byte, 32)
-	if _, err := rand.Read(key); err != nil {
-		return nil, err
-	}
-	if err := p.settings.SetString(ctx, repository.SettingPasskeyDecoyKey, hex.EncodeToString(key)); err != nil {
-		return nil, err
-	}
-	p.decoyKey = key
-	return key, nil
 }
 
 // FinishLogin verifies the browser's response to BeginLogin and returns the
@@ -616,6 +600,14 @@ func (p *Passkeys) FinishLogin(r *http.Request, ticket string, body io.Reader) (
 	if account == nil || used == nil {
 		return reject("sign-in", errors.New("verified credential not found in store"))
 	}
+	if requireUserVerification(account) && !parsed.Response.AuthenticatorData.Flags.UserVerified() {
+		// A valid passkey that did not check who is holding it. Not counted
+		// as a failed attempt: the person has the passkey and needs to set
+		// a PIN or screen lock on it. Only the holder of an administrator's
+		// passkey gets this answer.
+		log.Printf("Refused sign-in with passkey ID %d of administrator ID %d: no user verification", used.ID, account.ID)
+		return nil, ErrUserVerificationRequired
+	}
 
 	if cred.Authenticator.CloneWarning {
 		// The signature is valid but the authenticator's counter did not go
@@ -665,14 +657,27 @@ func (p *Passkeys) Rename(ctx context.Context, user *models.User, id int64, name
 	return nil
 }
 
-// Remove deletes one of user's own passkeys, unless it is their last
-// sign-in method (repository.ErrLastSignInMethod).
-func (p *Passkeys) Remove(ctx context.Context, user *models.User, id int64) error {
+// Remove deletes one of user's own passkeys, unless that would leave no
+// usable sign-in method (repository.ErrLastSignInMethod), then ends the
+// account's other sessions (keepSessionID is the one making the request).
+// The caller has checked proof of ownership (ProveOwnership); proof is how.
+func (p *Passkeys) Remove(ctx context.Context, user *models.User, id int64, proof string, keepSessionID int64) error {
 	if err := p.creds.Delete(ctx, user.ID, id); err != nil {
 		return err
 	}
-	p.event(ctx, user, PasskeyActionRemove, fmt.Sprintf("passkey_id=%d", id))
+	p.event(ctx, user, PasskeyActionRemove, fmt.Sprintf("passkey_id=%d reauth=%s %s", id, proof, p.endOtherSessions(ctx, user.ID, keepSessionID)))
 	return nil
+}
+
+// SignOutEverywhereElse ends every session of user except keepSessionID and
+// records it. It needs no proof: it only takes access away.
+func (p *Passkeys) SignOutEverywhereElse(ctx context.Context, user *models.User, keepSessionID int64) (int64, error) {
+	ended, err := p.service.EndOtherSessions(ctx, user.ID, keepSessionID)
+	if err != nil {
+		return 0, err
+	}
+	p.event(ctx, user, SessionsActionEndOthers, fmt.Sprintf("sessions_ended=%d", ended))
+	return ended, nil
 }
 
 // CloneWarnings lists passkeys blocked by a clone warning, for administrators.

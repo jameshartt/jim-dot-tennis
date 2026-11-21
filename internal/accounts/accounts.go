@@ -23,6 +23,7 @@ import (
 
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/repository"
 )
 
 // Errors returned by the service. Their messages are written to be shown to
@@ -32,7 +33,10 @@ var (
 	ErrUsernameTaken = errors.New("that username is already used by another account")
 	ErrInvalidRole   = errors.New("the role must be admin or captain")
 	// ErrLastAdmin: the change would leave no active administrator.
-	ErrLastAdmin = errors.New("this is the last active administrator: make another account an active administrator first")
+	ErrLastAdmin = errors.New("this is the last administrator who can sign in: make sure another active administrator has a working way to sign in first")
+	// ErrEnableNeedsPasskey: enabling the account would add an administrator
+	// without a usable passkey while passkeys are required for administrators.
+	ErrEnableNeedsPasskey = errors.New("the club requires passkeys for administrators, and this administrator account has no working passkey: make it a captain first (it can be made an administrator again once it has a passkey), or turn the requirement off")
 	// ErrWrongPassword: the current password given to SetOwnPassword is wrong.
 	ErrWrongPassword = errors.New("your current password is not right")
 	// ErrNoPassword: RemoveOwnPassword on an account that has no password.
@@ -217,8 +221,10 @@ func (s *Service) createAccount(ctx context.Context, tx *sqlx.Tx, actor Actor, u
 }
 
 // SetActive enables or disables account id. Disabling ends all of the
-// account's sessions and is refused (ErrLastAdmin) for the last active
-// administrator. It returns the account as it is afterwards.
+// account's sessions and is refused (ErrLastAdmin) for the last
+// administrator who can sign in. Enabling an administrator without a usable
+// passkey is refused (ErrEnableNeedsPasskey) while passkeys are required for
+// administrators. It returns the account as it is afterwards.
 func (s *Service) SetActive(ctx context.Context, actor Actor, id int64, active bool) (Account, error) {
 	var after Account
 	err := s.inTx(ctx, func(tx *sqlx.Tx) error {
@@ -227,15 +233,25 @@ func (s *Service) SetActive(ctx context.Context, actor Actor, id int64, active b
 			return err
 		}
 		if active {
-			if _, err := tx.ExecContext(ctx, `UPDATE users SET is_active = TRUE WHERE id = ?`, id); err != nil {
+			// The requirement is part of the statement, like every other
+			// place it applies (admin_passkeys.go).
+			res, err := tx.ExecContext(ctx, `
+				UPDATE users SET is_active = TRUE
+				WHERE id = ? AND NOT (role = 'admin' AND is_active = FALSE
+					AND EXISTS (SELECT 1 FROM app_settings WHERE key = '`+repository.SettingRequireAdminPasskeys+`' AND value = 'true')
+					AND `+repository.UsablePasskeysSQL+` = 0)`, id, id)
+			if err != nil {
 				return fmt.Errorf("enable account: %w", err)
+			}
+			if n, _ := res.RowsAffected(); n == 0 {
+				return ErrEnableNeedsPasskey
 			}
 		} else {
 			// One statement, so two processes (server and command line) cannot
 			// each disable one of the last two administrators.
 			res, err := tx.ExecContext(ctx, `
 				UPDATE users SET is_active = FALSE
-				WHERE id = ? AND NOT (`+lastActiveAdminCondition+`)`, id, id, id)
+				WHERE id = ? AND NOT (`+lastActiveAdminCondition+`)`, id, id, id, id, id)
 			if err != nil {
 				return fmt.Errorf("disable account: %w", err)
 			}
@@ -265,8 +281,8 @@ func (s *Service) SetActive(ctx context.Context, actor Actor, id int64, active b
 	return after, err
 }
 
-// SetRole changes account id's role. Demoting the last active administrator
-// is refused (ErrLastAdmin). It returns the role the account had before.
+// SetRole changes account id's role. Demoting the last administrator who can
+// sign in is refused (ErrLastAdmin). It returns the role the account had before.
 func (s *Service) SetRole(ctx context.Context, actor Actor, id int64, role models.Role) (models.Role, error) {
 	if _, err := ParseRole(string(role)); err != nil {
 		return "", err
@@ -282,7 +298,7 @@ func (s *Service) SetRole(ctx context.Context, actor Actor, id int64, role model
 		args := []any{role, id}
 		if role != models.RoleAdmin {
 			query += ` AND NOT (` + lastActiveAdminCondition + `)`
-			args = append(args, id, id)
+			args = append(args, id, id, id, id)
 		} else {
 			// admin_passkeys.go: no promotion without a passkey while
 			// administrators must use one.
@@ -305,11 +321,27 @@ func (s *Service) SetRole(ctx context.Context, actor Actor, id int64, role model
 	return previous, err
 }
 
-// lastActiveAdminCondition is true for the row being updated (bound twice
-// with its id) when it is the only active administrator.
+// lastActiveAdminCondition is true for the row being updated (bound four
+// times with its id) when taking it out of the administrators would leave
+// the instance without one: it is the only active administrator account, or
+// it is the only administrator who can actually sign in
+// (repository.UsableAdminSQL). The second part is what stops the last working
+// administrator being disabled or demoted because another administrator
+// account exists that nobody can use (an invite never accepted, a
+// password-only account while passkeys are required).
+//
+// An administrator who cannot sign in may be disabled or demoted while
+// another active administrator account remains: that takes nothing away. And
+// nothing here stops the command line creating an administrator or making a
+// recovery link when no usable administrator exists; it guards removal only.
+//
+// It is one expression inside the UPDATE, so the server and the command line
+// cannot each remove one of the last two.
 const lastActiveAdminCondition = `
 	EXISTS (SELECT 1 FROM users WHERE id = ? AND role = 'admin' AND is_active = TRUE)
-	AND (SELECT COUNT(*) FROM users WHERE role = 'admin' AND is_active = TRUE AND id <> ?) = 0`
+	AND ((SELECT COUNT(*) FROM users WHERE role = 'admin' AND is_active = TRUE AND id <> ?) = 0
+		OR (EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND ` + repository.UsableAdminSQL + `)
+			AND (SELECT COUNT(*) FROM users u WHERE u.id <> ? AND ` + repository.UsableAdminSQL + `) = 0))`
 
 // RevokeSessions ends every session of account id and returns how many were
 // still valid.

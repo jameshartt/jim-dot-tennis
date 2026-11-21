@@ -135,7 +135,7 @@ func TestLinkPasskeyCeremonyIsBoundToLinkBrowserAndAccount(t *testing.T) {
 	if code := signedIn.postJSON("/account/passkeys/finish", body).Code; code != http.StatusBadRequest {
 		t.Fatalf("link ceremony finished at the signed-in endpoint: status %d, want 400", code)
 	}
-	rec := signedIn.postJSON("/account/passkeys/begin", []byte("{}"))
+	rec := signedIn.postJSON("/account/passkeys/begin", enrolBody)
 	wantStatus(t, rec, http.StatusOK)
 	body, _ = a.create(rec.Body.Bytes(), false)
 	if code := finish(signedIn, "pat", linkA, body); code != http.StatusBadRequest {

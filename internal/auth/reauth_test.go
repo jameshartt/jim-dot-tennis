@@ -196,7 +196,7 @@ func TestSignInMethodsPasswordSection(t *testing.T) {
 	}
 	reauth(t, b, a, cred)
 	page = b.do(http.MethodGet, SignInMethodsPath+"?done=verified", "", nil).Body.String()
-	if !strings.Contains(page, "data-password-confirmed") || strings.Contains(page, `id="current_password"`) || !strings.Contains(page, "data-password-notice") {
+	if !strings.Contains(page, "data-password-confirmed") || strings.Contains(page, `id="current_password"`) || !strings.Contains(page, "data-signin-notice") {
 		t.Error("confirmed page should drop the current password field")
 	}
 	page = b.do(http.MethodGet, SignInMethodsPath+"?perror=common", "", nil).Body.String()

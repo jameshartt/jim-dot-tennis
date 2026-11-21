@@ -3,6 +3,7 @@
 package auth
 
 import (
+	"context"
 	_ "embed"
 	"errors"
 	"fmt"
@@ -146,8 +147,12 @@ func ValidatePassword(password, username string) error {
 // current one.
 func SamePasswordError() error { return &PasswordPolicyError{Code: PolicySame} }
 
-// HashPassword returns the bcrypt hash of password at BcryptCost.
+// HashPassword returns the bcrypt hash of password at BcryptCost. Like
+// PasswordMatches it waits for one of the process's bcrypt slots
+// (login_gate.go).
 func HashPassword(password string) (string, error) {
+	acquireBcryptSlot(context.Background())
+	defer releaseBcryptSlot()
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), BcryptCost)
 	if err != nil {
 		return "", err
@@ -155,8 +160,13 @@ func HashPassword(password string) (string, error) {
 	return string(hashed), nil
 }
 
-// PasswordMatches reports whether password matches the bcrypt hash.
+// PasswordMatches reports whether password matches the bcrypt hash. Its
+// callers have a session or a valid link and are limited per address; anonymous
+// sign-in uses Service.comparePasswordBounded, which gives up instead of
+// waiting.
 func PasswordMatches(hash, password string) bool {
+	acquireBcryptSlot(context.Background())
+	defer releaseBcryptSlot()
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
 }
 

@@ -5,7 +5,7 @@
 {{define "head"}}
 <title>{{if or .Invalid .Throttled}}Link not available{{else if .IsInvite}}Set up your account{{else}}Get back into your account{{end}} - Jim.Tennis</title>
 <meta name="robots" content="noindex, nofollow">
-<meta name="referrer" content="no-referrer">
+<meta name="referrer" content="same-origin">
 <style>
     [hidden] { display: none !important; }
     .link-container { display: flex; justify-content: center; padding: 1.5rem 0; }

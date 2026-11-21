@@ -35,7 +35,7 @@ const (
 //	POST /account/link/{token}/passkey/finish  enrol the passkey, sign in (JSON)
 //
 // None of them needs a session: holding the link is the authorisation. Every
-// response is uncacheable and sends no referrer, and nothing here logs the
+// response is uncacheable and sends no referrer to any other site, and nothing here logs the
 // request path or the token. A link that is wrong, expired, used, cancelled
 // or for a disabled account gets one and the same answer.
 type LinkPage struct {
@@ -101,7 +101,13 @@ const (
 func (p *LinkPage) serve(w http.ResponseWriter, r *http.Request) {
 	h := w.Header()
 	h.Set("Cache-Control", "no-store")
-	h.Set("Referrer-Policy", "no-referrer")
+	// same-origin: the link's address (which is the secret) is never sent
+	// to another site in a Referer header, and the page links nowhere else
+	// anyway. Not no-referrer: with that policy a browser posts the page's
+	// own form with "Origin: null", and where it sends no Sec-Fetch-Site
+	// header (plain http to a host other than localhost) the cross-origin
+	// guard would refuse the form, so the link could not be used.
+	h.Set("Referrer-Policy", "same-origin")
 	h.Set("X-Robots-Tag", "noindex, nofollow")
 
 	token, action, _ := strings.Cut(strings.TrimPrefix(r.URL.Path, auth.AccountLinkPathPrefix), "/")

@@ -103,3 +103,36 @@ export async function signInWithPassword(
   await page.locator("#password").fill(password);
   await page.locator('form[action="/login"] button[type="submit"]').click();
 }
+
+/**
+ * On the sign-in methods page, confirm it's you with a passkey you already
+ * have (the attached authenticator must hold one that is not brand new).
+ * Changing a sign-in method needs this, or the current password: being signed
+ * in is not enough. The confirmation is good for one change.
+ */
+export async function confirmWithPasskey(page: Page): Promise<void> {
+  await page.locator("#passkey-add-confirm").click();
+  await expect(page.locator("[data-passkey-add-proof] [data-proof-confirmed]")).toBeVisible();
+}
+
+/**
+ * Add a second passkey to a passkey-only account signed in on `page`, whose
+ * `first` authenticator holds its existing passkey: confirm with the first
+ * device, then create the new passkey on a clean one (the first would refuse:
+ * it already holds a passkey for the account). Returns the new device and what
+ * the first one held, so a test can bring the first one back.
+ */
+export async function addSecondPasskey(
+  page: Page,
+  first: VirtualAuthenticator,
+  name: string,
+): Promise<{ second: VirtualAuthenticator; firstHeld: unknown[] }> {
+  await page.goto("/account/signin-methods");
+  await confirmWithPasskey(page);
+  const firstHeld = await first.putAway();
+  const second = await VirtualAuthenticator.add(page);
+  await page.locator("#new-passkey-name").fill(name);
+  await page.locator("#passkey-add").click();
+  await expect(page.locator("[data-passkey-list] > li").filter({ hasText: name })).toHaveCount(1);
+  return { second, firstHeld };
+}

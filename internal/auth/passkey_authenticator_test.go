@@ -27,6 +27,7 @@ type softAuthenticator struct {
 	creds  []*softCredential
 
 	backupEligible bool // passkey provider that syncs (sets BE and BS)
+	noUV           bool // a security key with no PIN: user present, not verified
 	// nextID, when set, is used as the next credential's id instead of a
 	// random one.
 	nextID []byte
@@ -102,6 +103,9 @@ func (a *softAuthenticator) clientData(ceremony, challenge string) []byte {
 
 func (a *softAuthenticator) flags(attested bool) byte {
 	flags := byte(0x01 | 0x04) // user present, user verified
+	if a.noUV {
+		flags = 0x01
+	}
 	if a.backupEligible {
 		flags |= 0x08 | 0x10
 	}

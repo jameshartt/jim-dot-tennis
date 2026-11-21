@@ -12,7 +12,6 @@
     .passkey-help { font-size: 0.9rem; color: #555; margin-top: 0.5rem; }
     .password-signin { margin-top: 1.25rem; border-top: 1px solid var(--border-color); padding-top: 1rem; }
     .password-signin > summary { cursor: pointer; color: #333; font-size: 0.95rem; margin-bottom: 0.75rem; }
-    .passkey-username { background: none; border: 0; padding: 0; margin-top: 1rem; color: var(--primary-color); text-decoration: underline; cursor: pointer; font-size: 0.9rem; }
 </style>
 {{end}}
 {{end}}
@@ -65,10 +64,6 @@
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Login</button>
             </div>
-            {{if .PasskeysAvailable}}
-            <button type="button" class="passkey-username" id="passkey-signin-username" data-passkey-ui hidden
-                    data-passkey-signin data-passkey-username="#username"{{if .Redirect}} data-redirect="{{.Redirect}}"{{end}}>Use a passkey for this username instead</button>
-            {{end}}
         </form>
         {{if .PasskeysAvailable}}
         </details>

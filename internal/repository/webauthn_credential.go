@@ -17,10 +17,11 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// SettingPasskeyDecoyKey is the per-instance random key (hex) behind the
-// decoy credential ids the username-first passkey sign-in returns for
-// usernames that have no passkeys. Generated on first use; never shown.
-const SettingPasskeyDecoyKey = "passkey_decoy_key"
+// RetiredSettingPasskeyDecoyKey was the per-instance key behind the decoy
+// credential ids of the username-first passkey sign-in, which no longer
+// exists. Nothing reads it; the server deletes a leftover row at startup
+// (auth.NewPasskeys).
+const RetiredSettingPasskeyDecoyKey = "passkey_decoy_key"
 
 // userHandleBytes is the length of a WebAuthn user handle (the maximum the
 // specification allows is 64).
@@ -38,13 +39,15 @@ var (
 )
 
 // CountSignInMethods is the number of ways userID can sign in: one per
-// passkey, plus one for a password. It is the one place that defines "sign-in
-// method", so the last-method guard and the pages agree. q may be a
-// transaction.
+// usable passkey, plus one for a password. A passkey blocked by a clone
+// warning cannot sign in, so it does not count: otherwise the last-method
+// guard would let someone delete their only working passkey because a
+// blocked one remained. It is the one place that defines "sign-in method",
+// so the last-method guard and the pages agree. q may be a transaction.
 func CountSignInMethods(ctx context.Context, q sqlx.QueryerContext, userID int64) (int, error) {
 	var n int
 	err := sqlx.GetContext(ctx, q, &n, `
-		SELECT (SELECT COUNT(*) FROM webauthn_credentials WHERE user_id = ?)
+		SELECT (SELECT COUNT(*) FROM webauthn_credentials WHERE user_id = ? AND clone_warning_at IS NULL)
 		     + (SELECT COUNT(*) FROM users WHERE id = ? AND COALESCE(password_hash, '') <> '')
 	`, userID, userID)
 	return n, err
@@ -68,8 +71,9 @@ type WebAuthnCredentialRepository interface {
 	CloneWarnings(ctx context.Context) ([]models.PasskeyWarning, error)
 	// Rename renames userID's passkey id; ErrPasskeyNotFound when it is not theirs.
 	Rename(ctx context.Context, userID, id int64, name string) error
-	// Delete removes userID's passkey id unless it is their last sign-in
-	// method (ErrLastSignInMethod) or an administrator's last usable passkey
+	// Delete removes userID's passkey id unless that leaves no usable sign-in
+	// method (ErrLastSignInMethod; a blocked passkey can always go while a
+	// usable method remains) or it is an administrator's last usable passkey
 	// while passkeys are required for administrators (ErrAdminNeedsPasskey);
 	// ErrPasskeyNotFound when it is not theirs.
 	Delete(ctx context.Context, userID, id int64) error
