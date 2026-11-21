@@ -5,6 +5,13 @@
 {{define "head"}}
 <title>Set up: create your login - Jim.Tennis</title>
 {{template "setup-head" .}}
+{{if .PasskeyOffer}}
+<style>
+    [hidden] { display: none !important; }
+    .setup-passkey { margin-top: 1rem; }
+    .setup-passkey .btn { width: 100%; padding: 0.8rem; font-size: 1rem; border-color: var(--border-color); }
+</style>
+{{end}}
 {{end}}
 
 {{define "user-controls"}}{{end}}
@@ -38,6 +45,15 @@
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Create my login</button>
             </div>
+            {{if .PasskeyOffer}}
+            {{/* Offered only where passkeys work (static/passkey.js reveals it).
+                 It creates the same login, then goes on to add a passkey. */}}
+            <input type="hidden" name="then" value="">
+            <div class="setup-passkey" data-passkey-ui hidden>
+                <button type="button" class="btn" id="setup-passkey" data-passkey-setup data-field="then">Create my login, then add a passkey</button>
+                <p class="setup-help">A passkey lets you sign in with your fingerprint, face or screen lock instead of typing the password. You can also add one later from the dashboard.</p>
+            </div>
+            {{end}}
         </form>
         <details class="setup-details">
             <summary>What if I close this page?</summary>
@@ -45,4 +61,8 @@
         </details>
     </div>
 </div>
+{{end}}
+
+{{define "scripts"}}
+{{if .PasskeyOffer}}<script src="/static/passkey.js"></script>{{end}}
 {{end}}

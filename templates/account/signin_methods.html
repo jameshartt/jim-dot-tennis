@@ -1,0 +1,151 @@
+{{define "account/signin_methods.html"}}
+{{template "layout" .}}
+{{end}}
+
+{{define "head"}}
+<title>Sign-in methods - Jim.Tennis</title>
+<meta name="robots" content="noindex">
+<style>
+    [hidden] { display: none !important; }
+    .methods-container { display: flex; justify-content: center; padding: 1.5rem 0; }
+    .methods-card { background: #fff; padding: 1.75rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100%; max-width: 640px; }
+    .methods-card h1 { color: var(--primary-color); margin-bottom: 0.5rem; font-size: 1.6rem; }
+    .methods-card h2 { font-size: 1.15rem; margin: 1.5rem 0 0.6rem; }
+    .methods-card p { margin-bottom: 0.8rem; line-height: 1.5; }
+    .methods-help { font-size: 0.9rem; color: #555; }
+    .passkey-list { list-style: none; padding: 0; margin: 0 0 1rem; }
+    .passkey-list > li { border: 1px solid var(--border-color); border-radius: 6px; padding: 0.85rem; margin-bottom: 0.6rem; }
+    .passkey-name { font-weight: 600; }
+    .passkey-meta { font-size: 0.85rem; color: #555; margin: 0.2rem 0 0.6rem; }
+    .passkey-badge { display: inline-block; font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 999px; background: #eef2ee; color: #333; margin-left: 0.4rem; font-weight: normal; }
+    .passkey-badge.blocked { background: #f8d7da; color: #721c24; }
+    .passkey-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    .passkey-actions form { display: flex; gap: 0.4rem; align-items: center; margin: 0; }
+    .passkey-actions input[type="text"] { width: 12rem; max-width: 100%; margin: 0; padding: 0.35rem 0.5rem; }
+    .passkey-add { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-end; }
+    .passkey-add .form-group { margin: 0; flex: 1 1 14rem; }
+    .methods-footer { margin-top: 1.5rem; display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .passkey-warnings { border: 1px solid #f5c6cb; border-radius: 6px; padding: 0.85rem; background: #fff8f8; }
+    .passkey-warnings ul { list-style: none; padding: 0; margin: 0; }
+    .passkey-warnings li { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: space-between; padding: 0.4rem 0; }
+    .passkey-warnings form { margin: 0; }
+</style>
+{{end}}
+
+{{define "user-controls"}}
+<form method="POST" action="/logout" style="margin:0"><button type="submit" class="btn btn-sm">Sign out</button></form>
+{{end}}
+
+{{define "content"}}
+<div class="methods-container">
+    <div class="methods-card" data-page="signin-methods">
+        <h1>Sign-in methods</h1>
+        <p>You are signed in as <strong>{{.Username}}</strong>. These are the ways you can sign in.</p>
+
+        {{if .Notice}}<div class="alert alert-success" role="status" data-signin-notice>{{.Notice}}</div>{{end}}
+        {{if .Error}}<div class="alert alert-danger" role="alert" data-signin-error>{{.Error}}</div>{{end}}
+        <div class="alert alert-danger" role="alert" id="passkey-status" data-passkey-status hidden></div>
+
+        <section id="passkeys" aria-labelledby="passkeys-heading">
+            <h2 id="passkeys-heading">Passkeys</h2>
+            <p class="methods-help">A passkey signs you in with your fingerprint, face or screen lock. It is kept by your phone, computer or password manager, and there is nothing to remember.</p>
+
+            {{if .Passkeys}}
+            <ul class="passkey-list" data-passkey-list>
+                {{range .Passkeys}}
+                <li data-passkey-id="{{.ID}}"{{if .Blocked}} data-passkey-blocked{{end}}>
+                    <div class="passkey-name">
+                        <span data-passkey-name-text>{{.Name}}</span>
+                        {{if .Synced}}<span class="passkey-badge">Synced</span>{{end}}
+                        {{if .Blocked}}<span class="passkey-badge blocked">Blocked</span>{{end}}
+                    </div>
+                    <p class="passkey-meta">
+                        Added <time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.CreatedAt.Format "2 Jan 2006"}}</time>
+                        &middot;
+                        <span data-passkey-last-used>{{if .LastUsedAt}}Last used <time datetime="{{.LastUsedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.LastUsedAt.Format "2 Jan 2006 15:04"}}</time>{{else}}Not used yet{{end}}</span>
+                    </p>
+                    {{if .Blocked}}
+                    <p class="methods-help">This passkey reported something that can mean it has been copied, so it can't sign in. Remove it and add a new one, or ask an administrator to check.</p>
+                    {{end}}
+                    <div class="passkey-actions">
+                        <form method="POST" action="/account/passkeys/{{.ID}}/rename">
+                            <input type="text" id="passkey-name-{{.ID}}" name="name" value="{{.Name}}" maxlength="{{$.MaxNameLength}}" required aria-label="Name for this passkey">
+                            <button type="submit" class="btn btn-sm" data-passkey-rename>Rename</button>
+                        </form>
+                        {{if $.CanRemove}}
+                        <form method="POST" action="/account/passkeys/{{.ID}}/delete" onsubmit="return confirm('Remove this passkey? You will no longer be able to sign in with it.');">
+                            <button type="submit" class="btn btn-sm btn-danger" data-passkey-remove>Remove</button>
+                        </form>
+                        {{else}}
+                        <span class="methods-help" data-passkey-last-method>This is your only way to sign in, so it can't be removed.</span>
+                        {{end}}
+                    </div>
+                </li>
+                {{end}}
+            </ul>
+            {{else}}
+            <p data-passkey-none>You have no passkeys yet.</p>
+            {{end}}
+
+            {{if not .PasskeysAvailable}}
+            <div class="alert alert-info" data-passkey-unavailable>
+                Passkeys can't be added at this web address. {{if .IsAdmin}}Set the site's public address on the Club Settings page (it must be the address people actually use), then open the site at that address.{{else}}Open the site at its usual address, or ask an administrator.{{end}}
+            </div>
+            {{else if .AtLimit}}
+            <p class="methods-help">This account has the most passkeys it can hold. Remove one to add another.</p>
+            {{else}}
+            <div class="alert alert-info" data-passkey-unsupported hidden>
+                This browser can't use passkeys here. Try a current version of Safari, Chrome, Edge or Firefox.
+            </div>
+            <div class="passkey-add" data-passkey-ui hidden>
+                <div class="form-group">
+                    <label for="new-passkey-name">Name for the new passkey (optional)</label>
+                    <input type="text" id="new-passkey-name" maxlength="{{.MaxNameLength}}" placeholder="For example: Sam's phone" autocomplete="off">
+                </div>
+                <button type="button" class="btn btn-primary" id="passkey-add" data-passkey-add data-passkey-name="#new-passkey-name"{{if .Next}} data-next="{{.Next}}"{{end}}{{if .Enrol}} autofocus{{end}}>Add a passkey</button>
+            </div>
+            {{end}}
+        </section>
+
+        <section id="password" aria-labelledby="password-heading" data-signin-password="{{if .HasPassword}}set{{else}}none{{end}}">
+            <h2 id="password-heading">Password</h2>
+            {{if .HasPassword}}
+            <p>You have a password. <a href="/account/password">Change it</a>.</p>
+            {{else}}
+            <p>You have no password: you sign in with a passkey.</p>
+            {{end}}
+        </section>
+
+        {{if and .IsAdmin .Warnings}}
+        <section id="passkey-warnings" aria-labelledby="warnings-heading" data-passkey-warnings>
+            <h2 id="warnings-heading">Passkeys blocked for a security check</h2>
+            <div class="passkey-warnings">
+                <p class="methods-help">These passkeys reported a sign-in counter that went backwards, which can mean the passkey was copied to another device. They can't sign in. Check with the person: if they recognise the sign-in attempt and trust their device, clear the warning; if not, ask them to remove the passkey and add a new one.</p>
+                <ul>
+                    {{range .Warnings}}
+                    <li data-warning-passkey-id="{{.ID}}">
+                        <span><strong>{{.Username}}</strong>: {{.Name}} (since {{.CloneWarningAt.Format "2 Jan 2006 15:04"}})</span>
+                        <form method="POST" action="/account/passkeys/{{.ID}}/clear-warning" onsubmit="return confirm('Let this passkey sign in again?');">
+                            <button type="submit" class="btn btn-sm" data-passkey-clear-warning>Clear warning</button>
+                        </form>
+                    </li>
+                    {{end}}
+                </ul>
+            </div>
+        </section>
+        {{end}}
+
+        <div class="methods-footer">
+            {{if .Next}}
+            <a href="{{.Next}}" class="btn btn-primary" data-signin-continue>Continue</a>
+            {{else}}
+            <a href="{{.HomePath}}" class="btn" data-signin-back>Back to the dashboard</a>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script src="/static/passkey.js"></script>
+{{end}}

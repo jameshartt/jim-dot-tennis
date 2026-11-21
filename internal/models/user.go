@@ -54,3 +54,37 @@ type LoginAttempt struct {
 	Success   bool      `db:"success"`
 	CreatedAt time.Time `db:"created_at"`
 }
+
+// WebAuthnCredential is one enrolled passkey.
+type WebAuthnCredential struct {
+	ID                int64      `db:"id"`
+	UserID            int64      `db:"user_id"`
+	CredentialID      []byte     `db:"credential_id"`
+	PublicKey         []byte     `db:"public_key"`
+	AttestationType   string     `db:"attestation_type"`
+	AttestationFormat string     `db:"attestation_format"`
+	AAGUID            []byte     `db:"aaguid"`
+	SignCount         uint32     `db:"sign_count"`
+	Transports        string     `db:"transports"` // comma-separated transport hints
+	Attachment        string     `db:"attachment"`
+	UserPresent       bool       `db:"user_present"`
+	UserVerified      bool       `db:"user_verified"`
+	BackupEligible    bool       `db:"backup_eligible"`
+	BackupState       bool       `db:"backup_state"`
+	Name              string     `db:"name"`
+	CreatedAt         time.Time  `db:"created_at"`
+	LastUsedAt        *time.Time `db:"last_used_at"`
+	// CloneWarningAt is when the authenticator's sign counter was seen going
+	// backwards (a possible copy). While set the passkey cannot sign in.
+	CloneWarningAt *time.Time `db:"clone_warning_at"`
+}
+
+// PasskeyWarning is a passkey with a clone warning, with its owner, for the
+// administrators' list.
+type PasskeyWarning struct {
+	ID             int64     `db:"id"`
+	UserID         int64     `db:"user_id"`
+	Username       string    `db:"username"`
+	Name           string    `db:"name"`
+	CloneWarningAt time.Time `db:"clone_warning_at"`
+}

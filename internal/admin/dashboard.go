@@ -5,6 +5,10 @@ package admin
 import (
 	"log"
 	"net/http"
+
+	"jim-dot-tennis/internal/auth"
+	"jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/repository"
 )
 
 // DashboardHandler handles dashboard-related requests
@@ -62,8 +66,22 @@ func (h *DashboardHandler) HandleDashboard(w http.ResponseWriter, r *http.Reques
 		awaitingReschedule = nil // Non-fatal: dashboard still renders without the nudge
 	}
 
+	// Passkeys blocked because their sign counter went backwards (a possible
+	// copy): administrators are told here and review them on the sign-in
+	// methods page.
+	passkeyWarnings := 0
+	if user.Role == models.RoleAdmin {
+		warnings, err := repository.NewWebAuthnCredentialRepository(h.service.db).CloneWarnings(r.Context())
+		if err != nil {
+			log.Printf("Failed to load passkey warnings for dashboard: %v", err)
+		}
+		passkeyWarnings = len(warnings)
+	}
+
 	// Prepare template data
 	templateData := map[string]interface{}{
+		"PasskeyWarnings":    passkeyWarnings,
+		"SignInMethodsPath":  auth.SignInMethodsPath,
 		"User":               user,
 		"Stats":              dashboardData.Stats,
 		"LoginAttempts":      dashboardData.LoginAttempts,

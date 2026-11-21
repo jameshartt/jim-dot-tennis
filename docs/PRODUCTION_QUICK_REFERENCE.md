@@ -402,6 +402,72 @@ Good to know
     run until it has (starting the app upgrades the database).
 ```
 
+### 11. Passkeys
+
+People sign in with a passkey (fingerprint, face or screen lock) or with a
+username and password. The login page leads with "Sign in with a passkey"; the
+password form stays underneath. Each person adds, names and removes their own
+passkeys on the **Sign-in methods** page (`/account/signin-methods`, linked from
+the dashboard header). A passkey that is someone's only way to sign in cannot be
+removed. First-run setup offers "Create my login, then add a passkey".
+
+**Passkeys are tied to the public URL.** A passkey only works at the web address
+it was made for: the host of `PUBLIC_URL` (or the Public URL on the Club Settings
+page) is the passkey "relying-party ID", and the whole origin (`https://host[:port]`)
+is checked on every sign-in. The app reads the setting on every request, so a
+change takes effect at once. Consequences:
+
+- **Changing the domain (or moving between `www.` and the bare name) makes every
+  existing passkey stop working.** Nothing is deleted, and changing it back makes
+  them work again. Before changing it, make sure every administrator has a
+  password (or use `jim-dot-tennis user reset <username>` on the server
+  afterwards, section 10); afterwards each person adds a new passkey and removes
+  the old one.
+- The address must be the one people actually type. Opening the site by IP
+  address or by another name gives a login page without the passkey button
+  (browsers would refuse the passkey anyway). An IP address can never be a
+  passkey address: use a host name.
+- With no public URL configured (not possible in production, where the app
+  refuses to start without one) passkeys are switched off and the login page
+  shows only the password form. The request's `Host` header is never trusted
+  for this.
+
+**A passkey marked "Blocked".** Some authenticators count their uses. If a
+passkey reports a count that went backwards, a copy of it may be in use: the
+sign-in is refused, the passkey is blocked, a `SECURITY WARNING` line is logged
+and administrators see a red banner on the dashboard. On the Sign-in methods
+page an administrator can clear the warning after checking with the person, or
+the person can remove the passkey and add a new one.
+
+**Throttling.** Passkey attempts are limited per client address only (10 failed
+sign-ins per 15 minutes, 30 started per minute), never per username, so nobody
+can lock a named person out. Failed passkey attempts show in the dashboard's
+login attempts as `(passkey)`.
+
+**Nothing leaves the server.** No attestation is requested and no authenticator
+metadata is fetched; `static/passkey.js` is the only script involved and is
+served by the app.
+
+**Local development.** WebAuthn needs https, with one exception: `http://localhost`.
+
+```bash
+# Simplest: no public URL, development mode, and open the app as localhost.
+DEV_MODE=true            # already set by docker-compose.yml, make run-local, scripts/run.sh
+# browse to http://localhost:8080  (not 127.0.0.1, not a LAN address or container name)
+
+# Or pin it explicitly (also needed if you reach the app through a port mapping
+# and want the address fixed):
+DEV_MODE=true PUBLIC_URL=http://localhost:8080
+```
+
+With `DEV_MODE=true`, no public URL and a request addressed to `localhost`, the
+app uses `http://localhost:<port>` as the passkey origin. Any other host name in
+that situation gets no passkeys. `DEV_MODE` is refused in production, so this
+never applies to a live site. The Playwright containers reach the app as
+`http://app-e2e:8080`, which is not a passkey-capable address: the e2e suites
+see the plain password form unless a test sets `PUBLIC_URL` and tells the
+browser to treat that origin as secure.
+
 ---
 
 ## Go Tooling (Sprint 004)

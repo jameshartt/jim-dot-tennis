@@ -3,6 +3,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -126,21 +127,47 @@ func (s *Service) Login(username, password string, r *http.Request) (*models.Ses
 	// Record successful login attempt
 	s.recordLoginAttempt(username, r, true)
 
-	// Update last login time
+	return s.completeLogin(&user, r)
+}
+
+// completeLogin is the one path from "this user has proven who they are" to
+// a session, whatever the sign-in method (password, passkey): it stamps the
+// last sign-in time and creates the session. Because both methods end here,
+// their sessions are identical and follow the same expiry rules.
+func (s *Service) completeLogin(user *models.User, r *http.Request) (*models.Session, error) {
 	if _, err := s.db.Exec(`
-		UPDATE users 
-		SET last_login_at = ? 
+		UPDATE users
+		SET last_login_at = ?
 		WHERE id = ?
 	`, time.Now(), user.ID); err != nil {
 		log.Printf("Failed to update last login time: %v", err)
 	}
 
-	session, err := s.createSession(&user, r)
+	session, err := s.createSession(user, r)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Successfully created session in database for user %s", username)
+	log.Printf("Successfully created session in database for user %s", user.Username)
 	return session, nil
+}
+
+// CountSignInMethods is the number of ways userID can sign in (passkeys plus
+// a password). Removing a sign-in method is only allowed while this is more
+// than one; see repository.CountSignInMethods, the single definition.
+func (s *Service) CountSignInMethods(ctx context.Context, userID int64) (int, error) {
+	return repository.CountSignInMethods(ctx, s.db, userID)
+}
+
+// sessionFingerprint is a non-reversible fingerprint of the request's session
+// cookie ("" without one), used to tie a passkey enrolment to the session
+// that began it.
+func (s *Service) sessionFingerprint(r *http.Request) string {
+	cookie, err := r.Cookie(s.config.CookieName)
+	if err != nil || cookie.Value == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte("passkey-ceremony:" + cookie.Value))
+	return hex.EncodeToString(sum[:])
 }
 
 // createSession stores a new session for user and returns it.
