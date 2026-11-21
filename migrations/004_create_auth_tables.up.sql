@@ -44,19 +44,7 @@ CREATE INDEX idx_login_attempts_username ON login_attempts(username);
 CREATE INDEX idx_login_attempts_ip ON login_attempts(ip);
 CREATE INDEX idx_login_attempts_created_at ON login_attempts(created_at);
 
--- Insert default admin user with password
--- In production, change this password immediately!
-INSERT INTO users (username, password_hash, role, is_active, created_at, last_login_at)
-VALUES ('james.hartt', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'admin', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
-
--- Insert additional admin users with password
--- In production, change these passwords immediately!
-INSERT INTO users (username, password_hash, role, is_active, created_at, last_login_at) VALUES
-('conrad.brunner', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'admin', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('ed.newlands', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'admin', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('elspeth.jackson', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'admin', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('joss.albert', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'admin', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('neeraj.nayar', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'admin', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('steve.dorney', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'admin', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('stuart.hehir', '$2a$12$.r6Ne5mFTS3RQ.XHcxS3MOMRmB7jn0vw3YTblwncMc9FIOnNYX4ay', 'admin', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
-
+-- No accounts are created here. The first administrator is created by the
+-- first-run setup flow (/setup), protected by a one-time code printed to the
+-- server log. Earlier versions of this file inserted named accounts; see
+-- migrations/README.md ("Edited migrations").
