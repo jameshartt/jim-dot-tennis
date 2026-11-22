@@ -243,7 +243,7 @@ Work items are numbered sequentially:
 - **WI-112 through WI-151** — Sprints 019–024, club-readiness programme
 - **WI-152** — Sprint 023, single sign-on (added 2026-11-21)
 - **WI-153** — Sprint 023, tournament-only accounts (added 2026-11-22)
-- **Next available**: WI-153
+- **Next available**: WI-154
 
 ## Migrations Relationship
 
