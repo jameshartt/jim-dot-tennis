@@ -1,17 +1,19 @@
 // Copyright (c) 2025-2026 James Hartt. Licensed under the MIT License.
 
 // Package courthive is the app's client for the bundled CourtHive tournament
-// server. jim-dot-tennis is the identity source: it creates tournament
+// stack. jim-dot-tennis is the identity source: it creates tournament
 // accounts, decides who belongs to the club's provider and hands signed-in
 // people over to tournament management with single-use tokens. The tournament
-// server holds nothing that gives access to the app.
+// stack holds nothing that gives access to the app.
 //
-// The client authenticates by signing its own short-lived tokens with the
-// tournament server's signing secret, which is generated on the club's own
-// server at install and shared with the app through the environment. No API
-// key or password is stored. Tokens are never logged and never returned to
-// callers, with one exception: the single-use hand-over token, which exists to
-// be put in a redirect.
+// Two services are involved, both on the instance's internal network: the
+// tournament server (providers, accounts, hand-over tokens) and CourtHive's
+// identity service, which is the only signer of tokens. The client signs in
+// to the identity service as the instance's service account, with a password
+// generated on the club's own server at install, and uses the token it is
+// given. It holds no signing key. Tokens and the password are never logged
+// and never returned to callers, with one exception: the single-use hand-over
+// token, which exists to be put in a redirect.
 //
 // See docs/courthive_bundle_design.md, section 4.
 package courthive
@@ -19,8 +21,6 @@ package courthive
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -29,13 +29,13 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
 const (
-	// ServiceAccountEmail is the tournament server account the app acts as.
-	// The deployment creates it once, with a random password that is thrown
-	// away; nobody signs in as it.
+	// ServiceAccountEmail is the account the app acts as. The deployment
+	// creates it once as a tournament-stack administrator; no person uses it.
 	ServiceAccountEmail = "service@jim-dot-tennis.invalid"
 
 	// ProvisionerName is the name of the provisioner the app registers on the
@@ -51,7 +51,7 @@ const (
 	InstanceExternalID = "instance"
 
 	// AccountDomain is the non-routable domain of tournament account
-	// addresses. The tournament server needs an email-shaped key; these can
+	// addresses. The tournament stack needs an email-shaped key; these can
 	// never receive mail.
 	AccountDomain = "jim-dot-tennis.invalid"
 
@@ -60,31 +60,31 @@ const (
 	// RoleDirector sees only tournaments they own or are assigned to.
 	RoleDirector = "DIRECTOR"
 
-	// tokenLifetime is how long a token the app signs stays valid. Each
-	// request signs a fresh one.
-	tokenLifetime = 60 * time.Second
+	// minPasswordLength rejects obviously weak service passwords. The
+	// deployment generates 48 hex characters.
+	minPasswordLength = 24
 
-	// minSecretLength rejects obviously weak signing secrets. The deployment
-	// generates 64 hex characters.
-	minSecretLength = 32
+	// tokenMargin is how long before its expiry a service token stops being
+	// reused.
+	tokenMargin = 2 * time.Minute
 
 	maxResponseBytes = 1 << 20
 )
 
-// userRoles are the tournament server's global roles a person needs for
-// tournament management to work. Accounts made through the provisioner
-// interface start with none, and the calendar is then refused.
+// userRoles are the global roles a person needs for tournament management to
+// work. Accounts made through the provisioner interface start with none, and
+// the calendar is then refused.
 var userRoles = []string{"client", "generate", "score"}
 
-// ErrNotConfigured is returned when the tournament server's signing secret
-// was not given to the app (tournaments are not switched on in the deployment).
-var ErrNotConfigured = errors.New("courthive: the tournament server's signing secret is not configured")
+// ErrNotConfigured is returned when the service account's password was not
+// given to the app (tournaments are not switched on in the deployment).
+var ErrNotConfigured = errors.New("courthive: the tournament service account is not configured")
 
 // ErrLastAdministrator is returned when the tournament server refuses to
 // remove or demote a provider's only administrator.
 var ErrLastAdministrator = errors.New("courthive: the provider must keep at least one administrator")
 
-// APIError is a failure reported by the tournament server.
+// APIError is a failure reported by the tournament stack.
 type APIError struct {
 	Status  int    // HTTP status
 	Code    string // the server's error code, when it gave one
@@ -100,146 +100,235 @@ func (e *APIError) Error() string {
 }
 
 // Error codes the provisioner interface reports. It sends some of them with
-// HTTP 201, so the body is always inspected.
+// a success status, so the body is always inspected.
 const (
 	codeAbbreviationExists = "ABBREVIATION_EXISTS"
 	codeSSOIdentityExists  = "SSO_IDENTITY_EXISTS"
 	codeEmailExists        = "EMAIL_EXISTS"
 )
 
-// Client talks to one tournament server.
-type Client struct {
-	baseURL string
-	secret  []byte
-	http    *http.Client
-	now     func() time.Time
+// Config says where the tournament stack is and how the app signs in to it.
+type Config struct {
+	// ServerURL is the tournament server's internal address, for example
+	// http://courthive-server:8383.
+	ServerURL string
+	// IdentityURL is the identity service's internal address, for example
+	// http://courthive-hiveid:3140.
+	IdentityURL string
+	// ServicePassword is the service account's password. Empty means
+	// tournaments are not switched on.
+	ServicePassword string
 }
 
-// New returns a client for the tournament server at baseURL (the internal
-// address, for example http://courthive-server:8383). An empty secret gives a
-// client whose calls return ErrNotConfigured; a secret that is set but too
-// short is an error, so a weak value never goes unnoticed.
-func New(baseURL, signingSecret string) (*Client, error) {
-	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
-	if baseURL == "" {
-		return nil, errors.New("courthive: no server address")
+// Client talks to one instance's tournament stack.
+type Client struct {
+	serverURL   string
+	identityURL string
+	password    string
+	http        *http.Client
+	now         func() time.Time
+
+	mu      sync.Mutex
+	token   string
+	expires time.Time
+}
+
+// New returns a client. An empty service password gives a client whose calls
+// return ErrNotConfigured; a password that is set but too short is an error,
+// so a weak value never goes unnoticed.
+func New(cfg Config) (*Client, error) {
+	clean := func(name, raw string) (string, error) {
+		raw = strings.TrimRight(strings.TrimSpace(raw), "/")
+		if raw == "" {
+			return "", fmt.Errorf("courthive: no %s address", name)
+		}
+		u, err := url.Parse(raw)
+		if err != nil || u.Scheme == "" || u.Host == "" {
+			return "", fmt.Errorf("courthive: the %s address is not a URL", name)
+		}
+		return raw, nil
 	}
-	if _, err := url.Parse(baseURL); err != nil {
-		return nil, fmt.Errorf("courthive: server address: %w", err)
+	server, err := clean("tournament server", cfg.ServerURL)
+	if err != nil {
+		return nil, err
 	}
-	signingSecret = strings.TrimSpace(signingSecret)
-	if signingSecret != "" && len(signingSecret) < minSecretLength {
-		return nil, fmt.Errorf("courthive: the signing secret is shorter than %d characters", minSecretLength)
+	identity, err := clean("identity service", cfg.IdentityURL)
+	if err != nil {
+		return nil, err
+	}
+	password := strings.TrimSpace(cfg.ServicePassword)
+	if password != "" && len(password) < minPasswordLength {
+		return nil, fmt.Errorf("courthive: the service password is shorter than %d characters", minPasswordLength)
 	}
 	return &Client{
-		baseURL: baseURL,
-		secret:  []byte(signingSecret),
-		http:    &http.Client{Timeout: 15 * time.Second},
-		now:     time.Now,
+		serverURL:   server,
+		identityURL: identity,
+		password:    password,
+		http:        &http.Client{Timeout: 15 * time.Second},
+		now:         time.Now,
 	}, nil
 }
 
-// Configured reports whether the client can act on the tournament server.
-func (c *Client) Configured() bool { return c != nil && len(c.secret) > 0 }
+// Configured reports whether the client can act on the tournament stack.
+func (c *Client) Configured() bool { return c != nil && c.password != "" }
 
 // AccountEmail is the tournament account address for a jim-dot-tennis username.
 func AccountEmail(username string) string {
 	return strings.ToLower(strings.TrimSpace(username)) + "@" + AccountDomain
 }
 
-// sign returns a token valid for tokenLifetime, signed as the service account.
-// With a provisioner id the token also reaches the provisioner interface.
-func (c *Client) sign(provisionerID string) (string, error) {
+// serviceToken returns a token for the service account, signing in to the
+// identity service when there is none or the one held is about to expire.
+func (c *Client) serviceToken(ctx context.Context) (string, error) {
 	if !c.Configured() {
 		return "", ErrNotConfigured
 	}
-	now := c.now()
-	claims := map[string]any{
-		"email": ServiceAccountEmail,
-		"roles": []string{"superadmin", "client"},
-		"aud":   "admin",
-		"iat":   now.Unix(),
-		"exp":   now.Add(tokenLifetime).Unix(),
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.token != "" && c.now().Before(c.expires.Add(-tokenMargin)) {
+		return c.token, nil
 	}
-	if provisionerID != "" {
-		claims["roles"] = []string{"superadmin", "client", "provisioner"}
-		claims["provisionerIds"] = []string{provisionerID}
+	var out struct {
+		Token              string `json:"token"`
+		MustChangePassword bool   `json:"mustChangePassword"`
 	}
-	header, err := json.Marshal(map[string]string{"alg": "HS256", "typ": "JWT"})
+	status, raw, err := c.send(ctx, "signing in to the identity service", http.MethodPost,
+		c.identityURL+"/auth/login", "", map[string]string{"email": ServiceAccountEmail, "password": c.password})
 	if err != nil {
 		return "", err
 	}
-	payload, err := json.Marshal(claims)
-	if err != nil {
-		return "", err
+	if apiErr := failure("signing in to the identity service", status, raw); apiErr != nil {
+		return "", apiErr
 	}
-	enc := base64.RawURLEncoding
-	signingInput := enc.EncodeToString(header) + "." + enc.EncodeToString(payload)
-	mac := hmac.New(sha256.New, c.secret)
-	mac.Write([]byte(signingInput))
-	return signingInput + "." + enc.EncodeToString(mac.Sum(nil)), nil
+	if err := json.Unmarshal(raw, &out); err != nil || out.Token == "" {
+		if out.MustChangePassword {
+			return "", errors.New("courthive: the service account is flagged to change its password; recreate it with the deployment's set-up step")
+		}
+		return "", errors.New("courthive: signing in to the identity service: no token in the answer")
+	}
+	expires, err := tokenExpiry(out.Token)
+	if err != nil {
+		return "", fmt.Errorf("courthive: signing in to the identity service: %w", err)
+	}
+	c.token, c.expires = out.Token, expires
+	return c.token, nil
 }
 
-// do sends one request and decodes the JSON answer into out (when not nil).
-// provisionerID selects the kind of token; pass "" for administration calls.
-// A body that carries an "error" field is a failure whatever the status.
-func (c *Client) do(ctx context.Context, op, method, path, provisionerID string, body, out any) error {
-	token, err := c.sign(provisionerID)
-	if err != nil {
-		return err
+// forgetToken drops the held token, so the next call signs in again. Used
+// when the server refuses the token and after a change that alters what the
+// service account's token must carry.
+func (c *Client) forgetToken() {
+	c.mu.Lock()
+	c.token, c.expires = "", time.Time{}
+	c.mu.Unlock()
+}
+
+// tokenExpiry reads the expiry from a token's payload. The client does not
+// verify the signature: it received the token from the identity service over
+// the internal network and only needs to know when to fetch another.
+func tokenExpiry(token string) (time.Time, error) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return time.Time{}, errors.New("the token is not in the expected form")
 	}
+	raw, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return time.Time{}, errors.New("the token is not in the expected form")
+	}
+	var claims struct {
+		Exp int64 `json:"exp"`
+	}
+	if err := json.Unmarshal(raw, &claims); err != nil || claims.Exp == 0 {
+		return time.Time{}, errors.New("the token carries no expiry")
+	}
+	return time.Unix(claims.Exp, 0), nil
+}
+
+// send performs one HTTP exchange and returns the status and body.
+func (c *Client) send(ctx context.Context, op, method, target, token string, body any) (int, []byte, error) {
 	var reader io.Reader
 	if body != nil {
 		raw, err := json.Marshal(body)
 		if err != nil {
-			return fmt.Errorf("courthive: %s: %w", op, err)
+			return 0, nil, fmt.Errorf("courthive: %s: %w", op, err)
 		}
 		reader = bytes.NewReader(raw)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, reader)
+	req, err := http.NewRequestWithContext(ctx, method, target, reader)
 	if err != nil {
-		return fmt.Errorf("courthive: %s: %w", op, err)
+		return 0, nil, fmt.Errorf("courthive: %s: %w", op, err)
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
-		// The transport error can quote the URL but never the header.
-		return fmt.Errorf("courthive: %s: %w", op, err)
+		// The transport error can quote the URL but never a header or body.
+		return 0, nil, fmt.Errorf("courthive: %s: %w", op, err)
 	}
 	defer resp.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 	if err != nil {
-		return fmt.Errorf("courthive: %s: reading the answer: %w", op, err)
+		return 0, nil, fmt.Errorf("courthive: %s: reading the answer: %w", op, err)
 	}
+	return resp.StatusCode, raw, nil
+}
 
-	var failure struct {
+// failure turns an answer into an APIError when it reports one. A body that
+// carries an "error" string is a failure whatever the status.
+func failure(op string, status int, raw []byte) *APIError {
+	var body struct {
 		Error   json.RawMessage `json:"error"`
 		Code    string          `json:"code"`
 		Message json.RawMessage `json:"message"`
 	}
-	_ = json.Unmarshal(raw, &failure)
-	errText := jsonText(failure.Error)
-	if resp.StatusCode >= 400 || errText != "" && isString(failure.Error) {
-		msg := jsonText(failure.Message)
-		if msg == "" {
-			msg = errText
-		}
-		if msg == "" {
-			msg = http.StatusText(resp.StatusCode)
-		}
-		return &APIError{Status: resp.StatusCode, Code: failure.Code, Message: truncate(msg, 200), Op: op}
-	}
-	if out == nil {
+	_ = json.Unmarshal(raw, &body)
+	errText := jsonText(body.Error)
+	if status < 400 && !(errText != "" && isString(body.Error)) {
 		return nil
 	}
-	if err := json.Unmarshal(raw, out); err != nil {
-		return fmt.Errorf("courthive: %s: unexpected answer: %w", op, err)
+	msg := jsonText(body.Message)
+	if msg == "" {
+		msg = errText
 	}
-	return nil
+	if msg == "" {
+		msg = http.StatusText(status)
+	}
+	return &APIError{Status: status, Code: body.Code, Message: truncate(msg, 200), Op: op}
+}
+
+// do sends one authenticated request to base+path and decodes the JSON answer
+// into out (when not nil). A refused token is replaced once and the request
+// repeated.
+func (c *Client) do(ctx context.Context, op, method, base, path string, body, out any) error {
+	for attempt := 0; ; attempt++ {
+		token, err := c.serviceToken(ctx)
+		if err != nil {
+			return err
+		}
+		status, raw, err := c.send(ctx, op, method, base+path, token, body)
+		if err != nil {
+			return err
+		}
+		if status == http.StatusUnauthorized && attempt == 0 {
+			c.forgetToken()
+			continue
+		}
+		if apiErr := failure(op, status, raw); apiErr != nil {
+			return apiErr
+		}
+		if out == nil {
+			return nil
+		}
+		if err := json.Unmarshal(raw, out); err != nil {
+			return fmt.Errorf("courthive: %s: unexpected answer: %w", op, err)
+		}
+		return nil
+	}
 }
 
 func isString(raw json.RawMessage) bool {
@@ -277,7 +366,7 @@ func hasCode(err error, code string) bool {
 // Version returns the tournament engine version the server runs. It needs no
 // authority and doubles as a reachability check.
 func (c *Client) Version(ctx context.Context) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/factory/version", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.serverURL+"/factory/version", nil)
 	if err != nil {
 		return "", err
 	}
@@ -299,8 +388,10 @@ func (c *Client) Version(ctx context.Context) (string, error) {
 }
 
 // EnsureProvisioner returns the id of the provisioner named ProvisionerName,
-// creating it when the server has none. created reports whether it was made
-// by this call.
+// creating it when the server has none, and makes sure the service account
+// represents it (which is what lets the service account's token use the
+// provisioner interface). created reports whether the provisioner was made by
+// this call. Safe to repeat.
 func (c *Client) EnsureProvisioner(ctx context.Context) (id string, created bool, err error) {
 	var list struct {
 		Provisioners []struct {
@@ -309,7 +400,7 @@ func (c *Client) EnsureProvisioner(ctx context.Context) (id string, created bool
 			IsActive      bool   `json:"isActive"`
 		} `json:"provisioners"`
 	}
-	if err := c.do(ctx, "listing provisioners", http.MethodGet, "/admin/provisioners", "", nil, &list); err != nil {
+	if err := c.do(ctx, "listing provisioners", http.MethodGet, c.serverURL, "/admin/provisioners", nil, &list); err != nil {
 		return "", false, err
 	}
 	for _, p := range list.Provisioners {
@@ -317,7 +408,7 @@ func (c *Client) EnsureProvisioner(ctx context.Context) (id string, created bool
 			if !p.IsActive {
 				return "", false, fmt.Errorf("courthive: the %q provisioner exists but is switched off on the tournament server", ProvisionerName)
 			}
-			return p.ProvisionerID, false, nil
+			return p.ProvisionerID, false, c.ensureRepresentative(ctx, p.ProvisionerID)
 		}
 	}
 	var made struct {
@@ -325,7 +416,7 @@ func (c *Client) EnsureProvisioner(ctx context.Context) (id string, created bool
 			ProvisionerID string `json:"provisionerId"`
 		} `json:"provisioner"`
 	}
-	err = c.do(ctx, "creating the provisioner", http.MethodPost, "/admin/provisioners", "",
+	err = c.do(ctx, "creating the provisioner", http.MethodPost, c.serverURL, "/admin/provisioners",
 		map[string]string{"name": ProvisionerName}, &made)
 	if err != nil {
 		return "", false, err
@@ -333,7 +424,28 @@ func (c *Client) EnsureProvisioner(ctx context.Context) (id string, created bool
 	if made.Provisioner.ProvisionerID == "" {
 		return "", false, errors.New("courthive: creating the provisioner: the server returned no id")
 	}
-	return made.Provisioner.ProvisionerID, true, nil
+	return made.Provisioner.ProvisionerID, true, c.ensureRepresentative(ctx, made.Provisioner.ProvisionerID)
+}
+
+// ensureRepresentative assigns the service account to the provisioner when it
+// is not already assigned, then drops the held token: the identity service
+// puts the provisioner into the token at sign-in.
+func (c *Client) ensureRepresentative(ctx context.Context, provisionerID string) error {
+	path := "/admin/provisioners/" + url.PathEscape(provisionerID) + "/users"
+	var current json.RawMessage
+	if err := c.do(ctx, "listing the provisioner's representatives", http.MethodGet, c.serverURL, path, nil, &current); err != nil {
+		return err
+	}
+	if bytes.Contains(current, []byte(`"`+ServiceAccountEmail+`"`)) {
+		return nil
+	}
+	err := c.do(ctx, "assigning the service account to the provisioner", http.MethodPost, c.serverURL, path,
+		map[string]string{"email": ServiceAccountEmail}, nil)
+	if err != nil {
+		return err
+	}
+	c.forgetToken()
+	return nil
 }
 
 // Provider is a tournament provider as the provisioner sees it.
@@ -347,11 +459,11 @@ type Provider struct {
 
 // Providers lists the providers on the tournament server, marking those the
 // app's provisioner manages.
-func (c *Client) Providers(ctx context.Context, provisionerID string) ([]Provider, error) {
+func (c *Client) Providers(ctx context.Context) ([]Provider, error) {
 	var out struct {
 		Providers []Provider `json:"providers"`
 	}
-	if err := c.do(ctx, "listing providers", http.MethodGet, "/provisioner/providers", provisionerID, nil, &out); err != nil {
+	if err := c.do(ctx, "listing providers", http.MethodGet, c.serverURL, "/provisioner/providers", nil, &out); err != nil {
 		return nil, err
 	}
 	return out.Providers, nil
@@ -367,7 +479,7 @@ func (c *Client) EnsureProvider(ctx context.Context, provisionerID, abbreviation
 		return "", false, errors.New("courthive: the provider needs an abbreviation")
 	}
 	find := func() (*Provider, error) {
-		providers, err := c.Providers(ctx, provisionerID)
+		providers, err := c.Providers(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -382,8 +494,7 @@ func (c *Client) EnsureProvider(ctx context.Context, provisionerID, abbreviation
 		if p.Managed {
 			return p.ID, false, nil
 		}
-		err := c.do(ctx, "taking ownership of the provider", http.MethodPost,
-			"/admin/provisioners/"+url.PathEscape(provisionerID)+"/providers", "",
+		err := c.do(ctx, "taking ownership of the provider", http.MethodPost, c.serverURL, "/admin/provisioners/"+url.PathEscape(provisionerID)+"/providers",
 			map[string]string{"providerId": p.ID, "relationship": "owner"}, nil)
 		if err != nil {
 			return "", false, err
@@ -401,7 +512,7 @@ func (c *Client) EnsureProvider(ctx context.Context, provisionerID, abbreviation
 	var made struct {
 		ProviderID string `json:"providerId"`
 	}
-	err = c.do(ctx, "creating the provider", http.MethodPost, "/provisioner/providers", provisionerID,
+	err = c.do(ctx, "creating the provider", http.MethodPost, c.serverURL, "/provisioner/providers",
 		map[string]string{"organisationAbbreviation": abbreviation, "organisationName": name}, &made)
 	if hasCode(err, codeAbbreviationExists) {
 		// Made between the listing and the create, or hidden from the listing.
@@ -433,12 +544,12 @@ type Member struct {
 }
 
 // Members lists the accounts that currently belong to the provider.
-func (c *Client) Members(ctx context.Context, provisionerID, providerID string) ([]Member, error) {
+func (c *Client) Members(ctx context.Context, providerID string) ([]Member, error) {
 	var out struct {
 		Users []Member `json:"users"`
 	}
 	path := "/provisioner/users?providerId=" + url.QueryEscape(providerID)
-	if err := c.do(ctx, "listing tournament accounts", http.MethodGet, path, provisionerID, nil, &out); err != nil {
+	if err := c.do(ctx, "listing tournament accounts", http.MethodGet, c.serverURL, path, nil, &out); err != nil {
 		return nil, err
 	}
 	return out.Users, nil
@@ -467,7 +578,7 @@ var ErrAccountUnknown = errors.New("courthive: the tournament account exists but
 // with the given role at the provider and the global roles tournament
 // management needs. It returns the tournament server's id for the account,
 // which the caller stores. Safe to repeat.
-func (c *Client) EnsureAccount(ctx context.Context, provisionerID, providerID string, a Account) (userID string, err error) {
+func (c *Client) EnsureAccount(ctx context.Context, providerID string, a Account) (userID string, err error) {
 	if a.Role != RoleProviderAdmin && a.Role != RoleDirector {
 		return "", fmt.Errorf("courthive: unknown tournament role %q", a.Role)
 	}
@@ -479,7 +590,7 @@ func (c *Client) EnsureAccount(ctx context.Context, provisionerID, providerID st
 	var made struct {
 		UserID string `json:"userId"`
 	}
-	createErr := c.do(ctx, "creating the tournament account", http.MethodPost, "/provisioner/users", provisionerID,
+	createErr := c.do(ctx, "creating the tournament account", http.MethodPost, c.serverURL, "/provisioner/users",
 		map[string]string{
 			"providerId":   providerID,
 			"externalId":   a.ExternalID,
@@ -492,7 +603,7 @@ func (c *Client) EnsureAccount(ctx context.Context, provisionerID, providerID st
 		userID = made.UserID
 	case hasCode(createErr, codeSSOIdentityExists), hasCode(createErr, codeEmailExists):
 		if userID == "" {
-			members, err := c.Members(ctx, provisionerID, providerID)
+			members, err := c.Members(ctx, providerID)
 			if err != nil {
 				return "", err
 			}
@@ -507,8 +618,7 @@ func (c *Client) EnsureAccount(ctx context.Context, provisionerID, providerID st
 			return "", ErrAccountUnknown
 		}
 		// Membership may have been removed, or the role may differ: set it.
-		err := c.do(ctx, "setting the tournament role", http.MethodPut,
-			"/provisioner/users/"+url.PathEscape(userID)+"/providers/"+url.PathEscape(providerID), "",
+		err := c.do(ctx, "setting the tournament role", http.MethodPut, c.serverURL, "/provisioner/users/"+url.PathEscape(userID)+"/providers/"+url.PathEscape(providerID),
 			map[string]string{"providerRole": a.Role}, nil)
 		if err != nil {
 			return "", lastAdministrator(err)
@@ -534,8 +644,7 @@ func (c *Client) RemoveAccount(ctx context.Context, providerID, userID, email st
 	if userID == "" || email == "" {
 		return errors.New("courthive: removing a tournament account needs its id and address")
 	}
-	err := c.do(ctx, "removing the tournament membership", http.MethodDelete,
-		"/provisioner/users/"+url.PathEscape(userID)+"/providers/"+url.PathEscape(providerID), "", nil, nil)
+	err := c.do(ctx, "removing the tournament membership", http.MethodDelete, c.serverURL, "/provisioner/users/"+url.PathEscape(userID)+"/providers/"+url.PathEscape(providerID), nil, nil)
 	if err != nil {
 		return lastAdministrator(err)
 	}
@@ -543,7 +652,7 @@ func (c *Client) RemoveAccount(ctx context.Context, providerID, userID, email st
 }
 
 func (c *Client) setRoles(ctx context.Context, email string, roles []string) error {
-	return c.do(ctx, "setting tournament account roles", http.MethodPost, "/auth/modify", "",
+	return c.do(ctx, "setting tournament account roles", http.MethodPost, c.identityURL, "/auth/modify",
 		map[string]any{"email": email, "roles": roles}, nil)
 }
 
@@ -559,11 +668,11 @@ func lastAdministrator(err error) error {
 // the person in to tournament management. It expires in a minute and can be
 // exchanged once. The caller must already have decided that the person is
 // entitled; this call does not check.
-func (c *Client) HandoverToken(ctx context.Context, provisionerID, providerID, externalID string) (string, error) {
+func (c *Client) HandoverToken(ctx context.Context, providerID, externalID string) (string, error) {
 	var out struct {
 		Token string `json:"token"`
 	}
-	err := c.do(ctx, "requesting a hand-over token", http.MethodPost, "/auth/sso/generate", provisionerID,
+	err := c.do(ctx, "requesting a hand-over token", http.MethodPost, c.serverURL, "/auth/sso/generate",
 		map[string]string{"externalId": externalID, "ssoProvider": SSOProvider, "providerId": providerID}, &out)
 	if err != nil {
 		return "", err

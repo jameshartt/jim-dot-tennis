@@ -4,11 +4,10 @@ package courthive
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -18,21 +17,26 @@ import (
 	"time"
 )
 
-const testSecret = "0123456789abcdef0123456789abcdef0123456789abcdef"
+const testPassword = "0123456789abcdef0123456789abcdef0123456789abcdef"
 
-// fakeServer imitates the parts of the tournament server the client uses,
-// including its habit of reporting some failures with HTTP 201. It verifies
-// every token the way the real server does: signature, expiry, audience.
+// fakeServer imitates the parts of the tournament server and the identity
+// service the client uses, including the habit of reporting some failures
+// with a success status. Sign-in issues a token that records whether the
+// service account represented a provisioner at that moment, as the real
+// identity service does.
 type fakeServer struct {
-	t      *testing.T
-	mu     sync.Mutex
-	secret string
+	t        *testing.T
+	mu       sync.Mutex
+	password string
+	lifetime time.Duration
 
-	provisioners map[string]string // name -> id
-	providers    map[string]*Provider
-	users        map[string]*fakeUser // email -> user
-	calls        []string
-	lastClaims   map[string]any
+	logins          int
+	tokens          map[string]bool // token -> carries the provisioner claim
+	representatives map[string]bool // provisioner id -> service account assigned
+	provisioners    map[string]string
+	providers       map[string]*Provider
+	users           map[string]*fakeUser // email -> user
+	calls           []string
 }
 
 type fakeUser struct {
@@ -42,50 +46,21 @@ type fakeUser struct {
 }
 
 func newFake(t *testing.T) (*fakeServer, *httptest.Server) {
-	f := &fakeServer{t: t, secret: testSecret, provisioners: map[string]string{}, providers: map[string]*Provider{}, users: map[string]*fakeUser{}}
+	f := &fakeServer{t: t, password: testPassword, lifetime: 4 * time.Hour, tokens: map[string]bool{}, representatives: map[string]bool{},
+		provisioners: map[string]string{}, providers: map[string]*Provider{}, users: map[string]*fakeUser{}}
 	srv := httptest.NewServer(http.HandlerFunc(f.handle))
 	t.Cleanup(srv.Close)
 	return f, srv
 }
 
-func (f *fakeServer) verify(r *http.Request) (map[string]any, bool) {
-	token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		return nil, false
-	}
-	mac := hmac.New(sha256.New, []byte(f.secret))
-	mac.Write([]byte(parts[0] + "." + parts[1]))
-	want := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
-	if !hmac.Equal([]byte(want), []byte(parts[2])) {
-		return nil, false
-	}
-	var header map[string]string
-	raw, _ := base64.RawURLEncoding.DecodeString(parts[0])
-	_ = json.Unmarshal(raw, &header)
-	if header["alg"] != "HS256" {
-		return nil, false
-	}
-	var claims map[string]any
-	raw, _ = base64.RawURLEncoding.DecodeString(parts[1])
-	if json.Unmarshal(raw, &claims) != nil {
-		return nil, false
-	}
-	exp, _ := claims["exp"].(float64)
-	if time.Now().Unix() >= int64(exp) || claims["aud"] != "admin" {
-		return nil, false
-	}
-	return claims, true
-}
-
-func hasRole(claims map[string]any, role string) bool {
-	roles, _ := claims["roles"].([]any)
-	for _, r := range roles {
-		if r == role {
-			return true
-		}
-	}
-	return false
+// issue makes a token in the three-part form with an expiry in its payload.
+func (f *fakeServer) issue() string {
+	f.logins++
+	enc := base64.RawURLEncoding
+	payload, _ := json.Marshal(map[string]any{"email": ServiceAccountEmail, "exp": time.Now().Add(f.lifetime).Unix(), "n": f.logins})
+	token := enc.EncodeToString([]byte(`{"alg":"ES256"}`)) + "." + enc.EncodeToString(payload) + "." + enc.EncodeToString([]byte(fmt.Sprintf("sig%d", f.logins)))
+	f.tokens[token] = len(f.representatives) > 0
+	return token
 }
 
 func (f *fakeServer) handle(w http.ResponseWriter, r *http.Request) {
@@ -101,21 +76,24 @@ func (f *fakeServer) handle(w http.ResponseWriter, r *http.Request) {
 		reply(200, map[string]string{"version": "7.1.1"})
 		return
 	}
-	claims, ok := f.verify(r)
-	if !ok {
-		reply(401, map[string]any{"message": "Unauthorized", "statusCode": 401})
-		return
-	}
-	f.lastClaims = claims
-	if claims["email"] != ServiceAccountEmail || !hasRole(claims, "superadmin") {
-		reply(403, map[string]any{"message": "Forbidden resource", "error": "Forbidden", "statusCode": 403})
-		return
-	}
 	var body map[string]any
 	raw, _ := io.ReadAll(r.Body)
 	_ = json.Unmarshal(raw, &body)
 	str := func(k string) string { s, _ := body[k].(string); return s }
-	isProvisioner := hasRole(claims, "provisioner")
+	if r.URL.Path == "/auth/login" {
+		if str("email") != ServiceAccountEmail || str("password") != f.password {
+			reply(401, map[string]any{"message": "Unauthorized", "statusCode": 401})
+			return
+		}
+		reply(200, map[string]any{"token": f.issue(), "refreshToken": "r"})
+		return
+	}
+	token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	isProvisioner, ok := f.tokens[token]
+	if !ok {
+		reply(401, map[string]any{"message": "Unauthorized", "statusCode": 401})
+		return
+	}
 	path := r.URL.Path
 
 	switch {
@@ -129,6 +107,18 @@ func (f *fakeServer) handle(w http.ResponseWriter, r *http.Request) {
 		id := "prov-" + str("name")
 		f.provisioners[str("name")] = id
 		reply(201, map[string]any{"success": true, "provisioner": map[string]any{"provisionerId": id, "name": str("name")}})
+	case strings.HasPrefix(path, "/admin/provisioners/") && strings.HasSuffix(path, "/users"):
+		id := strings.TrimSuffix(strings.TrimPrefix(path, "/admin/provisioners/"), "/users")
+		if r.Method == http.MethodPost {
+			f.representatives[id] = true
+			reply(201, map[string]any{"success": true})
+			return
+		}
+		list := []map[string]any{}
+		if f.representatives[id] {
+			list = append(list, map[string]any{"email": ServiceAccountEmail})
+		}
+		reply(200, map[string]any{"success": true, "users": list})
 	case strings.HasPrefix(path, "/admin/provisioners/") && strings.HasSuffix(path, "/providers") && r.Method == http.MethodPost:
 		for _, p := range f.providers {
 			if p.ID == str("providerId") {
@@ -233,116 +223,103 @@ func (f *fakeServer) handle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func newClient(t *testing.T, url, secret string) *Client {
+func newClient(t *testing.T, url, password string) *Client {
 	t.Helper()
-	c, err := New(url, secret)
+	c, err := New(Config{ServerURL: url, IdentityURL: url, ServicePassword: password})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 	return c
 }
 
-func TestNewRejectsWeakSecretAndAllowsNone(t *testing.T) {
-	if _, err := New("http://courthive-server:8383", "short"); err == nil {
-		t.Fatal("a short signing secret must be refused")
+func TestNewRejectsWeakPasswordAndAllowsNone(t *testing.T) {
+	if _, err := New(Config{ServerURL: "http://a:1", IdentityURL: "http://b:2", ServicePassword: "short"}); err == nil {
+		t.Fatal("a short service password must be refused")
 	}
-	if _, err := New("", testSecret); err == nil {
-		t.Fatal("an empty address must be refused")
+	if _, err := New(Config{IdentityURL: "http://b:2", ServicePassword: testPassword}); err == nil {
+		t.Fatal("a missing server address must be refused")
 	}
-	c, err := New("http://courthive-server:8383", "")
+	if _, err := New(Config{ServerURL: "http://a:1", IdentityURL: "not a url", ServicePassword: testPassword}); err == nil {
+		t.Fatal("a bad identity address must be refused")
+	}
+	c, err := New(Config{ServerURL: "http://a:1", IdentityURL: "http://b:2"})
 	if err != nil {
-		t.Fatalf("no secret is a valid, unconfigured client: %v", err)
+		t.Fatalf("no password is a valid, unconfigured client: %v", err)
 	}
 	if c.Configured() {
-		t.Fatal("a client with no secret must not report itself configured")
+		t.Fatal("a client with no password must not report itself configured")
 	}
 	if _, _, err := c.EnsureProvisioner(context.Background()); !errors.Is(err, ErrNotConfigured) {
 		t.Fatalf("want ErrNotConfigured, got %v", err)
 	}
-	if _, err := c.HandoverToken(context.Background(), "p", "q", "1"); !errors.Is(err, ErrNotConfigured) {
+	if _, err := c.HandoverToken(context.Background(), "q", "1"); !errors.Is(err, ErrNotConfigured) {
 		t.Fatalf("want ErrNotConfigured, got %v", err)
 	}
 }
 
-func TestTokenClaimsAreShortLivedAndScoped(t *testing.T) {
-	c := newClient(t, "http://x", testSecret)
-	at := time.Unix(1_800_000_000, 0)
-	c.now = func() time.Time { return at }
-
-	decode := func(token string) map[string]any {
-		parts := strings.Split(token, ".")
-		if len(parts) != 3 {
-			t.Fatalf("token has %d parts", len(parts))
-		}
-		raw, err := base64.RawURLEncoding.DecodeString(parts[1])
-		if err != nil {
-			t.Fatal(err)
-		}
-		var claims map[string]any
-		if err := json.Unmarshal(raw, &claims); err != nil {
-			t.Fatal(err)
-		}
-		return claims
-	}
-
-	admin, err := c.sign("")
-	if err != nil {
-		t.Fatal(err)
-	}
-	claims := decode(admin)
-	if claims["email"] != ServiceAccountEmail || claims["aud"] != "admin" {
-		t.Fatalf("unexpected identity claims: %v", claims)
-	}
-	if got := int64(claims["exp"].(float64)) - int64(claims["iat"].(float64)); got != 60 {
-		t.Fatalf("token lifetime is %d seconds, want 60", got)
-	}
-	if _, has := claims["provisionerIds"]; has {
-		t.Fatal("an administration token must not carry the provisioner claim")
-	}
-	// Nothing about a jim-dot-tennis user or session belongs in these tokens.
-	for k := range claims {
-		switch k {
-		case "email", "roles", "aud", "iat", "exp":
-		default:
-			t.Fatalf("unexpected claim %q", k)
-		}
-	}
-
-	prov, err := c.sign("prov-1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	claims = decode(prov)
-	ids, _ := claims["provisionerIds"].([]any)
-	if len(ids) != 1 || ids[0] != "prov-1" || !hasRole(claims, "provisioner") {
-		t.Fatalf("provisioner token claims wrong: %v", claims)
-	}
-}
-
-func TestWrongSecretIsRefusedByTheServer(t *testing.T) {
-	_, srv := newFake(t)
-	other := newClient(t, srv.URL, strings.Repeat("z", 48)) // another instance's secret
+func TestWrongPasswordIsRefused(t *testing.T) {
+	f, srv := newFake(t)
+	other := newClient(t, srv.URL, strings.Repeat("z", 48)) // another instance's password
 	_, _, err := other.EnsureProvisioner(context.Background())
 	var apiErr *APIError
 	if !errors.As(err, &apiErr) || apiErr.Status != http.StatusUnauthorized {
-		t.Fatalf("want a 401 from the server, got %v", err)
+		t.Fatalf("want a 401 from sign-in, got %v", err)
+	}
+	if len(f.tokens) != 0 {
+		t.Fatal("no token should have been issued")
 	}
 }
 
-func TestExpiredTokenIsRefusedByTheServer(t *testing.T) {
-	_, srv := newFake(t)
-	c := newClient(t, srv.URL, testSecret)
-	c.now = func() time.Time { return time.Now().Add(-2 * time.Minute) }
-	_, _, err := c.EnsureProvisioner(context.Background())
-	var apiErr *APIError
-	if !errors.As(err, &apiErr) || apiErr.Status != http.StatusUnauthorized {
-		t.Fatalf("want a 401 for an expired token, got %v", err)
+func TestTokenIsReusedThenReplaced(t *testing.T) {
+	f, srv := newFake(t)
+	c := newClient(t, srv.URL, testPassword)
+	ctx := context.Background()
+	if _, _, err := c.EnsureProvisioner(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// The provisioner interface needs a token issued after the service
+	// account was assigned, so the first call after set-up signs in again.
+	if _, err := c.Providers(ctx); err != nil {
+		t.Fatalf("the token held from before the assignment must have been dropped: %v", err)
+	}
+	after := f.logins
+	if after != 2 {
+		t.Fatalf("signed in %d times, want 2 (once before the assignment, once after)", after)
+	}
+	for i := 0; i < 5; i++ {
+		if _, err := c.Providers(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if f.logins != after {
+		t.Fatalf("the token was not reused: %d sign-ins", f.logins)
+	}
+
+	// Near expiry: a fresh sign-in.
+	c.now = func() time.Time { return time.Now().Add(4*time.Hour - time.Minute) }
+	if _, err := c.Providers(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if f.logins != after+1 {
+		t.Fatalf("an expiring token must be replaced: %d sign-ins", f.logins)
+	}
+	c.now = time.Now
+
+	// Refused by the server (for example after its keys changed): one retry.
+	f.mu.Lock()
+	f.tokens = map[string]bool{}
+	f.mu.Unlock()
+	if _, err := c.Providers(ctx); err != nil {
+		t.Fatalf("a refused token should be replaced once: %v", err)
+	}
+	if f.logins != after+2 {
+		t.Fatalf("sign-ins = %d", f.logins)
 	}
 }
 
 func TestSetUpIsRepeatable(t *testing.T) {
 	f, srv := newFake(t)
-	c := newClient(t, srv.URL, testSecret)
+	c := newClient(t, srv.URL, testPassword)
 	ctx := context.Background()
 
 	if v, err := c.Version(ctx); err != nil || v != "7.1.1" {
@@ -372,7 +349,7 @@ func TestSetUpIsRepeatable(t *testing.T) {
 func TestEnsureProviderAdoptsOneMadeByHand(t *testing.T) {
 	f, srv := newFake(t)
 	f.providers["STANNS"] = &Provider{ID: "provider-old", Abbreviation: "STANNS", Name: "St Ann's", Managed: false}
-	c := newClient(t, srv.URL, testSecret)
+	c := newClient(t, srv.URL, testPassword)
 	ctx := context.Background()
 	pid, _, err := c.EnsureProvisioner(ctx)
 	if err != nil {
@@ -390,7 +367,7 @@ func TestEnsureProviderAdoptsOneMadeByHand(t *testing.T) {
 func setUp(t *testing.T) (*fakeServer, *Client, string, string) {
 	t.Helper()
 	f, srv := newFake(t)
-	c := newClient(t, srv.URL, testSecret)
+	c := newClient(t, srv.URL, testPassword)
 	ctx := context.Background()
 	pid, _, err := c.EnsureProvisioner(ctx)
 	if err != nil {
@@ -400,21 +377,21 @@ func setUp(t *testing.T) (*fakeServer, *Client, string, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.EnsureAccount(ctx, pid, prov, Account{ExternalID: InstanceExternalID, Email: AccountEmail(InstanceExternalID), Role: RoleProviderAdmin}); err != nil {
+	if _, err := c.EnsureAccount(ctx, prov, Account{ExternalID: InstanceExternalID, Email: AccountEmail(InstanceExternalID), Role: RoleProviderAdmin}); err != nil {
 		t.Fatal(err)
 	}
 	return f, c, pid, prov
 }
 
 func TestAccountLifecycle(t *testing.T) {
-	f, c, pid, prov := setUp(t)
+	f, c, _, prov := setUp(t)
 	ctx := context.Background()
 	acct := Account{ExternalID: "7", Email: AccountEmail("Jo.Bloggs"), Role: RoleProviderAdmin}
 	if acct.Email != "jo.bloggs@jim-dot-tennis.invalid" {
 		t.Fatalf("AccountEmail = %q", acct.Email)
 	}
 
-	uid, err := c.EnsureAccount(ctx, pid, prov, acct)
+	uid, err := c.EnsureAccount(ctx, prov, acct)
 	if err != nil || uid == "" {
 		t.Fatalf("EnsureAccount = %q, %v", uid, err)
 	}
@@ -427,21 +404,21 @@ func TestAccountLifecycle(t *testing.T) {
 	}
 
 	// Repeat with no stored id: found through the membership list.
-	uid2, err := c.EnsureAccount(ctx, pid, prov, acct)
+	uid2, err := c.EnsureAccount(ctx, prov, acct)
 	if err != nil || uid2 != uid {
 		t.Fatalf("repeat EnsureAccount = %q, %v", uid2, err)
 	}
 
 	// Demote to director.
 	acct.Role, acct.UserID = RoleDirector, uid
-	if _, err := c.EnsureAccount(ctx, pid, prov, acct); err != nil {
+	if _, err := c.EnsureAccount(ctx, prov, acct); err != nil {
 		t.Fatal(err)
 	}
 	if u.membership[prov] != RoleDirector {
 		t.Fatalf("role after demotion = %q", u.membership[prov])
 	}
 
-	token, err := c.HandoverToken(ctx, pid, prov, "7")
+	token, err := c.HandoverToken(ctx, prov, "7")
 	if err != nil || token == "" {
 		t.Fatalf("HandoverToken = %q, %v", token, err)
 	}
@@ -459,10 +436,10 @@ func TestAccountLifecycle(t *testing.T) {
 	}
 
 	// Coming back without the stored id cannot be resolved; with it, it can.
-	if _, err := c.EnsureAccount(ctx, pid, prov, Account{ExternalID: "7", Email: acct.Email, Role: RoleDirector}); !errors.Is(err, ErrAccountUnknown) {
+	if _, err := c.EnsureAccount(ctx, prov, Account{ExternalID: "7", Email: acct.Email, Role: RoleDirector}); !errors.Is(err, ErrAccountUnknown) {
 		t.Fatalf("want ErrAccountUnknown, got %v", err)
 	}
-	if _, err := c.EnsureAccount(ctx, pid, prov, Account{ExternalID: "7", Email: acct.Email, Role: RoleProviderAdmin, UserID: uid}); err != nil {
+	if _, err := c.EnsureAccount(ctx, prov, Account{ExternalID: "7", Email: acct.Email, Role: RoleProviderAdmin, UserID: uid}); err != nil {
 		t.Fatal(err)
 	}
 	if u.membership[prov] != RoleProviderAdmin || len(u.roles) != 3 {
@@ -472,12 +449,12 @@ func TestAccountLifecycle(t *testing.T) {
 
 func TestLastAdministratorCannotBeRemoved(t *testing.T) {
 	f, srv := newFake(t)
-	c := newClient(t, srv.URL, testSecret)
+	c := newClient(t, srv.URL, testPassword)
 	ctx := context.Background()
 	pid, _, _ := c.EnsureProvisioner(ctx)
 	prov, _, _ := c.EnsureProvider(ctx, pid, "CLUBA", "Club A")
 	// No permanent instance administrator in this test.
-	uid, err := c.EnsureAccount(ctx, pid, prov, Account{ExternalID: "1", Email: AccountEmail("only"), Role: RoleProviderAdmin})
+	uid, err := c.EnsureAccount(ctx, prov, Account{ExternalID: "1", Email: AccountEmail("only"), Role: RoleProviderAdmin})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -490,41 +467,52 @@ func TestLastAdministratorCannotBeRemoved(t *testing.T) {
 }
 
 func TestHandoverForUnknownPersonFails(t *testing.T) {
-	_, c, pid, prov := setUp(t)
-	if _, err := c.HandoverToken(context.Background(), pid, prov, "999"); err == nil {
+	_, c, _, prov := setUp(t)
+	if _, err := c.HandoverToken(context.Background(), prov, "999"); err == nil {
 		t.Fatal("a hand-over token for an unknown person must fail")
 	}
 }
 
-func TestErrorsNeverContainTheToken(t *testing.T) {
-	_, srv := newFake(t)
-	c := newClient(t, srv.URL, strings.Repeat("z", 48))
+func TestErrorsNeverContainSecrets(t *testing.T) {
+	f, srv := newFake(t)
+	wrong := strings.Repeat("z", 48)
+	c := newClient(t, srv.URL, wrong)
 	_, _, err := c.EnsureProvisioner(context.Background())
+	if err == nil || strings.Contains(err.Error(), wrong) {
+		t.Fatalf("sign-in failure must not quote the password: %v", err)
+	}
+
+	good := newClient(t, srv.URL, testPassword)
+	if _, _, err := good.EnsureProvisioner(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	_, err = good.HandoverToken(context.Background(), "provider-x", "999")
 	if err == nil {
 		t.Fatal("expected a failure")
 	}
-	token, _ := c.sign("")
-	for _, part := range strings.Split(token, ".") {
-		if strings.Contains(err.Error(), part) {
-			t.Fatal("the error text contains token material")
+	f.mu.Lock()
+	for token := range f.tokens {
+		if strings.Contains(err.Error(), token) {
+			t.Fatal("the error text contains a token")
 		}
 	}
-	if strings.Contains(err.Error(), strings.Repeat("z", 48)) {
-		t.Fatal("the error text contains the secret")
+	f.mu.Unlock()
+	if strings.Contains(err.Error(), testPassword) {
+		t.Fatal("the error text contains the password")
 	}
 
-	// A server that cannot be reached: the error names the address, not the header.
-	down := newClient(t, "http://127.0.0.1:1", testSecret)
+	// A service that cannot be reached: the error names the address only.
+	down := newClient(t, "http://127.0.0.1:1", testPassword)
 	_, _, err = down.EnsureProvisioner(context.Background())
-	if err == nil || strings.Contains(err.Error(), "Bearer") {
-		t.Fatalf("unreachable server error = %v", err)
+	if err == nil || strings.Contains(err.Error(), "Bearer") || strings.Contains(err.Error(), testPassword) {
+		t.Fatalf("unreachable service error = %v", err)
 	}
 }
 
 func TestInvalidRoleIsRefusedBeforeAnyCall(t *testing.T) {
-	f, c, pid, prov := setUp(t)
+	f, c, _, prov := setUp(t)
 	before := len(f.calls)
-	if _, err := c.EnsureAccount(context.Background(), pid, prov, Account{ExternalID: "2", Email: AccountEmail("x"), Role: "superadmin"}); err == nil {
+	if _, err := c.EnsureAccount(context.Background(), prov, Account{ExternalID: "2", Email: AccountEmail("x"), Role: "superadmin"}); err == nil {
 		t.Fatal("an unknown role must be refused")
 	}
 	if len(f.calls) != before {
