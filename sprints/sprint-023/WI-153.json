@@ -9,7 +9,7 @@
   "dependencies": [
     "WI-142"
   ],
-  "status": "not_started",
+  "status": "completed",
   "recommended_model": {
     "name": "Opus 5.5",
     "id": "claude-opus-5-5",
@@ -55,5 +55,7 @@
     "user_story": "As a club administrator, I want the people who only run tournaments to have accounts here, so that there is one place to sign in and one place to remove access.",
     "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships.",
     "added": "2026-11-22, at the owner's request"
-  }
+  },
+  "completed_date": "2026-11-22",
+  "status_note": "Merged 2026-11-22. make check, main e2e (228) and passkey e2e (12) pass."
 }

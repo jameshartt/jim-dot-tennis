@@ -12,7 +12,7 @@
     "WI-145",
     "WI-153"
   ],
-  "status": "not_started",
+  "status": "in_progress",
   "recommended_model": {
     "name": "Fable 5.2",
     "id": "claude-fable-5-2",
@@ -54,5 +54,6 @@
   "context": {
     "user_story": "As a club administrator, I want one login for league and tournaments.",
     "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
-  }
+  },
+  "status_note": "2026-11-22: implemented and unit-tested: tournament_accounts (migration 037), account sync with retry, the hand-over route /tournament-home/open, sign-out on the sign-in page, the TMX external sign-in setting, proxy rules (with WI-144). Awaiting the end-to-end run in WI-147. Known limit recorded in the design note: ending sessions cannot cancel a tournament refresh token."
 }

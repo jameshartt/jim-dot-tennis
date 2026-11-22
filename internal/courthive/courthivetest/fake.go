@@ -14,6 +14,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -39,6 +40,8 @@ const (
 	CallMakeAccount      = "make-account"
 	CallSetRole          = "set-role"
 	CallSetGlobalRoles   = "set-global-roles"
+	CallRemove           = "remove-membership"
+	CallHandover         = "hand-over-token"
 	CallCalendar         = "calendar"
 )
 
@@ -69,6 +72,7 @@ type Server struct {
 	users        []*User
 	fail         map[string]int // call -> status to answer with, once
 	calls        map[string]int
+	handovers    int
 }
 
 // New starts a fake, closed when the test ends.
@@ -300,6 +304,37 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		refuse(404, "Not found")
+	case CallRemove:
+		seg := strings.Split(strings.TrimPrefix(path, "/provisioner/users/"), "/providers/")
+		for _, u := range s.users {
+			if u.ID == seg[0] {
+				admins := 0
+				for _, other := range s.users {
+					if other.Membership[seg[1]] == "PROVIDER_ADMIN" {
+						admins++
+					}
+				}
+				if u.Membership[seg[1]] == "PROVIDER_ADMIN" && admins <= 1 {
+					refuse(409, "Provider must retain at least one PROVIDER_ADMIN")
+					return
+				}
+				delete(u.Membership, seg[1])
+				reply(200, map[string]any{"success": true})
+				return
+			}
+		}
+		reply(200, map[string]any{"success": true})
+	case CallHandover:
+		for _, u := range s.users {
+			if u.SSOProvider == str("ssoProvider") && u.ExternalID == str("externalId") {
+				if _, member := u.Membership[str("providerId")]; member {
+					s.handovers++
+					reply(200, map[string]any{"token": "handover-" + u.ExternalID + "-" + strconv.Itoa(s.handovers), "expiresIn": 60})
+					return
+				}
+			}
+		}
+		reply(200, map[string]any{"error": "SSO identity not found for a provider this provisioner manages", "code": "SSO_IDENTITY_NOT_FOUND"})
 	case CallSetGlobalRoles:
 		for _, u := range s.users {
 			if u.Email == str("email") {
@@ -343,8 +378,12 @@ func (s *Server) classify(method, path string) string {
 		return CallMembers
 	case path == "/provisioner/users":
 		return CallMakeAccount
+	case strings.HasPrefix(path, "/provisioner/users/") && strings.Contains(path, "/providers/") && method == http.MethodDelete:
+		return CallRemove
 	case strings.HasPrefix(path, "/provisioner/users/") && strings.Contains(path, "/providers/"):
 		return CallSetRole
+	case path == "/auth/sso/generate":
+		return CallHandover
 	case path == "/auth/modify":
 		return CallSetGlobalRoles
 	}

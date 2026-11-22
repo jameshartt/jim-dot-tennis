@@ -222,9 +222,21 @@ When someone with tournament access opens tournament management:
   and their roles. Proven: an existing session then sees no tournaments on its
   next request, because membership is read from the database every time, and
   no new hand-over token is issued for them.
-- Signing out of jim-dot-tennis: the sign-out page also removes TMX's two
-  tokens from browser storage and calls logout with the refresh token. Both are
-  served from the same origin, so this is possible.
+- Signing out of jim-dot-tennis: the sign-in page, which is where signing out
+  or an expired session lands, removes TMX's two tokens from that browser's
+  storage and calls logout with the refresh token. Both are served from the
+  same origin, so this is possible.
+- A change the tournament server could not take (it was unreachable) is not
+  dropped: the account is marked, the app retries every minute, and the
+  tournaments page says how many are waiting. Until it is applied the person
+  keeps the tournament access they had.
+- Limit: ending someone's sessions in jim-dot-tennis ("sign out everywhere")
+  removes their tournament membership at once, but the identity service has no
+  way to cancel a tournament session's refresh token from outside. When the
+  person next opens tournament management their membership returns, and a
+  tournament session still open in another browser works again. To cut someone
+  off for good, remove their tournament access or disable the account. Worth
+  asking upstream for an administrator's "end this person's sessions" route.
 
 ### What the proxy allows
 
@@ -247,9 +259,11 @@ is one reason its sign-in route stays closed.
 
 TMX's own user-administration screen will not work in the bundle; accounts are
 managed in jim-dot-tennis. TMX signed out still works as a local-only app and
-offers its own "Log in". WI-152 adds one small TMX change: when a build-time
-setting names an external sign-in address, the log-in action goes there
-instead of opening TMX's form.
+offers "Log in". One small TMX change (`VITE_EXTERNAL_LOGIN_URL`) sends that
+action to `/tournament-home/open`, the jim-dot-tennis route that checks the
+person's access, brings their tournament account into line and redirects to
+TMX with the single-use token in the address's fragment, which browsers never
+send to a server.
 
 ### People who exist only in CourtHive today
 

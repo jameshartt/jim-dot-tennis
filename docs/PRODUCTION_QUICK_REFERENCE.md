@@ -711,6 +711,35 @@ Good to know
     the same disk is lost with the server.
 ```
 
+`jim-dot-tennis help` then prints the tournament commands:
+
+```
+Tournaments
+  tournaments status               Say whether the bundled tournament software
+                                   is switched on in this deployment, whether
+                                   the app can reach it, which version it runs,
+                                   and whether the club is set up on it.
+  tournaments provision [--abbreviation <code>]
+                                   Set the club up on the bundled tournament
+                                   software, as switching Tournaments on in
+                                   Club Settings does: connect the app to it,
+                                   make the club's place on it, make the
+                                   permanent tournament administrator, and add
+                                   the club's calendar to the app. Safe to run
+                                   again: what already exists is left as it is,
+                                   and a set-up that stopped part-way is
+                                   finished. <code> is the club's tournament
+                                   code (2 to 12 letters or digits); without
+                                   it the one the app suggests is used. Once
+                                   the club is set up the code cannot change.
+                                   Lists tournament accounts the app did not
+                                   make; nothing is changed for them.
+```
+
+**Tournament set-up.** When the bundled tournament software is part of the installation (see "Tournaments" in `docs/docker_setup.md`), switching Tournaments on in Club Settings sets the club up on it straight away; `tournaments provision` does the same from the server. Running it again is always safe: anything already in place is left alone, and a set-up that stopped part-way (for example because the tournament software was still starting) is finished. A failure names the step that failed. The club's tournament code is made from the club's name, can be edited before the first set-up, and cannot be changed afterwards. People who already have accounts on the tournament software that this app did not make are listed and nothing is changed for them: give each a Tournaments only account on the users page.
+
+If set-up says the permanent administrator account exists but cannot be found, the tournament software was set up from a different copy of this app's database. Restore the database that set it up, or start the tournament software with an empty database.
+
 ### 11. Passkeys
 
 People sign in with a passkey (fingerprint, face or screen lock) or with a

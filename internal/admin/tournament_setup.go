@@ -60,6 +60,11 @@ type tournamentSetupView struct {
 	Outcome      string // "done", "failed" or "external" just after a run or a switch; "" otherwise
 	Problem      string // a failure that stopped a run starting
 
+	// NotApplied counts people whose latest change of tournament access the
+	// tournament server has not taken yet (it was unreachable); the app keeps
+	// trying every minute.
+	NotApplied int
+
 	ManagementURL string // where tournaments are created (tournament management)
 	UsersPath     string // where Tournaments only accounts are made
 }
@@ -90,6 +95,13 @@ func (s *Service) tournamentSetupData(r *http.Request) tournamentSetupView {
 	}
 	if v.Last != nil {
 		v.LastRanAt = v.Last.RanAt.Local().Format("2 Jan 2006 at 15:04")
+	}
+	if v.Configured {
+		if waiting, err := svc.PendingAccounts(r.Context()); err != nil {
+			log.Printf("Tournament accounts waiting to be updated: %v", err)
+		} else {
+			v.NotApplied = len(waiting)
+		}
 	}
 	return v
 }

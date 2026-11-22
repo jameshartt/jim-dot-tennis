@@ -125,7 +125,7 @@ func TestSwitchingTournamentsOnSetsUpTheClub(t *testing.T) {
 		t.Fatalf("sync: %+v %v", res, err)
 	}
 	page := tournamentsPage(t, e, "")
-	for _, want := range []string{`data-tournament-setup="set-up"`, "data-first-tournament", `href="/tournaments/"`, "Check the set-up again"} {
+	for _, want := range []string{`data-tournament-setup="set-up"`, "data-first-tournament", `href="/tournament-home/open"`, "Check the set-up again"} {
 		if !strings.Contains(page, want) {
 			t.Errorf("tournaments page lacks %q", want)
 		}

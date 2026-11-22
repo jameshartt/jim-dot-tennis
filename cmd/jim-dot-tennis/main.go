@@ -170,10 +170,12 @@ func main() {
 
 	// Set up admin handlers
 	adminHandler := admin.New(db, templateDir, tournamentCfg.ServerURL, homeClub, homeClub.BHPLTAClubCode(), pushService)
-	adminHandler.SetTournamentAccessObserver(tournamentAccessObserver())
-	// Switching Tournaments on (and the tournaments page) sets the club up on
-	// the bundled tournament stack, when this deployment has one.
-	adminHandler.SetTournamentSetup(tournaments.NewService(db, tournamentStack))
+	// One tournament service: it sets the club up on the bundled tournament
+	// stack (when this deployment has one), keeps people's tournament
+	// accounts in line with their access here, and hands them over.
+	tournamentService := tournaments.NewService(db, tournamentStack)
+	adminHandler.SetTournamentAccessObserver(tournamentAccessObserver(tournamentService))
+	adminHandler.SetTournamentSetup(tournamentService)
 	if tournamentStack.Configured() {
 		log.Printf("Bundled tournament stack: %s (sign-in service %s)", tournamentCfg.ServerURL, tournamentCfg.IdentityURL)
 	}
@@ -254,7 +256,12 @@ func main() {
 
 	// Tournament home page (outside /admin/league: signed in, with tournament
 	// access; the handler checks the access itself)
-	tournamenthome.New(homeClub.ClubSettings(), templateDir).RegisterRoutes(mux, authMiddleware.RequireAuth)
+	tournamenthome.New(homeClub.ClubSettings(), tournamentService, templateDir).RegisterRoutes(mux, authMiddleware.RequireAuth)
+	if tournamentStack.Configured() {
+		// Retry any change to a person's tournament access that the
+		// tournament stack did not take (it was down, say).
+		go tournamentService.RunReconciler(context.Background(), time.Minute)
+	}
 
 	// Public admin-related routes (e.g., club wrapped with lightweight password gate)
 	adminHandler.RegisterPublicRoutes(mux)
@@ -450,10 +457,14 @@ func getProjectRoot() (string, error) {
 // loadTemplatesWithFuncs loads templates with function map
 // tournamentAccessObserver is told about committed changes to accounts'
 // tournament access, role, active state and sessions, by the users and
-// sessions pages and by the command line. Nothing listens yet; WI-152 puts
-// the tournament server here.
-func tournamentAccessObserver() accounts.TournamentAccessObserver {
-	return accounts.NoTournamentAccessObserver{}
+// sessions pages and by the command line. With the bundled tournament stack
+// it is the tournament service, which brings the tournament server into line;
+// without one, nothing listens.
+func tournamentAccessObserver(svc *tournaments.Service) accounts.TournamentAccessObserver {
+	if svc == nil || !svc.Configured() {
+		return accounts.NoTournamentAccessObserver{}
+	}
+	return svc
 }
 
 func loadTemplatesWithFuncs(templateDir string, funcMap template.FuncMap) (*template.Template, error) {

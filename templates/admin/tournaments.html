@@ -114,6 +114,7 @@
                 {{else}}
                     {{if eq .Outcome "done"}}<div class="success-message" role="status" data-setup-outcome="done">Tournament set-up finished.{{if .Last}}{{if not .Last.MadeAnything}} Everything was already in place; nothing was changed.{{end}}{{end}}</div>{{end}}
                     {{if .Problem}}<div class="error-message" role="alert">{{.Problem}}</div>{{end}}
+                    {{if .NotApplied}}<div class="error-message" role="alert" data-setup-not-applied>{{.NotApplied}} {{if eq .NotApplied 1}}person's change{{else}}people's changes{{end}} of tournament access {{if eq .NotApplied 1}}has{{else}}have{{end}} not reached the tournament server yet, because it could not be reached. Until it does, they keep the tournament access they had. This app tries again every minute.</div>{{end}}
                     {{if .SetUp}}
                     <p data-setup-state>The club is set up on the tournament server as <strong data-setup-abbreviation>{{.Abbreviation}}</strong>. This code cannot be changed.</p>
                     {{else}}

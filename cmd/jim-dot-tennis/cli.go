@@ -21,6 +21,7 @@ import (
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/setup"
+	"jim-dot-tennis/internal/tournaments"
 	"jim-dot-tennis/internal/version"
 )
 
@@ -514,7 +515,11 @@ func openCLIDatabase(ctx context.Context) (*database.DB, error) {
 
 func (cmd command) run(ctx context.Context, c cliOut, db *database.DB) error {
 	svc := accounts.New(db)
-	svc.SetTournamentAccessObserver(tournamentAccessObserver())
+	// Changes made here reach the bundled tournament stack too, when this
+	// deployment has one and its settings are usable.
+	if client, _, err := tournamentClient(); err == nil {
+		svc.SetTournamentAccessObserver(tournamentAccessObserver(tournaments.NewService(db, client)))
+	}
 	actor := accounts.CLIActor(cmd.name)
 	switch cmd.name {
 	case "user list":

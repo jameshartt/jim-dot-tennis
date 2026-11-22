@@ -46,6 +46,8 @@ type Client interface {
 	EnsureAccount(ctx context.Context, providerID string, a courthive.Account) (string, error)
 	Members(ctx context.Context, providerID string) ([]courthive.Member, error)
 	Providers(ctx context.Context) ([]courthive.Provider, error)
+	RemoveAccount(ctx context.Context, providerID, userID, email string) error
+	HandoverToken(ctx context.Context, providerID, externalID string) (string, error)
 }
 
 // ErrNotConfigured: the bundled tournament stack is not part of this
@@ -177,6 +179,7 @@ type Status struct {
 
 // Service runs and reports the club's tournament set-up.
 type Service struct {
+	db        *database.DB
 	client    Client
 	settings  repository.SettingsRepository
 	providers repository.TournamentProviderRepository
@@ -190,6 +193,7 @@ type Service struct {
 // then Provision returns ErrNotConfigured and Status says so.
 func NewService(db *database.DB, client Client) *Service {
 	return &Service{
+		db:        db,
 		client:    client,
 		settings:  repository.NewSettingsRepository(db),
 		providers: repository.NewTournamentProviderRepository(db),

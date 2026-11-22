@@ -29,6 +29,21 @@ back: read the Upgrade notes of every version in between.
 
 ### Added
 
+- **One sign-in for league and tournaments.** With the tournament stack on,
+  people sign in here and nowhere else. "Open tournament management" hands
+  them over already signed in; CourtHive's own sign-in, password and
+  user-administration routes are closed at the proxy. Signing out here signs
+  that browser out of tournament management too.
+- **Tournament access per account, and "Tournaments only" accounts.** Each
+  account has tournament access of none, own tournaments, or all. Administrators
+  always have all. An administrator can create an account for someone who only
+  runs tournaments; it has no league access. Removing access or disabling an
+  account takes their tournaments away on their next request.
+- **Tournament set-up.** Switching Tournaments on sets the club up on the
+  bundled tournament software; the Tournaments page shows the state and can
+  run it again. `jim-dot-tennis tournaments provision` and `tournaments status`
+  do the same from the server.
+
 - **Tournaments in the packaged deployment, off by default.**
   `deploy/docker-compose.yml` can now run the tournament stack (CourtHive)
   next to the app, as the compose profile `tournaments`: Postgres, Redis, the

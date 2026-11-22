@@ -79,7 +79,7 @@ test.describe("Tournaments only account", () => {
     const off = page.locator('[data-testid="tournaments-switched-off"]');
     expect((await open.count()) + (await off.count())).toBe(1);
     if (await open.count()) {
-      await expect(open).toHaveAttribute("href", "/tournaments/");
+      await expect(open).toHaveAttribute("href", "/tournament-home/open");
     }
     await expect(page.locator('[data-testid="tournament-home-league-link"]')).toHaveCount(0);
 

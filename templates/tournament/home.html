@@ -30,7 +30,10 @@
         <p data-testid="tournament-home-refused">Tournament management is not part of your account. If you need it, ask one of the club's administrators.</p>
         {{else}}
         <h1>Hello, {{.Username}}</h1>
-        {{if .Enabled}}
+        {{if .OpenFailed}}
+        <p data-testid="tournament-open-failed">Tournament management could not be opened just now. Nothing is lost. Please try again in a minute; if it keeps happening, tell one of the club's administrators.</p>
+        <a href="{{.ManagementURL}}" class="btn btn-primary th-open" data-testid="tournament-management-link">Try again</a>
+        {{else if .Enabled}}
         <p>This is where you run the club's tournaments.</p>
         <a href="{{.ManagementURL}}" class="btn btn-primary th-open" data-testid="tournament-management-link">Open tournament management</a>
         <p class="th-note" data-testid="tournament-access">{{if .AllAccess}}You can look after every tournament the club runs.{{else}}You can look after your own tournaments and any you have been given.{{end}}</p>

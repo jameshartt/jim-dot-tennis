@@ -4,6 +4,7 @@ package tournamenthome
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -40,6 +41,25 @@ func templatesRoot(t *testing.T) string {
 // for RequireAuth that sends anonymous requests to /login.
 func serve(t *testing.T, sw *fakeSwitch, user *models.User) *httptest.ResponseRecorder {
 	t.Helper()
+	return servePath(t, sw, nil, user, auth.TournamentHomePath)
+}
+
+// fakeOpener stands in for the tournament service.
+type fakeOpener struct {
+	configured bool
+	token      string
+	err        error
+	asked      []int64
+}
+
+func (f *fakeOpener) Configured() bool { return f.configured }
+func (f *fakeOpener) Handover(_ context.Context, userID int64) (string, error) {
+	f.asked = append(f.asked, userID)
+	return f.token, f.err
+}
+
+func servePath(t *testing.T, sw *fakeSwitch, opener Opener, user *models.User, path string) *httptest.ResponseRecorder {
+	t.Helper()
 	t.Setenv("TEMPLATE_RELOAD", "")
 	mux := http.NewServeMux()
 	requireAuth := func(next http.Handler) http.Handler {
@@ -51,10 +71,71 @@ func serve(t *testing.T, sw *fakeSwitch, user *models.User) *httptest.ResponseRe
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), auth.UserContextKey, *user)))
 		})
 	}
-	New(sw, templatesRoot(t)).RegisterRoutes(mux, requireAuth)
+	New(sw, opener, templatesRoot(t)).RegisterRoutes(mux, requireAuth)
 	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, auth.TournamentHomePath, nil))
+	mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 	return rec
+}
+
+func TestOpenHandsOverOnlyWithAccess(t *testing.T) {
+	on, off := &fakeSwitch{on: true}, &fakeSwitch{on: false}
+	tina := models.User{ID: 41, Username: "tina", Role: models.RoleTournamentsOnly, IsActive: true, TournamentAccess: models.TournamentAccessOwn}
+	cap := models.User{ID: 42, Username: "cap", Role: models.RoleCaptain, IsActive: true}
+	gone := models.User{ID: 43, Username: "gone", Role: models.RoleAdmin, IsActive: false}
+
+	// Not signed in: to the sign-in page, and nothing is asked of the tournament server.
+	op := &fakeOpener{configured: true, token: "one-time"}
+	if rec := servePath(t, on, op, nil, ManagementPath); rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/login" {
+		t.Errorf("anonymous: %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	// No access, a disabled account, or Tournaments switched off: back to the home page.
+	for name, c := range map[string]struct {
+		sw *fakeSwitch
+		u  models.User
+	}{"captain without access": {on, cap}, "disabled administrator": {on, gone}, "switched off": {off, tina}} {
+		rec := servePath(t, c.sw, op, &c.u, ManagementPath)
+		if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != auth.TournamentHomePath {
+			t.Errorf("%s: %d %q", name, rec.Code, rec.Header().Get("Location"))
+		}
+	}
+	if len(op.asked) != 0 {
+		t.Fatalf("a hand-over was requested for someone without access: %v", op.asked)
+	}
+
+	// With access: the token goes in the fragment, and the answer must not be stored or leak a referrer.
+	rec := servePath(t, on, op, &tina, ManagementPath)
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/tournaments/#/sso?token=one-time" {
+		t.Fatalf("tina: %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	if rec.Header().Get("Cache-Control") != "no-store" || rec.Header().Get("Referrer-Policy") != "no-referrer" {
+		t.Error("the hand-over answer may be cached or leak a referrer")
+	}
+	if len(op.asked) != 1 || op.asked[0] != 41 {
+		t.Errorf("asked = %v", op.asked)
+	}
+}
+
+func TestOpenWithoutBundledStackGoesStraightToTournamentManagement(t *testing.T) {
+	tina := models.User{ID: 41, Username: "tina", Role: models.RoleTournamentsOnly, IsActive: true, TournamentAccess: models.TournamentAccessAll}
+	for name, op := range map[string]Opener{"none": nil, "not configured": &fakeOpener{}} {
+		rec := servePath(t, &fakeSwitch{on: true}, op, &tina, ManagementPath)
+		if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/tournaments/" {
+			t.Errorf("%s: %d %q", name, rec.Code, rec.Header().Get("Location"))
+		}
+	}
+}
+
+func TestOpenFailureSaysSoWithoutDetails(t *testing.T) {
+	tina := models.User{ID: 41, Username: "tina", Role: models.RoleTournamentsOnly, IsActive: true, TournamentAccess: models.TournamentAccessAll}
+	op := &fakeOpener{configured: true, err: errors.New("courthive: secret-looking-detail HTTP 500")}
+	rec := servePath(t, &fakeSwitch{on: true}, op, &tina, ManagementPath)
+	body := rec.Body.String()
+	if rec.Code != http.StatusBadGateway || !strings.Contains(body, "tournament-open-failed") || !strings.Contains(body, "Try again") {
+		t.Fatalf("%d\n%s", rec.Code, body)
+	}
+	if strings.Contains(body, "secret-looking-detail") {
+		t.Error("the page shows the internal error")
+	}
 }
 
 func TestTournamentHomeGuard(t *testing.T) {
