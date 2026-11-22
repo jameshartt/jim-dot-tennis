@@ -62,8 +62,13 @@ LABEL org.opencontainers.image.title="jim.tennis" \
       org.opencontainers.image.revision="${COMMIT}" \
       org.opencontainers.image.created="${BUILD_DATE}"
 
-# Install runtime dependencies (TLS roots for outbound HTTPS, zone data)
-RUN apk add --no-cache ca-certificates tzdata
+# Install runtime dependencies (TLS roots for outbound HTTPS, zone data) and
+# the Postgres client tools (pg_dump, pg_restore, psql), which back up and
+# restore the tournament database when the tournament stack is on. Their major
+# version must be at least the tournament Postgres server's (postgres:18 in
+# deploy/docker-compose.yml): pg_dump refuses a newer server. They add about
+# 14 MB to the image and are never used without the tournament stack.
+RUN apk add --no-cache ca-certificates tzdata postgresql18-client
 
 # Set working directory
 WORKDIR /app

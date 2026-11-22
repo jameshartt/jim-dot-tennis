@@ -101,7 +101,10 @@ Backups
                                    the app is running. The app also makes one
                                    on its own every day (BACKUP_INTERVAL) and
                                    before every upgrade, and keeps the newest
-                                   14 (BACKUP_KEEP).
+                                   14 (BACKUP_KEEP). With the tournament stack
+                                   on, the file also holds the tournament
+                                   database; if that cannot be included, no
+                                   backup is made and the command says why.
   restore <file>                   Put a backup back: its database and logo
                                    replace the current ones. Refused while the
                                    app is running, so stop the app and run it
@@ -114,6 +117,15 @@ Backups
                                    once the restore is confirmed good. While
                                    it runs, the other commands refuse.
                                    Everyone has to sign in again afterwards.
+                                   A backup with tournament data restores the
+                                   tournament database too (stop the
+                                   tournament server and identity service
+                                   first; a copy of the database it replaces
+                                   is kept as courthive.dump.replaced-...).
+  restore --tournaments-only <file>
+                                   Put back only the tournament data of a
+                                   backup (or a courthive.dump.replaced-...
+                                   copy). The app's database is not touched.
 
   version                          Show which version of the app this is, the
                                    commit it was built from and when.
@@ -201,6 +213,9 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 
 	ctx := context.Background()
 	if cmd.name == cmdRestore {
+		if cmd.tournamentsOnly {
+			return runRestoreTournaments(ctx, c, stderr, cmd.args[0])
+		}
 		return runRestore(ctx, c, stderr, cmd.args[0])
 	}
 	// Every other command uses the database: not while a restore is
@@ -214,6 +229,9 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 	defer release()
 	if cmd.name == cmdBackup {
 		return runBackup(ctx, c, stderr)
+	}
+	if cmd.name == cmdTournamentsPreUpgrade {
+		return runTournamentsPreUpgrade(ctx, c, stderr)
 	}
 	db, err := openCLIDatabase(ctx)
 	if err != nil {
@@ -238,6 +256,8 @@ type command struct {
 	tournaments string
 	// abbreviation is --abbreviation (tournaments provision only).
 	abbreviation string
+	// tournamentsOnly is --tournaments-only (restore only).
+	tournamentsOnly bool
 }
 
 // parseCommand turns args into a command. Flags may come before or after
@@ -254,6 +274,9 @@ func parseCommand(args []string) (command, error) {
 const (
 	cmdTournamentsStatus    = "tournaments status"
 	cmdTournamentsProvision = "tournaments provision"
+	// cmdTournamentsPreUpgrade is run by the deployment's one-shot service
+	// before a new tournament server image starts (cli_tournament_upgrade.go).
+	cmdTournamentsPreUpgrade = "tournaments pre-upgrade"
 )
 
 func parseCommandWords(args []string) (command, error) {
@@ -289,6 +312,11 @@ func parseCommandWords(args []string) (command, error) {
 				value = args[i]
 			}
 			cmd.tournaments = value
+		case "tournaments-only":
+			if hasValue {
+				return command{}, fmt.Errorf("%w: --tournaments-only takes no value", errUsage)
+			}
+			cmd.tournamentsOnly = true
 		case "abbreviation":
 			if !hasValue {
 				if i+1 >= len(args) {
@@ -308,6 +336,9 @@ func parseCommandWords(args []string) (command, error) {
 	}
 	if len(words) == 0 {
 		return command{name: "help"}, nil
+	}
+	if cmd.tournamentsOnly && strings.ToLower(words[0]) != cmdRestore {
+		return command{}, fmt.Errorf("%w: --tournaments-only only goes with \"restore\"", errUsage)
 	}
 
 	need := func(n int, usage string) error {
@@ -349,14 +380,14 @@ func parseCommandWords(args []string) (command, error) {
 		if len(words) != 2 {
 			return command{}, fmt.Errorf("%w: usage: jim-dot-tennis restore <backup file>", errUsage)
 		}
-		return command{name: cmdRestore, args: words[1:]}, noRole()
+		return command{name: cmdRestore, args: words[1:], tournamentsOnly: cmd.tournamentsOnly}, noRole()
 	case "tournaments":
-		usage := fmt.Errorf("%w: usage: jim-dot-tennis tournaments status|provision [--abbreviation <code>]", errUsage)
+		usage := fmt.Errorf("%w: usage: jim-dot-tennis tournaments status|provision [--abbreviation <code>]|pre-upgrade", errUsage)
 		if len(words) != 2 {
 			return command{}, usage
 		}
 		switch sub := strings.ToLower(words[1]); sub {
-		case "status", "provision":
+		case "status", "provision", "pre-upgrade":
 			cmd.name = "tournaments " + sub
 			return cmd, noRole()
 		}

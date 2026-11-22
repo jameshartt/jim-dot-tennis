@@ -22,7 +22,14 @@ import (
 //
 //	manifest.json                 always first
 //	database/tennis.db            the database copy
+//	tournaments/courthive.dump    the tournament database (only when the
+//	                              tournament stack is part of the deployment)
 //	files/branding/<logo name>    uploaded logos (zero or more)
+//
+// An archive without tournament data is format 1, exactly as before
+// tournament data existed, so older versions of the app still read it. One
+// with tournament data is format 2 and its manifest has a "tournaments"
+// entry; an older version refuses it rather than restore half of it.
 //
 // Restore accepts nothing else: any other name, a directory, a link, a
 // device, an absolute or ".." path, a duplicate, an entry over its size
@@ -30,10 +37,13 @@ import (
 // lists is refused before anything is written outside the staging folder
 // (and before any of that entry is written inside it).
 const (
-	FormatVersion    = 1
+	FormatVersion = 2
+	// formatAppOnly is the format of an archive without tournament data.
+	formatAppOnly    = 1
 	appName          = "jim-dot-tennis"
 	manifestName     = "manifest.json"
 	databaseName     = "database/tennis.db"
+	tournamentName   = "tournaments/courthive.dump"
 	filesPrefix      = "files/"
 	uploadsDirName   = "branding"
 	uploadsPrefix    = filesPrefix + uploadsDirName + "/"
@@ -43,10 +53,11 @@ const (
 // Size limits for what restore reads from an archive (which may come from
 // anywhere). A club's database is a few megabytes; logos are at most 2 MB.
 const (
-	maxManifestBytes = 1 << 20
-	maxDatabaseBytes = 8 << 30
-	maxUploadBytes   = 16 << 20
-	maxEntries       = 1000
+	maxManifestBytes   = 1 << 20
+	maxDatabaseBytes   = 8 << 30
+	maxUploadBytes     = 16 << 20
+	maxTournamentBytes = 16 << 30
+	maxEntries         = 1000
 )
 
 // Kinds of backup, recorded in the manifest.
@@ -55,6 +66,9 @@ const (
 	KindScheduled    = "scheduled"     // the server's schedule
 	KindPreMigration = "pre-migration" // taken before migrations ran
 	KindDownload     = "download"      // made for the admin "Download backup" button
+	// KindPreUpgrade is taken by "tournaments pre-upgrade" before a new
+	// tournament server image first starts (and migrates its database).
+	KindPreUpgrade = "pre-upgrade"
 )
 
 // Manifest describes an archive.
@@ -68,8 +82,26 @@ type Manifest struct {
 	Kind          string      `json:"kind"`
 	Database      FileEntry   `json:"database"`
 	Files         []FileEntry `json:"files"`
-	Notice        string      `json:"notice"`
+	// Tournaments is the tournament database's dump; nil when the archive
+	// has none (format 1).
+	Tournaments *TournamentEntry `json:"tournaments,omitempty"`
+	Notice      string           `json:"notice"`
 }
+
+// TournamentEntry describes the tournament database's dump in an archive.
+type TournamentEntry struct {
+	Included bool `json:"included"` // always true when present
+	FileEntry
+	Format          string `json:"format"`                 // TournamentDumpFormat
+	ServerVersion   string `json:"server_version"`         // the Postgres server it was dumped from
+	Database        string `json:"database"`               // where it came from, for messages (no password)
+	Migrations      int    `json:"migrations"`             // tournament-server migrations applied
+	LatestMigration string `json:"latest_migration"`       // the newest of them
+	ServerImage     string `json:"server_image,omitempty"` // the tournament server image, when known
+}
+
+// HasTournaments reports whether the archive holds tournament data.
+func (m Manifest) HasTournaments() bool { return m.Tournaments != nil && m.Tournaments.Included }
 
 // FileEntry is one file in the archive.
 type FileEntry struct {
@@ -92,7 +124,7 @@ func validEntryName(name string) error {
 		return fmt.Errorf("unsafe name %q", name)
 	}
 	switch {
-	case name == manifestName, name == databaseName:
+	case name == manifestName, name == databaseName, name == tournamentName:
 		return nil
 	case strings.HasPrefix(name, uploadsPrefix):
 		base := strings.TrimPrefix(name, uploadsPrefix)
@@ -111,6 +143,8 @@ func entryLimit(name string) int64 {
 		return maxManifestBytes
 	case databaseName:
 		return maxDatabaseBytes
+	case tournamentName:
+		return maxTournamentBytes
 	default:
 		return maxUploadBytes
 	}
@@ -259,6 +293,9 @@ func readArchive(r io.Reader, onManifest func(Manifest) error, store func(name s
 	// Every file the manifest lists must be there with its checksum, and
 	// nothing else.
 	want := append([]FileEntry{m.Database}, m.Files...)
+	if m.Tournaments != nil {
+		want = append(want, m.Tournaments.FileEntry)
+	}
 	if len(got) != len(want) {
 		return m, badArchive("it holds %d files but the manifest lists %d", len(got), len(want))
 	}
@@ -291,6 +328,9 @@ func listedEntry(m Manifest, name string) (FileEntry, bool) {
 	if name == m.Database.Path {
 		return m.Database, true
 	}
+	if m.Tournaments != nil && name == m.Tournaments.Path {
+		return m.Tournaments.FileEntry, true
+	}
 	for _, f := range m.Files {
 		if f.Path == name {
 			return f, true
@@ -305,6 +345,9 @@ func (m Manifest) TotalSize() int64 {
 	n := m.Database.Size
 	for _, f := range m.Files {
 		n += f.Size
+	}
+	if m.Tournaments != nil {
+		n += m.Tournaments.Size
 	}
 	return n
 }
@@ -330,7 +373,19 @@ func checkManifest(m Manifest) error {
 	if len(m.Files) >= maxEntries {
 		return badArchive("the manifest lists more than %d files", maxEntries)
 	}
-	seen := map[string]bool{databaseName: true}
+	if t := m.Tournaments; t != nil {
+		switch {
+		case m.Format < 2:
+			return badArchive("the manifest lists tournament data, which format %d cannot hold", m.Format)
+		case !t.Included || t.Path != tournamentName:
+			return badArchive("the manifest's tournament entry is not usable")
+		case t.Format != TournamentDumpFormat:
+			return badArchive("the tournament data is in a format this program cannot restore (%q)", t.Format)
+		case t.Size <= 0 || t.Size > maxTournamentBytes:
+			return badArchive("the manifest lists tournament data of %d bytes", t.Size)
+		}
+	}
+	seen := map[string]bool{databaseName: true, tournamentName: true}
 	for _, f := range m.Files {
 		if err := validEntryName(f.Path); err != nil || f.Path == manifestName || seen[f.Path] {
 			return badArchive("the manifest lists an unexpected file %q", f.Path)

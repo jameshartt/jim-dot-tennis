@@ -50,6 +50,7 @@ func runBackup(ctx context.Context, c cliOut, stderr io.Writer) int {
 	c.printf("Backup made and checked:\n\n    %s\n\n", res.Path)
 	c.printf("%d bytes; database version %d; %d uploaded file(s); app version %s.\n",
 		res.Size, res.Manifest.SchemaVersion, len(res.Manifest.Files), res.Manifest.AppVersion)
+	c.printf("%s\n", tournamentLine(res.Manifest))
 	c.printf("Backups kept in %s: the newest %d.\n\n", cfg.Dir, max(cfg.Keep, 1))
 	c.printf("It holds everyone's personal details and password hashes: keep it private.\n" +
 		"It is on the same disk as the app; copy it off this server too (see the operations guide).\n")
@@ -83,12 +84,16 @@ func runRestore(ctx context.Context, c cliOut, stderr io.Writer, archive string)
 	res, err := backup.Restore(ctx, cfg, archive, jimdottennis.Migrations())
 	if err != nil {
 		switch {
+		case errors.Is(err, backup.ErrTournamentMismatch):
+			fmt.Fprintf(stderr, "Not restored: %v.\nDo not start the app or the tournament services until this is put right: see \"If a restore stops part-way\" in the backups section of the operations guide.\n", err)
 		case errors.Is(err, backup.ErrUndoFailed):
 			fmt.Fprintf(stderr, "Not restored: %v.\nSome of the current files may have been moved: see \"If a restore stops part-way\" in the backups section of the operations guide before starting the app.\n", err)
-		case errors.Is(err, backup.ErrServerRunning), errors.Is(err, backup.ErrNewerBackup),
+		case errors.Is(err, backup.ErrServerRunning), errors.Is(err, backup.ErrNewerBackup), errors.Is(err, backup.ErrTournamentInUse),
 			strings.Contains(err.Error(), "Nothing was changed"), strings.Contains(err.Error(), "before anything was changed"):
 			// The message already says nothing was changed.
 			fmt.Fprintf(stderr, "Not restored: %v.\n", err)
+		case cfg.Tournament != nil:
+			fmt.Fprintf(stderr, "Not restored: %v.\nThe current database and files were not changed, and the tournament database is as it was.\n", err)
 		default:
 			fmt.Fprintf(stderr, "Not restored: %v.\nThe current database and files were not changed.\n", err)
 		}
@@ -113,6 +118,7 @@ func runRestore(ctx context.Context, c cliOut, stderr io.Writer, archive string)
 	c.printf("\nEveryone has to sign in again: %d session(s) from the backup were ended and %d unused invite or\n"+
 		"recovery link(s) cancelled. Accounts, passwords and passkeys are as they were when the backup was made;\n"+
 		"check them with \"jim-dot-tennis user list\" once the app is running.\n", res.SessionsEnded, res.LinksCancelled)
+	printTournamentRestore(c, res, archive)
 	c.printf("\nNow start the app again.\n")
 	return exitOK
 }

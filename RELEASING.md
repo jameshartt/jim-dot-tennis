@@ -28,7 +28,10 @@ pre-release: it is marked as one on GitHub and never changes `latest`.
 1. Make sure `main` is what you want to ship and its CI is green.
 2. In `CHANGELOG.md`, rename the top section to `## [X.Y.Z] - YYYY-MM-DD`, check
    its **Upgrade notes** (see the convention at the top of that file) and
-   review the **Changed** list against `git log vPREVIOUS..main`.
+   review the **Changed** list against `git log vPREVIOUS..main`. Give it the
+   table of the bundled set (see "The bundled set" below), with a first row
+   for the app itself:
+   `| jim-dot-tennis | \`ghcr.io/jameshartt/jim-dot-tennis:X.Y.Z\` |`.
 3. Update the default in `deploy/docker-compose.yml` and `deploy/.env.example`
    (`JIM_DOT_TENNIS_VERSION`) to `X.Y.Z` if this is the version clubs should
    install by default (not needed for a release candidate).
@@ -66,6 +69,43 @@ pre-release: it is marked as one on GitHub and never changes `latest`.
    (`docker run --rm ghcr.io/jameshartt/jim-dot-tennis:X.Y.Z ./jim-dot-tennis version`).
 9. Edit the GitHub release notes if the generated list needs a sentence of
    context. Upgrade notes stay in `CHANGELOG.md`; the release notes link to it.
+
+## The bundled set
+
+Every release lists, in its `CHANGELOG.md` section, the app version and the
+four tournament images it was tested with, in one table:
+
+| Part | Image |
+|---|---|
+| jim-dot-tennis | `ghcr.io/jameshartt/jim-dot-tennis:X.Y.Z` |
+| Tournament server | `ghcr.io/jameshartt/courthive-server:<tag>` |
+| Identity service | `ghcr.io/jameshartt/courthive-hiveid:<tag>` |
+| TMX | `ghcr.io/jameshartt/courthive-tmx:<tag>` |
+| Public pages | `ghcr.io/jameshartt/courthive-public:<tag>` |
+
+- The four tournament tags are the defaults in `deploy/docker-compose.yml`
+  for that release. A club never changes them on its own: it moves to a new
+  set by moving to the jim-dot-tennis release that ships it. (`.env` can
+  override them, for testing only.)
+- A release that keeps the set copies the previous table, with its own
+  version in the first row.
+- `internal/compat` has a test (part of `make check`) that fails when the
+  newest table in `CHANGELOG.md` and the defaults in
+  `deploy/docker-compose.yml` disagree, and when a release after 0.1.0 has no
+  table or its first row names another version. The Unreleased section may
+  leave out the jim-dot-tennis row until the version is known.
+- **A set that needs a step between versions** (a data backfill that must run
+  between the tournament server's migrations and the next service, for
+  example) ships that step as a one-shot service in that release's
+  `deploy/docker-compose.yml`, ordered with `depends_on` like
+  `courthive-hash-passwords`, safe to run on every start and failing
+  (non-zero exit) when it cannot do its job, so what depends on it does not
+  start. Its Upgrade notes say so. Never build such steps into the CourtHive
+  images themselves; they come from other repositories.
+- Before a release that changes the tournament server image, run
+  `scripts/rehearse-tournament-upgrade.sh` on a dump of a real tournament
+  database at the previous release's schema (the operations guide, section
+  9) and note the result in the pull request.
 
 ## One-time: make the package public
 
