@@ -22,7 +22,7 @@ var allowedHosts = map[string]string{
 	"www.bhplta.co.uk":       "contacted: BHPLTA league data, match cards, club lookup (docs/outbound_connections.md)",
 	"api.open-meteo.com":     "contacted: weather forecast for upcoming fixtures",
 	"courthive-server":       "contacted: CourtHive API inside the instance's own Docker network",
-	"courthive-hiveid":       "contacted: CourtHive identity service inside the instance's own Docker network (tournaments profile)",
+	"courthive-hiveid":       "contacted: CourtHive identity service inside the instance's own Docker network (tournaments profile; the app signs in there)",
 	"127.0.0.1":              "internal: loopback inside a container (the identity service image's health check)",
 	"app":                    "internal: the app's own Docker service name (health checks, local stack)",
 	"app-e2e":                "internal: the end-to-end test app's Docker service name",

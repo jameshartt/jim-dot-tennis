@@ -216,11 +216,16 @@ func (h *TournamentsHandler) handleTournamentsList(w http.ResponseWriter, r *htt
 		return
 	}
 
+	setup := h.service.tournamentSetupData(r)
+	setup.Outcome = setupOutcome(r.URL.Query().Get("setup"))
+	setup.Problem = r.URL.Query().Get("setup_problem")
+
 	data := map[string]interface{}{
 		"Tournaments": tournaments,
 		"Providers":   providers,
 		"Success":     r.URL.Query().Get("success"),
 		"Error":       r.URL.Query().Get("error"),
+		"Setup":       setup,
 	}
 
 	tmpl, err := parseTemplate(h.templateDir, "admin/tournaments.html")

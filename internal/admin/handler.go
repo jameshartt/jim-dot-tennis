@@ -163,6 +163,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/league/tournaments/edit/", h.tournamentsOnly(h.tournaments.HandleTournamentEdit))
 	adminMux.HandleFunc("/admin/league/tournaments/toggle-visibility/", h.tournamentsOnly(h.tournaments.HandleToggleVisibility))
 	adminMux.HandleFunc("/admin/league/tournaments/sync/", h.tournamentsOnly(h.tournaments.HandleSync))
+	adminMux.HandleFunc(tournamentSetupPath, h.tournamentsOnly(h.tournaments.HandleSetup))
 
 	// Captain planning dashboard (Sprint 017)
 	adminMux.HandleFunc("/admin/league/planning", h.planning.HandleDashboard)

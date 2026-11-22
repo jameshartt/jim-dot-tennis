@@ -263,6 +263,7 @@ func TestCaptainAccessSpec(t *testing.T) {
 		"POST /admin/league/clubs/1/delete",
 		"GET /admin/league/tournaments",
 		"POST /admin/league/tournaments/sync/1",
+		"POST /admin/league/tournaments/setup",
 		"GET /admin/league/wrapped",
 	}
 	for _, target := range captainCan {

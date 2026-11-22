@@ -189,7 +189,7 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 		return exitUsage
 	}
 	if cmd.name == "help" {
-		fmt.Fprint(stdout, cliHelp)
+		fmt.Fprint(stdout, cliHelp+cliTournamentsHelp)
 		return exitOK
 	}
 
@@ -235,11 +235,27 @@ type command struct {
 	role string   // --role
 	// tournaments is --tournaments (user create only).
 	tournaments string
+	// abbreviation is --abbreviation (tournaments provision only).
+	abbreviation string
 }
 
 // parseCommand turns args into a command. Flags may come before or after
 // the positional arguments.
 func parseCommand(args []string) (command, error) {
+	cmd, err := parseCommandWords(args)
+	if err == nil && cmd.abbreviation != "" && cmd.name != cmdTournamentsProvision {
+		return command{}, fmt.Errorf("%w: --abbreviation only goes with \"tournaments provision\"", errUsage)
+	}
+	return cmd, err
+}
+
+// The tournament set-up commands (cli_tournament_setup.go).
+const (
+	cmdTournamentsStatus    = "tournaments status"
+	cmdTournamentsProvision = "tournaments provision"
+)
+
+func parseCommandWords(args []string) (command, error) {
 	var words []string
 	var cmd command
 	for i := 0; i < len(args); i++ {
@@ -272,6 +288,15 @@ func parseCommand(args []string) (command, error) {
 				value = args[i]
 			}
 			cmd.tournaments = value
+		case "abbreviation":
+			if !hasValue {
+				if i+1 >= len(args) {
+					return command{}, fmt.Errorf("%w: --abbreviation needs a value: the club's tournament code, for example STANNS", errUsage)
+				}
+				i++
+				value = args[i]
+			}
+			cmd.abbreviation = value
 		default:
 			if strings.Contains(strings.ToLower(name), "pass") {
 				return command{}, fmt.Errorf("%w: passwords are never given on the command line. "+
@@ -324,6 +349,17 @@ func parseCommand(args []string) (command, error) {
 			return command{}, fmt.Errorf("%w: usage: jim-dot-tennis restore <backup file>", errUsage)
 		}
 		return command{name: cmdRestore, args: words[1:]}, noRole()
+	case "tournaments":
+		usage := fmt.Errorf("%w: usage: jim-dot-tennis tournaments status|provision [--abbreviation <code>]", errUsage)
+		if len(words) != 2 {
+			return command{}, usage
+		}
+		switch sub := strings.ToLower(words[1]); sub {
+		case "status", "provision":
+			cmd.name = "tournaments " + sub
+			return cmd, noRole()
+		}
+		return command{}, usage
 	case "admin-passkeys":
 		if len(words) != 2 {
 			return command{}, fmt.Errorf("%w: usage: jim-dot-tennis admin-passkeys status|on|off", errUsage)
@@ -499,6 +535,8 @@ func (cmd command) run(ctx context.Context, c cliOut, db *database.DB) error {
 		return setupCode(ctx, c, db, svc, actor)
 	case "admin-passkeys status", "admin-passkeys on", "admin-passkeys off":
 		return adminPasskeys(ctx, c, svc, actor, strings.TrimPrefix(cmd.name, "admin-passkeys "))
+	case cmdTournamentsStatus, cmdTournamentsProvision:
+		return runTournamentsCommand(ctx, c, db, cmd)
 	}
 	return fmt.Errorf("unknown command %q", cmd.name)
 }

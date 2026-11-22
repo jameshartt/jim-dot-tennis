@@ -89,4 +89,47 @@ test.describe.serial("Admin Club Settings", () => {
     const manifest = await adminPage.request.get("/static/manifest.json");
     expect((await manifest.json()).name).toBe("E2E Display Club");
   });
+
+  // WI-145: the e2e app has no bundled tournament stack (no
+  // COURTHIVE_SERVICE_PASSWORD), so switching Tournaments on works as before
+  // and says the bundled software is not switched on here. The switch is put
+  // back as it was.
+  test("switching Tournaments on without the bundled stack shows a note", async ({ adminPage }) => {
+    await adminPage.goto("/admin/league/settings");
+    const box = adminPage.locator("#feature_tournaments");
+    const wasOn = await box.isChecked();
+    try {
+      if (wasOn) {
+        await box.uncheck();
+        await adminPage.click("#save-settings");
+        await expect(adminPage.locator(".alert-success")).toContainText("Settings saved");
+      }
+      // No tournament code is asked for: there is nothing to set up.
+      await expect(adminPage.locator("#tournament_abbreviation")).toHaveCount(0);
+      await adminPage.locator("#feature_tournaments").check();
+      await adminPage.click("#save-settings");
+      const note = adminPage.locator('[data-tournament-setup-outcome="external"]');
+      await expect(note).toBeVisible();
+      await expect(note.locator("[data-setup-not-configured]")).toContainText(
+        "not switched on in this deployment",
+      );
+      await expect(note).toContainText("operations guide");
+      await expect(adminPage.locator("#feature_tournaments")).toBeChecked();
+
+      // The tournaments page shows the set-up panel in the same state, with
+      // nothing to run.
+      const response = await adminPage.goto("/admin/league/tournaments");
+      expect(response?.status()).toBe(200);
+      const panel = adminPage.locator("#tournament-setup");
+      await expect(panel).toHaveAttribute("data-tournament-setup", "not-configured");
+      await expect(panel).toContainText("not switched on in this deployment");
+      await expect(panel.locator("[data-setup-run]")).toHaveCount(0);
+    } finally {
+      if (!wasOn) {
+        await adminPage.goto("/admin/league/settings");
+        await adminPage.locator("#feature_tournaments").uncheck();
+        await adminPage.click("#save-settings");
+      }
+    }
+  });
 });

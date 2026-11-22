@@ -73,6 +73,7 @@ has its tournament home page and its own sign-in methods.
 | Seasons: create, copy, set up, set active, delete, start from BHPLTA | No | Yes |
 | Divisions and the division review | No | Yes |
 | Tournaments (CourtHive): the club's tournament list and providers | No | Yes |
+| Tournament set-up: setting the club up on the tournament server, and running it again | No | Yes |
 | Tournament management | If given access | Yes, always all |
 | Season Wrapped (the club's season review page) | No | Yes |
 | Demo data: load and clear | No | Yes |

@@ -13,6 +13,7 @@ import (
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/services"
+	"jim-dot-tennis/internal/tournaments"
 	"jim-dot-tennis/internal/webpush"
 )
 
@@ -46,6 +47,8 @@ type Service struct {
 	pushService                  *webpush.Service
 	courthiveAPIURL              string
 	accounts                     *accounts.Service
+	// tournamentSetup sets the club up on the bundled tournament stack (WI-145).
+	tournamentSetup *tournaments.Service
 	// passkeysAvailable reports whether passkeys work at a request's address
 	// (set by Handler.SetPasskeysAvailable; nil in tests).
 	passkeysAvailable func(*http.Request) bool
@@ -102,6 +105,8 @@ func NewService(db *database.DB, courthiveAPIURL string, homeClub config.HomeClu
 		weatherService:               services.NewWeatherService(),
 		courthiveAPIURL:              courthiveAPIURL,
 		accounts:                     accounts.New(db),
+		// No tournament stack until main.go says otherwise (SetTournamentSetup).
+		tournamentSetup: tournaments.NewService(db, nil),
 	}
 
 	if len(pushService) > 0 {
