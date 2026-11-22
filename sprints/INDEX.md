@@ -180,7 +180,7 @@ Sprints 019-024 form the **club-readiness programme**: making the app installabl
 
 ### Sprint 023: CourtHive Bundle — Club Championships in the Box
 - **Status**: In progress (started 2026-11-22)
-- **Work Items**: 7 (WI-142 to WI-147, WI-152)
+- **Work Items**: 8 (WI-142 to WI-147, WI-152, WI-153)
 - **Goal**: Published club-neutral CourtHive images, an opt-in tournament stack in the packaged deployment, automatic per-club provisioning, single sign-on with jim-dot-tennis as the identity source, tournament data in backups, unattended upgrades
 - **Directory**: `sprint-023/`
 - **Summary**: [sprint-023/SUMMARY.md](sprint-023/SUMMARY.md)
@@ -242,6 +242,7 @@ Work items are numbered sequentially:
 - **WI-108 through WI-111** — Sprint 018 (completed)
 - **WI-112 through WI-151** — Sprints 019–024, club-readiness programme
 - **WI-152** — Sprint 023, single sign-on (added 2026-11-21)
+- **WI-153** — Sprint 023, tournament-only accounts (added 2026-11-22)
 - **Next available**: WI-153
 
 ## Migrations Relationship

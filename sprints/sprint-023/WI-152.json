@@ -9,7 +9,8 @@
   "dependencies": [
     "WI-142",
     "WI-144",
-    "WI-145"
+    "WI-145",
+    "WI-153"
   ],
   "status": "not_started",
   "recommended_model": {
@@ -21,7 +22,7 @@
     "A signed-in administrator opens tournament management and is already signed in there",
     "Signing out of jim-dot-tennis removes TMX's tokens from the browser and ends the tournament session on the server",
     "Disabling, demoting or revoking the sessions of a jim-dot-tennis account removes that person's tournament membership and roles at once; an earlier tournament token then sees no tournaments. Covered by a test",
-    "Which jim-dot-tennis roles may run tournaments is a declared rule in the role table (administrator by default as provider administrator; captain as director only if Jim decides so)",
+    "Who may run tournaments comes from the per-account tournament access rule of WI-153 (administrators: all; others: none, own or all as granted), mapped to provider administrator (all) or director (own)",
     "The tournament server accepts only tokens signed with this instance's own secret, generated at install; no shared or default key exists and the author holds none",
     "Hand-over tokens are single-use and expire in 60 seconds; nothing from the jim-dot-tennis session is sent to the tournament server",
     "The tournament server's sign-in, password, user-administration, provisioner and administration routes are refused at the proxy (list in the design note, section 4); every tournament account has no password",

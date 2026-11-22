@@ -28,7 +28,8 @@
 | WI-145 | Provision the club's tournament provider and administrator automatically | High | M | Opus 5.5 | WI-144 |
 | WI-146 | Tournament data in backups; unattended CourtHive upgrades | High | M | Opus 5.5 | WI-144 |
 | WI-147 | E2E smoke for the bundled stack | Medium | M | Sonnet 5.5 | WI-145, WI-146, WI-152 |
-| WI-152 | Single sign-on: jim-dot-tennis as the identity source for CourtHive | High | L | Fable 5.2 | WI-142, WI-144, WI-145 |
+| WI-152 | Single sign-on: jim-dot-tennis as the identity source for CourtHive | High | L | Fable 5.2 | WI-142, WI-144, WI-145, WI-153 |
+| WI-153 | Tournament-only accounts and per-account tournament access | High | M | Opus 5.5 | WI-142 |
 
 ## Recommended Models
 
@@ -40,6 +41,7 @@ Each work item's JSON carries a `recommended_model` with the reason. In short:
 - **WI-145** - Opus 5.5: Cross-system provisioning with idempotency and credential handling.
 - **WI-146** - Opus 5.5: Data-safety work across two databases with ordering constraints learned the hard way.
 - **WI-147** - Sonnet 5.5: Test authoring over a defined happy path.
+- **WI-153** - Opus 5.5: Account and role changes with security consequences, in code with an established pattern.
 - **WI-152** - Fable 5.2: Cross-system trust design where a mistake gives one system's users control of the other; touches a codebase we do not own.
 
 ## Execution Strategy
