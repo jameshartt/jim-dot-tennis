@@ -27,6 +27,8 @@ const (
 	ActionLinkRevoke      = "link.revoke"          // an unused link was cancelled
 	ActionLinkUse         = "link.use"             // a link was used: a sign-in method was set
 	ActionSignIn          = "user.sign_in"         // an administrator signed in (detail: method, address)
+	ActionBackupDownload  = "backup.download"      // an administrator downloaded a backup (detail: proof, schema)
+	ActionBackupRestore   = "backup.restore"       // a backup was restored (recorded in the restored database)
 )
 
 // ActorKind says where an audited action came from.

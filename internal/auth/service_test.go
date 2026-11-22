@@ -14,8 +14,6 @@ import (
 	"time"
 
 	"jim-dot-tennis/internal/database"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 // findMigrationsPath walks up from the test's working directory to locate the

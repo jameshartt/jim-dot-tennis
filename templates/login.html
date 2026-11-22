@@ -73,7 +73,7 @@
 {{end}}
 
 {{define "scripts"}}
-{{if .PasskeysAvailable}}<script src="/static/passkey.js"></script>{{end}}
+{{if .PasskeysAvailable}}<script src="{{asset "/static/passkey.js"}}"></script>{{end}}
 <script>
     // Focus the username field (or the password, when the username is
     // filled in), unless the password form is folded away behind passkeys.

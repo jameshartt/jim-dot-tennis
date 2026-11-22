@@ -14,8 +14,6 @@ import (
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 var cardDate = time.Date(2026, 6, 2, 18, 0, 0, 0, time.UTC)

@@ -46,7 +46,45 @@ make fmt-fix          # Auto-fix formatting
 make imports-fix      # Auto-fix imports
 ```
 
-The `.golangci.yml` configuration enables 11 linters. Run `make lint` to check before submitting.
+`.golangci.yml` is in golangci-lint v2 format. The linter version is pinned in the
+`Makefile` (`GOLANGCI_LINT_VERSION`); `make lint` and CI both use it, so a bump is
+a one-line change there (check `make lint` still passes, and `golangci-lint migrate`
+if the config format changes). Run `make lint` before submitting.
+
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on pushes to `main` and on every pull request, as
+separate checks that each call a make target:
+
+| Check | Runs |
+|-------|------|
+| `Lint` | `make vet`, a failing gofmt check, `make lint` |
+| `Unit tests` | `make test`, `make test-js` |
+| `E2E (main suite)` | `make test-e2e` |
+| `E2E (passkeys and auth)` | `make test-e2e-auth` |
+| `E2E (fresh install)` | `make test-e2e-fresh` |
+| `E2E (multi-club)` | `make test-e2e-multiclub` |
+
+When an E2E job fails, the Playwright HTML report, traces and screenshots are
+attached to the run as an artifact (`playwright-*`, kept 14 days); download it and
+run `npx playwright show-trace trace.zip`. A new push to a pull request cancels the
+superseded run. Workflows use read-only permissions and no secrets, so pull requests
+from forks run the same checks. Third-party actions are pinned to full commit SHAs
+with the version in a comment; Dependabot (`.github/dependabot.yml`) opens grouped
+weekly update pull requests for Go modules, Actions, Docker base images, the
+Playwright image and the e2e npm packages. The Playwright image tag in
+`Dockerfile.e2e` and `@playwright/test` in `tests/e2e/package.json` must be the same
+version: merge their two Dependabot PRs together (or bump both in one PR).
+`GOLANGCI_LINT_VERSION` and the Go image in the `Makefile` are not tracked by
+Dependabot; bump them by hand.
+
+**Maintainer setup (once, in the GitHub web UI):** Settings, Branches, add a branch
+protection rule (or ruleset) for `main`: tick "Require a pull request before merging"
+and "Require status checks to pass before merging" (and "Require branches to be up to
+date"), then add the required checks `Lint`, `Unit tests`, `E2E (main suite)`,
+`E2E (passkeys and auth)`, `E2E (fresh install)` and `E2E (multi-club)`. A check only
+appears in the picker after it has run once, so open a pull request first. Also enable
+Dependabot version updates (Settings, Code security).
 
 ### Submitting changes
 
@@ -138,7 +176,6 @@ Set these environment variables to run jim.tennis for your club:
 | `DB_TYPE` | Optional | Only `sqlite3` is supported; any other value fails at startup. |
 | `DB_PATH` | Optional | SQLite file path (default: `./tennis.db`; `/app/data/tennis.db` in Docker). |
 | `TEMPLATE_RELOAD` | Dev only | `true` re-parses templates on every request (hot reload). Leave unset in production. |
-| `MIGRATE_ALLOW_DIRTY_FORCE` | Dev only | `true` auto-forces a dirty migration version at startup. Never set in production: a dirty database should stop the deploy. |
 
 You'll also want to update:
 - Domain name and Caddy configuration

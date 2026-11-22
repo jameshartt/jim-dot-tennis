@@ -19,9 +19,10 @@ test.describe('Multi-club verification (Hove Park as home)', () => {
   test('dashboard loads without errors', async ({ page }) => {
     await page.goto('/admin/league/dashboard');
     await expect(page).toHaveURL(/dashboard/);
-    // Should show Hove Park as the home club name
-    const content = await page.textContent('body');
-    expect(content).toContain('Hove Park');
+    // The dashboard itself does not print the club name (the teams page test
+    // below checks that); here it must render fully with another home club.
+    await expect(page.getByTestId('dashboard-title')).toBeVisible();
+    await expect(page.getByTestId('dashboard-nav')).toBeVisible();
   });
 
   test('teams page loads and shows home club teams', async ({ page }) => {

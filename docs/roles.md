@@ -48,7 +48,7 @@ the club: accounts, settings, seasons and imports.
 | Demo data: load and clear | No | Yes |
 | Passkey security warnings: clear a blocked passkey | No | Yes |
 | Push notifications: test message to every subscriber, reset the push keys | No | Yes |
-| Backups | No | Yes (on the server) |
+| Backups: see when the last one was made, download one (asks for your password or a passkey) | No | Yes |
 
 Everyone with an account can manage their own sign-in methods (passkeys and
 password) on the sign-in methods page. Changing them asks you to confirm it's

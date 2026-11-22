@@ -1,0 +1,168 @@
+name: CI
+
+# Required checks for main (see CONTRIBUTING.md): Lint, Unit tests, and the
+# four E2E jobs. Every job calls a make target, so CI runs what developers run.
+# No secrets are used, so pull requests from forks run the same way.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Called by release.yml so a tagged release only proceeds when exactly this
+  # suite passes on the tagged commit (tags themselves do not trigger CI).
+  workflow_call:
+
+permissions:
+  contents: read
+
+# A new push to a pull request cancels the superseded run; runs on main are
+# never cancelled.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Cache Go modules and build cache for the lint container
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/lint-cache
+          key: lint-${{ hashFiles('go.sum', 'Makefile') }}
+          restore-keys: lint-
+      - name: Create cache directories
+        run: mkdir -p "${{ runner.temp }}/lint-cache/go" "${{ runner.temp }}/lint-cache/build"
+      - name: go vet
+        run: make vet
+      - name: gofmt
+        # `make fmt` only lists unformatted files, so fail on any file listed.
+        run: |
+          out="$(make --no-print-directory fmt | grep -v '^Checking formatting')" || true
+          if [ -n "$out" ]; then
+            echo "These files are not gofmt-formatted (run make fmt-fix):"
+            echo "$out"
+            exit 1
+          fi
+      - name: golangci-lint (version pinned in the Makefile)
+        run: make lint LINT_CACHE_DIR="${{ runner.temp }}/lint-cache"
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Go tests
+        run: make test
+      - name: Fixture generator engine tests
+        run: make test-js
+
+  # Each E2E job gets its own runner, so the suites cannot share compose state.
+  # On failure the Playwright HTML report and the traces/screenshots/results are
+  # uploaded (tests/e2e/playwright-report and tests/e2e/test-results are mounted
+  # out of the Playwright container by docker-compose.yml).
+  e2e-main:
+    name: E2E (main suite)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Playwright base image
+        uses: ./.github/actions/playwright-image
+      - name: Run the main suite
+        run: make test-e2e
+      - name: Upload Playwright report and traces
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-main
+          path: |
+            tests/e2e/playwright-report/
+            tests/e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  e2e-auth:
+    name: E2E (passkeys and auth)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Playwright base image
+        uses: ./.github/actions/playwright-image
+      - name: Run the passkey-enabled suite
+        run: make test-e2e-auth
+      - name: Upload Playwright report and traces
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-auth
+          path: |
+            tests/e2e/playwright-report/
+            tests/e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  e2e-fresh:
+    name: E2E (fresh install)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Playwright base image
+        uses: ./.github/actions/playwright-image
+      - name: Run the fresh-install suite
+        run: make test-e2e-fresh
+      - name: Upload Playwright report and traces
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-fresh
+          path: |
+            tests/e2e/playwright-report/
+            tests/e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  e2e-multiclub:
+    name: E2E (multi-club)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Playwright base image
+        uses: ./.github/actions/playwright-image
+      - name: Run the multi-club suite
+        run: make test-e2e-multiclub
+      - name: Upload Playwright report and traces
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-multiclub
+          path: |
+            tests/e2e/playwright-report/
+            tests/e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 14

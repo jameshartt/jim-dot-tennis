@@ -3,10 +3,10 @@
     "id": "sprint-022",
     "name": "Packaging, CI and Releases",
     "goal": "Turn the app into something that can be shipped: one self-contained binary and a container image per tagged version, built and tested automatically, with a visible version number, safe upgrades, and a tested backup and restore - and move jim.tennis itself onto those releases.",
-    "start_date": null,
+    "start_date": "2026-11-21",
     "end_date": null,
     "type": "numbered",
-    "status": "planned",
+    "status": "in_progress",
     "programme": "club-readiness (sprints 019-024)",
     "focus_areas": [
       "One self-contained binary: assets embedded, no CGO",

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	jimdottennis "jim-dot-tennis"
 	appconfig "jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/models"
@@ -80,8 +81,7 @@ func populateDatabase(config *PopulateConfig) error {
 
 	// Run migrations first
 	if !config.DryRun {
-		migrationsPath := "./migrations"
-		if err := db.ExecuteMigrations(migrationsPath); err != nil {
+		if err := db.ExecuteMigrationsFS(jimdottennis.Migrations(), "migrations built into this program"); err != nil {
 			log.Printf("Warning: Failed to run migrations: %v", err)
 		}
 	}

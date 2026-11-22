@@ -49,23 +49,18 @@ test.describe("Match Results - Validation", () => {
     await adminPage.goto("/admin/league/fixtures/1/results");
     await adminPage.waitForLoadState("networkidle");
 
+    // Fixture 1 may have been rescheduled by an earlier spec (fixture-management
+    // "edit form saves changes"): rescheduling deliberately clears the fixture's
+    // matchups, and the results page then creates fresh ones with new ids. So do
+    // not hard-code matchup ids: use whichever matchup card comes first.
+    const card = adminPage.locator(".matchup-card").first();
+    await expect(card).toBeVisible();
+
     // Enter invalid score (5-5 is not a valid tennis set score)
-    await adminPage.fill(
-      'input[name="matchup_1_home_set1"]',
-      "5",
-    );
-    await adminPage.fill(
-      'input[name="matchup_1_away_set1"]',
-      "5",
-    );
-    await adminPage.fill(
-      'input[name="matchup_1_home_set2"]',
-      "6",
-    );
-    await adminPage.fill(
-      'input[name="matchup_1_away_set2"]',
-      "4",
-    );
+    await card.locator('input[name$="_home_set1"]').fill("5");
+    await card.locator('input[name$="_away_set1"]').fill("5");
+    await card.locator('input[name$="_home_set2"]').fill("6");
+    await card.locator('input[name$="_away_set2"]').fill("4");
 
     // Submit
     await adminPage.click(".btn-submit");

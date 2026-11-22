@@ -10,11 +10,10 @@ import (
 	"os"
 	"strings"
 
+	jimdottennis "jim-dot-tennis"
 	"jim-dot-tennis/internal/database"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/sqlite3"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func main() {
@@ -22,7 +21,7 @@ func main() {
 	// -version has no safe default: rolling back is destructive, so it must be
 	// given explicitly (a no-arg run used to silently roll back to version 5,
 	// destroying every migration above it).
-	migrationsPath := flag.String("path", "./migrations", "Path to migration files")
+	migrationsPath := flag.String("path", "", "Directory of migration files to use instead of the ones built into this program (development)")
 	dbPath := flag.String("db-path", "./tennis.db", "Database file path")
 	targetVersion := flag.Int("version", -1, "Target migration version to migrate down to (required)")
 	assumeYes := flag.Bool("yes", false, "Skip the interactive confirmation prompt")
@@ -53,17 +52,15 @@ func main() {
 	}
 	defer db.Close()
 
-	// Create migration driver
-	driver, err := sqlite3.WithInstance(db.DB.DB, &sqlite3.Config{})
-	if err != nil {
-		log.Fatalf("Failed to create migration driver: %v", err)
+	// Create the migration instance (the down migrations built into this
+	// program, or -path)
+	migrations := jimdottennis.Migrations()
+	if *migrationsPath != "" {
+		migrations = os.DirFS(*migrationsPath)
 	}
-
-	// Create migration instance
-	sourceURL := fmt.Sprintf("file://%s", *migrationsPath)
-	m, err := migrate.NewWithDatabaseInstance(sourceURL, "sqlite3", driver)
+	m, err := db.NewMigrate(migrations)
 	if err != nil {
-		log.Fatalf("Failed to create migration instance: %v", err)
+		log.Fatalf("%v", err)
 	}
 
 	// Get current version

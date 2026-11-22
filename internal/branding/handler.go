@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -31,13 +32,14 @@ const serviceWorkerPlaceholder = `var BRANDING = {"name":"Jim.Tennis","icon":"/s
 // Names, logo and colours come from the request context (set by
 // config.HomeClubMiddleware), so changes on the settings page apply at once.
 type Handler struct {
-	settings  *config.ClubSettings
-	staticDir string
+	settings *config.ClubSettings
+	static   fs.FS
 }
 
-// NewHandler returns a branding handler. staticDir holds service-worker.js.
-func NewHandler(settings *config.ClubSettings, staticDir string) *Handler {
-	return &Handler{settings: settings, staticDir: staticDir}
+// NewHandler returns a branding handler. static is the static file tree
+// (embedded, or static/ on disk in development); it holds service-worker.js.
+func NewHandler(settings *config.ClubSettings, static fs.FS) *Handler {
+	return &Handler{settings: settings, static: static}
 }
 
 // RegisterRoutes registers the branding routes. The manifest and service
@@ -165,7 +167,7 @@ func (h *Handler) ServeManifest(w http.ResponseWriter, r *http.Request) {
 // branding change changes the script bytes, so browsers pick it up on their
 // next update check.
 func (h *Handler) ServeServiceWorker(w http.ResponseWriter, r *http.Request) {
-	src, err := os.ReadFile(filepath.Join(h.staticDir, "service-worker.js"))
+	src, err := fs.ReadFile(h.static, "service-worker.js")
 	if err != nil {
 		http.NotFound(w, r)
 		return

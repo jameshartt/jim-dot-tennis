@@ -11,6 +11,7 @@ import (
 
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/version"
 )
 
 // Role requirements for every /admin/league route (WI-132), in one place.
@@ -48,6 +49,9 @@ var adminRouteRoles = map[string]routeAccess{
 	"/admin/league/sessions":  adminRoute,
 	"/admin/league/sessions/": adminRoute,
 	"/admin/league/audit-log": adminRoute,
+
+	// Backups: when the last one was made, and downloading one.
+	backupsPath: adminRoute,
 
 	// Teams: captains see every team and add players to a roster; creating
 	// teams and assigning team captains is administration.
@@ -278,7 +282,7 @@ func requiredRoleFor(method, path string) (models.Role, bool) {
 // admin page (the server's top-level template set parses templates/*.html,
 // which includes the dashboard).
 func NavTemplateFuncs() template.FuncMap {
-	return template.FuncMap{"canUse": canUse}
+	return template.FuncMap{"canUse": canUse, "appVersion": version.Short}
 }
 
 // canUse is the template helper for navigation: whether user (the page's

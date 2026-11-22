@@ -237,6 +237,7 @@ func TestCaptainAccessSpec(t *testing.T) {
 		"POST /admin/league/users/links/1/revoke",
 		"GET /admin/league/sessions",
 		"POST /admin/league/sessions/invalidate-user/1",
+		"GET /admin/league/backups",
 		"GET /admin/league/settings",
 		"POST /admin/league/settings",
 		"POST /admin/league/settings/lookup",

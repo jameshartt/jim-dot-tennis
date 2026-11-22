@@ -4,10 +4,12 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	jimdottennis "jim-dot-tennis"
 	"jim-dot-tennis/internal/database"
 )
 
@@ -22,12 +24,12 @@ func TestFailedMigrationStopsStartup(t *testing.T) {
 	var stopped []string
 	fatalf := func(format string, args ...any) { stopped = append(stopped, fmt.Sprintf(format, args...)) }
 
-	migrateOrStop(db, filepath.Join("..", "..", "migrations"), fatalf)
+	migrateOrStop(db, jimdottennis.Migrations(), "embedded", fatalf)
 	if len(stopped) != 0 {
 		t.Fatalf("good migrations stopped startup: %v", stopped)
 	}
 	missing := filepath.Join(t.TempDir(), "no-such-migrations")
-	migrateOrStop(db, missing, fatalf)
+	migrateOrStop(db, os.DirFS(missing), missing, fatalf)
 	if len(stopped) != 1 || !strings.Contains(stopped[0], "cannot start") || !strings.Contains(stopped[0], missing) {
 		t.Fatalf("a failed migration did not stop startup with a clear message: %v", stopped)
 	}

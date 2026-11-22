@@ -19,6 +19,7 @@ import (
 // Service handles admin business logic
 type Service struct {
 	db                           *database.DB
+	templateDir                  string // where the two pages rendered by the service itself find templates; set by New
 	homeClub                     config.HomeClubSource
 	clubSettings                 *config.ClubSettings // live club settings; nil when homeClub has none (tests)
 	bhpltaClubCode               string               // fallback BHPLTA code when clubSettings is nil

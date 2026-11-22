@@ -8,7 +8,7 @@ Jim.Tennis is a club-agnostic tennis league management system, originally built 
 
 **Key Technical Stack:**
 - Go 1.26+
-- SQLite (the only supported database)
+- SQLite (the only supported database), through the pure-Go driver `modernc.org/sqlite`: no CGO, `CGO_ENABLED=0` builds for any target (linux/amd64, linux/arm64)
 - Server-side rendered templates with HTMX
 - PWA with push notifications
 - Docker for production deployment
@@ -30,8 +30,9 @@ make clean-local      # Clean binary and database
 
 ### Database Management
 ```bash
-# Migrations run automatically on startup
-# To manually migrate:
+# Migrations run automatically on startup, from the copies built into the
+# binary (embed.go); cmd/migrate and cmd/migrate-down use the same built-in
+# copies (-path <dir> reads a directory instead). To manually migrate:
 go run cmd/migrate/main.go
 
 # To rollback:
@@ -45,12 +46,13 @@ make run             # Start containers
 make stop            # Stop containers
 make logs            # View all logs
 make app-logs        # View app logs only
-make backup          # Create manual backup
+make backup          # Make a backup now (jim-dot-tennis backup in the app container)
+make export-backup   # Copy the newest backup out to ./exported-backups
 ```
 
 ### Go Unit Tests (in Docker)
 ```bash
-make test                                 # Run all Go unit tests (CGO/sqlite via Docker)
+make test                                 # Run all Go unit tests (in Docker, CGO_ENABLED=0)
 make test PKG=./internal/database/...     # Test a single package
 make test ARGS="-run TestName -v"         # Pass flags through to `go test`
 # `make check` runs vet + fmt + lint + deadcode + test.
@@ -78,7 +80,7 @@ make test-e2e-fresh                # Fresh-install suite: EMPTY volumes, setup f
 make test-e2e-clean                # Tear down E2E containers, delete the E2E volume and artifacts
 
 # Test infrastructure:
-# - tests/e2e/              Playwright project root (246 tests across 37 spec files: 222 in the main suite, 11 in `auth`, 13 in `fresh-install`; multi-club.spec.ts runs separately)
+# - tests/e2e/              Playwright project root (251 tests across 39 spec files: 226 in the main suite, 12 in `auth`, 13 in `fresh-install`; multi-club.spec.ts runs separately)
 # - tests/e2e/helpers/      Reusable helpers (auth, htmx, navigation, assertions)
 # - tests/e2e/fixtures/     Seed data (seed.sql) and test fixtures (test-fixtures.ts)
 # - tests/e2e/admin/        Admin page specs (dashboard, navigation, CRUD, points, wrapped)
@@ -89,7 +91,7 @@ make test-e2e-clean                # Tear down E2E containers, delete the E2E vo
 # - tests/e2e/smoke.spec.ts Smoke tests validating the full stack
 # - tests/e2e/auth.spec.ts  Authentication flow tests (login, logout, rate limit)
 # - tests/e2e/roles.spec.ts  Captain vs administrator (seeded `testcaptain` / testpassword123, id 900)
-# - Passkey-enabled project `auth` (passkeys.spec.ts, account-links.spec.ts, admin-passkeys.spec.ts,
+# - Passkey-enabled project `auth` (passkeys.spec.ts, account-links.spec.ts, admin-passkeys.spec.ts, backups-passkey.spec.ts,
 #   cli-reset.spec.ts; list is AUTH_SPECS in playwright.config.ts; ignored by `chromium`):
 #   WebAuthn needs a secure context and Chromium only treats http://localhost as one, so the `e2e-auth`
 #   compose service shares app-e2e's network namespace and the browser uses http://localhost:8080 (the app accepts
@@ -156,6 +158,7 @@ The codebase follows a clean layered architecture:
 - `secrets/`: Per-instance secrets (generated Club Wrapped code) and the startup self-check; `outbound/` holds only a test that fails on any URL host not in its allowlist (keep `docs/outbound_connections.md` in step)
 - `normalize/`: Centralised apostrophe/Unicode normalisation utilities
 - `database/`: Database connection and migration handling
+- `backup/`: Backup and restore (`jim-dot-tennis backup`, `jim-dot-tennis restore <file>`, the scheduled and pre-migration backups, the data-folder lock); see "Backups" below
 - `models/`: Data structures (Player, Team, Fixture, etc.)
 - `repository/`: Data access layer (one per entity)
 - `auth/`: Authentication service, middleware, and handlers
@@ -172,7 +175,9 @@ The codebase follows a clean layered architecture:
 
 **migrations/**: SQL migration files (up/down pairs)
 
-**tests/e2e/**: Playwright E2E browser tests (246 tests across 37 spec files: main suite 222, `auth` 11, `fresh-install` 13)
+**embed.go** (package `jimdottennis`, repository root): builds `templates/`, `static/` and `migrations/*.sql` into the binary, so it runs from any directory with only its data directory. The server reads templates through `internal/render` (`render.ParseFiles`/`ParseGlob`/`Glob`/`ReadFile`, never `template.ParseFiles` or `os.ReadFile` directly; handlers' `templateDir` is `"."` inside the embedded tree) and serves `/static/` through `internal/assets`. Templates link CSS/JS as `{{asset "/static/..."}}`, which appends `?v=<hash of the static tree>`; such URLs are cached as immutable for a year, every other `/static/` URL gets `no-cache` with an ETag. Uploaded logos stay on the data volume (`/branding/`).
+
+**tests/e2e/**: Playwright E2E browser tests (251 tests across 39 spec files: main suite 226, `auth` 12, `fresh-install` 13)
 - `helpers/`: Reusable test helpers (auth, htmx, navigation, assertions)
 - `fixtures/`: SQL seed data and Playwright test fixtures
 - `admin/`, `players/`: Page-level spec files
@@ -323,15 +328,15 @@ Each major handler (Admin, Players) delegates to domain-specific sub-handlers:
 **Database:**
 - `DB_TYPE`: optional; only "sqlite3" is supported (any other value fails at startup)
 - `DB_PATH`: SQLite file path (default: "./tennis.db")
+- Every connection is opened with `database.DSN` (`_pragma=` busy_timeout 5000, WAL, synchronous NORMAL, foreign_keys on, and `_time_format=sqlite` so `time.Time` is stored as `2006-01-02 15:04:05.999999999-07:00`, the layout existing rows were written in); `database.New` refuses to return a database whose connection lacks foreign keys, WAL or the busy timeout (`CheckConnectionSettings`). Open SQLite only through `database.New`/`database.DSN`, never `sql.Open("sqlite", path)` directly: without `_time_format` the driver writes `time.Time.String()`.
 
 **Application:**
 - `PORT`: HTTP server port (default: "8080")
 - `DEV_MODE`: `true`/`1` is the only way to turn off Secure session cookies (plain-http development). Set by the root `docker-compose.yml` (app, app-e2e, app-fresh), `make run-local` and `scripts/run.sh`; fatal with `APP_ENV=production`. Any new way of serving the app over http must set it.
 - `APP_ENV`: Set to "production" for a live instance (the reference compose sets it): needs a valid https `PUBLIC_URL` and refuses `DEV_MODE`. In production the startup self-check (`secrets.StartupCheck`) refuses to start if a secret variable holds a known placeholder such as `change-me`. It also warns (in every mode) about accounts whose password hash is one seeded by old migrations or the e2e seed.
-- `TEMPLATE_RELOAD`: Development only; `true` re-parses templates on every request (root `docker-compose.yml` defaults it to true)
-- `MIGRATE_ALLOW_DIRTY_FORCE`: Development only; `true` auto-forces a dirty migration version at startup. Never set in production.
+- `TEMPLATE_RELOAD`: Development only; `true` reads `templates/` and `static/` from disk (the project root) instead of the built-in copies, re-parses templates on every request and never marks static files immutable (root `docker-compose.yml` defaults it to true and bind-mounts the two directories for the `app` service only; the e2e and fresh-install services use the built-in copies)
 
-**Reference deployment:** `deploy/docker-compose.yml`, `deploy/Caddyfile` and `deploy/.env.example` describe the production stack (app, CourtHive, Caddy); `.env.example` lists every variable the stack and the app read. `scripts/deploy-app.sh` does not sync them to the server. The root `docker-compose.yml` is for local development and E2E. Superseded variants are in `docs/archive/`.
+**Reference deployment:** `deploy/docker-compose.yml`, `deploy/Caddyfile` and `deploy/.env.example` describe the production stack (app, CourtHive, Caddy); `.env.example` lists every variable the stack and the app read. `scripts/deploy-app.sh` does not sync them to the server. The app service there runs the published image `ghcr.io/jameshartt/jim-dot-tennis:${JIM_DOT_TENNIS_VERSION}` (pinned default, no build). Releases: pushing a `vX.Y.Z` tag runs `.github/workflows/release.yml` (calls `ci.yml`, then builds binaries through the Dockerfile `binary` stage, then pushes the multi-arch image, checks the binary inside it for each architecture is byte for byte the release asset, attests provenance, creates or updates the GitHub Release, and moves `latest` only for the highest stable semver tag; base images are pinned by digest); procedure in `RELEASING.md`, per-version "Upgrade notes" in `CHANGELOG.md` (a tag with no `## [version]` section there is refused). The root `docker-compose.yml` is for local development and E2E. Superseded variants are in `docs/archive/`.
 
 ### CSV Import Format
 
@@ -366,7 +371,14 @@ Club names extracted from team names (e.g., "Dyke A" → Club: "Dyke").
 - Migrations are numbered sequentially: `001_`, `002_`, etc.
 - Always create both `.up.sql` and `.down.sql` files
 - Migrations run automatically on app startup; a migration that fails stops the server (`migrateOrStop` in main.go), it is not a warning
-- A dirty migration state fails startup; auto-forcing is dev-only behind `MIGRATE_ALLOW_DIRTY_FORCE=true`
+- A failed or dirty migration stops startup with a `database.MigrationError` that names the migration and lists the recovery steps (stop, restore the pre-migration backup with `jim-dot-tennis restore` using the previous version, start the previous version, report). The version is never forced, in any mode; `MIGRATE_ALLOW_DIRTY_FORCE` no longer exists
+- `/healthz` (`internal/health`) is 200 only when the database answers and `schema_migrations` is clean and at the latest migration the build ships; the Dockerfile HEALTHCHECK and the compose files call it
+- Before migrations change an existing database, `backupThenMigrate` (main.go) takes a pre-migration backup (`backup.BeforeMigrations`: not for an empty database, not when the schema is current, not over a dirty one); if it cannot be made, startup stops without migrating
+- Version, commit and build date come from `internal/version`, set by `-ldflags -X` (Dockerfile build args `VERSION`, `COMMIT`, `BUILD_DATE`); shown in the admin footers (`appVersion` template func), at public `/version` (version only, no commit) and by `jim-dot-tennis version` (all three)
+
+### Backups
+
+`internal/backup` (operator steps: `docs/PRODUCTION_QUICK_REFERENCE.md` section 9). An archive is `jim-dot-tennis-backup-<UTC time>.tar.gz` (pre-migration ones `jim-dot-tennis-pre-migration-...`): `manifest.json` first (format, app version and commit, schema version, created_at, kind, SHA-256 and size of every file), then `database/tennis.db` (made with `VACUUM INTO`, never by copying the live file) and `files/branding/<logo>`. Archives are written under a `.tmp-` name, read back and verified, then given their final name with a no-replace hard link (`publish`; two finishing in the same second get `-2`, never each other's file), 0600 in a 0700 folder (`BACKUP_DIR`, default `backups/` next to the database; never served: `/static/` is the embedded tree and `/branding/` serves only the current logo name). The server holds an flock on `<data dir>/.jim-dot-tennis.lock` for its lifetime (taken in main.go before the database opens; a second server or a server during a restore refuses to start), then runs `backup.CleanUpAtStart` (leftover `.restore-*` staging folders, download copies, `.tmp-` files over a day old). A second lock, `.jim-dot-tennis.restore.lock`, is taken exclusively by `Restore` (first) and shared by the account commands and `backup` (`backup.AcquireCommandLock` in `runCLI`), so those refuse during a restore and a restore refuses while one runs, while they still run alongside the server (which does not take it). `Restore` takes both locks (refuses with `ErrServerRunning` while either is held), sweeps old `.restore-*` folders, treats the archive as untrusted (only the three entry shapes above, regular files only, size limits, and each entry must be listed in the manifest at exactly its header size before a byte of it is written; free space checked against the manifest total; checksums), refuses a newer schema (`ErrNewerBackup`), migrates an older one, ends every session and cancels unused links in the restored database, records `backup.restore` in its audit log, then swaps it in (`swapIn`): old database kept aside (`tennis.db.replaced-<time>`, hard link or copy), old logos linked into `branding.replaced-<time>`, restored logos added beside the current ones, old `-wal`/`-journal` moved beside the aside copy (0600) and `-shm` removed, then the one rename of the database (the commit point), then the logos only the old database used are removed; a stop at any point leaves a database with its logos. Failures before the commit point are undone (`undoList`; a failed undo wraps `ErrUndoFailed` and the CLI says so); after it they are `RestoreResult.Warnings`. The CLI cancels the context on SIGINT/SIGTERM (`restoreContext`); the swap ignores cancellation. Restored files get the owner of the database they replace when run as root. `.replaced-` copies are never removed automatically (section 9 says how). The newest believable backup (`backup.Newest`: name not more than 5 minutes in the future, manifest readable) drives the schedule (`due`) and the page's last-backup/stale warning; `prune` puts future-dated names last (first removed) and never removes the archive `Create` just wrote. Scheduled backups run in the server (`backup.Service.Start`, stopped with the cleanup on shutdown; `BACKUP_INTERVAL` default 24h or `off`, `BACKUP_KEEP` default 14, never below 1; pre-migration backups are not counted, and on a successful start all but the newest are removed). Admin page `GET /admin/league/backups` (administrators); the download is `POST /account/backup` (administrator, needs the current password or a passkey confirmation, only the passkey one while "Require passkeys for administrators" is on and passkeys are available (`BackupsHandler.passkeyOnly`), because the passkey proof cookie is limited to `/account/`; audited as `backup.download`; the archive is a temporary one, removed after sending, or after an hour by the next backup's tidying / at server start).
 
 ## Key Files
 

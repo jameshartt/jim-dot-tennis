@@ -7,7 +7,6 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/render"
+	"jim-dot-tennis/internal/version"
 )
 
 // getUserFromContext is a helper to get the user from request context
@@ -73,7 +73,8 @@ func parseTemplateFiles(templateDir, templatePath string) (*template.Template, e
 		},
 		// canUse .User "/admin/league/..." (or "POST /admin/league/...")
 		// gates navigation by role from the route table in roles.go.
-		"canUse": canUse,
+		"canUse":     canUse,
+		"appVersion": version.Short,
 		"add": func(a, b int) int {
 			return a + b
 		},
@@ -190,14 +191,14 @@ func parseTemplateFiles(templateDir, templatePath string) (*template.Template, e
 	tmpl := template.New(filepath.Base(templatePath)).Funcs(funcMap)
 
 	// Parse the main template first
-	tmpl, err := tmpl.ParseFiles(fullPath)
+	tmpl, err := render.ParseFiles(tmpl, fullPath)
 	if err != nil {
 		return nil, err
 	}
 
 	// Parse any partials in the admin/partials directory with full path names
 	partialsPattern := filepath.Join(templateDir, "admin", "partials", "*.html")
-	partialFiles, err := filepath.Glob(partialsPattern)
+	partialFiles, err := render.Glob(partialsPattern)
 	if err != nil {
 		// If glob fails, continue without partials (not critical)
 		log.Printf("Warning: could not find partials at %s: %v", partialsPattern, err)
@@ -205,7 +206,7 @@ func parseTemplateFiles(templateDir, templatePath string) (*template.Template, e
 		// Parse each partial with its desired template name (preserving directory structure)
 		for _, partialFile := range partialFiles {
 			// Read the file content
-			content, err := os.ReadFile(partialFile)
+			content, err := render.ReadFile(partialFile)
 			if err != nil {
 				return nil, fmt.Errorf("error reading partial %s: %v", partialFile, err)
 			}

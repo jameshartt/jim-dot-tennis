@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backups - Jim.Tennis Admin</title>
+    <link rel="stylesheet" href="{{asset "/static/css/main.css"}}">
+    <style>
+        .admin-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .breadcrumb {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .breadcrumb a {
+            color: #ffffff80;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            color: white;
+        }
+        .admin-content {
+            padding: 0 1rem;
+        }
+        .content-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+        .content-section h2 {
+            margin: 0 0 0.5rem 0;
+            color: var(--primary-color);
+        }
+        .intro {
+            color: #495057;
+            font-size: 0.9rem;
+            margin: 0 0 1rem 0;
+        }
+        .backup-status {
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            background: #e8f5e9;
+            color: #1b5e20;
+        }
+        .backup-status.stale {
+            background: #fff3cd;
+            color: #664d03;
+            border: 1px solid #ffda6a;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .data-table th, .data-table td {
+            padding: 0.6rem 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .data-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+        .name-cell {
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+        .tag {
+            display: inline-block;
+            padding: 0.05rem 0.35rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            background: #e9ecef;
+            color: #495057;
+        }
+        .download-form label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        .download-form input[type=password] {
+            max-width: 20rem;
+            width: 100%;
+            margin-bottom: 0.75rem;
+        }
+        .settings-list {
+            font-size: 0.9rem;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/admin/league">Admin Dashboard</a> &gt; Backups
+            </div>
+            <h1 data-testid="backups-title">Backups</h1>
+        </div>
+    </header>
+
+    <main class="admin-content">
+        <div class="container">
+            {{if not .Configured}}
+            <div class="content-section">
+                <p>Backups are not set up in this copy of the app.</p>
+            </div>
+            {{else}}
+            <div class="content-section">
+                <h2>Last backup</h2>
+                {{if .HasBackup}}
+                <div class="backup-status{{if .Stale}} stale{{end}}" data-testid="backup-last" {{if .Stale}}role="alert"{{end}}>
+                    The last backup was made on <strong>{{.LastAt.Format "Mon 2 Jan 2006 at 15:04"}}</strong>.
+                    {{if .Stale}}That is more than {{.StaleAfter}} ago, so backups may have stopped working: check the app's log, or take one with <code>jim-dot-tennis backup</code> on the server.{{end}}
+                </div>
+                {{else}}
+                <div class="backup-status stale" data-testid="backup-last" role="alert">
+                    There is no backup on the server yet.{{if ne .Schedule "off"}} The first scheduled one is made a few minutes after the app starts.{{end}}
+                </div>
+                {{end}}
+                {{if .LastError}}
+                <div class="backup-status stale" role="alert" data-testid="backup-error">The last scheduled backup failed: {{.LastError}}</div>
+                {{end}}
+                <ul class="settings-list">
+                    <li>Scheduled backups: {{.Schedule}}{{if eq .Schedule "off"}} (set <code>BACKUP_INTERVAL</code> to turn them on){{end}}.</li>
+                    <li>Backups kept on the server: the newest {{.Keep}}, plus the one taken before the last upgrade.</li>
+                    <li>Folder on the server: <code>{{.Dir}}</code></li>
+                </ul>
+                <p class="intro">
+                    These copies are on the same disk as the app. If the server is lost, so are they:
+                    keep a copy somewhere else too (download one below, or follow the backups section of the
+                    operations guide).
+                </p>
+            </div>
+
+            <div class="content-section">
+                <h2>Download a backup</h2>
+                <p class="intro">
+                    This makes a fresh backup and downloads it: the whole database and the club logo in one file.
+                    It holds everyone's personal details, password hashes and passkey details, so keep it somewhere
+                    only the people who run the app can open (not a shared drive or a group chat), and delete old copies.
+                    Downloads are recorded in the account audit log.
+                </p>
+                {{if .Error}}<div class="alert alert-danger" role="alert" data-testid="backup-download-error">{{.Error}}</div>{{end}}
+                <div class="alert alert-danger" role="alert" data-passkey-status hidden></div>
+                <form method="POST" action="{{.DownloadPath}}" class="download-form" data-testid="backup-download-form">
+                    {{if .Confirmed}}
+                    <p data-testid="backup-confirmed">You confirmed it's you with a passkey. Download within 5 minutes.</p>
+                    {{else if and .HasPassword (not .PasskeyOnly)}}
+                    <label for="current_password">Your current password</label>
+                    <input type="password" id="current_password" name="current_password" autocomplete="current-password">
+                    {{end}}
+                    <button type="submit" class="btn btn-primary" data-testid="backup-download">Download backup</button>
+                </form>
+                {{if not .Confirmed}}
+                <p data-passkey-ui hidden>{{if and .HasPassword (not .PasskeyOnly)}}Or confirm it's you with a passkey first:{{else}}First confirm it's you with a passkey:{{end}}
+                    <button type="button" class="btn btn-sm" data-passkey-reauth data-reauth-for="backup">Confirm with a passkey</button></p>
+                {{end}}
+            </div>
+
+            <div class="content-section">
+                <h2>Backups on the server ({{len .Archives}})</h2>
+                <div class="table-container">
+                    <table class="data-table" data-testid="backups-table">
+                        <thead>
+                            <tr><th>Made</th><th>File</th><th>Size</th></tr>
+                        </thead>
+                        <tbody>
+                            {{range .Archives}}
+                            <tr data-testid="backup-row">
+                                <td>{{.CreatedAt.Format "02 Jan 2006 15:04"}}</td>
+                                <td class="name-cell">{{.Name}}{{if .PreMigration}} <span class="tag">before upgrade</span>{{end}}</td>
+                                <td>{{.Size}}</td>
+                            </tr>
+                            {{else}}
+                            <tr><td colspan="3" style="text-align: center; color: #6c757d; padding: 2rem;">None yet</td></tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="intro">To put a backup back, the app must be stopped; see the backups section of the operations guide.</p>
+            </div>
+            {{end}}
+        </div>
+    </main>
+    <script src="{{asset "/static/passkey.js"}}"></script>
+</body>
+</html>

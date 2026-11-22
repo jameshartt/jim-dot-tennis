@@ -20,10 +20,11 @@
 //                               passkey for the link's account and sign in
 //       data-passkey-name="#id"     input holding the name for the new passkey
 //       data-link-remove="#id"      checkbox: also remove the old sign-in methods
-//   [data-passkey-reauth]       button (sign-in methods page): confirm it's you
+//   [data-passkey-reauth]       button (sign-in methods, backups page): confirm it's you
 //                               with a passkey you already have, before changing
 //                               a sign-in method
 //       data-reauth-for="password"  come back to the password section afterwards
+//       data-reauth-for="backup"    go back to the backups page afterwards
 //   details[data-passkey-fallback]  opened when this browser cannot use passkeys
 (function () {
     'use strict';
@@ -283,8 +284,9 @@
             return navigator.credentials.get(decodeRequestOptions(options));
         }).then(function (cred) {
             var url = '/account/reauth/passkey/finish';
-            if (button.getAttribute('data-reauth-for') === 'password') {
-                url += '?for=password';
+            var forWhat = button.getAttribute('data-reauth-for');
+            if (forWhat === 'password' || forWhat === 'backup') {
+                url += '?for=' + forWhat;
             }
             return postJSON(url, encodeCredential(cred));
         }).then(function (result) {

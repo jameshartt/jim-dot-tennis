@@ -65,7 +65,6 @@ systemctl start fail2ban
 APP_DIR="${APP_DIR:?Set APP_DIR to the deployment directory, e.g. APP_DIR=/path/to/jim-dot-tennis}"
 echo "[$(date)] Creating application directory at $APP_DIR..."
 mkdir -p $APP_DIR
-mkdir -p $APP_DIR/external-backups
 
 # Create application user
 if ! id -u jimtennis &>/dev/null; then
@@ -75,10 +74,8 @@ if ! id -u jimtennis &>/dev/null; then
     chown -R jimtennis:jimtennis $APP_DIR
 fi
 
-# Setup backup cron job
-echo "[$(date)] Setting up backup cron job..."
-CRON_JOB="0 3 * * * cd $APP_DIR && ./scripts/backup-manager.sh"
-(crontab -l 2>/dev/null | grep -v "backup-manager.sh" ; echo "$CRON_JOB") | crontab -
+# No backup cron job: the app backs itself up daily into its data volume.
+# Copy backups off this server as docs/PRODUCTION_QUICK_REFERENCE.md section 9 describes.
 
 echo "[$(date)] Server setup completed successfully!"
 echo "You can now deploy the application using the deployment script." 

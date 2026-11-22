@@ -1,4 +1,4 @@
-.PHONY: build run stop clean backup logs restart build-local run-local local \
+.PHONY: build run stop clean backup export-backup logs restart build-local run-local local \
 	build-tmx courthive courthive-up courthive-down courthive-restart courthive-logs \
 	vet fmt fmt-fix imports imports-fix lint deadcode tidy check test test-js \
 	test-e2e test-e2e-bootstrap test-e2e-safe test-e2e-safe-keep test-e2e-restore \
@@ -104,24 +104,20 @@ logs:
 app-logs:
 	$(DOCKER_COMPOSE) logs -f app
 
-# View backup logs only
-backup-logs:
-	$(DOCKER_COMPOSE) logs -f backup
-
-# Create a manual backup
+# Make a backup now with the app's own command (database + club logo + manifest,
+# in /app/data/backups inside the container; safe while the app runs)
 backup:
-	docker exec jim-dot-tennis-backup sh -c 'DATE=$$(date +%Y-%m-%d-%H%M%S) && \
-		sqlite3 /data/tennis.db ".backup /backups/tennis-$${DATE}-manual.db" && \
-		echo "Manual backup created: tennis-$${DATE}-manual.db"'
+	docker exec jim-dot-tennis ./jim-dot-tennis backup
 
-# Export a backup to the host system
+# Copy the newest backup out of the container to ./exported-backups (private:
+# backups hold personal data and password hashes)
 export-backup:
-	@mkdir -p ./exported-backups
-	@LATEST=$$(docker run --rm -v jim-dot-tennis-backups:/backups alpine:latest \
-		find /backups -name "*.db" -type f -printf "%T@ %p\n" | sort -nr | head -n 1 | cut -d' ' -f2); \
+	@mkdir -p ./exported-backups && chmod 700 ./exported-backups
+	@LATEST=$$(docker exec jim-dot-tennis sh -c 'ls -t /app/data/backups/jim-dot-tennis-*.tar.gz 2>/dev/null | head -n 1'); \
+	if [ -z "$$LATEST" ]; then echo "No backup found; run make backup first"; exit 1; fi; \
 	FILENAME=$$(basename $$LATEST); \
-	docker run --rm -v jim-dot-tennis-backups:/backups -v $$(pwd)/exported-backups:/exported alpine:latest \
-		cp $$LATEST /exported/$$FILENAME && \
+	docker cp jim-dot-tennis:$$LATEST ./exported-backups/$$FILENAME && \
+	chmod 600 ./exported-backups/$$FILENAME && \
 	echo "Exported backup to ./exported-backups/$$FILENAME"
 
 # Enter shell in the app container
@@ -142,9 +138,9 @@ dev: build run logs
 # Go image (matches Dockerfile builder stage)
 GO_IMAGE = golang:1.26-alpine
 
-# Docker run for tools that need CGO (vet, deadcode, mod tidy - anything that type-checks sqlite)
-DOCKER_GO_CGO = docker run --rm -v $$(pwd):/app -w /app $(GO_IMAGE) sh -c \
-	"apk add --no-cache gcc musl-dev sqlite-dev build-base > /dev/null 2>&1 && CGO_ENABLED=1
+# Docker run for tools that compile the code (vet, deadcode, mod tidy, test).
+# SQLite is pure Go (modernc.org/sqlite), so there is no C toolchain and CGO is off.
+DOCKER_GO_BUILD = docker run --rm -v $$(pwd):/app -w /app -e CGO_ENABLED=0 $(GO_IMAGE) sh -c "
 
 # Docker run for text-only tools (gofmt, goimports - no compilation needed)
 DOCKER_GO = docker run --rm -v $$(pwd):/app -w /app $(GO_IMAGE)
@@ -152,7 +148,7 @@ DOCKER_GO = docker run --rm -v $$(pwd):/app -w /app $(GO_IMAGE)
 # Run go vet (static analysis)
 vet:
 	@echo "Running go vet..."
-	@$(DOCKER_GO_CGO) go vet ./..."
+	@$(DOCKER_GO_BUILD) go vet ./..."
 
 # First-party Go source paths (excludes .go-mod-cache and other vendored trees)
 GO_SRC_PATHS = ./cmd ./internal
@@ -177,27 +173,35 @@ imports-fix:
 	@echo "Fixing imports..."
 	@$(DOCKER_GO) sh -c "go install golang.org/x/tools/cmd/goimports@latest && goimports -w -local jim-dot-tennis $(GO_SRC_PATHS)"
 
+# golangci-lint version: the single source of truth for `make lint` and CI
+# (.github/workflows/ci.yml calls `make lint`). Bump it here by hand.
+GOLANGCI_LINT_VERSION = v2.15.0
+
+# Optional: LINT_CACHE_DIR=/some/dir keeps the Go module and build caches between
+# runs (CI sets it and caches the directory).
+LINT_CACHE_MOUNT = $(if $(LINT_CACHE_DIR),-v $(LINT_CACHE_DIR)/go:/go -v $(LINT_CACHE_DIR)/build:/root/.cache)
+
 # Run golangci-lint (comprehensive linting)
 lint:
-	@echo "Running golangci-lint..."
-	@docker run --rm -v $$(pwd):/app -w /app -e GOFLAGS=-buildvcs=false $(GO_IMAGE) sh -c \
-		"apk add --no-cache gcc musl-dev sqlite-dev build-base git > /dev/null 2>&1 && CGO_ENABLED=1 go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && golangci-lint run ./..."
+	@echo "Running golangci-lint $(GOLANGCI_LINT_VERSION)..."
+	@docker run --rm -v $$(pwd):/app -w /app -e GOFLAGS=-buildvcs=false $(LINT_CACHE_MOUNT) $(GO_IMAGE) sh -c \
+		"apk add --no-cache git > /dev/null 2>&1 && CGO_ENABLED=0 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) && golangci-lint run ./..."
 
 # Run dead code detection
 deadcode:
 	@echo "Running deadcode analysis..."
-	@$(DOCKER_GO_CGO) go install golang.org/x/tools/cmd/deadcode@latest && deadcode ./..."
+	@$(DOCKER_GO_BUILD) go install golang.org/x/tools/cmd/deadcode@latest && deadcode ./..."
 
 # Run go mod tidy
 tidy:
 	@echo "Running go mod tidy..."
-	@$(DOCKER_GO_CGO) go mod tidy"
+	@$(DOCKER_GO_BUILD) go mod tidy"
 
-# Run Go unit tests (CGO required for the sqlite-backed repository/db tests)
+# Run Go unit tests (pure Go: the sqlite-backed tests need no CGO)
 # Usage: make test [PKG=./internal/database/...] [ARGS="-run TestName -v"]
 test:
 	@echo "Running Go unit tests..."
-	@$(DOCKER_GO_CGO) go test $(if $(PKG),$(PKG),./...) $(ARGS)"
+	@$(DOCKER_GO_BUILD) go test $(if $(PKG),$(PKG),./...) $(ARGS)"
 
 # Run the fixture generator engine tests (plain Node, no dependencies)
 test-js:

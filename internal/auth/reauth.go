@@ -56,6 +56,10 @@ const (
 	ReauthFinishPath = "/account/reauth/passkey/finish"
 )
 
+// ReauthBackupRedirect is where a confirmation made for a backup download
+// returns to (admin.backupsPath).
+const ReauthBackupRedirect = "/admin/league/backups?confirmed=1"
+
 // ReauthProofLifetime is how long a passkey re-authentication counts for.
 const ReauthProofLifetime = 5 * time.Minute
 
@@ -355,12 +359,17 @@ func (h *PasskeyHandler) reauthFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.passkeys.setReauthCookie(w, token)
-	// Back to the part of the page the person was in.
-	anchor := "#passkeys"
-	if r.URL.Query().Get("for") == "password" {
-		anchor = "#password"
+	// Back to the page (and the part of it) the person was in.
+	redirect := SignInMethodsPath + "?done=verified#passkeys"
+	switch r.URL.Query().Get("for") {
+	case "password":
+		redirect = SignInMethodsPath + "?done=verified#password"
+	case "backup":
+		// The backups page (administrators); the download it then posts to
+		// is under /account/, where this cookie is sent.
+		redirect = ReauthBackupRedirect
 	}
-	writePasskeyJSON(w, http.StatusOK, map[string]string{"redirect": SignInMethodsPath + "?done=verified" + anchor})
+	writePasskeyJSON(w, http.StatusOK, map[string]string{"redirect": redirect})
 }
 
 // registerReauthRoutes adds the re-authentication endpoints (RegisterRoutes calls it).

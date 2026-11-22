@@ -30,7 +30,8 @@ The application will be available at http://localhost:8080
 
 1. **Application Container** - Runs the Go 1.25 web application (multi-stage build: `golang:1.25-alpine` builder, `alpine:latest` runtime)
 2. **Import Container** - On-demand container for running import utilities (profile: `tools`)
-3. **Backup Container** - Automatically backs up the SQLite database using `alpine:latest`
+
+Backups are made by the app itself (no separate container): see [Backup Strategy](#backup-strategy).
 
 ### CourtHive Stack (`deploy/docker-compose.yml`)
 
@@ -42,22 +43,20 @@ The reference deployment (`deploy/docker-compose.yml`, `deploy/Caddyfile`, `depl
 4. **courthive-public** - Public-facing CourtHive site (served via Caddy)
 5. **Redis** and **Postgres** - `redis:7-alpine` and `postgres:18-alpine` for CourtHive
 6. **Caddy** - `caddy:2-alpine` reverse proxy with automatic SSL
-7. **Backup** - Database backup service
 
 ## Docker Volumes
 
-The core setup uses two Docker volumes:
+The core setup uses one Docker volume:
 
-1. `jim-dot-tennis-data` - Stores the SQLite database
-2. `jim-dot-tennis-backups` - Stores database backups
+1. `jim-dot-tennis-data` - The SQLite database, uploaded logos (`branding/`) and the app's own backups (`backups/`)
 
 The CourtHive stack adds additional volumes:
 
-3. `courthive-redis-data` - Redis persistence
-4. `courthive-data` - CourtHive server data
-5. `courthive-cache` - CourtHive tracker cache
-6. `caddy-data` - Caddy TLS certificates and data
-7. `caddy-config` - Caddy configuration
+2. `courthive-redis-data` - Redis persistence
+3. `courthive-data` - CourtHive server data
+4. `courthive-cache` - CourtHive tracker cache
+5. `caddy-data` - Caddy TLS certificates and data
+6. `caddy-config` - Caddy configuration
 
 ## Common Operations
 
@@ -67,7 +66,6 @@ The Makefile provides shortcuts for common operations:
 # View logs
 make logs       # All logs
 make app-logs   # App container logs
-make backup-logs # Backup container logs
 
 # Manage application
 make stop       # Stop the application
@@ -75,13 +73,13 @@ make restart    # Restart the application
 make clean      # Stop and remove volumes (CAUTION: Deletes data)
 
 # Manage backups
-make backup         # Create a manual backup
-make export-backup  # Export latest backup to ./exported-backups
+make backup         # Make a backup now (jim-dot-tennis backup in the app container)
+make export-backup  # Copy the newest backup out to ./exported-backups
 ```
 
 ## Go Tooling (Docker-based)
 
-All Go tooling runs inside Docker containers using the `golang:1.25-alpine` image, so no local Go installation is required. Tools that need CGO (for SQLite type-checking) automatically install the necessary build dependencies inside the container.
+All Go tooling runs inside Docker containers using the `golang:1.25-alpine` image, so no local Go installation is required. The SQLite driver is pure Go (`modernc.org/sqlite`), so every tool runs with `CGO_ENABLED=0` and no C toolchain is installed.
 
 ### Code Quality Checks
 
@@ -126,28 +124,14 @@ The containers are configured to watch for changes in the templates and static f
 
 ## Backup Strategy
 
-The Docker setup includes an automatic backup system:
+The app backs itself up; there is no backup container and no cloud upload.
 
-1. **Daily Backups** - The backup container creates a daily backup of the database
-2. **Backup Retention** - Backups older than 30 days are automatically deleted from the container
-3. **External Backup Script** - Use `scripts/backup-manager.sh` to export backups to external storage
+1. **Daily backups** - the server makes one archive a day (`BACKUP_INTERVAL`, default `24h`, or `off`) in `/app/data/backups` (`BACKUP_DIR`) and keeps the newest 14 (`BACKUP_KEEP`). Each archive holds a consistent copy of the database, the uploaded logo and a manifest with checksums.
+2. **Before upgrades** - a backup is taken before any migration changes the database; if it cannot be made, the app does not upgrade or start.
+3. **On demand** - `make backup` (or `docker exec jim-dot-tennis ./jim-dot-tennis backup`), or **Download backup** on the admin Backups page.
+4. **Restore** - `jim-dot-tennis restore <file>`, only while the app is stopped, in a one-off container on the same volume.
 
-### External Backup Configuration
-
-Edit `scripts/backup-manager.sh` to configure:
-
-1. The external storage location
-2. Retention policy
-3. Optional cloud storage uploads (supports AWS S3 and Backblaze B2)
-
-### Setting Up Scheduled External Backups
-
-Add to your crontab:
-
-```bash
-# Example: Run external backup daily at 3 AM
-0 3 * * * /path/to/jim-dot-tennis/scripts/backup-manager.sh
-```
+These copies are on the same disk as the app. Copying them somewhere else, and restoring, are described step by step in `docs/PRODUCTION_QUICK_REFERENCE.md` section 9. A backup holds personal data and password hashes: keep copies private.
 
 ## Customizing Configuration
 
@@ -166,9 +150,9 @@ environment:
 
 ### Using your own club logo
 
-Upload the logo on **Admin Dashboard → Club Settings** (PNG, JPEG or WebP, up to 2 MB). It is stored in `/app/data/branding/`, on the data volume next to the database, so it survives image upgrades. Back it up with the database if you copy the volume by hand (the SQLite `.backup` job covers only the database file).
+Upload the logo on **Admin Dashboard → Club Settings** (PNG, JPEG or WebP, up to 2 MB). It is stored in `/app/data/branding/`, on the data volume next to the database, so it survives image upgrades. The app's backups include it.
 
-Alternatively, mount an image into the container (e.g. `- ./my-club.jpg:/app/static/my-club.jpg:ro`) and set `HOME_CLUB_LOGO_PATH=/static/my-club.jpg`; that takes precedence over an uploaded logo.
+Alternatively, set `HOME_CLUB_LOGO_PATH` to the URL path of an image you serve yourself (for example from the reverse proxy); that takes precedence over an uploaded logo. Static files are built into the binary, so an image mounted into `/app/static` is not served (except in development with `TEMPLATE_RELOAD=true`).
 
 ## Deployment
 
@@ -211,8 +195,8 @@ sqlite3 /app/data/tennis.db
 # List data volume contents
 docker run --rm -v jim-dot-tennis-data:/data alpine ls -la /data
 
-# List backup volume contents
-docker run --rm -v jim-dot-tennis-backups:/backups alpine ls -la /backups
+# List the app's backups
+docker run --rm -v jim-dot-tennis-data:/data alpine ls -la /data/backups
 ```
 
 ## Environment Variables (.env)

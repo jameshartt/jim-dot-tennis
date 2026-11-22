@@ -28,7 +28,7 @@ The BHPLTA organises the parks league that jim.tennis is built around. Match car
 
 ## Tech stack
 
-- **Go 1.25** — server-side application
+- **Go 1.26** — server-side application
 - **SQLite** (the only supported database)
 - **HTMX** — server-rendered HTML with minimal client-side JavaScript
 - **PWA** — progressive web app with push notification support
@@ -53,7 +53,23 @@ make run-local        # Build and run
 make clean-local      # Clean binary and database
 ```
 
-### Production deployment
+### Install a release
+
+Each tagged version is published as Linux amd64 and arm64 binaries on the
+[Releases page](https://github.com/jameshartt/jim-dot-tennis/releases) (with a
+checksum file) and as a multi-architecture image,
+`ghcr.io/jameshartt/jim-dot-tennis:<version>` (no leading `v`). Nothing needs to
+be compiled on your server: `deploy/docker-compose.yml` runs the image named by
+`JIM_DOT_TENNIS_VERSION`. Versions before 1.0.0 are pre-releases. Before
+upgrading read the **Upgrade notes** for each version in
+[CHANGELOG.md](CHANGELOG.md); builds carry provenance attestations you can check
+(see [RELEASING.md](RELEASING.md#how-a-club-verifies-a-download)).
+
+```bash
+./jim-dot-tennis version        # prints the version, commit and build date
+```
+
+### Production deployment (building from source)
 
 ```bash
 make build            # Build Docker images
@@ -61,6 +77,8 @@ make run              # Start containers
 make stop             # Stop containers
 make logs             # View logs
 ```
+
+The binary carries its templates, static files and migrations (`embed.go`), so it runs from any directory with only its data directory (`DB_PATH`); the image copies nothing else.
 
 See [docs/PRODUCTION_QUICK_REFERENCE.md](docs/PRODUCTION_QUICK_REFERENCE.md) and [docs/digitalocean_deployment.md](docs/digitalocean_deployment.md) for full deployment details.
 
@@ -99,8 +117,7 @@ The application uses environment variables to identify your club:
 | `PORT` | Optional | HTTP listen port (default: `8080`). |
 | `DB_TYPE` | Optional | Only `sqlite3` is supported; any other value fails at startup. |
 | `DB_PATH` | Optional | SQLite file path (default: `./tennis.db`; `/app/data/tennis.db` in Docker). |
-| `TEMPLATE_RELOAD` | Dev only | `true` re-parses templates on every request (hot reload). Leave unset in production. |
-| `MIGRATE_ALLOW_DIRTY_FORCE` | Dev only | `true` auto-forces a dirty migration version at startup. Never set in production: a dirty database should stop the deploy. |
+| `TEMPLATE_RELOAD` | Dev only | `true` reads `templates/` and `static/` from disk instead of the copies built into the binary, and re-parses templates on every request (hot reload). Leave unset in production. |
 
 **iCal note.** Calendar files carry the UID `fixture-<id>@<host of PUBLIC_URL>`. The host is part of every event's identity, so changing it (for example `jim.tennis` to `www.jim.tennis`) makes calendar apps treat already-subscribed events as new and duplicate them. Set `PUBLIC_URL` to the host your players already use and keep it stable.
 

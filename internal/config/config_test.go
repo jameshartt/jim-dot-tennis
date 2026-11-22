@@ -13,8 +13,6 @@ import (
 
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/repository"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func findMigrationsPath(t *testing.T) string {

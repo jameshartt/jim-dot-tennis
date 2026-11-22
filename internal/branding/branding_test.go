@@ -24,8 +24,6 @@ import (
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/repository"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func testImage(w, h int) image.Image {
@@ -205,7 +203,7 @@ func newBrandingEnv(t *testing.T) brandingEnv {
 		t.Fatal(err)
 	}
 	cs := config.NewClubSettings(context.Background(), repository.NewSettingsRepository(db))
-	h := NewHandler(cs, filepath.Join("..", "..", "static"))
+	h := NewHandler(cs, os.DirFS(filepath.Join("..", "..", "static")))
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 	return brandingEnv{cs: cs, handler: h, mux: mux}

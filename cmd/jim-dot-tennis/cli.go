@@ -9,16 +9,18 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"text/tabwriter"
 	"time"
 
+	jimdottennis "jim-dot-tennis"
 	"jim-dot-tennis/internal/accounts"
+	"jim-dot-tennis/internal/backup"
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/setup"
+	"jim-dot-tennis/internal/version"
 )
 
 // cliHelp is the text `jim-dot-tennis help` prints. docs/PRODUCTION_QUICK_REFERENCE.md
@@ -33,7 +35,8 @@ Run them on the server, inside the app's container, for example:
 
     docker exec -it jim-dot-tennis ./jim-dot-tennis user list
 
-They work while the app is running; there is no need to stop it.
+They work while the app is running; there is no need to stop it. The one
+exception is "restore", which only runs while the app is stopped.
 
 Accounts
   user list                        Show every account: its role, whether it can
@@ -75,6 +78,32 @@ First-run setup
                                    any earlier code (including the one in the
                                    app's log) and works once.
 
+Backups
+  backup                           Make a backup now: the database and the
+                                   uploaded club logo in one file, in the
+                                   backups folder (BACKUP_DIR; normally
+                                   backups/ next to the database). Safe while
+                                   the app is running. The app also makes one
+                                   on its own every day (BACKUP_INTERVAL) and
+                                   before every upgrade, and keeps the newest
+                                   14 (BACKUP_KEEP).
+  restore <file>                   Put a backup back: its database and logo
+                                   replace the current ones. Refused while the
+                                   app is running, so stop the app and run it
+                                   in a one-off container (the operations
+                                   guide shows how). A backup from an older
+                                   version is upgraded; one from a newer
+                                   version is refused. The database it replaces
+                                   is kept beside it (tennis.db.replaced-...),
+                                   not deleted: remove those copies yourself
+                                   once the restore is confirmed good. While
+                                   it runs, the other commands refuse.
+                                   Everyone has to sign in again afterwards.
+
+  version                          Show which version of the app this is, the
+                                   commit it was built from and when.
+                                   Needs no database.
+
   help                             Show this text.
 
 Good to know
@@ -92,7 +121,12 @@ Good to know
     anyone powers they did not already have.
   - Each command records what it did: the time, the command and the account.
   - If the app was upgraded but has not started since, the commands refuse to
-    run until it has (starting the app upgrades the database).
+    run until it has (starting the app upgrades the database). "backup" and
+    "restore" are the exceptions.
+  - A backup holds everyone's personal details, password hashes and passkey
+    details, and the app's own secrets. Keep backups where only the people who
+    run the app can read them, and keep a copy off this server: a backup on
+    the same disk is lost with the server.
 `
 
 // Exit codes for the command line.
@@ -103,6 +137,16 @@ const (
 )
 
 // errUsage marks a mistake in how a command was typed; the help is shown.
+// cmdVersion is the command that prints the build identity; it needs no database.
+const cmdVersion = "version"
+
+// cmdBackup and cmdRestore make and restore backups (cli_backup.go); they
+// open the database themselves.
+const (
+	cmdBackup  = "backup"
+	cmdRestore = "restore"
+)
+
 var errUsage = errors.New("usage")
 
 // cliOut is where a command writes its results (problems go to stderr from
@@ -135,7 +179,27 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 		return exitOK
 	}
 
+	if cmd.name == cmdVersion {
+		fmt.Fprintf(stdout, "jim-dot-tennis %s\n", version.Long())
+		return exitOK
+	}
+
 	ctx := context.Background()
+	if cmd.name == cmdRestore {
+		return runRestore(ctx, c, stderr, cmd.args[0])
+	}
+	// Every other command uses the database: not while a restore is
+	// replacing it.
+	release, ok := holdCommandLock()
+	if !ok {
+		fmt.Fprintf(stderr, "Not done: a restore is in progress in %s. Run this command again once the restore has finished and the app has started.\n",
+			backup.Config{DBPath: getEnv("DB_PATH", "./tennis.db")}.DataDir())
+		return exitError
+	}
+	defer release()
+	if cmd.name == cmdBackup {
+		return runBackup(ctx, c, stderr)
+	}
 	db, err := openCLIDatabase(ctx)
 	if err != nil {
 		fmt.Fprintf(stderr, "%v\n", err)
@@ -172,6 +236,8 @@ func parseCommand(args []string) (command, error) {
 		switch strings.ToLower(name) {
 		case "h", "help":
 			return command{name: "help"}, nil
+		case cmdVersion:
+			return command{name: cmdVersion}, nil
 		case "role":
 			if !hasValue {
 				if i+1 >= len(args) {
@@ -209,12 +275,27 @@ func parseCommand(args []string) (command, error) {
 	switch strings.ToLower(words[0]) {
 	case "help":
 		return command{name: "help"}, nil
+	case cmdVersion:
+		if len(words) != 1 {
+			return command{}, fmt.Errorf("%w: usage: jim-dot-tennis version", errUsage)
+		}
+		return command{name: cmdVersion}, noRole()
 	case "setup":
 		if len(words) != 2 || strings.ToLower(words[1]) != "code" {
 			return command{}, fmt.Errorf("%w: usage: jim-dot-tennis setup code", errUsage)
 		}
 		cmd.name = "setup code"
 		return cmd, noRole()
+	case cmdBackup:
+		if len(words) != 1 {
+			return command{}, fmt.Errorf("%w: usage: jim-dot-tennis backup", errUsage)
+		}
+		return command{name: cmdBackup}, noRole()
+	case cmdRestore:
+		if len(words) != 2 {
+			return command{}, fmt.Errorf("%w: usage: jim-dot-tennis restore <backup file>", errUsage)
+		}
+		return command{name: cmdRestore, args: words[1:]}, noRole()
 	case "admin-passkeys":
 		if len(words) != 2 {
 			return command{}, fmt.Errorf("%w: usage: jim-dot-tennis admin-passkeys status|on|off", errUsage)
@@ -281,6 +362,26 @@ func parseCommand(args []string) (command, error) {
 	return command{}, fmt.Errorf("%w: unknown command %q", errUsage, words[0])
 }
 
+// holdCommandLock takes the data folder's restore lock shared
+// (backup.AcquireCommandLock) for as long as the command runs, and returns
+// how to give it up; ok is false while a restore holds it. Then the command
+// is refused,
+// rather than writing to a database that is about to be replaced; the
+// running server does not hold it, so the commands still work alongside the
+// server. Where the lock file cannot be opened at all (no data folder yet)
+// the command goes on and reports what is really wrong (no database).
+func holdCommandLock() (release func(), ok bool) {
+	cfg := backup.Config{DBPath: getEnv("DB_PATH", "./tennis.db")}
+	lock, err := backup.AcquireCommandLock(cfg.RestoreLockPath())
+	if errors.Is(err, backup.ErrLocked) {
+		return nil, false
+	}
+	if err != nil {
+		return func() {}, true
+	}
+	return lock.Release, true
+}
+
 // openCLIDatabase opens the database the server uses (DB_PATH, as the server
 // resolves it) without creating it, migrating it or running the startup
 // checks. It refuses a database whose schema is older than this program
@@ -301,15 +402,10 @@ func openCLIDatabase(ctx context.Context) (*database.DB, error) {
 		return nil, err
 	}
 
-	root, err := getProjectRoot()
+	latest, err := database.LatestMigration(jimdottennis.Migrations())
 	if err != nil {
 		db.Close()
-		return nil, err
-	}
-	latest, err := database.LatestMigration(filepath.Join(root, "migrations"))
-	if err != nil {
-		db.Close()
-		return nil, fmt.Errorf("cannot check the database version (%v). Run this command from the app's folder (/app in the container)", err)
+		return nil, fmt.Errorf("cannot check the database version: %v", err)
 	}
 	st, err := db.ReadSchemaStatus(ctx)
 	if err != nil {

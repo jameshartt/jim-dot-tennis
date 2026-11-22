@@ -10,6 +10,11 @@ Each migration consists of two files:
 
 Migrations are run in numerical order based on the version number prefix.
 
+The `.sql` files are built into every binary (`embed.go` at the repository
+root, read through golang-migrate's `iofs` source), so the server and the tools
+below never look for this directory at run time: a new migration needs a
+rebuild.
+
 ## Running Migrations
 
 ### Using the Migration Tools
@@ -49,12 +54,12 @@ The tool will migrate down to the specified version, running all down migrations
 ### Command Line Flags
 
 #### Migration Tool (cmd/migrate/main.go)
-- `-path`: Path to migration files (default: "./migrations")
+- `-path`: Directory of migration files to use instead of the built-in ones (development; default: built in)
 - `-db`: Database type (only sqlite3 is supported; anything else is rejected)
 - `-db-path`: Database file path (SQLite only)
 
 #### Migrate Down Tool (cmd/migrate-down/main.go)
-- `-path`: Path to migration files (default: "./migrations")
+- `-path`: Directory of migration files to use instead of the built-in ones (development; default: built in)
 - `-db-path`: Database file path (default: "./tennis.db")
 - `-version`: Target migration version to migrate down to (**required** — no default)
 - `-yes`: Skip the interactive confirmation prompt (for non-interactive use)
@@ -148,7 +153,7 @@ This has been done deliberately once:
 
 ## Troubleshooting
 
-- **Dirty Database State**: If a migration fails partway through, the database is marked as "dirty" and the schema may be inconsistent. On startup the app now **fails fast** on a dirty database rather than silently forcing the version (which used to mask schema drift). Inspect the schema, roll back to a clean version with the migrate-down tool, then re-run. In development only, you may set `MIGRATE_ALLOW_DIRTY_FORCE=true` to restore the old auto-force behaviour.
+- **Dirty Database State**: If a migration fails partway through, the database is marked "dirty" and the schema may be inconsistent. The app refuses to start, naming the migration and listing the recovery steps, and `/healthz` stays failing. The version is never forced: restore the backup the app took just before running the migrations (`jim-dot-tennis-pre-migration-<date>.tar.gz` in the backups folder, with `jim-dot-tennis restore` run by the previous version; `docs/PRODUCTION_QUICK_REFERENCE.md` section 9), start the previous version of the app, and report the failing migration. (`MIGRATE_ALLOW_DIRTY_FORCE`, which used to force it in development, has been removed.)
 
 - **Migration Version Mismatch**: If you need to force a specific migration version, you can use the migrate down tool to roll back to a specific version, then run the migration tool again to apply migrations up to the desired version.
 

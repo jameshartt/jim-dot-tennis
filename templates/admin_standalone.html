@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - Jim.Tennis</title>
-    <link rel="stylesheet" href="/static/css/main.css">
-    <script src="/static/js/htmx-1.9.4.min.js"></script>
+    <link rel="stylesheet" href="{{asset "/static/css/main.css"}}">
+    <script src="{{asset "/static/js/htmx-1.9.4.min.js"}}"></script>
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#2c3e50">
     <style>
@@ -503,6 +503,11 @@
                                 <span class="action-link-icon">&#128220;</span> Account Audit Log
                             </a>
                             {{end}}
+                            {{if canUse $u "/admin/league/backups"}}
+                            <a href="/admin/league/backups" class="action-link" data-testid="nav-backups">
+                                <span class="action-link-icon">&#128190;</span> Backups
+                            </a>
+                            {{end}}
                             {{if canUse $u "/admin/league/settings"}}
                             <a href="/admin/league/settings" class="action-link" data-testid="nav-settings">
                                 <span class="action-link-icon">&#9881;</span> Club Settings
@@ -560,7 +565,7 @@
 
     <footer>
         <div class="container">
-            <p>&copy; Jim.Tennis {{currentYear}} &middot; <a href="/about">About</a></p>
+            <p>&copy; Jim.Tennis {{currentYear}} &middot; <a href="/about">About</a> &middot; <span data-testid="app-version">Version {{appVersion}}</span></p>
         </div>
     </footer>
 </body>

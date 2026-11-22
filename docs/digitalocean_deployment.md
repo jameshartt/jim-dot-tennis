@@ -71,7 +71,7 @@ The deployment sets up:
 - Fail2ban for SSH protection
 - A dedicated user account for the application
 - HTTPS configuration with Caddy (if domain provided)
-- Automatic database backups
+- Automatic database backups (made by the app itself)
 
 ### Services
 
@@ -80,7 +80,6 @@ The production deployment comprises multiple services orchestrated via Docker Co
 | Service | Description | Compose File |
 |---------|-------------|--------------|
 | **jim-dot-tennis** (app) | Go 1.25 web application serving the league management UI | `docker-compose.yml` |
-| **backup** | Alpine-based container performing daily SQLite backups with 30-day retention | `docker-compose.yml` |
 | **import** | On-demand tools container for match card and club data imports | `docker-compose.yml` (tools profile) |
 | **competition-factory-server** | CourtHive API server (Node.js) for tournament management | `deploy/docker-compose.yml` |
 | **TMX frontend** | Static tournament management UI served via Caddy | `deploy/docker-compose.yml` |
@@ -187,32 +186,19 @@ The script will detect the existing installation and update only the necessary f
 
 ## Backup Management
 
-The deployment includes an automatic backup system that:
-
-1. Creates daily backups within Docker
-2. Exports backups to `$REMOTE_PATH/external-backups`
-3. Runs a cron job daily at 3 AM
-
-### Manual Backup
-
-To manually trigger a backup:
+The app backs itself up: a daily archive (database, club logo, manifest with
+checksums) in `/app/data/backups` on its data volume, one before every upgrade,
+and one whenever you run `jim-dot-tennis backup`. Those copies are on the same
+disk as the app, so copy them off the server too. Making, copying off and
+restoring backups are described step by step in `docs/PRODUCTION_QUICK_REFERENCE.md` section 9.
 
 ```bash
-ssh user@your-droplet-ip "cd $REMOTE_PATH && docker exec jim-dot-tennis-backup sh -c 'sqlite3 /data/tennis.db \".backup /backups/tennis-\$(date +%Y-%m-%d-%H%M%S)-manual.db\"'"
+# Make a backup now
+ssh user@your-droplet-ip "docker exec jim-dot-tennis ./jim-dot-tennis backup"
 ```
 
-### Restoring from Backup
-
-```bash
-# Stop the application
-ssh user@your-droplet-ip "cd $REMOTE_PATH && docker-compose down"
-
-# Restore the database from backup
-ssh user@your-droplet-ip "cp $REMOTE_PATH/external-backups/tennis-backup-file.db /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db"
-
-# Start the application
-ssh user@your-droplet-ip "cd $REMOTE_PATH && docker-compose up -d"
-```
+Restore only runs while the app is stopped, in a one-off container
+(`jim-dot-tennis restore <file>`); never copy a database file over the live one.
 
 ## Upgrading Go Version
 
@@ -276,17 +262,13 @@ Also update the Go tooling image in the Makefile:
 GO_IMAGE = golang:1.26-alpine
 ```
 
-### Step 2: Handle SQLite Compatibility (if using CGO)
+### Step 2: No SQLite build step
 
-For Go versions 1.20+ with SQLite, you may need to add compatibility fixes:
-
-```dockerfile
-# Install additional build dependencies
-RUN apk add --no-cache gcc musl-dev sqlite-dev build-base
-
-# Use compatibility build flags
-RUN CGO_ENABLED=1 GOOS=linux CGO_CFLAGS="-D_LARGEFILE64_SOURCE" go build -a -ldflags '-extldflags "-static"' -tags 'sqlite_omit_load_extension' -o /app/bin/jim-dot-tennis ./cmd/jim-dot-tennis
-```
+The SQLite driver is pure Go (`modernc.org/sqlite`, since Sprint 022 WI-136), so the
+build needs no C toolchain, no SQLite packages and no CGO flags; the Dockerfile builds
+with `CGO_ENABLED=0 go build`. (Before WI-136 the CGO driver needed
+`gcc musl-dev sqlite-dev build-base` and `CGO_CFLAGS="-D_LARGEFILE64_SOURCE"`; none of
+that applies any more.)
 
 ### Step 3: Force Rebuild and Deploy
 
@@ -315,10 +297,10 @@ Sprint 004 added 9 Makefile targets that run Go tooling inside Docker containers
 ### Read-only Checks
 
 ```bash
-make vet          # Run go vet (static analysis, requires CGO for SQLite)
+make vet          # Run go vet (static analysis)
 make fmt          # Check formatting (list unformatted files)
-make lint         # Run golangci-lint (comprehensive linting, requires CGO)
-make deadcode     # Run dead code detection (requires CGO)
+make lint         # Run golangci-lint (comprehensive linting)
+make deadcode     # Run dead code detection
 make check        # Run all read-only checks (vet + fmt + lint + deadcode)
 ```
 
@@ -333,10 +315,10 @@ make imports-fix  # Fix import ordering in-place
 ### Module Management
 
 ```bash
-make tidy         # Run go mod tidy (requires CGO for SQLite dependency resolution)
+make tidy         # Run go mod tidy
 ```
 
-Tools that need to compile code with SQLite (vet, deadcode, lint, tidy) run with CGO enabled and install `gcc musl-dev sqlite-dev build-base` inside the container. Text-only tools (fmt, imports) run without CGO for speed.
+All of them run with `CGO_ENABLED=0`: the SQLite driver is pure Go, so no C toolchain is installed in the container.
 
 ## Useful Management Commands
 
@@ -470,19 +452,12 @@ If Docker Compose fails to start the application:
    ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose down && docker-compose up -d"
    ```
 
-### SQLite/CGO Build Issues
+### SQLite Build Issues
 
-If you encounter SQLite compilation errors with newer Go versions:
-
-1. Ensure build dependencies are installed:
-   ```dockerfile
-   RUN apk add --no-cache gcc musl-dev sqlite-dev build-base
-   ```
-
-2. Use compatibility flags:
-   ```dockerfile
-   RUN CGO_ENABLED=1 GOOS=linux CGO_CFLAGS="-D_LARGEFILE64_SOURCE" go build -a -ldflags '-extldflags "-static"' -tags 'sqlite_omit_load_extension' -o /app/bin/jim-dot-tennis ./cmd/jim-dot-tennis
-   ```
+The build no longer compiles any C (pure-Go `modernc.org/sqlite`). If a build fails
+mentioning `gcc`, `cgo` or `sqlite3.h`, something still imports the old CGO driver
+`github.com/mattn/go-sqlite3`: remove that import (the driver is registered by
+`internal/database`).
 
 ### Application Not Responding
 
@@ -522,7 +497,7 @@ If you're experiencing database problems:
    ssh root@your-droplet-ip "docker exec jim-dot-tennis sqlite3 /app/data/tennis.db 'PRAGMA integrity_check;'"
    ```
 
-3. If the database is missing or corrupted, restore from a backup as described above
+3. If the database is missing or corrupted, restore from a backup (`docs/PRODUCTION_QUICK_REFERENCE.md` section 9)
 
 ### Migration Mismatches ("no such column" errors)
 
@@ -553,7 +528,7 @@ ssh -i $SSH_KEY $SERVER \
 
 ### Docker Build Hangs / Server Unresponsive
 
-The production droplet is **1 CPU / 1GB RAM**. Docker builds (especially Go compilation with CGO and Node.js `pnpm install`) are extremely resource-intensive and can make the server completely unresponsive.
+The production droplet is **1 CPU / 1GB RAM**. Docker builds (especially Go compilation and Node.js `pnpm install`) are extremely resource-intensive and can make the server completely unresponsive.
 
 **Symptoms:** SSH connections time out, the site goes down, CPU pegged at 100% for 10-30+ minutes.
 
@@ -631,8 +606,7 @@ ssh root@your-droplet-ip "cd $REMOTE_PATH && rm -f ./internal/repository/*_repos
 # If running out of disk space
 ssh root@your-droplet-ip "docker system prune -af"
 
-# If need to restore from backup (replace backup-file.db with actual backup)
-ssh root@your-droplet-ip "cd $REMOTE_PATH && docker-compose down && cp external-backups/backup-file.db /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db && docker-compose up -d"
+# If you need to restore from a backup: see `docs/PRODUCTION_QUICK_REFERENCE.md` section 9 (jim-dot-tennis restore, app stopped)
 ```
 
 ### Health Check URLs

@@ -500,7 +500,7 @@ func (h *PasskeyHandler) signInMethods(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := h.templates.Get("signin_methods", func() (*template.Template, error) {
 		funcMap := template.FuncMap{"currentYear": func() int { return time.Now().Year() }}
-		return template.New("").Funcs(funcMap).ParseFiles(
+		return render.ParseFiles(template.New("").Funcs(funcMap),
 			filepath.Join(h.templateDir, "layout.html"),
 			filepath.Join(h.templateDir, "account", "signin_methods.html"),
 		)
