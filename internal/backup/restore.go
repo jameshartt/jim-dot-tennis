@@ -317,7 +317,7 @@ func Restore(ctx context.Context, cfg Config, archivePath string, migrations fs.
 func tournamentIdle(ctx context.Context, t TournamentDatabase) error {
 	n, err := t.OtherSessions(ctx)
 	if err != nil {
-		return fmt.Errorf("%s cannot be reached, so the tournament data cannot be restored: %w. "+
+		return fmt.Errorf("%s could not be opened, so the tournament data cannot be restored: %w. "+
 			"Postgres must be running (docker start courthive-postgres) while the tournament server and identity service are stopped. Nothing was changed",
 			t.Describe(), err)
 	}

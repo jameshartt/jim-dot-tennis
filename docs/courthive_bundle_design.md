@@ -315,7 +315,30 @@ to approve, and the old accounts stay until then.
   has not been tested on real data. WI-146 rehearses all of this on a copy of
   jim.tennis's data.
 - Before a tournament upgrade the app takes a backup that includes a dump of
-  the tournament database (WI-146).
+  the tournament database (WI-146): the one-shot `courthive-pre-upgrade`
+  runs `jim-dot-tennis tournaments pre-upgrade` before every start of the
+  tournament server, which waits for it. When the server image differs from
+  the one recorded in the app's database it makes and checks the backup
+  first, and fails closed if it cannot. Every regular backup includes the
+  tournament database while the profile is on (operations guide, section 9).
+- Steps between versions: a set that needs a step run between the tournament
+  server's migrations and the next service ships it as a one-shot service in
+  that release's compose file, ordered with `depends_on` (`RELEASING.md`).
+  The one needed now is `courthive-hash-passwords` (the identity service's
+  `scripts/hash-plaintext-passwords.mjs --apply`), which runs automatically:
+  it is idempotent, does nothing on a fresh install, and works in one
+  transaction.
+- `scripts/rehearse-tournament-upgrade.sh <dump>` rehearses the upgrade on a
+  throwaway copy. On a synthetic database at migration 049 (built with the
+  3.0.0 server, holding real Parks Cup records saved under engine 7.1.1) it
+  applied 050 to 064 in seconds, dropped `pending_saves` and `chat_messages`
+  (row counts of every other table unchanged), found one plain-text password
+  to hash, and all six records (19 events, 10 draws, 329 participants) loaded
+  through the API under engine 7.45.0. The new read-model tables
+  (`draw_definitions`, `match_up_index`, `tournament_participants` and
+  others) start empty; whether anything needs them filled for existing
+  tournaments was not checked. The rehearsal on a copy of jim.tennis's own
+  data is still to be done by the owner.
 
 ## 6. Effect on the work items
 

@@ -423,9 +423,116 @@ ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis backup"
 # List the backups on the server
 ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ls -l /app/data/backups"
 
-# CourtHive data backup (not yet part of the app's backup)
-ssh -i $SSH_KEY $SERVER "docker run --rm -v courthive-data:/data alpine tar czf - -C /data ." > ~/backups/courthive-$(date +%Y%m%d).tar.gz
+# jim.tennis only (older layout, not the packaged stack): CourtHive's data is not in the app's backup there
+ssh -i $SSH_KEY $SERVER "docker exec courthive-postgres pg_dump -U courthive -Fc courthive" > ~/backups/courthive-$(date +%Y%m%d).dump
 ```
+
+#### Tournament data in backups
+
+With the tournament stack on (the packaged `deploy/docker-compose.yml` with
+`COMPOSE_PROFILES=tournaments`), the app is given the tournament database's
+settings (`COURTHIVE_PG_*`), and **every backup also holds a dump of the
+tournament database**: tournaments, draws, results, tournament accounts. One
+file restores the whole club. The dump is made with the Postgres tools in
+the app's image (`pg_dump`, custom format) over the internal network, after
+the app's own copy, and read back right through before the backup counts.
+
+- `jim-dot-tennis backup` says "Includes tournament data" (with the dump's
+  size, the Postgres version and the tournament server's latest migration),
+  or "Does not include tournament data" when the stack is off.
+- The Backups page says the same for the deployment and for each backup.
+- **If the tournament database cannot be dumped** (Postgres stopped, wrong
+  password), **no backup is made**: the command says why and exits with an
+  error, and a scheduled backup shows as failed on the Backups page with the
+  reason. A file that quietly lacks the tournament data is never reported as
+  a good backup. Fix the cause (usually `docker compose up -d` in the deploy
+  folder) and take one by hand.
+- The backup the app takes before its own upgrades holds the app's data
+  only: the app's migrations do not touch the tournament database, and the
+  league site must not wait for Postgres. The tournament database has its own
+  backup before a tournament upgrade (below).
+- The password never appears in a command line, a log, an error or the
+  backup's manifest.
+
+#### Tournament upgrades
+
+The tournament server upgrades its own database when it starts, and some of
+those changes cannot be undone without a backup. So the packaged deployment
+runs a one-shot step, `courthive-pre-upgrade` (the app's image running
+`jim-dot-tennis tournaments pre-upgrade`), before the tournament server
+every time `docker compose up -d` starts it. The tournament server waits for
+this step to finish successfully. The app and Caddy do not wait for it.
+
+- **Ordinary restart** (same tournament server image as last time): the step
+  says "Tournament server image unchanged" and does nothing.
+- **New tournament server image** (a new release of jim-dot-tennis changed
+  the bundled set): the step makes a full backup, the app's data and the
+  tournament database, as `jim-dot-tennis-pre-upgrade-<date>.tar.gz` in the
+  backups folder, checks it, records the new image, and only then lets the
+  tournament server start and upgrade its database. The newest such backup is
+  kept until a later upgrade makes another.
+- **New, empty tournament database** (first start): nothing to keep; it
+  records the image.
+- **The backup cannot be made**: the step fails. `docker compose up -d`
+  ends with `service "courthive-pre-upgrade" didn't complete successfully`.
+  The new tournament server is not started, so the tournament database is
+  untouched; Docker has already removed the old tournament server's
+  container, so tournament pages are unavailable until you act. The league
+  site keeps working. See why with
+  `docker compose logs courthive-pre-upgrade`, fix it, and run
+  `docker compose up -d` again. To run the previous version meanwhile, put
+  the previous `JIM_DOT_TENNIS_VERSION` back in `.env` and run
+  `docker compose up -d`: the previous tournament server image is the one
+  last recorded, so it starts without needing a backup.
+
+Never start the tournament server with `docker compose up --no-deps`: that
+skips the step. A restart of the server itself (`docker restart`, or the
+server rebooting) does not change the image, so it needs no backup.
+
+After the tournament server has upgraded, a second one-shot,
+`courthive-hash-passwords`, runs the identity service's own script to hash
+any password the tournament database still holds in plain text (older
+CourtHive versions stored some that way). It changes nothing when there is
+nothing to hash and prints only a count line. The identity service starts
+after it.
+
+**Steps between versions.** If a future bundled set needs a step run between
+the tournament server's upgrade and the next service (like the calendar
+backfill CourtHive once needed between its migrations 047 and 048), that
+release ships the step as another one-shot service in
+`deploy/docker-compose.yml`, ordered with `depends_on`, and its Upgrade notes
+in `CHANGELOG.md` say so. Upgrading stays "set the version, pull, restart".
+
+**Going back after a tournament upgrade that went wrong:** restore the
+`jim-dot-tennis-pre-upgrade-*.tar.gz` backup with the previous
+`JIM_DOT_TENNIS_VERSION` in `.env` (see "Restore a backup" below, with the
+tournament stack on), then `docker compose up -d`.
+
+#### Rehearse a tournament upgrade on a copy of the data
+
+`scripts/rehearse-tournament-upgrade.sh <dump>` checks, on a throwaway copy,
+that the bundled tournament server upgrades an existing tournament database
+cleanly. Run it on your own computer or the server, with Docker; it uses its
+own compose project and volumes, publishes no ports, prints no secrets and
+removes everything when it ends. `<dump>` is a dump of the tournament database
+in plain SQL or custom format, for example:
+
+```bash
+# Packaged stack (custom format)
+docker exec courthive-postgres pg_dump -U courthive -Fc courthive > courthive.dump
+# Or out of a backup: tar xzf jim-dot-tennis-backup-<date>.tar.gz tournaments/courthive.dump
+scripts/rehearse-tournament-upgrade.sh courthive.dump
+```
+
+It restores the dump into a fresh Postgres 18, starts the bundled tournament
+server against it and waits for its migrations, runs the password-hashing
+step in dry run, starts the identity service, and reports: the migrations
+applied, row counts per table before and after, tables dropped, whether the
+server came up healthy, and whether every tournament can still be loaded
+through the server's API (counts by provider; failures by tournament id
+only). The dump holds personal data: keep it private and delete it after.
+`SERVER_IMAGE=... HIVEID_IMAGE=...` choose other images (default: the ones
+`deploy/docker-compose.yml` ships).
 
 #### Keep a copy off the server
 
@@ -485,6 +592,53 @@ ssh -i $SSH_KEY $SERVER 'bash -c '\''docker run --rm --volumes-from jim-dot-tenn
 ssh -i $SSH_KEY $SERVER "docker start jim-dot-tennis && sleep 5 && docker exec jim-dot-tennis wget -qO- http://localhost:8080/healthz"
 ```
 
+**With the tournament stack on**, use these steps instead. They differ in
+three places: the tournament server and identity service are stopped too
+(they hold the tournament database open, and restore refuses while anything
+else is connected to it: "the tournament database is in use ... Nothing was
+changed"); Postgres stays running; and the one-off container joins the app's
+network so it can reach Postgres. Run them on the server, in the deploy folder.
+
+```bash
+# 1. Put the backup in the data volume (as above; mkdir is for a new server
+#    that has made no backup yet)
+docker exec jim-dot-tennis mkdir -p /app/data/backups
+docker cp /tmp/<file> jim-dot-tennis:/app/data/backups/<file> && docker exec -u root jim-dot-tennis chown appuser:appuser /app/data/backups/<file>
+
+# 2. Stop the app, the tournament server and the identity service (Postgres keeps running)
+docker stop jim-dot-tennis courthive-server courthive-hiveid
+
+# 3. Restore both, with the app container's image, environment, volumes and network
+bash -c 'docker run --rm --volumes-from jim-dot-tennis --network "$(docker inspect -f "{{range \$k, \$v := .NetworkSettings.Networks}}{{\$k}}{{end}}" jim-dot-tennis)" --env-file <(docker inspect -f "{{range .Config.Env}}{{println .}}{{end}}" jim-dot-tennis) "$(docker inspect -f "{{.Image}}" jim-dot-tennis)" ./jim-dot-tennis restore /app/data/backups/<file>'
+
+# 4. Start everything (the app first; the tournament services after the pre-upgrade step)
+docker compose up -d
+```
+
+What restore does with the tournament database, in this order: it unpacks
+and checks the whole backup and prepares the app's database; reads the
+tournament dump right through; checks nothing else is connected; dumps the
+current tournament database to `courthive.dump.replaced-<date>` in the data
+folder (the safety copy); replaces the tournament database's whole content
+in **one transaction** (if anything fails, Postgres rolls it back and the
+tournament database is exactly as it was); and only then puts the app's
+database in place. If that last step fails, it puts the tournament database
+back from the safety copy, so both are as they were. Its last lines say
+what happened to each database.
+
+- A backup **with** tournament data on a deployment **without** the
+  tournament stack: the app's data is restored, and restore says the
+  tournament data in the backup was not restored. To restore it later, turn
+  the tournament stack on, stop the three containers as in step 2, and run
+  step 3 with `restore --tournaments-only /app/data/backups/<file>`.
+- A backup **without** tournament data (made with the stack off, or a
+  pre-migration backup) on a deployment with it: the app's data is restored
+  and the tournament database is left as it is. People's tournament accounts
+  are matched again when they next open tournament management.
+- `courthive.dump.replaced-<date>` copies are removed like the other
+  `.replaced-` copies (below). `restore --tournaments-only` also accepts one
+  of them, to put that tournament database back.
+
 If step 3 says "Not restored", nothing was changed (unless it says putting
 things back did not fully work: see below); start the app again and read the
 message. If it cannot read the file ("permission denied"), add `--user root`
@@ -515,6 +669,14 @@ did not fully work**, look in `/app/data` before starting the app:
 `tennis.db.replaced-<date>` back to `tennis.db` (and `tennis.db.replaced-<date>-wal`
 to `tennis.db-wal`, if there is one); if a logo is missing, copy it from
 `branding.replaced-<date>/` back into `branding/`. Then start the app.
+
+If restore reports that **the two databases no longer match** (the
+tournament database was restored, the app's database could not be put in
+place, and putting the tournament database back failed too), do not start
+anything. The message names the safety copy. Put it back with step 3 of the
+tournament restore above, using
+`restore --tournaments-only /app/data/courthive.dump.replaced-<date>`, then
+start everything.
 
 **After a failed upgrade** (the app stops with "migration NNN failed"):
 restore the newest `jim-dot-tennis-pre-migration-*.tar.gz` using the image of

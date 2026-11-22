@@ -72,7 +72,7 @@ func runTournamentsPreUpgrade(ctx context.Context, c cliOut, stderr io.Writer) i
 	}
 	st, err := cfg.Tournament.State(ctx)
 	if err != nil {
-		return stop("%s cannot be reached: %v", cfg.Tournament.Describe(), err)
+		return stop("%s could not be opened (is it running, and is its password right?): %v", cfg.Tournament.Describe(), err)
 	}
 	if st.Tables == 0 {
 		if err := settings.SetString(ctx, repository.SettingTournamentServerImage, image); err != nil {

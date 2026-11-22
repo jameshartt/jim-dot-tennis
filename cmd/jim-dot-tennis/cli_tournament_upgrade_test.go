@@ -91,7 +91,7 @@ func TestTournamentsPreUpgrade(t *testing.T) {
 	t.Setenv("FAKE_DB_DOWN", "1")
 	r = runCLITest(t, "tournaments", "pre-upgrade")
 	if r.code != exitError || !strings.Contains(r.stderr, "Stopped before the tournament server started") ||
-		!strings.Contains(r.stderr, "cannot be reached") || recorded() != v1 || len(preUpgradeArchives(t)) != 0 {
+		!strings.Contains(r.stderr, "could not be opened") || recorded() != v1 || len(preUpgradeArchives(t)) != 0 {
 		t.Fatalf("database down: %+v", r)
 	}
 	t.Setenv("FAKE_DB_DOWN", "")

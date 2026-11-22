@@ -59,7 +59,29 @@ back: read the Upgrade notes of every version in between.
   prints one, and sets `.env` to mode 600. Nothing has a default: with
   tournaments on, compose refuses to start if any secret is missing.
 
-Bundled tournament set (tested together):
+- **Tournament data in backups.** With the tournament stack on, every backup
+  (daily, by hand, or downloaded) also holds a dump of the tournament
+  database, so one file restores the whole club. If the tournament database
+  cannot be dumped, no backup is made and the Backups page says why. The
+  Backups page and `jim-dot-tennis backup` say whether a backup includes
+  tournament data.
+- **Restore brings back both.** `jim-dot-tennis restore` of such a backup
+  restores the tournament database too, in one transaction, after keeping a
+  copy of the one it replaces; it refuses while the tournament server or
+  identity service is still running. `restore --tournaments-only` restores
+  just the tournament data.
+- **Safe tournament upgrades.** Before a new tournament server image first
+  starts, a one-shot step (`courthive-pre-upgrade`) makes a backup with the
+  tournament data; if it cannot, the new tournament server does not start
+  and the league site keeps running. A second one-shot
+  (`courthive-hash-passwords`) hashes any tournament password still stored
+  in plain text. Upgrading stays "set the version, pull, restart".
+- **`scripts/rehearse-tournament-upgrade.sh`** checks, on a throwaway copy of
+  a tournament database dump, that the bundled tournament server upgrades it
+  and every tournament still loads.
+
+Bundled tournament set (tested together; `RELEASING.md` says how this table
+is kept):
 
 | Part | Image |
 |---|---|
@@ -81,6 +103,11 @@ Bundled tournament set (tested together):
 - `deploy/docker-compose.yml` no longer builds CourtHive from a source
   checkout or serves front ends from `../../TMX/dist` and
   `../../courthive-public/dist`.
+- The app's image carries the Postgres 18 client tools (`pg_dump`,
+  `pg_restore`, `psql`) for the tournament database's backups: about 14 MB
+  more on disk (114 MB to 128 MB), about 5 MB more to download.
+- The app's health check is tried every 2 seconds while it starts, so Caddy
+  (and the tournament stack) start sooner.
 
 ### Upgrade notes
 
@@ -97,6 +124,14 @@ Bundled tournament set (tested together):
   change (`docs/courthive_bundle_design.md`, section 5). The old volumes
   `courthive-data` and `courthive-cache` are not used by the new file and are
   left alone.
+- With tournaments on: backups now fail when the tournament database cannot
+  be dumped (before, they never included it). The first
+  `docker compose up -d` after this upgrade makes one
+  `jim-dot-tennis-pre-upgrade-*.tar.gz` backup before the tournament server
+  starts (no tournament server image had been recorded yet).
+- A backup that includes tournament data cannot be restored with version
+  0.1.0 (it refuses it as unreadable). Backups without tournament data, and
+  the backup the app takes before its own upgrades, can be.
 
 ## [0.1.0] - 2026-11-22
 

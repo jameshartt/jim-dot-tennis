@@ -345,7 +345,7 @@ func dumpTournament(ctx context.Context, cfg Config, path string) (*TournamentEn
 	t := cfg.Tournament
 	st, err := t.State(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%s cannot be reached: %w", t.Describe(), err)
+		return nil, fmt.Errorf("%s could not be opened (is it running, and is its password right?): %w", t.Describe(), err)
 	}
 	if err := t.Dump(ctx, path); err != nil {
 		return nil, fmt.Errorf("dumping %s: %w", t.Describe(), err)
