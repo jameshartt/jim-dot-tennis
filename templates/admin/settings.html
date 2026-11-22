@@ -51,6 +51,36 @@
             {{if .Message}}<div class="alert alert-success" role="status">{{.Message}}</div>{{end}}
             {{if .Error}}<div class="alert alert-error" role="alert">{{.Error}}</div>{{end}}
 
+            {{with .TournamentSetup}}{{if .Outcome}}
+            <section class="content-section" id="tournament-setup" data-tournament-setup-outcome="{{.Outcome}}">
+                <h2>Tournament set-up</h2>
+                {{if eq .Outcome "external"}}
+                <p data-setup-not-configured>Tournaments are switched on. The bundled tournament software is not switched on in this deployment, so nothing was set up on it. If this site uses a tournament server added by hand (under Tournaments, "Manage Providers"), that carries on as before.</p>
+                <span class="hint">To switch the bundled tournament software on, the person who looks after the server follows the tournaments section of the operations guide.</span>
+                {{else}}
+                {{if .Problem}}<div class="alert alert-error" role="alert">{{.Problem}}</div>{{end}}
+                {{with .Last}}
+                {{if .OK}}
+                <div class="alert alert-success" role="status" data-setup-outcome="done">Tournaments are ready. The club is set up on the tournament software as <strong>{{.Abbreviation}}</strong>.{{if not .MadeAnything}} Everything was already in place; nothing was changed.{{end}}</div>
+                {{else}}
+                <div class="alert alert-error" role="alert" data-setup-failed><strong>Set-up stopped at: {{.FailedStep}}.</strong> {{.Problem}}{{if .Detail}}<br><span class="hint">Details: {{.Detail}}</span>{{end}}<br>Nothing is left half-made: trying again finishes the rest.</div>
+                {{end}}
+                <ul data-setup-steps>
+                    {{range .Steps}}<li><strong>{{.Label}}:</strong> {{.OutcomeText}}{{if .Detail}} ({{.Detail}}){{end}}</li>{{end}}
+                </ul>
+                {{if .Unmanaged}}<p class="hint" data-setup-unmanaged>The tournament software has {{len .Unmanaged}} account(s) this app did not make. Nothing was changed for them; the Tournaments page lists them.</p>{{end}}
+                {{if not .OK}}
+                <form method="POST" action="/admin/league/tournaments/setup">
+                    <input type="hidden" name="return" value="settings">
+                    <button type="submit" class="btn" data-setup-run>Try again</button>
+                </form>
+                {{end}}
+                {{end}}
+                <p><a href="/admin/league/tournaments#tournament-setup">Tournament set-up on the Tournaments page</a></p>
+                {{end}}
+            </section>
+            {{end}}{{end}}
+
             <form method="POST" action="/admin/league/settings" enctype="multipart/form-data" id="settings-form">
 
             <section class="content-section" id="identity">
@@ -157,6 +187,13 @@
                     <input type="hidden" name="feature_tournaments" value="off">
                     <label><input type="checkbox" id="feature_tournaments" name="feature_tournaments" value="on" {{if .Features.Tournaments}}checked{{end}}> Tournaments</label>
                     <span class="hint">Tournament pages and the tournament links on the home page and the admin menu. They only work when the CourtHive tournament software is running alongside this site.</span>
+                    {{with .TournamentSetup}}{{if and .Configured (not .SetUp) (not $.Features.Tournaments)}}
+                    <div class="field" style="margin-top: 0.6rem;" data-settings-tournament-code>
+                        <label for="tournament_abbreviation">Club's tournament code</label>
+                        <input type="text" id="tournament_abbreviation" name="tournament_abbreviation" value="{{.Abbreviation}}" maxlength="12" style="max-width: 12rem; text-transform: uppercase;">
+                        <span class="hint">Switching Tournaments on sets the club up on the tournament software straight away, under this code (2 to 12 letters or digits, made from your club's name). Check it first: it cannot be changed afterwards.</span>
+                    </div>
+                    {{end}}{{if .SetUp}}<span class="hint" data-settings-tournament-code-fixed>Set up on the tournament software as <strong>{{.Abbreviation}}</strong>.</span>{{end}}{{end}}
                 </div>
 
                 <div class="field">

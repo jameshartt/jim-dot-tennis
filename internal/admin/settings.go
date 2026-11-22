@@ -20,6 +20,7 @@ import (
 	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/secrets"
 	"jim-dot-tennis/internal/services"
+	"jim-dot-tennis/internal/tournaments"
 )
 
 // Settings page routes.
@@ -85,6 +86,8 @@ type SettingsPageData struct {
 	WrappedCodeEnv string          // env var overriding the generated code, if set
 
 	AdminPasskeys adminPasskeysView // "Require passkeys for administrators"
+
+	TournamentSetup tournamentSetupView // the club's tournament set-up (WI-145)
 }
 
 // HandleSettings serves GET and POST /admin/league/settings and POST .../bhplta-lookup.
@@ -156,6 +159,9 @@ func (h *SettingsHandler) pageData(r *http.Request, cs *config.ClubSettings) Set
 	d.PublicURLEnv, _ = cs.EnvOverride(repository.SettingPublicURL)
 	d.MyTennisEnvVar, _ = cs.EnvOverride(repository.SettingFeatureMyTennis)
 	d.AdminPasskeys = h.adminPasskeysView(r, cs)
+	d.TournamentSetup = h.service.tournamentSetupData(r)
+	d.TournamentSetup.Outcome = setupOutcome(r.URL.Query().Get("tournament_setup"))
+	d.TournamentSetup.Problem = r.URL.Query().Get("setup_problem")
 	if code, fromEnv, err := secrets.NewWrappedAccess(h.service.db).Code(r.Context()); err != nil {
 		log.Printf("Club Wrapped access code unavailable: %v", err)
 	} else if fromEnv {
@@ -216,9 +222,17 @@ func (h *SettingsHandler) save(w http.ResponseWriter, r *http.Request, user *mod
 		return
 	}
 
+	// Switching Tournaments on sets the club up on the bundled tournament
+	// stack, when this deployment has one (WI-145).
+	wasOn := cs.TournamentsEnabled()
 	values, logo, err := h.parseForm(r, cs)
 	if err == nil {
 		err = h.publicURLChangeRefused(r, cs, values)
+	}
+	turningOn := err == nil && !wasOn && values[repository.SettingFeatureTournaments] == "true"
+	var abbreviation string
+	if turningOn && err == nil {
+		abbreviation, err = h.tournamentAbbreviation(r, cs)
 	}
 	if err != nil {
 		data := h.pageData(r, cs)
@@ -254,7 +268,42 @@ func (h *SettingsHandler) save(w http.ResponseWriter, r *http.Request, user *mod
 		}
 	}
 	log.Printf("Club settings updated by %s", user.Username)
-	http.Redirect(w, r, settingsPath+"?message="+url.QueryEscape("Settings saved."), http.StatusSeeOther)
+	target := settingsPath + "?message=" + url.QueryEscape("Settings saved.")
+	if turningOn {
+		outcome, problem := setupExternal, ""
+		if h.service.tournamentSetup.Configured() {
+			outcome, problem = h.service.runTournamentSetup(r, user, abbreviation)
+		}
+		target += "&tournament_setup=" + outcome
+		if problem != "" {
+			target += "&setup_problem=" + url.QueryEscape(problem)
+		}
+		target += "#tournament-setup"
+	}
+	http.Redirect(w, r, target, http.StatusSeeOther)
+}
+
+// tournamentAbbreviation is the club's tournament code to set up with when
+// Tournaments is being switched on: the one on the form (checked), else the
+// default. "" when there is nothing to choose (no bundled stack, or the club
+// is already set up and its code is fixed).
+func (h *SettingsHandler) tournamentAbbreviation(r *http.Request, cs *config.ClubSettings) (string, error) {
+	setup := h.service.tournamentSetup
+	if !setup.Configured() {
+		return "", nil
+	}
+	st, err := setup.Status(r.Context())
+	if err != nil || st.SetUp {
+		return "", nil
+	}
+	if v := strings.TrimSpace(r.FormValue("tournament_abbreviation")); v != "" {
+		a, err := tournaments.NormalizeAbbreviation(v)
+		if err != nil {
+			return "", formError{sentence(err.Error()) + "."}
+		}
+		return a, nil
+	}
+	return setup.DefaultAbbreviation(r.Context(), clubNameForTournaments(r, cs)), nil
 }
 
 // parseForm validates the submitted fields and returns the values to store.

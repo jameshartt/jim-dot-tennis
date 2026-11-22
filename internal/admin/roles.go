@@ -103,6 +103,7 @@ var adminRouteRoles = map[string]routeAccess{
 	"/admin/league/tournaments/edit/":              adminRoute,
 	"/admin/league/tournaments/toggle-visibility/": adminRoute,
 	"/admin/league/tournaments/sync/":              adminRoute,
+	tournamentSetupPath:                            adminRoute, // the club's tournament set-up (WI-145)
 
 	// Captain planning dashboard, its matrix, and linking yourself to your
 	// own player record ("I am...").

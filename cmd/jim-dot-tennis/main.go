@@ -35,6 +35,7 @@ import (
 	"jim-dot-tennis/internal/secrets"
 	"jim-dot-tennis/internal/setup"
 	"jim-dot-tennis/internal/tournamenthome"
+	"jim-dot-tennis/internal/tournaments"
 	"jim-dot-tennis/internal/version"
 	"jim-dot-tennis/internal/webpush"
 )
@@ -54,6 +55,13 @@ func main() {
 
 	// Say what is wrong with the settings in plain words before anything opens.
 	if err := checkEnvironment(); err != nil {
+		log.Fatalf("Cannot start: %v", err)
+	}
+	// The bundled tournament stack (optional): one client for everything
+	// that talks to it. A bad setting stops start-up; its message never
+	// quotes the password.
+	tournamentStack, tournamentCfg, err := tournamentClient()
+	if err != nil {
 		log.Fatalf("Cannot start: %v", err)
 	}
 
@@ -161,12 +169,14 @@ func main() {
 	authHandler := auth.NewHandler(authService, templateDir, "/admin/league")
 
 	// Set up admin handlers
-	courthiveAPIURL := os.Getenv("COURTHIVE_API_URL")
-	if courthiveAPIURL == "" {
-		courthiveAPIURL = "http://courthive-server:8383"
-	}
-	adminHandler := admin.New(db, templateDir, courthiveAPIURL, homeClub, homeClub.BHPLTAClubCode(), pushService)
+	adminHandler := admin.New(db, templateDir, tournamentCfg.ServerURL, homeClub, homeClub.BHPLTAClubCode(), pushService)
 	adminHandler.SetTournamentAccessObserver(tournamentAccessObserver())
+	// Switching Tournaments on (and the tournaments page) sets the club up on
+	// the bundled tournament stack, when this deployment has one.
+	adminHandler.SetTournamentSetup(tournaments.NewService(db, tournamentStack))
+	if tournamentStack.Configured() {
+		log.Printf("Bundled tournament stack: %s (sign-in service %s)", tournamentCfg.ServerURL, tournamentCfg.IdentityURL)
+	}
 
 	// Set up players handlers
 	playersHandler := players.New(db, templateDir, homeClub)
