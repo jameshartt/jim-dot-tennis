@@ -21,14 +21,9 @@ import {
  * seeded: the administrator, the club and the tournament are all made through
  * the product's own pages.
  *
- * TMX workarounds (each one is explained where it is used, and the problem
- * behind it has its own test.fixme at the end):
- *   - TMX's "save locally" setting is switched on before the tournament is
- *     created, because after the hand-over TMX cannot open a tournament that
- *     is only on the server ("Tournament not found").
- *   - The publishing switch is clicked with a script click, because after the
- *     hand-over TMX greys the whole Publishing tab out ("Log in to manage
- *     publishing").
+ * TMX renews its session once right after the hand-over (a change in the
+ * bundled TMX build), which is what gives it the club's record: the last test
+ * proves a browser that has never seen the tournament can open and publish it.
  */
 
 const TOURNAMENT_NAME = "Bundle Smoke Cup";
@@ -142,16 +137,6 @@ test.describe("Bundle with tournaments on", () => {
   });
 
   test("d. a tournament is created in TMX and published", async () => {
-    // Workaround 1: keep the tournament in TMX's local store too, so it can be
-    // opened afterwards (see the fixme at the end). The setting is read when
-    // TMX starts, hence the reload.
-    await admin.evaluate(() => {
-      const s = JSON.parse(localStorage.getItem("tmx_settings") || "{}");
-      s.saveLocal = true;
-      localStorage.setItem("tmx_settings", JSON.stringify(s));
-    });
-    await admin.goto("/tournaments/");
-
     await admin
       .getByRole("button", { name: "Create New Tournament" })
       .or(admin.getByRole("button", { name: "New Tournament" }))
@@ -187,8 +172,8 @@ test.describe("Bundle with tournaments on", () => {
     await admin.goto(`/tournaments/#/tournament/${tournamentId}/publishing`);
     const toggle = admin.locator(".pub-toggle input").first(); // "Tournament Information"
     await expect(toggle).toBeAttached();
-    // Workaround 2: the grid is greyed out, so a real click does not reach it.
-    await toggle.evaluate((el) => (el as HTMLInputElement).click());
+    await expect(admin.getByText("Log in to manage publishing")).toHaveCount(0);
+    await admin.locator(".pub-toggle").first().click();
     await expect(admin.locator(".pub-panel", { hasText: "Tournament Information" })).toContainText("Live");
   });
 
@@ -308,7 +293,11 @@ test.describe("Bundle with tournaments on", () => {
     expect(league.status()).toBe(403);
   });
 
-  /** After the reload TMX's calendar call must answer with no calendars at all. */
+  /**
+   * After the reload TMX's calendar call must list no tournament. TMX names the
+   * club it last acted for, so the answer may still carry that club's entry;
+   * what matters is that the entry is empty.
+   */
   async function expectNoTournamentsInOpenSession(page: Page): Promise<void> {
     const [calendar] = await Promise.all([
       page.waitForResponse((r) => r.url().endsWith("/api/courthive/provider/my-calendars")),
@@ -316,7 +305,8 @@ test.describe("Bundle with tournaments on", () => {
     ]);
     expect(calendar.status()).toBe(200);
     const body = await calendar.json();
-    expect(body.calendars ?? []).toHaveLength(0);
+    const listed = (body.calendars ?? []).flatMap((c: { tournaments?: unknown[] }) => c.tournaments ?? []);
+    expect(listed).toHaveLength(0);
     await expect(page.getByText(TOURNAMENT_NAME)).toHaveCount(0);
   }
 
@@ -429,26 +419,27 @@ test.describe("Bundle with tournaments on", () => {
 
   // --- Problems found in the stack, kept here so they are not forgotten. ----
 
-  // After the hand-over TMX has the person's tournaments (the calendar call
-  // succeeds) but not a selected provider: the sign-in response carries
-  // `providerIds` and `providerRoles` and no `provider`. In a browser that
-  // does not hold the tournament locally, clicking a tournament in TMX's list
-  // shows "Tournament not found" and TMX never asks the server for it (no
-  // POST /factory/fetch). A person using a second device, or after clearing
-  // browser data, cannot open their tournaments.
-  test.fixme("TMX opens a tournament that is only on the server, after the hand-over", async ({ browser }) => {
-    const ctx = await browser.newContext({ storageState: await adminCtx.storageState() });
+  // A browser that has never held the tournament (a second device, or after
+  // clearing browser data): TMX must fetch it from the server and let the
+  // person manage its publishing. Both depend on the session carrying the
+  // club's record, which the hand-over alone does not give TMX.
+  test("l. a fresh browser opens a tournament from the server and can manage publishing", async ({ browser }) => {
+    const ctx = await browser.newContext();
     const page = await ctx.newPage();
+    await signInWithPassword(page, ADMIN_USER, ADMIN_PASSWORD);
     await page.goto("/tournament-home/open");
-    await page.getByText(TOURNAMENT_NAME).first().click();
+    await expect(page).toHaveURL(/\/tournaments\/#\//, { timeout: 30_000 });
+    const [fetched] = await Promise.all([
+      page.waitForResponse((r) => r.url().endsWith("/api/courthive/factory/fetch"), { timeout: 30_000 }),
+      page.getByText(TOURNAMENT_NAME).first().click(),
+    ]);
+    expect(fetched.status()).toBeLessThan(300);
+    await expect(page).toHaveURL(new RegExp(`#/tournament/${tournamentId}`));
     await expect(page.getByText("Tournament not found")).toHaveCount(0);
-    await ctx.close();
-  });
 
-  // The same cause: the Publishing tab shows "Log in to manage publishing"
-  // and its controls are greyed out although the person is signed in.
-  test.fixme("TMX's Publishing tab is usable right after the hand-over", async () => {
-    await admin.goto(`/tournaments/#/tournament/${tournamentId}/publishing`);
-    await expect(admin.getByText("Log in to manage publishing")).toHaveCount(0);
+    await page.goto(`/tournaments/#/tournament/${tournamentId}/publishing`);
+    await expect(page.locator(".pub-panel", { hasText: "Tournament Information" })).toContainText("Live");
+    await expect(page.getByText("Log in to manage publishing")).toHaveCount(0);
+    await ctx.close();
   });
 });
