@@ -111,27 +111,12 @@ services:
     image: caddy:2-alpine
     container_name: jim-dot-tennis-caddy
     restart: unless-stopped
-    # With the profile on, Caddy waits for the front ends to be copied and the
-    # tournament services to be healthy. `required: false` makes each of those
-    # waits disappear when the service is not part of the run (profile off).
-    # Waits apply to `docker compose up` only; after a reboot Docker restarts
-    # every container at once and Caddy answers 502 for the tournament paths
-    # until the services are ready.
+    # Caddy waits for the app only. The league site must never depend on the
+    # tournament services: if one of them is slow or broken, Caddy still
+    # starts and answers 502 for the tournament paths until they are ready.
     depends_on:
       app:
         condition: service_healthy
-      tmx-content:
-        condition: service_completed_successfully
-        required: false
-      public-content:
-        condition: service_completed_successfully
-        required: false
-      courthive-server:
-        condition: service_healthy
-        required: false
-      courthive-hiveid:
-        condition: service_healthy
-        required: false
     ports:
       - "80:80"
       - "443:443"
