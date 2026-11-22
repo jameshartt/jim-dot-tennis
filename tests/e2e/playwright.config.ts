@@ -20,6 +20,8 @@ const AUTH_SPECS = [
 export default defineConfig({
   testDir: ".",
   testMatch: "**/*.spec.ts",
+  // bundle/ has its own config (bundle/playwright.config.ts, `make test-e2e-bundle`).
+  testIgnore: "**/bundle/**",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 1, // Retry once to handle transient SQLite locking
@@ -48,7 +50,7 @@ export default defineConfig({
     {
       name: "chromium",
       use: { browserName: "chromium" },
-      testIgnore: ["**/multi-club.spec.ts", "**/fresh-install*.spec.ts", ...AUTH_SPECS],
+      testIgnore: ["**/bundle/**", "**/multi-club.spec.ts", "**/fresh-install*.spec.ts", ...AUTH_SPECS],
     },
     // Passkey-enabled run: the browser reaches the app as http://localhost:8080
     // (a secure context), see docker-compose.yml `e2e-auth` and
