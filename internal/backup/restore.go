@@ -30,7 +30,41 @@ var (
 	// back what it had already changed did not fully work, so the data
 	// folder may not be exactly as it was.
 	ErrUndoFailed = errors.New("putting the data folder back as it was did not fully work")
+	// ErrTournamentInUse: the tournament server or the identity service (or
+	// anything else) is still connected to the tournament database.
+	ErrTournamentInUse = errors.New("the tournament database is in use")
+	// ErrTournamentMismatch: the restore stopped with the tournament
+	// database restored but the app's database not (and the tournament
+	// database could not be put back), so the two do not match.
+	ErrTournamentMismatch = errors.New("the two databases no longer match")
 )
+
+// TournamentRestore says what a restore did with the tournament database.
+type TournamentRestore int
+
+const (
+	// TournamentNotInvolved: neither the backup nor this deployment has
+	// tournament data.
+	TournamentNotInvolved TournamentRestore = iota
+	// TournamentRestored: the backup's tournament data replaced the
+	// tournament database.
+	TournamentRestored
+	// TournamentNotInBackup: this deployment has a tournament database but
+	// the backup has no tournament data, so it was left as it is.
+	TournamentNotInBackup
+	// TournamentNotConfigured: the backup has tournament data but this
+	// deployment has no tournament database settings, so it was not
+	// restored.
+	TournamentNotConfigured
+)
+
+// StopTournamentServices is how an operator stops what holds the tournament
+// database open, for the messages.
+const StopTournamentServices = "docker stop courthive-server courthive-hiveid"
+
+// tournamentDumpAside is the name of the safety copy of the tournament
+// database a restore takes first, in the data folder.
+const tournamentDumpAside = "courthive.dump"
 
 // restoreStagingPrefix names a restore's staging folder in the data folder.
 const restoreStagingPrefix = ".restore-"
@@ -60,6 +94,12 @@ type RestoreResult struct {
 	ReplacedUploads  string // where the uploaded files that were replaced are kept ("" if none)
 	SessionsEnded    int64  // sessions in the backup that were ended
 	LinksCancelled   int64  // unused invite and recovery links in the backup that were cancelled
+	// Tournament says what was done with the tournament database.
+	Tournament TournamentRestore
+	// TournamentSafetyCopy is where the tournament database as it was before
+	// the restore is kept, a dump in the data folder ("" if it was not
+	// replaced).
+	TournamentSafetyCopy string
 	// Warnings are problems in tidying up after the restored database was
 	// put in place (the restore itself is done).
 	Warnings []string
@@ -92,6 +132,22 @@ const replacedMarker = ".replaced-"
 // after the backup was made would otherwise work again), as is every unused
 // invite or recovery link. Everyone signs in again. The restore is recorded
 // in the restored database's audit log.
+//
+// Tournament data. When the backup holds a dump of the tournament database
+// and this deployment has one (cfg.Tournament), both are restored, the
+// tournament database first: once the app's database is staged and checked,
+// the dump is read right through, the restore refuses while anything else
+// is connected to the tournament database (the tournament server and the
+// identity service must be stopped), a safety copy of the tournament
+// database is dumped into the data folder, and the dump replaces the
+// database's content in one transaction. Only then is the app's database
+// swapped in. If that swap fails, the safety copy is put back, so both are
+// as they were; if putting it back fails too, the error wraps
+// ErrTournamentMismatch and says what each database holds. A backup with
+// tournament data on a deployment without the settings restores the app
+// only (TournamentNotConfigured; RestoreTournaments can restore the rest
+// later); a backup without tournament data leaves the tournament database
+// as it is (TournamentNotInBackup).
 func Restore(ctx context.Context, cfg Config, archivePath string, migrations fs.FS) (RestoreResult, error) {
 	var res RestoreResult
 	dataDir := cfg.DataDir()
@@ -148,10 +204,18 @@ func Restore(ctx context.Context, cfg Config, archivePath string, migrations fs.
 	defer os.RemoveAll(staging)
 	stagedDB := filepath.Join(staging, "tennis.db")
 	stagedUploads := filepath.Join(staging, uploadsDirName)
+	stagedDump := filepath.Join(staging, "courthive.dump")
 
 	m, err := readArchive(&ctxReader{ctx: ctx, r: f}, func(m Manifest) error {
 		if m.SchemaVersion > latest {
 			return newerSchema(m, latest)
+		}
+		if m.HasTournaments() && cfg.Tournament != nil {
+			// Checked before anything is unpacked, so a restore that would
+			// have to stop for this stops at once.
+			if err := tournamentIdle(ctx, cfg.Tournament); err != nil {
+				return err
+			}
 		}
 		// Every entry is held to its manifest size, so this is the most
 		// unpacking can write.
@@ -162,6 +226,12 @@ func Restore(ctx context.Context, cfg Config, archivePath string, migrations fs.
 		return nil
 	}, func(name string, content io.Reader) error {
 		dest := stagedDB
+		if name == tournamentName {
+			if cfg.Tournament == nil {
+				return nil // not restored here; still checked against its checksum
+			}
+			return writeNew(stagedDump, content)
+		}
 		if name != databaseName {
 			if err := os.MkdirAll(stagedUploads, 0o700); err != nil {
 				return err
@@ -178,10 +248,18 @@ func Restore(ctx context.Context, cfg Config, archivePath string, migrations fs.
 	}
 	res.Manifest = m
 	res.SchemaFrom = m.SchemaVersion
+	switch {
+	case m.HasTournaments() && cfg.Tournament != nil:
+		res.Tournament = TournamentRestored
+	case m.HasTournaments():
+		res.Tournament = TournamentNotConfigured
+	case cfg.Tournament != nil:
+		res.Tournament = TournamentNotInBackup
+	}
 
 	// 2. Check the database itself, bring it up to this version's schema,
 	//    and end its sessions and links.
-	to, sessions, links, err := prepareDatabase(ctx, stagedDB, m, latest, migrations)
+	to, sessions, links, err := prepareDatabase(ctx, stagedDB, m, latest, migrations, res.Tournament)
 	if err != nil {
 		if ctx.Err() != nil {
 			return res, stopped(ctx.Err())
@@ -213,9 +291,198 @@ func Restore(ctx context.Context, cfg Config, archivePath string, migrations fs.
 	if err := ctx.Err(); err != nil {
 		return res, stopped(err)
 	}
+	// 3a. The tournament database, when it is restored too. Every failure
+	//     in here leaves both databases as they were.
+	if res.Tournament == TournamentRestored {
+		safety, err := replaceTournament(ctx, cfg, stagedDump, staging, owner)
+		if err != nil {
+			return res, err
+		}
+		res.TournamentSafetyCopy = safety
+	}
+	// 3b. The app's database.
 	if err := swapIn(context.WithoutCancel(ctx), cfg, stagedDB, stagedUploads, owner, &res); err != nil {
+		if res.Tournament == TournamentRestored {
+			return res, putTournamentBack(context.WithoutCancel(ctx), cfg, res.TournamentSafetyCopy, staging, err)
+		}
 		return res, err
 	}
+	return res, nil
+}
+
+// tournamentIdle refuses while anything else is connected to the tournament
+// database: the tournament server and the identity service keep connections
+// open (and a running tournament server could write in the middle of a
+// restore). It also confirms the database can be reached.
+func tournamentIdle(ctx context.Context, t TournamentDatabase) error {
+	n, err := t.OtherSessions(ctx)
+	if err != nil {
+		return fmt.Errorf("%s cannot be reached, so the tournament data cannot be restored: %w. "+
+			"Postgres must be running (docker start courthive-postgres) while the tournament server and identity service are stopped. Nothing was changed",
+			t.Describe(), err)
+	}
+	if n > 0 {
+		return fmt.Errorf("%w: %d other connection(s) are open to %s. The tournament server and the identity service must be stopped during a restore: "+
+			"run %q (Postgres stays running), then run restore again. Nothing was changed",
+			ErrTournamentInUse, n, t.Describe(), StopTournamentServices)
+	}
+	return nil
+}
+
+// replaceTournament restores the dump at staged over the tournament
+// database: it reads the dump right through, checks nothing else is
+// connected, keeps a safety copy of the database in the data folder, then
+// replaces the content in one transaction. It returns the safety copy's
+// path. On any error the tournament database is as it was (and the safety
+// copy is removed); the message says so.
+func replaceTournament(ctx context.Context, cfg Config, staged, workDir, owner string) (string, error) {
+	t := cfg.Tournament
+	if _, err := t.Inspect(ctx, staged); err != nil {
+		return "", badArchive("the backup's tournament data cannot be read (%v). Nothing was changed", err)
+	}
+	if err := tournamentIdle(ctx, t); err != nil {
+		return "", err
+	}
+	safety, err := freeAside(filepath.Join(cfg.DataDir(), tournamentDumpAside), time.Now().UTC().Format(nameTimeLayout))
+	if err != nil {
+		return "", err
+	}
+	if err := t.Dump(ctx, safety); err != nil {
+		os.Remove(safety)
+		return "", fmt.Errorf("the safety copy of the current tournament database could not be made (%v), so nothing was restored. Nothing was changed", err)
+	}
+	if _, err := t.Inspect(ctx, safety); err != nil {
+		os.Remove(safety)
+		return "", fmt.Errorf("the safety copy of the current tournament database did not read back (%v), so nothing was restored. Nothing was changed", err)
+	}
+	if err := matchOwner(owner, safety); err != nil {
+		os.Remove(safety)
+		return "", err
+	}
+	if err := ctx.Err(); err != nil {
+		os.Remove(safety)
+		return "", stopped(err)
+	}
+	// Once started it runs to the end: a single transaction either commits
+	// or leaves the database as it was.
+	if err := t.Replace(context.WithoutCancel(ctx), staged, workDir); err != nil {
+		os.Remove(safety)
+		return "", fmt.Errorf("restoring the tournament database failed and was rolled back, so it is as it was: %v. "+
+			"The app's database was not touched. Nothing was changed", err)
+	}
+	return safety, nil
+}
+
+// putTournamentBack is called when the app's database could not be swapped
+// in after the tournament database was restored: it puts the safety copy
+// back so the two match again, and returns cause with what happened.
+func putTournamentBack(ctx context.Context, cfg Config, safety, workDir string, cause error) error {
+	if err := cfg.Tournament.Replace(ctx, safety, workDir); err != nil {
+		return fmt.Errorf("%w. %w: the tournament database had already been restored from the backup, and putting back the copy taken first failed (%v). "+
+			"Now the tournament database holds the backup's tournament data while the app's database does not. Before starting anything, put the "+
+			"tournament database back with: jim-dot-tennis restore --tournaments-only %s",
+			cause, ErrTournamentMismatch, err, safety)
+	}
+	os.Remove(safety)
+	return fmt.Errorf("%w. The tournament database had already been restored, so it was put back from the copy taken first: "+
+		"the tournament database is as it was", cause)
+}
+
+// TournamentResult says what RestoreTournaments did.
+type TournamentResult struct {
+	Manifest   *Manifest // the archive's manifest; nil when the file was a bare dump
+	SafetyCopy string    // where the tournament database as it was is kept
+}
+
+// RestoreTournaments puts back only the tournament database, from a backup
+// archive that holds tournament data or from a bare dump (such as the
+// safety copy a restore keeps). The app's database is not touched. It takes
+// the same locks as Restore (the app must be stopped), and the same safety
+// steps: nothing else may be connected, a safety copy is dumped first, and
+// the content is replaced in one transaction.
+//
+// Use it with the archive whose app data is in place (the same archive
+// that was restored without its tournament data, say): the app's links to
+// people's tournament accounts are kept in the app's database and must
+// match.
+func RestoreTournaments(ctx context.Context, cfg Config, path string) (TournamentResult, error) {
+	var res TournamentResult
+	dataDir := cfg.DataDir()
+	if cfg.Tournament == nil {
+		return res, fmt.Errorf("this deployment has no tournament database settings (%s and the others are empty), so there is nowhere to restore tournament data to. "+
+			"Turn the tournament stack on first (the operations guide's tournaments section). Nothing was changed", EnvPGHost)
+	}
+	if info, err := os.Stat(dataDir); err != nil || !info.IsDir() {
+		return res, fmt.Errorf("the data folder %s (from DB_PATH=%s) does not exist. Mount the app's data volume there, or set DB_PATH", dataDir, cfg.DBPath)
+	}
+	restoreLock, err := AcquireRestoreLock(cfg.RestoreLockPath())
+	if errors.Is(err, ErrLocked) {
+		return res, fmt.Errorf("%w: a command or another restore is using %s. Wait for it to finish, then run restore again. Nothing was changed", ErrServerRunning, dataDir)
+	}
+	if err != nil {
+		return res, err
+	}
+	defer restoreLock.Release()
+	lock, err := AcquireLock(cfg.LockPath())
+	if errors.Is(err, ErrLocked) {
+		return res, fmt.Errorf("%w: the app (or another restore) is using %s. Stop the app first, then run restore again in a one-off container (see the backups section of the operations guide). Nothing was changed",
+			ErrServerRunning, dataDir)
+	}
+	if err != nil {
+		return res, err
+	}
+	defer lock.Release()
+	sweepRestoreStaging(dataDir)
+
+	if info, err := os.Stat(path); err != nil || !info.Mode().IsRegular() {
+		return res, fmt.Errorf("%s is not a backup file. Nothing was changed", path)
+	}
+	staging, err := os.MkdirTemp(dataDir, restoreStagingPrefix)
+	if err != nil {
+		return res, fmt.Errorf("cannot write in the data folder %s: %w", dataDir, err)
+	}
+	defer os.RemoveAll(staging)
+	owner := dataDir
+	if _, err := os.Stat(cfg.DBPath); err == nil {
+		owner = cfg.DBPath
+	}
+
+	dump := path
+	if !IsTournamentDump(path) {
+		f, err := os.Open(path)
+		if err != nil {
+			return res, fmt.Errorf("cannot open the backup: %w", err)
+		}
+		defer f.Close()
+		dump = filepath.Join(staging, "courthive.dump")
+		m, err := readArchive(&ctxReader{ctx: ctx, r: f}, func(m Manifest) error {
+			if !m.HasTournaments() {
+				return fmt.Errorf("this backup (made %s) holds no tournament data. Nothing was changed", m.CreatedAt.UTC().Format(time.RFC3339))
+			}
+			if free, ok := diskFree(dataDir); ok && free < spaceNeeded(m.Tournaments.Size) {
+				return fmt.Errorf("there is not enough free space in %s to restore this backup's tournament data (about %d bytes needed, %d free). Nothing was changed",
+					dataDir, spaceNeeded(m.Tournaments.Size), free)
+			}
+			return tournamentIdle(ctx, cfg.Tournament)
+		}, func(name string, content io.Reader) error {
+			if name != tournamentName {
+				return nil
+			}
+			return writeNew(dump, content)
+		})
+		if err != nil {
+			if ctx.Err() != nil {
+				return res, stopped(ctx.Err())
+			}
+			return res, err
+		}
+		res.Manifest = &m
+	}
+	safety, err := replaceTournament(ctx, cfg, dump, staging, owner)
+	if err != nil {
+		return res, err
+	}
+	res.SafetyCopy = safety
 	return res, nil
 }
 
@@ -284,7 +551,7 @@ func writeNew(path string, content io.Reader) error {
 // prepareDatabase checks the staged database, upgrades it to latest, ends
 // its sessions and unused links, records the restore and closes it with
 // nothing left in a WAL file.
-func prepareDatabase(ctx context.Context, path string, m Manifest, latest uint, migrations fs.FS) (uint, int64, int64, error) {
+func prepareDatabase(ctx context.Context, path string, m Manifest, latest uint, migrations fs.FS, tournament TournamentRestore) (uint, int64, int64, error) {
 	db, err := database.New(database.Config{Driver: database.DriverSQLite, FilePath: path})
 	if err != nil {
 		return 0, 0, 0, fmt.Errorf("the backup's database cannot be opened: %w", err)
@@ -336,6 +603,14 @@ func prepareDatabase(ctx context.Context, path string, m Manifest, latest uint, 
 	links, _ := r.RowsAffected()
 	detail := fmt.Sprintf("backup %s (%s, version %s, schema %d -> %d) sessions_ended=%d links_cancelled=%d",
 		m.CreatedAt.UTC().Format(time.RFC3339), m.Kind, m.AppVersion, m.SchemaVersion, st.Version, sessions, links)
+	switch tournament {
+	case TournamentRestored:
+		detail += " tournaments=restored"
+	case TournamentNotInBackup:
+		detail += " tournaments=not-in-backup"
+	case TournamentNotConfigured:
+		detail += " tournaments=not-restored"
+	}
 	if err := accounts.New(db).RecordEvent(ctx, accounts.CLIActor("restore"), accounts.ActionBackupRestore, detail); err != nil {
 		return 0, 0, 0, err
 	}

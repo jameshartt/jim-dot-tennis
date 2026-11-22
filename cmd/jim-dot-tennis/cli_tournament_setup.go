@@ -78,6 +78,14 @@ Tournaments
                                    the club is set up the code cannot change.
                                    Lists tournament accounts the app did not
                                    make; nothing is changed for them.
+  tournaments pre-upgrade          Run by the deployment before the tournament
+                                   server starts; you do not need to run it.
+                                   When the tournament server image differs
+                                   from the one last recorded, it makes a
+                                   backup with the tournament data first, and
+                                   fails (so the tournament server does not
+                                   start) if it cannot. Nothing to do on an
+                                   ordinary restart.
 `
 
 func runTournamentsCommand(ctx context.Context, c cliOut, db *database.DB, cmd command) error {

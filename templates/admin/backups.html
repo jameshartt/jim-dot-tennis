@@ -136,6 +136,7 @@
                     <li>Scheduled backups: {{.Schedule}}{{if eq .Schedule "off"}} (set <code>BACKUP_INTERVAL</code> to turn them on){{end}}.</li>
                     <li>Backups kept on the server: the newest {{.Keep}}, plus the one taken before the last upgrade.</li>
                     <li>Folder on the server: <code>{{.Dir}}</code></li>
+                    <li data-testid="backup-tournaments">{{if .TournamentsOn}}Tournament data: included. Every backup also holds the tournament database; a backup that cannot include it fails and is shown above.{{else}}Tournament data: not included (the tournament software is not part of this deployment).{{end}}</li>
                 </ul>
                 <p class="intro">
                     These copies are on the same disk as the app. If the server is lost, so are they:
@@ -147,7 +148,7 @@
             <div class="content-section">
                 <h2>Download a backup</h2>
                 <p class="intro">
-                    This makes a fresh backup and downloads it: the whole database and the club logo in one file.
+                    This makes a fresh backup and downloads it: the whole database and the club logo in one file{{if .TournamentsOn}}, with the tournament data{{end}}.
                     It holds everyone's personal details, password hashes and passkey details, so keep it somewhere
                     only the people who run the app can open (not a shared drive or a group chat), and delete old copies.
                     Downloads are recorded in the account audit log.
@@ -174,17 +175,18 @@
                 <div class="table-container">
                     <table class="data-table" data-testid="backups-table">
                         <thead>
-                            <tr><th>Made</th><th>File</th><th>Size</th></tr>
+                            <tr><th>Made</th><th>File</th><th>Tournament data</th><th>Size</th></tr>
                         </thead>
                         <tbody>
                             {{range .Archives}}
                             <tr data-testid="backup-row">
                                 <td>{{.CreatedAt.Format "02 Jan 2006 15:04"}}</td>
-                                <td class="name-cell">{{.Name}}{{if .PreMigration}} <span class="tag">before upgrade</span>{{end}}</td>
+                                <td class="name-cell">{{.Name}}{{if .PreUpgrade}} <span class="tag">before tournament upgrade</span>{{else if .PreMigration}} <span class="tag">before upgrade</span>{{end}}</td>
+                                <td data-testid="backup-row-tournaments">{{if .Tournaments}}includes tournament data{{else}}no{{end}}</td>
                                 <td>{{.Size}}</td>
                             </tr>
                             {{else}}
-                            <tr><td colspan="3" style="text-align: center; color: #6c757d; padding: 2rem;">None yet</td></tr>
+                            <tr><td colspan="4" style="text-align: center; color: #6c757d; padding: 2rem;">None yet</td></tr>
                             {{end}}
                         </tbody>
                     </table>

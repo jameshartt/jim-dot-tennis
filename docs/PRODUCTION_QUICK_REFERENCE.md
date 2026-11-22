@@ -668,7 +668,10 @@ Backups
                                    the app is running. The app also makes one
                                    on its own every day (BACKUP_INTERVAL) and
                                    before every upgrade, and keeps the newest
-                                   14 (BACKUP_KEEP).
+                                   14 (BACKUP_KEEP). With the tournament stack
+                                   on, the file also holds the tournament
+                                   database; if that cannot be included, no
+                                   backup is made and the command says why.
   restore <file>                   Put a backup back: its database and logo
                                    replace the current ones. Refused while the
                                    app is running, so stop the app and run it
@@ -681,6 +684,15 @@ Backups
                                    once the restore is confirmed good. While
                                    it runs, the other commands refuse.
                                    Everyone has to sign in again afterwards.
+                                   A backup with tournament data restores the
+                                   tournament database too (stop the
+                                   tournament server and identity service
+                                   first; a copy of the database it replaces
+                                   is kept as courthive.dump.replaced-...).
+  restore --tournaments-only <file>
+                                   Put back only the tournament data of a
+                                   backup (or a courthive.dump.replaced-...
+                                   copy). The app's database is not touched.
 
   version                          Show which version of the app this is, the
                                    commit it was built from and when.
@@ -734,6 +746,14 @@ Tournaments
                                    the club is set up the code cannot change.
                                    Lists tournament accounts the app did not
                                    make; nothing is changed for them.
+  tournaments pre-upgrade          Run by the deployment before the tournament
+                                   server starts; you do not need to run it.
+                                   When the tournament server image differs
+                                   from the one last recorded, it makes a
+                                   backup with the tournament data first, and
+                                   fails (so the tournament server does not
+                                   start) if it cannot. Nothing to do on an
+                                   ordinary restart.
 ```
 
 **Tournament set-up.** When the bundled tournament software is part of the installation (see "Tournaments" in `docs/docker_setup.md`), switching Tournaments on in Club Settings sets the club up on it straight away; `tournaments provision` does the same from the server. Running it again is always safe: anything already in place is left alone, and a set-up that stopped part-way (for example because the tournament software was still starting) is finished. A failure names the step that failed. The club's tournament code is made from the club's name, can be edited before the first set-up, and cannot be changed afterwards. People who already have accounts on the tournament software that this app did not make are listed and nothing is changed for them: give each a Tournaments only account on the users page.

@@ -23,4 +23,9 @@ const (
 	// JSON (internal/tournaments.Result): when, each step, the failure if
 	// any, and the tournament accounts the app does not manage.
 	SettingTournamentSetupLast = "tournament_setup_last"
+	// SettingTournamentServerImage is the tournament server image the
+	// tournament database was last backed up for (or found new and empty
+	// with) by "jim-dot-tennis tournaments pre-upgrade" (WI-146). A different
+	// image in the deployment means an upgrade: a backup comes first.
+	SettingTournamentServerImage = "tournament_server_image"
 )

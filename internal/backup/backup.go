@@ -35,6 +35,7 @@ import (
 const (
 	regularPrefix      = "jim-dot-tennis-backup-"
 	preMigrationPrefix = "jim-dot-tennis-pre-migration-"
+	preUpgradePrefix   = "jim-dot-tennis-pre-upgrade-"
 	downloadPrefix     = "jim-dot-tennis-download-"
 	tmpPrefix          = ".tmp-"
 	nameTimeLayout     = "20060102T150405Z"
@@ -54,11 +55,15 @@ const (
 
 // Archive is a finished backup in the backups folder.
 type Archive struct {
-	Name         string
-	Path         string
-	Size         int64
-	CreatedAt    time.Time
+	Name      string
+	Path      string
+	Size      int64
+	CreatedAt time.Time
+	// PreMigration is true for the backups taken before an upgrade: the
+	// app's own (before its migrations) and, with PreUpgrade also true, the
+	// one taken before a new tournament server first starts.
 	PreMigration bool
+	PreUpgrade   bool
 }
 
 // Result is what Create made.
@@ -140,15 +145,35 @@ func build(ctx context.Context, db *database.DB, cfg Config, kind, dir string) (
 		return Result{}, err
 	}
 
-	// 2. The uploaded files, read once into memory (logos are small) so the
+	// 2. The tournament database, when the deployment has one. It comes
+	//    after the app's copy on purpose: a tournament account made in
+	//    between is then in the dump but not yet linked here, and is adopted
+	//    by its id the next time the person opens tournament management;
+	//    the other order could leave a link here to an account the dump
+	//    does not have. If it cannot be dumped, there is no backup: an
+	//    archive that quietly lacks the tournament data is never reported as
+	//    a good one.
+	var tournament *TournamentEntry
+	dumpPath := filepath.Join(work, "courthive.dump")
+	if cfg.Tournament != nil {
+		if tournament, err = dumpTournament(ctx, cfg, dumpPath); err != nil {
+			return Result{}, fmt.Errorf("the tournament database could not be backed up, so no backup was made (the backup must include it while the tournament stack is part of this deployment): %w", err)
+		}
+	}
+
+	// 3. The uploaded files, read once into memory (logos are small) so the
 	//    archive holds exactly what was hashed.
 	uploads, err := readUploads(cfg.UploadsDir())
 	if err != nil {
 		return Result{}, err
 	}
 
+	format := formatAppOnly
+	if tournament != nil {
+		format = FormatVersion
+	}
 	m := Manifest{
-		Format:        FormatVersion,
+		Format:        format,
 		App:           appName,
 		AppVersion:    version.Short(),
 		AppCommit:     version.FullCommit(),
@@ -157,6 +182,7 @@ func build(ctx context.Context, db *database.DB, cfg Config, kind, dir string) (
 		Kind:          kind,
 		Database:      dbEntry,
 		Files:         []FileEntry{},
+		Tournaments:   tournament,
 		Notice:        manifestNotice,
 	}
 	for _, u := range uploads {
@@ -167,7 +193,7 @@ func build(ctx context.Context, db *database.DB, cfg Config, kind, dir string) (
 		return Result{}, err
 	}
 
-	// 3. The archive, under a temporary name.
+	// 4. The archive, under a temporary name.
 	tmp, err := os.OpenFile(filepath.Join(dir, tmpPrefix+randomSuffix()+archiveExtension), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return Result{}, fmt.Errorf("cannot write in the backups folder %s: %w", dir, err)
@@ -179,7 +205,7 @@ func build(ctx context.Context, db *database.DB, cfg Config, kind, dir string) (
 			os.Remove(tmpName)
 		}
 	}()
-	if err := writeArchive(tmp, m, manifest, copyPath, uploads); err != nil {
+	if err := writeArchive(tmp, m, manifest, copyPath, dumpPath, uploads); err != nil {
 		tmp.Close()
 		return Result{}, fmt.Errorf("write the backup: %w", err)
 	}
@@ -191,16 +217,18 @@ func build(ctx context.Context, db *database.DB, cfg Config, kind, dir string) (
 		return Result{}, fmt.Errorf("write the backup: %w", err)
 	}
 
-	// 4. Read it back before calling it a backup.
+	// 5. Read it back before calling it a backup.
 	if _, err := VerifyFile(tmpName); err != nil {
 		return Result{}, fmt.Errorf("the backup did not verify after writing: %w", err)
 	}
 
-	// 5. Its final name.
+	// 6. Its final name.
 	prefix := regularPrefix
 	switch kind {
 	case KindPreMigration:
 		prefix = preMigrationPrefix
+	case KindPreUpgrade:
+		prefix = preUpgradePrefix
 	case KindDownload:
 		prefix = downloadPrefix
 	}
@@ -311,7 +339,41 @@ func readUploads(dir string) ([]upload, error) {
 	return out, nil
 }
 
-func writeArchive(w io.Writer, m Manifest, manifest []byte, dbCopy string, uploads []upload) error {
+// dumpTournament dumps the tournament database to path, reads the dump back
+// right through, and returns its manifest entry.
+func dumpTournament(ctx context.Context, cfg Config, path string) (*TournamentEntry, error) {
+	t := cfg.Tournament
+	st, err := t.State(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("%s cannot be reached: %w", t.Describe(), err)
+	}
+	if err := t.Dump(ctx, path); err != nil {
+		return nil, fmt.Errorf("dumping %s: %w", t.Describe(), err)
+	}
+	info, err := t.Inspect(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("the dump of %s did not read back: %w", t.Describe(), err)
+	}
+	fe, err := hashFile(path, tournamentName)
+	if err != nil {
+		return nil, err
+	}
+	if fe.Size == 0 {
+		return nil, fmt.Errorf("the dump of %s is empty", t.Describe())
+	}
+	return &TournamentEntry{
+		Included:        true,
+		FileEntry:       fe,
+		Format:          TournamentDumpFormat,
+		ServerVersion:   info.ServerVersion,
+		Database:        t.Describe(),
+		Migrations:      st.Migrations,
+		LatestMigration: st.LatestMigration,
+		ServerImage:     cfg.ServerImage,
+	}, nil
+}
+
+func writeArchive(w io.Writer, m Manifest, manifest []byte, dbCopy, dump string, uploads []upload) error {
 	aw := newArchiveWriter(w)
 	if err := aw.add(manifestName, int64(len(manifest)), m.CreatedAt, bytes.NewReader(manifest)); err != nil {
 		return err
@@ -323,6 +385,16 @@ func writeArchive(w io.Writer, m Manifest, manifest []byte, dbCopy string, uploa
 	defer f.Close()
 	if err := aw.add(databaseName, m.Database.Size, m.CreatedAt, f); err != nil {
 		return err
+	}
+	if m.Tournaments != nil {
+		d, err := os.Open(dump)
+		if err != nil {
+			return err
+		}
+		defer d.Close()
+		if err := aw.add(tournamentName, m.Tournaments.Size, m.CreatedAt, d); err != nil {
+			return err
+		}
 	}
 	for _, u := range uploads {
 		if err := aw.add(u.entry.Path, u.entry.Size, u.modTime, bytes.NewReader(u.data)); err != nil {
@@ -524,6 +596,9 @@ func parseArchiveName(name string) (Archive, bool) {
 	case strings.HasPrefix(rest, preMigrationPrefix):
 		rest = strings.TrimPrefix(rest, preMigrationPrefix)
 		a.PreMigration = true
+	case strings.HasPrefix(rest, preUpgradePrefix):
+		rest = strings.TrimPrefix(rest, preUpgradePrefix)
+		a.PreMigration, a.PreUpgrade = true, true
 	default:
 		return Archive{}, false
 	}
@@ -642,20 +717,22 @@ func CleanUpAtStart(cfg Config) int {
 // the backup taken before the last upgrade's migrations has done its job, so
 // any older pre-migration backups are removed. The newest one is kept (until
 // a later upgrade takes another), in case a problem with the upgrade only
-// shows later.
+// shows later. The app's pre-migration backups and those taken before a
+// tournament server upgrade are counted separately: the newest of each kind
+// is kept.
 func KeepLatestPreMigration(cfg Config) ([]string, error) {
 	list, err := List(cfg.Dir)
 	if err != nil {
 		return nil, err
 	}
 	var removed []string
-	seen := false
+	seen := map[bool]bool{}
 	for _, a := range list {
 		if !a.PreMigration {
 			continue
 		}
-		if !seen {
-			seen = true
+		if !seen[a.PreUpgrade] {
+			seen[a.PreUpgrade] = true
 			continue
 		}
 		if err := os.Remove(a.Path); err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -674,6 +751,14 @@ func KeepLatestPreMigration(cfg Config) ([]string, error) {
 // fill the disk). It returns the archive's path, or "" when none was needed.
 // An error means the backup could not be made, and the caller must not run
 // the migrations.
+//
+// This backup holds the app's data only, never the tournament database: the
+// app's migrations do not change that database, and the app starts before
+// (and without) the tournament stack, so the league site must not wait for,
+// or fail because of, Postgres. The tournament database is backed up before
+// a new tournament server first starts, by "tournaments pre-upgrade" (a
+// one-shot service in the deployment). An app-only archive is format 1,
+// which the previous version of the app, used after a failed upgrade, reads.
 func BeforeMigrations(ctx context.Context, db *database.DB, cfg Config, migrations fs.FS) (string, error) {
 	var tables int
 	if err := db.GetContext(ctx, &tables, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'`); err != nil {
@@ -696,6 +781,7 @@ func BeforeMigrations(ctx context.Context, db *database.DB, cfg Config, migratio
 	if st.Migrated && st.Version >= latest {
 		return "", nil
 	}
+	cfg.Tournament = nil
 	res, err := Create(ctx, db, cfg, KindPreMigration)
 	if err != nil {
 		return "", err

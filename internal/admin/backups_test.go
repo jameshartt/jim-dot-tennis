@@ -219,3 +219,67 @@ func TestBackupDownloadNeedsPasskeyWhenRequired(t *testing.T) {
 		t.Errorf("password where passkeys are unavailable: %d", rec.Code)
 	}
 }
+
+// stubTournament is a tournament database for the backups page test.
+type stubTournament struct{ fail bool }
+
+func (stubTournament) Describe() string { return "the tournament database" }
+func (s stubTournament) Dump(_ context.Context, path string) error {
+	if s.fail {
+		return os.ErrPermission
+	}
+	return os.WriteFile(path, []byte("PGDMP stub"), 0o600)
+}
+func (stubTournament) Inspect(context.Context, string) (backup.DumpInfo, error) {
+	return backup.DumpInfo{ServerVersion: "18.4"}, nil
+}
+func (stubTournament) State(context.Context) (backup.DatabaseState, error) {
+	return backup.DatabaseState{Tables: 3}, nil
+}
+func (stubTournament) OtherSessions(context.Context) (int, error)    { return 0, nil }
+func (stubTournament) Replace(context.Context, string, string) error { return nil }
+
+// The page says whether backups include the tournament data, for the
+// deployment and for each backup, and shows a failed scheduled backup.
+func TestBackupsPageShowsTournamentData(t *testing.T) {
+	e := newUsersTestEnv(t, "")
+	dir := t.TempDir()
+	cfg := backup.Config{DBPath: filepath.Join(dir, "tennis.db"), Dir: filepath.Join(dir, "backups"), Keep: 3, Interval: 24 * time.Hour}
+	page := func(svc *backup.Service) string {
+		t.Helper()
+		h := &BackupsHandler{backups: svc, prover: &fakeProver{}, accounts: e.svc, templateDir: findTemplatesPathAdmin(t)}
+		req := httptest.NewRequest(http.MethodGet, backupsPath, nil)
+		ctx := config.WithBranding(req.Context(), e.env.holder.Branding())
+		ctx = context.WithValue(ctx, auth.UserContextKey, models.User{ID: e.admin.ID, Username: e.admin.Username, Role: models.RoleAdmin})
+		rec := httptest.NewRecorder()
+		h.HandleBackups(rec, req.WithContext(ctx))
+		return rec.Body.String()
+	}
+	if _, err := backup.Create(context.Background(), e.env.db, cfg, backup.KindManual); err != nil {
+		t.Fatal(err)
+	}
+	body := page(backup.NewService(e.env.db, cfg))
+	if !strings.Contains(body, "Tournament data: not included") || strings.Contains(body, "includes tournament data") {
+		t.Errorf("app-only deployment: %s", body)
+	}
+
+	cfg.Tournament = stubTournament{}
+	if _, err := backup.Create(context.Background(), e.env.db, cfg, backup.KindManual); err != nil {
+		t.Fatal(err)
+	}
+	body = page(backup.NewService(e.env.db, cfg))
+	if !strings.Contains(body, "Tournament data: included") || strings.Count(body, "includes tournament data") != 1 {
+		t.Errorf("with tournaments: %s", body)
+	}
+
+	// A scheduled backup whose dump fails: no backup, and the page says why.
+	failing := backup.Config{DBPath: cfg.DBPath, Dir: t.TempDir(), Keep: 3, Interval: time.Hour, Tournament: stubTournament{fail: true}}
+	svc := backup.NewService(e.env.db, failing)
+	if svc.RunIfDue(context.Background()) {
+		t.Fatal("a backup with a failing dump was made")
+	}
+	body = page(svc)
+	if !strings.Contains(body, "The last scheduled backup failed") || !strings.Contains(body, "tournament database could not be backed up") {
+		t.Errorf("failed scheduled backup not shown: %s", body)
+	}
+}
