@@ -3,7 +3,7 @@
 	vet fmt fmt-fix imports imports-fix lint deadcode tidy check test test-js \
 	test-e2e test-e2e-bootstrap test-e2e-safe test-e2e-safe-keep test-e2e-restore \
 	test-e2e-headed test-e2e-grep test-e2e-failed \
-	test-e2e-report test-e2e-results test-e2e-clean test-e2e-multiclub test-e2e-fresh test-e2e-auth test-e2e-all
+	test-e2e-report test-e2e-results test-e2e-clean test-e2e-multiclub test-e2e-fresh test-e2e-auth test-e2e-bundle test-e2e-all
 
 # Docker compose command
 DOCKER_COMPOSE = docker compose
@@ -254,6 +254,15 @@ test-e2e-fresh:
 # extra Playwright args via ARGS="-g recovery". See scripts/test-e2e-auth.sh.
 test-e2e-auth:
 	@./scripts/test-e2e-auth.sh $(ARGS)
+
+# Bundle smoke test (WI-147): the SHIPPED deploy/docker-compose.yml and Caddyfile
+# with the app built from this checkout and the four CourtHive images (they must
+# exist locally; BUNDLE_PULL=1 pulls them), run end to end with Playwright, once
+# with the tournaments profile on and once off. Not part of test-e2e-all: it needs
+# the CourtHive images. BUNDLE_MODE=on|off|both (default both); extra Playwright
+# args via ARGS="-g TMX". See scripts/test-e2e-bundle.sh and tests/e2e/README.md.
+test-e2e-bundle:
+	@./scripts/test-e2e-bundle.sh $(or $(BUNDLE_MODE),both) $(if $(ARGS),-- $(ARGS))
 
 # Everything: main suite, passkey-enabled suite, fresh-install suite. Runs all
 # three even if one fails and exits non-zero if any did.

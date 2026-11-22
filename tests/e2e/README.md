@@ -90,6 +90,30 @@ Specs (one serial flow, one worker, no retries):
 
 Not covered: the off-season fixtures variant (`fixtures/bhplta/off-season`).
 
+## Bundle smoke test (`make test-e2e-bundle`)
+
+Runs the packaged deployment, `deploy/docker-compose.yml` and
+`deploy/Caddyfile` unmodified, end to end (`tests/e2e/bundle/`, its own
+Playwright config; the main suite ignores it). Two runs from an empty instance:
+`bundle-on` (tournaments profile on: first-run set-up, switching Tournaments on,
+the hand-over to TMX, a tournament made in TMX and published, the public pages,
+calendar sync and the home page, a Tournaments only account, ending access,
+signing out, TMX's "Log in", the refused proxy routes) and `bundle-off` (no
+tournament links or routes).
+
+Needs: Docker; the app is built from the checkout; the four CourtHive images
+under the names in `deploy/docker-compose.yml` must exist locally (they are not
+published yet; `BUNDLE_PULL=1` pulls them once they are). Everything runs under
+its own compose project (`jdtbundle<on|off>...`) with renamed volumes, no
+container names and Caddy on `127.0.0.1:18743` (on) / `18744` (off), using
+`deploy/docker-compose.e2e.yml`; secrets come from the real
+`deploy/init-tournaments.sh` run on a throwaway env file; the stack is removed
+afterwards. Options: `BUNDLE_MODE=on|off|both`, `ARGS="-g TMX"`,
+`BUNDLE_SKIP_BUILD=1`, `BUNDLE_KEEP=1`, `BUNDLE_NO_TEST=1`, `BUNDLE_PORT_ON`,
+`BUNDLE_PORT_OFF`. On failure container logs are saved in
+`tests/e2e/bundle/artifacts/` and traces in `tests/e2e/bundle/test-results/`.
+The scheduled workflow is `.github/workflows/bundle-smoke.yml`.
+
 ## Passkey-enabled suite (`make test-e2e-auth`)
 
 The `auth` Playwright project covers the sign-in system: passkeys via a Chromium

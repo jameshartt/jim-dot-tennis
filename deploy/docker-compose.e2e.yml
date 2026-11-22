@@ -1,0 +1,75 @@
+# Test-only override for the bundle smoke test (scripts/test-e2e-bundle.sh).
+# Used as:  docker compose -p <project> --env-file <throwaway .env> \
+#             -f deploy/docker-compose.yml -f deploy/docker-compose.e2e.yml ...
+# The shipped docker-compose.yml and Caddyfile run unmodified; this file only
+# makes them safe to run beside other stacks on one machine:
+#   - every container_name is reset (the shipped names would collide);
+#   - every named volume is renamed under the project name;
+#   - Caddy listens on one loopback port (BUNDLE_PORT) instead of 80/443;
+#   - images are never pulled (the script supplies them);
+#   - the app reads the saved BHPLTA pages from a small file server in this
+#     project instead of the real BHPLTA website.
+# Do not use it on a real server.
+services:
+  app:
+    container_name: !reset null
+    pull_policy: never
+    environment:
+      - BHPLTA_BASE_URL=http://bhplta-fixtures:9099
+  caddy:
+    container_name: !reset null
+    pull_policy: never
+    ports: !override
+      - "127.0.0.1:${BUNDLE_PORT:?BUNDLE_PORT is set by scripts/test-e2e-bundle.sh}:443"
+  redis:
+    container_name: !reset null
+    pull_policy: never
+  postgres:
+    container_name: !reset null
+    pull_policy: never
+  courthive-server:
+    container_name: !reset null
+    pull_policy: never
+  courthive-hiveid:
+    container_name: !reset null
+    pull_policy: never
+  courthive-service-account:
+    container_name: !reset null
+    pull_policy: never
+  tmx-content:
+    container_name: !reset null
+    pull_policy: never
+  public-content:
+    container_name: !reset null
+    pull_policy: never
+
+  # Serves tests/e2e/fixtures/bhplta to the app (first-run set-up reads it).
+  bhplta-fixtures:
+    image: ${BUNDLE_RUNNER_IMAGE:-jim-dot-tennis-e2e-bundle:latest}
+    pull_policy: never
+    restart: "no"
+    working_dir: /fx
+    command: ["node", "/fx/fixture-server.mjs", "/fx/bhplta", "9099"]
+    volumes:
+      - ../tests/e2e/bundle/fixture-server.mjs:/fx/fixture-server.mjs:ro
+      - ../tests/e2e/fixtures/bhplta:/fx/bhplta:ro
+    networks:
+      - tennis-network
+
+volumes:
+  tennis-data:
+    name: ${COMPOSE_PROJECT_NAME}-tennis-data
+  caddy-data:
+    name: ${COMPOSE_PROJECT_NAME}-caddy-data
+  caddy-config:
+    name: ${COMPOSE_PROJECT_NAME}-caddy-config
+  courthive-pg-data:
+    name: ${COMPOSE_PROJECT_NAME}-pg-data
+  redis-data:
+    name: ${COMPOSE_PROJECT_NAME}-redis-data
+  courthive-archives:
+    name: ${COMPOSE_PROJECT_NAME}-archives
+  tmx-files:
+    name: ${COMPOSE_PROJECT_NAME}-tmx-files
+  public-files:
+    name: ${COMPOSE_PROJECT_NAME}-public-files
