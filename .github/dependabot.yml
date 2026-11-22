@@ -29,9 +29,9 @@ updates:
     groups:
       docker-base-images:
         patterns: ["*"]
-        exclude-patterns: ["mcr.microsoft.com/playwright*"]
+        exclude-patterns: ["*playwright*"]
       playwright-image:
-        patterns: ["mcr.microsoft.com/playwright*"]
+        patterns: ["*playwright*"]
 
   - package-ecosystem: docker-compose
     directory: /
