@@ -1,51 +1,117 @@
-# Reference Caddyfile for the production stack (see deploy/docker-compose.yml).
-# Mirrors the live Caddyfile; the only change is that the site address is the
-# DOMAIN environment variable (set in deploy/.env, passed to the caddy service)
-# instead of a hardcoded hostname. Caddy obtains and renews the TLS certificate
+# Caddyfile for the packaged deployment (see deploy/docker-compose.yml).
+#
+# The site address is the DOMAIN environment variable (set in deploy/.env and
+# passed to the caddy service). Caddy obtains and renews the TLS certificate
 # for that domain automatically; DNS must point at this host and ports 80/443
 # must be reachable.
+#
+# Tournaments on or off: the compose file sets TOURNAMENTS to "on" when the
+# "tournaments" profile is on, and leaves it empty when it is off. Caddy reads
+# it once, when it starts. Each tournament route below matches only when it is
+# "on"; when it is off, the same paths get a plain 404 from @tournaments_off
+# and Caddy never tries to reach a tournament service (so there is no wait and
+# no 502 page). Changing the profile recreates the caddy container, which
+# re-reads the value. The upstream names (courthive-server, courthive-hiveid)
+# are looked up per request, so Caddy starts fine when they do not exist.
+#
+# Path rules for the tournament stack (docs/courthive_bundle_design.md,
+# section 4, "What the proxy allows"):
+#   /api/courthive/*  prefix removed, Cookie header removed, then:
+#     a few /auth/* routes to the tournament server, a few to the identity
+#     service, every other /auth/* and all of /account/*, /admin/*,
+#     /provisioner/*, /internal/*, /.well-known/*, /health* refused with 404,
+#     everything else to the tournament server
+#   /socket.io/*      Cookie header removed, to the tournament server
+#   /tournaments      TMX (files copied in by the tmx-content service)
+#   /public           public tournament pages (public-content service)
+# The jim-dot-tennis session cookie never reaches CourtHive.
 
 {$DOMAIN} {
-  # CourtHive API endpoints
-  handle /api/courthive/* {
-    uri strip_prefix /api/courthive
-    reverse_proxy courthive-server:8383
-  }
+	# The public tournament pages ask for /api/rankings/... and link to
+	# /epixodic/ at the origin root. The bundle has neither service, and the app
+	# must never answer those paths: 404, whether tournaments are on or off.
+	@not_shipped path /api/rankings* /epixodic*
+	handle @not_shipped {
+		respond "Not found" 404
+	}
 
-  # Socket.io for real-time updates
-  handle /socket.io/* {
-    reverse_proxy courthive-server:8383
-  }
+	# Tournaments switched off: the tournament paths answer 404.
+	@tournaments_off {
+		expression `"{$TOURNAMENTS}" != "on"`
+		path /api/courthive/* /socket.io/* /tournaments /tournaments/* /public /public/*
+	}
+	handle @tournaments_off {
+		respond "Tournaments are not switched on for this site." 404
+	}
 
-  # Tournament admin interface (TMX)
-  handle_path /tournaments* {
-    root * /srv/tournaments
-    try_files {path} /index.html
-    file_server
-  }
+	# Tournament server and identity service
+	@courthive {
+		expression `"{$TOURNAMENTS}" == "on"`
+		path /api/courthive/*
+	}
+	handle @courthive {
+		uri strip_prefix /api/courthive
+		request_header -Cookie
+		@server_auth path /auth/sso/login-with-token /auth/tracker-token /auth/scorer-token /auth/provider-scoring-token
+		@identity path /auth/refresh /auth/logout /auth/me /auth/me/last-selected-provider /auth/select-provider
+		@refused path /auth/* /account/* /admin/* /provisioner/* /internal/* /.well-known/* /health /health/*
+		route {
+			reverse_proxy @server_auth courthive-server:8383
+			reverse_proxy @identity courthive-hiveid:3140
+			respond @refused "Not found" 404
+			reverse_proxy courthive-server:8383
+		}
+	}
 
-  # Public tournament viewer
-  handle_path /public* {
-    root * /srv/public
-    try_files {path} /index.html
-    file_server
-  }
+	# Socket.io for live updates
+	@socketio {
+		expression `"{$TOURNAMENTS}" == "on"`
+		path /socket.io/*
+	}
+	handle @socketio {
+		request_header -Cookie
+		reverse_proxy courthive-server:8383
+	}
 
-  # Jim-dot-tennis application (catch-all)
-  handle {
-    reverse_proxy app:8080 {
-      header_up Service-Worker-Allowed {http.response.header.Service-Worker-Allowed}
-    }
-  }
+	# Tournament management (TMX)
+	@tmx {
+		expression `"{$TOURNAMENTS}" == "on"`
+		path /tournaments /tournaments/*
+	}
+	handle @tmx {
+		uri strip_prefix /tournaments
+		root * /srv/tournaments
+		try_files {path} /index.html
+		file_server
+	}
 
-  # Enable compression
-  encode gzip
+	# Public tournament pages
+	@public {
+		expression `"{$TOURNAMENTS}" == "on"`
+		path /public /public/*
+	}
+	handle @public {
+		uri strip_prefix /public
+		root * /srv/public
+		try_files {path} /index.html
+		file_server
+	}
 
-  # Security headers
-  header {
-    X-Frame-Options "SAMEORIGIN"
-    X-Content-Type-Options "nosniff"
-    X-XSS-Protection "1; mode=block"
-    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-  }
+	# Jim-dot-tennis application (catch-all)
+	handle {
+		reverse_proxy app:8080 {
+			header_up Service-Worker-Allowed {http.response.header.Service-Worker-Allowed}
+		}
+	}
+
+	# Enable compression
+	encode gzip
+
+	# Security headers
+	header {
+		X-Frame-Options "SAMEORIGIN"
+		X-Content-Type-Options "nosniff"
+		X-XSS-Protection "1; mode=block"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+	}
 }

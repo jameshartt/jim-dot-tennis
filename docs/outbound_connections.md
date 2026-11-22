@@ -30,7 +30,7 @@ updating that allowlist and this page together.
   | Club Wrapped access code | `WRAPPED_ACCESS_PASSWORD`, else `app_settings.wrapped_access_code` | Generated with crypto/rand on first start (60 bits, `XXXX-XXXX-XXXX`) and shown to administrators on the Club Settings page. The "unlocked" cookie is derived from the code, so it is different on every instance. |
   | Web push (VAPID) key pair | `vapid_keys` table | Generated on first start with crypto/rand (P-256) |
   | BHPLTA club code | Club Settings page, or `BHPLTA_CLUB_CODE` | Match-card import is unavailable until the club enters its own code (it is BHPLTA's credential for the club, not the app's) |
-  | CourtHive JWT secret, CourtHive Postgres password | `COURTHIVE_JWT_SECRET`, `COURTHIVE_PG_PASSWORD` in `deploy/.env` (read by CourtHive, not by this app) | `deploy/docker-compose.yml` refuses to start without them. Generating them per instance is WI-144. |
+  | Tournament secrets (only with tournaments on): database password, ES256 signing key pair and key id, signer token, service account password, the tournament server's unused JWT secret | `COURTHIVE_PG_PASSWORD`, `COURTHIVE_JWT_PRIVATE_KEY`, `COURTHIVE_JWT_PUBLIC_KEY`, `COURTHIVE_JWT_KID`, `COURTHIVE_SIGNER_TOKEN`, `COURTHIVE_SERVICE_PASSWORD`, `COURTHIVE_JWT_SECRET` in `deploy/.env`, made on the club's own server by `deploy/init-tournaments.sh` (openssl; P-256 key, random hex values) | With tournaments on, `deploy/docker-compose.yml` refuses to start if any is missing. With tournaments off none is needed. The private key is held by the identity service only; the tournament server holds the public key and runs with `JWT_ACCEPT_HS256=false`, so its `JWT_SECRET` signs nothing it would accept. The app is given only the service account password and the database password. |
 
 - **Production self-check.** With `APP_ENV=production` the app refuses to start
   if a secret variable it reads (`WRAPPED_ACCESS_PASSWORD`) holds a placeholder
@@ -50,6 +50,7 @@ updating that allowlist and this page together.
 | `api.open-meteo.com` (Open-Meteo) | When an administrator opens a fixture detail page for a fixture within the forecast window; cached for an hour | The venue's latitude and longitude and the date range. No key, no account. |
 | Browser push services: `fcm.googleapis.com` / `android.googleapis.com` (Google: Chrome, Android, Edge on Android, Samsung Internet, Opera, Brave), `*.push.services.mozilla.com` (Firefox), `*.push.apple.com` (Safari), `*.notify.windows.com` (Edge on Windows) | When a notification is sent to someone who turned notifications on | The notification, end-to-end encrypted to the subscriber's browser, and a VAPID token whose subscriber field is the instance's own public URL (`PUBLIC_URL`). Subscriptions to any other host are refused. |
 | `courthive-server` | Inside the instance's own Docker network, when an administrator syncs tournaments from CourtHive | The provider abbreviation |
+| `courthive-hiveid` (identity service) | Inside the instance's own Docker network, only with tournaments on: the app signs in as the service account | The service account's address and password |
 
 The server makes no other outbound connection. There is no telemetry,
 analytics, error reporting, crash upload, licence check, update check or remote
@@ -80,9 +81,33 @@ to the source code (GitHub) and CourtHive.
 | Go module proxy (`proxy.golang.org`, `sum.golang.org`) and Alpine package mirror | When the app image is built |
 | Alpine package mirror (`dl-cdn.alpinelinux.org`) | Each time the `backup` container starts: it installs `sqlite` and `tzdata` with `apk add` |
 | Let's Encrypt (or ZeroSSL) via Caddy | Obtaining and renewing the TLS certificate for `DOMAIN` |
+| GitHub container registry (`ghcr.io`) for the app image and, with tournaments on, the four tournament images | When you pull images to install or update |
 
-CourtHive (competition-factory-server, TMX, courthive-public) is a separate
-codebase and is not covered by the scan above.
+The tournament services (only with tournaments on) talk to each other and to
+Postgres and Redis on the internal network only. The services the bundle does
+not ship (persons, declarations, AMS, rankings, score relay) are switched off
+or left without an address. The built server code names no outside host
+except one link: the tournament server's root page (`/api/courthive/`)
+redirects a browser to `courthive.com`. Their code is a separate codebase
+(CourtHive) and is not covered by the scan above.
+
+### Tournament pages in visitors' browsers (only with tournaments on)
+
+TMX (`/tournaments`) and the public tournament pages (`/public`) load
+everything from the instance itself and contact no other host when they open.
+Later, only through something a person chooses:
+
+| Destination | When |
+|---|---|
+| Google Fonts (`fonts.googleapis.com`, `fonts.gstatic.com`) | In TMX, someone picks a screen font other than the default in a tournament's settings. From then on that browser loads the font from Google on every start of TMX. |
+| Map tile servers | In TMX, someone opens a map |
+| Google Sheets | In TMX, someone links a Google Sheet; TMX fetches it |
+| Wherever a tournament director's links point | On the public pages, images and links a director typed in (hero image, venue image, images in notes) load from wherever they point |
+
+Features that need services the bundle does not ship (AMS registration,
+declarations, the query service, rankings, the score relay, and player sign-in
+on the public pages) fail quietly or with a plain message; none of them
+contacts another host.
 
 ### What the author can see
 

@@ -1,0 +1,55 @@
+# ARCHIVED: deploy/Caddyfile as of release 0.1.0. Do not deploy from it.
+# It records the source-built layout jim.tennis still runs. Clubs use
+# deploy/Caddyfile instead.
+#
+# Reference Caddyfile for the production stack (see deploy/docker-compose.yml).
+# Mirrors the live Caddyfile; the only change is that the site address is the
+# DOMAIN environment variable (set in deploy/.env, passed to the caddy service)
+# instead of a hardcoded hostname. Caddy obtains and renews the TLS certificate
+# for that domain automatically; DNS must point at this host and ports 80/443
+# must be reachable.
+
+{$DOMAIN} {
+  # CourtHive API endpoints
+  handle /api/courthive/* {
+    uri strip_prefix /api/courthive
+    reverse_proxy courthive-server:8383
+  }
+
+  # Socket.io for real-time updates
+  handle /socket.io/* {
+    reverse_proxy courthive-server:8383
+  }
+
+  # Tournament admin interface (TMX)
+  handle_path /tournaments* {
+    root * /srv/tournaments
+    try_files {path} /index.html
+    file_server
+  }
+
+  # Public tournament viewer
+  handle_path /public* {
+    root * /srv/public
+    try_files {path} /index.html
+    file_server
+  }
+
+  # Jim-dot-tennis application (catch-all)
+  handle {
+    reverse_proxy app:8080 {
+      header_up Service-Worker-Allowed {http.response.header.Service-Worker-Allowed}
+    }
+  }
+
+  # Enable compression
+  encode gzip
+
+  # Security headers
+  header {
+    X-Frame-Options "SAMEORIGIN"
+    X-Content-Type-Options "nosniff"
+    X-XSS-Protection "1; mode=block"
+    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+  }
+}

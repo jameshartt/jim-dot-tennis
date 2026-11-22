@@ -27,9 +27,11 @@ func TestIsPlaceholder(t *testing.T) {
 	}
 }
 
-// Every "change-me"-style value in the repository's .env.example files must
-// be recognised as a placeholder, so copying an example unchanged cannot
-// reach production.
+// deploy/.env.example ships no secret values: every variable whose name says
+// it holds a secret is empty (the tournament secrets are made on the club's
+// server by deploy/init-tournaments.sh). Any "change-me"-style value that is
+// there must be recognised as a placeholder, so copying the example unchanged
+// cannot reach production.
 func TestEnvExamplePlaceholdersAreKnown(t *testing.T) {
 	path := repoDir(t, "deploy") + "/.env.example"
 	f, err := os.Open(path)
@@ -38,20 +40,26 @@ func TestEnvExamplePlaceholdersAreKnown(t *testing.T) {
 	}
 	defer f.Close()
 	assign := regexp.MustCompile(`^#?\s*([A-Z][A-Z0-9_]*)=(.*)$`)
+	secretName := regexp.MustCompile(`(PASSWORD|SECRET|_KEY|TOKEN)$`)
 	sc := bufio.NewScanner(f)
-	checked := 0
+	secretVars := 0
 	for sc.Scan() {
 		m := assign.FindStringSubmatch(strings.TrimSpace(sc.Text()))
-		if m == nil || !strings.Contains(strings.ToLower(m[2]), "change") {
+		if m == nil {
 			continue
 		}
-		checked++
-		if !IsPlaceholder(m[2]) {
+		if secretName.MatchString(m[1]) {
+			secretVars++
+			if strings.TrimSpace(m[2]) != "" {
+				t.Errorf("%s: %s has an example value; secrets must be left empty", path, m[1])
+			}
+		}
+		if strings.Contains(strings.ToLower(m[2]), "change") && !IsPlaceholder(m[2]) {
 			t.Errorf("%s: example value for %s is not in the placeholder list", path, m[1])
 		}
 	}
-	if checked == 0 {
-		t.Fatalf("no placeholder values found in %s; the test is not checking anything", path)
+	if secretVars == 0 {
+		t.Fatalf("no secret variables found in %s; the test is not checking anything", path)
 	}
 }
 

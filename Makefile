@@ -345,33 +345,32 @@ test-e2e-multiclub: test-e2e-bootstrap
 # CourtHive
 # ============================================================
 
-# CourtHive compose file: the reference deployment. Needs deploy/.env (copy
-# deploy/.env.example; DOMAIN=localhost for local use) and sibling checkouts of
-# competition-factory-server, TMX and courthive-public (see the file header).
-COURTHIVE_COMPOSE = $(DOCKER_COMPOSE) -f deploy/docker-compose.yml
+# The packaged deployment with the tournaments profile on. Needs deploy/.env
+# (copy deploy/.env.example; DOMAIN=localhost and PUBLIC_URL=https://localhost
+# for local use) with the secrets from deploy/init-tournaments.sh. Uses the
+# published images; nothing is built. COMPOSE_PROFILES here overrides .env.
+COURTHIVE_COMPOSE = COMPOSE_PROFILES=tournaments $(DOCKER_COMPOSE) -f deploy/docker-compose.yml
 
 # TMX source directory (relative to this project)
 TMX_DIR = ../TMX
 
-# Build TMX frontend for local development
+# Build a TMX source checkout (development of TMX itself; the packaged stack
+# uses the published TMX image, not this build)
 build-tmx:
 	@echo "Building TMX frontend for local development..."
 	cd $(TMX_DIR) && pnpm build
 
-# Build and start the full CourtHive stack locally
-courthive: build-tmx
-	@echo "Starting CourtHive stack..."
-	$(COURTHIVE_COMPOSE) up -d --build
+# Start the packaged stack with tournaments on
+courthive: courthive-up
 
-# Start the CourtHive stack without rebuilding TMX
 courthive-up:
 	$(COURTHIVE_COMPOSE) up -d
 
-# Stop the CourtHive stack
+# Stop the packaged stack (every service; volumes and data are kept)
 courthive-down:
 	$(COURTHIVE_COMPOSE) down
 
-# Restart the CourtHive stack
+# Restart the packaged stack
 courthive-restart: courthive-down courthive-up
 
 # View CourtHive stack logs

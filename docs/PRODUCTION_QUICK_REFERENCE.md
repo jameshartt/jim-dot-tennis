@@ -4,8 +4,50 @@
 **Domain:** jim.tennis
 **SSH:** `ssh -i $SSH_KEY $SERVER`
 **Path:** `$REMOTE_PATH/`
-**Reference deployment in git:** `deploy/docker-compose.yml`, `deploy/Caddyfile`, `deploy/.env.example`. Since 2026-11-22 the server's app service matches the reference: it runs the published image `ghcr.io/jameshartt/jim-dot-tennis` at the version named by `JIM_DOT_TENNIS_VERSION` in the server's `.env`. The server keeps two identical compose files, `docker-compose.yml` (what plain `docker compose` reads) and `docker-compose.courthive.yml` (what the `-f` commands below name); change both together. `scripts/deploy-app.sh` does not sync compose or the Caddyfile.
+**Packaged deployment in git:** `deploy/docker-compose.yml`, `deploy/Caddyfile`, `deploy/.env.example`, `deploy/init-tournaments.sh`: what a club runs, with tournaments as the opt-in `tournaments` profile (turning it on: `docs/docker_setup.md`, "Tournaments (optional)"). jim.tennis matches it for the app service only; its CourtHive part is still the older layout described in the next section. The server keeps two identical compose files, `docker-compose.yml` (what plain `docker compose` reads) and `docker-compose.courthive.yml` (what the `-f` commands below name); change both together. `scripts/deploy-app.sh` does not sync compose or the Caddyfile.
 **Go Version:** 1.26 (bumped from 1.25 on 2026-09-25; runtime image alpine:3.24)
+
+---
+
+## jim.tennis until it adopts the bundle
+
+jim.tennis has not moved to the packaged tournament stack yet. Until the owner
+moves it (a planned step with a rehearsal on a copy of the data; see
+`docs/courthive_bundle_design.md` sections 4 and 5), this is what is true on
+the server, and sections 2, 3, 4, 8 and 8b below apply to it only:
+
+- **App service:** the same as the packaged deployment. Since 2026-11-22 it
+  runs the published image `ghcr.io/jameshartt/jim-dot-tennis` at the version
+  named by `JIM_DOT_TENNIS_VERSION` in the server's `.env` (section 1).
+- **CourtHive server:** built on the server from a source checkout of
+  `competition-factory-server` next to the jim-dot-tennis checkout
+  (section 4), container `courthive-server`, signing tokens with
+  `JWT_SECRET` (HS256). There is no separate identity service and no
+  `COMPOSE_PROFILES`; the CourtHive services always run.
+- **TMX and the public pages:** built on a workstation from the
+  `jim-tennis-deploy` branches and copied to `TMX/dist` and
+  `courthive-public/dist` on the server, which Caddy serves directly
+  (sections 2 and 3). The published `courthive-tmx` and `courthive-public`
+  images are not used there.
+- **Accounts:** CourtHive accounts with their own passwords, managed with the
+  scripts in sections 8 and 8b. In the packaged deployment people sign in to
+  jim-dot-tennis only and those routes are closed.
+- **Caddy:** container `tennis-caddy` (renamed by the server's
+  `docker-compose.override.yml`), with the older Caddyfile: no cookie removal
+  and no refused CourtHive routes.
+- **Volumes:** `courthive-data` and `courthive-cache` are still mounted there.
+  The packaged deployment does not use them; it uses `courthive-pg-data` and
+  `courthive-redis-data` (same names, same purpose) plus new ones.
+- **Record of the layout:** the files that describe it, as they were in
+  `deploy/` up to release 0.1.0, are
+  `docs/archive/docker-compose.jim-tennis-source-built.yml` and
+  `docs/archive/Caddyfile.jim-tennis-source-built`.
+
+Do not copy the packaged `deploy/docker-compose.yml` or `deploy/Caddyfile`
+onto the server, and do not run `init-tournaments.sh` there, until the move is
+planned: the new stack would start a new identity service against the existing
+tournament database, migrate that database (no way back without a backup) and
+lock out the existing CourtHive accounts.
 
 ---
 
@@ -88,7 +130,7 @@ build, template/static mounts removed, `APP_ENV=production`, healthcheck on
 
 ---
 
-### 2. Update TMX Frontend
+### 2. Update TMX Frontend (jim.tennis source-built layout)
 
 ```bash
 # Build and transfer
@@ -123,7 +165,7 @@ rsync -avz --delete -e "ssh -i $SSH_KEY" dist/ $SERVER:$REMOTE_PATH/TMX/dist/
 
 ---
 
-### 3. Update Public Frontend
+### 3. Update Public Frontend (jim.tennis source-built layout)
 
 ```bash
 # Build and transfer
@@ -141,7 +183,7 @@ rsync -avz --delete -e "ssh -i $SSH_KEY" dist/ $SERVER:$REMOTE_PATH/courthive-pu
 
 ---
 
-### 4. Update CourtHive Server
+### 4. Update CourtHive Server (jim.tennis source-built layout)
 
 ```bash
 # Transfer and rebuild
@@ -229,7 +271,7 @@ ssh -i $SSH_KEY $SERVER "cd $REMOTE_PATH && docker compose down && docker compos
 
 ---
 
-### 8. Create CourtHive User
+### 8. Create CourtHive User (jim.tennis source-built layout)
 
 ```bash
 ssh -i $SSH_KEY $SERVER "docker exec -i courthive-server node" << 'EOFNODE'
@@ -270,7 +312,7 @@ EOFNODE
 
 ---
 
-### 8b. Reset CourtHive User Password
+### 8b. Reset CourtHive User Password (jim.tennis source-built layout)
 
 For when someone has signed up via an invite link but can't log in. The most common cause was mobile keyboards capitalizing the first character of the email — fixed upstream in TMX `loginModal.ts` (`type: 'email'`) and `competition-factory-server` `users.service.ts` (lowercase normalization), but worth knowing about for any user who registered before those fixes shipped.
 
@@ -1168,7 +1210,8 @@ password manager or an untracked operator runbook.
 
 **Environment secrets** (set in the server's `.env`, never committed):
 - `WRAPPED_ACCESS_PASSWORD`: optional override for the Club Wrapped access code. Leave it unset and the instance generates its own code on first start (shown on the admin Club Settings page). A placeholder such as `change-me` stops the app starting in production.
-- `COURTHIVE_JWT_SECRET`: must match `JWT_SECRET` of competition-factory-server (`.env` under `$REMOTE_PATH`)
+- `COURTHIVE_JWT_SECRET` (jim.tennis source-built layout): must match `JWT_SECRET` of competition-factory-server (`.env` under `$REMOTE_PATH`)
+- Packaged deployment with tournaments on: the seven `COURTHIVE_*` secrets are made on the server by `deploy/init-tournaments.sh` and live only in its `deploy/.env` (list in `deploy/.env.example`). Nobody needs to know them; keep `.env` safe and private, because the tournament services need the same values to use their data again.
 
 ---
 
