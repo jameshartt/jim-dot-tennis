@@ -25,7 +25,7 @@ here. GitHub also generates a list of merged changes for each release; this file
 is the curated version that matters to operators. Moving from several versions
 back: read the Upgrade notes of every version in between.
 
-## [0.1.0] - unreleased
+## [0.1.0] - 2026-11-22
 
 ### Summary
 
