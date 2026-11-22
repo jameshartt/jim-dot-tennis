@@ -25,6 +25,64 @@ here. GitHub also generates a list of merged changes for each release; this file
 is the curated version that matters to operators. Moving from several versions
 back: read the Upgrade notes of every version in between.
 
+## [Unreleased]
+
+### Added
+
+- **Tournaments in the packaged deployment, off by default.**
+  `deploy/docker-compose.yml` can now run the tournament stack (CourtHive)
+  next to the app, as the compose profile `tournaments`: Postgres, Redis, the
+  tournament server, its identity service, TMX at `/tournaments` and the
+  public tournament pages at `/public`. Every image is published; nothing is
+  built on your server. To turn it on: run `deploy/init-tournaments.sh` once,
+  add `COMPOSE_PROFILES=tournaments` to `deploy/.env`, run
+  `docker compose up -d`, then switch on Tournaments in Club Settings.
+- **`deploy/init-tournaments.sh`** makes every tournament secret on your own
+  server (a signing key pair and its id, a signer token, the service account
+  password, the database password and the tournament server's unused JWT
+  secret) and adds them to `deploy/.env`. It never overwrites a value, never
+  prints one, and sets `.env` to mode 600. Nothing has a default: with
+  tournaments on, compose refuses to start if any secret is missing.
+
+Bundled tournament set (tested together):
+
+| Part | Image |
+|---|---|
+| Tournament server | `ghcr.io/jameshartt/courthive-server:4.19.1-jdt.1` |
+| Identity service | `ghcr.io/jameshartt/courthive-hiveid:0.5.0-jdt.1` |
+| TMX | `ghcr.io/jameshartt/courthive-tmx:8.61.0-jdt.1` |
+| Public pages | `ghcr.io/jameshartt/courthive-public:1.23.7-jdt.1` |
+
+### Changed
+
+- With tournaments off, only the app and Caddy run, and Caddy answers
+  `/tournaments`, `/public`, `/api/courthive` and `/socket.io` with a plain
+  404. `/api/rankings` and `/epixodic` at the site root always get 404.
+- With tournaments on, Caddy removes the `Cookie` header before passing a
+  request to the tournament stack, and refuses (404) its sign-in, account,
+  administration, provisioner and internal routes; only Caddy publishes ports.
+  Memory limits: tournament server 512 MB, identity service 256 MB, Postgres
+  384 MB, Redis 64 MB.
+- `deploy/docker-compose.yml` no longer builds CourtHive from a source
+  checkout or serves front ends from `../../TMX/dist` and
+  `../../courthive-public/dist`.
+
+### Upgrade notes
+
+- Without tournaments: nothing to do. You may delete the lines
+  `COURTHIVE_PG_PASSWORD` and `COURTHIVE_JWT_SECRET` from `deploy/.env` if
+  they still say `change-me`; they are no longer needed.
+- To turn tournaments on after upgrading: if `deploy/.env` still has
+  `COURTHIVE_PG_PASSWORD=change-me` or `COURTHIVE_JWT_SECRET=change-me`,
+  delete those lines first, then follow the steps above.
+  `init-tournaments.sh` stops and says so if it finds them.
+- An instance that already ran CourtHive from the old source-built layout
+  (jim.tennis) must not switch to this file without a planned move: the
+  identity service, the sign-in model and the tournament database version all
+  change (`docs/courthive_bundle_design.md`, section 5). The old volumes
+  `courthive-data` and `courthive-cache` are not used by the new file and are
+  left alone.
+
 ## [0.1.0] - 2026-11-22
 
 ### Summary
