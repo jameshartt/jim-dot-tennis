@@ -31,7 +31,10 @@
     ],
     "notes": [
       "Existing tournaments with draws must never be modified by tooling without a backup first.",
-      "The known manual sequence is in docs/PRODUCTION_QUICK_REFERENCE.md section 4 (backfill-calendar-tournaments between migrations 047 and 048)."
+      "The known manual sequence is in docs/PRODUCTION_QUICK_REFERENCE.md section 4 (backfill-calendar-tournaments between migrations 047 and 048).",
+      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22): the app image gains the Postgres client tools; dump and restore run over the internal network with the generated database password.",
+      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22): a fresh install on the bundled version needs no backfill (all migrations run on an empty database); the ordered-steps entrypoint in the server image is for later versions. Rehearse it by replaying the known 047/048 backfill on a copy of older data.",
+      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22): the compatibility table of app and CourtHive image tags lives in the changelog; the compose file of each release pins exact tags."
     ]
   },
   "testing_requirements": [

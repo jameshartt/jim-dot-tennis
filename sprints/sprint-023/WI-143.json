@@ -1,7 +1,7 @@
 {
   "id": "WI-143",
   "title": "Publish club-neutral images of the three CourtHive components",
-  "description": "Implement the configuration approach from WI-142 in the forks and publish versioned images: the tournament server, and the two static front ends (TMX and the public pages) either as small web-server images or as content images mounted by Caddy. Add CI to each fork that builds from the jim-tennis-deploy branch, runs that project's existing checks, and publishes to GitHub Container Registry with a version that records the upstream version it is based on. Remove every jim.tennis-specific value from the built output.",
+  "description": "Implement the configuration approach from WI-142 in the forks and publish versioned images: the tournament server, and the two static front ends (TMX and the public pages) either as small web-server images or as content images mounted by Caddy. Add CI to each fork that builds from the bundle branch (jim-tennis-deploy plus the club-neutral changes, pinned to the upstream base of 2026-09-24, not current upstream), runs that project's existing checks, and publishes to GitHub Container Registry with a version that records the upstream version it is based on. Remove every jim.tennis-specific value from the built output.",
   "type": "infrastructure",
   "priority": "high",
   "complexity": "L",
@@ -21,7 +21,10 @@
     "Image tags encode the upstream version and the fork revision",
     "Each fork's CI builds and publishes on tag, after its tests pass",
     "The pnpm link-override hazard is handled in CI (build fails clearly if link: entries are present)",
-    "Attribution and licence files required by WI-142 are inside each image"
+    "Attribution and licence files required by WI-142 are inside each image",
+    "Images are built and tested locally under the final names; nothing is pushed to a registry and no publishing tag is pushed until the owner confirms the licence point in the design note",
+    "Front-end images contain no source maps",
+    "The server image contains src/scripts/admin-user.mjs so the instance service account can be created with upstream's own script"
   ],
   "technical_notes": {
     "files_to_modify": [
@@ -34,7 +37,13 @@
     ],
     "notes": [
       "Work happens in three other repositories on their jim-tennis-deploy branches; keep changes minimal so future rebases onto upstream stay cheap, and offer generally useful changes upstream.",
-      "Pushing workflow files needs the `workflow` token scope."
+      "Pushing workflow files needs the `workflow` token scope.",
+      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22): the club-neutral changes already exist as local commits on branch bundle/club-neutral in the TMX and courthive-public forks (worktrees were in the session scratchpad; the commits are in the fork repositories). Start from them.",
+      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22): front ends ship as content images (built files only) copied into a volume by a one-shot service; Caddy stays the stock image.",
+      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22): image names ghcr.io/jameshartt/courthive-server, courthive-tmx, courthive-public; tag <upstream version>-jdt.<n>; labels carry the upstream commit and fork commit.",
+      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22): each image carries /licenses with the upstream MIT text, a NOTICE naming the fork and upstream commit, and third-party licences.",
+      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22): the server image is 1.58 GB because it installs development dependencies (compression is a runtime need listed as a dev dependency); try a production-only install and report the saving.",
+      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22): check when TMX requests Google Fonts and record it in docs/outbound_connections.md if it remains."
     ]
   },
   "testing_requirements": [

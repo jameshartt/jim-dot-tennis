@@ -22,7 +22,10 @@
     "Every secret is generated locally on first start; the compose file contains no password, and startup fails clearly rather than falling back to a default",
     "Only ports 80 and 443 are exposed publicly",
     "Services start in dependency order with health checks, on a server of the documented minimum size",
-    "Disabling the profile later leaves tournament data intact on its volume"
+    "Disabling the profile later leaves tournament data intact on its volume",
+    "When the profile is on, the app container also receives the tournament server's signing secret (COURTHIVE_JWT_SECRET); when off it does not need it",
+    "One-shot services copy the front-end files into their volumes (emptying them first) and create the instance service account with a random, discarded password",
+    "Memory limits: tournament server 512 MB, Postgres 384 MB, Redis 64 MB"
   ],
   "technical_notes": {
     "files_to_modify": [
@@ -35,7 +38,10 @@
     ],
     "notes": [
       "Start from the live production stack captured in WI-113.",
-      "The app reaches the server at COURTHIVE_API_URL (default http://courthive-server:8383)."
+      "The app reaches the server at COURTHIVE_API_URL (default http://courthive-server:8383).",
+      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22): minimum server is 1 GB RAM for league only and 2 GB with tournaments (or 1 GB plus 2 GB swap); 20 GB disk.",
+      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22): Caddy must start and serve the app with the profile off; tournament routes are present only when it is on.",
+      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22): the server's port is reached by the app over the internal network; privileged routes are refused at Caddy (list in section 4; the rules themselves land with WI-152)."
     ]
   },
   "testing_requirements": [

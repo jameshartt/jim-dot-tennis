@@ -3,10 +3,10 @@
     "id": "sprint-023",
     "name": "CourtHive Bundle - Club Championships in the Box",
     "goal": "Ship CourtHive (tournament server, TMX tournament management, and the public tournament pages) as an opt-in part of the package, so a club that installs jim-dot-tennis can also run its own club championships on its own server, with its own accounts and secrets, without building anything or knowing how the pieces fit.",
-    "start_date": null,
+    "start_date": "2026-11-22",
     "end_date": null,
     "type": "numbered",
-    "status": "planned",
+    "status": "in_progress",
     "programme": "club-readiness (sprints 019-024)",
     "focus_areas": [
       "Published, club-neutral images of the three CourtHive components",

@@ -1,7 +1,7 @@
 {
   "id": "WI-152",
   "title": "Single sign-on: jim-dot-tennis as the identity source for CourtHive",
-  "description": "One sign-in for both systems. A person signed in to jim-dot-tennis who is allowed to run tournaments opens tournament management without a second login: jim-dot-tennis mints a short-lived CourtHive token for them, CourtHive trusts tokens signed by this instance only, and CourtHive's own login is switched off in the bundle. Passkeys, recovery links, the account audit log and role changes then cover tournaments too. Decided by Jim on 2026-11-21 (jim-dot-tennis is the identity source). This also resolves security review finding F9 from Sprint 021: today the jim-dot-tennis session cookie is forwarded to the CourtHive server because both share an origin; after this work the proxy strips that cookie on the CourtHive routes and CourtHive receives only its own scoped token.",
+  "description": "One sign-in for both systems. A person signed in to jim-dot-tennis who is allowed to run tournaments opens tournament management without a second login: jim-dot-tennis creates their password-less tournament account through the server's provisioner interface, asks the server for a single-use hand-over token (60 seconds) and redirects the browser to TMX, which exchanges it for its own session. The tournament server accepts only tokens signed with this instance's own secret, and its own sign-in routes are refused at the proxy. Passkeys, recovery links, the account audit log and role changes then cover tournaments too. Decided by Jim on 2026-11-21 (jim-dot-tennis is the identity source); mechanism decided in WI-142 on 2026-11-22. This also resolves security review finding F9 from Sprint 021: the proxy strips the jim-dot-tennis session cookie on the CourtHive routes.",
   "type": "feature",
   "priority": "high",
   "complexity": "L",
@@ -18,29 +18,35 @@
     "rationale": "Cross-system trust design where a mistake gives one system's users control of the other; touches a codebase we do not own."
   },
   "acceptance_criteria": [
-    "A signed-in administrator opens tournament management and is already signed in there; signing out of jim-dot-tennis ends tournament access within the token lifetime",
-    "Which jim-dot-tennis roles may run tournaments is a declared rule in the role table (administrator by default; captains only if Jim decides so), mapped to a CourtHive role",
-    "CourtHive accepts only tokens signed with this instance's own key, generated per instance at install; no shared or default key exists and the author holds none",
-    "Tokens are short-lived, audience-bound to this instance's CourtHive and carry no jim-dot-tennis session material",
-    "CourtHive's own username-and-password login is disabled or unreachable in the bundle; its provisioning account from WI-145 is not usable from the internet",
+    "A signed-in administrator opens tournament management and is already signed in there",
+    "Signing out of jim-dot-tennis removes TMX's tokens from the browser and ends the tournament session on the server",
+    "Disabling, demoting or revoking the sessions of a jim-dot-tennis account removes that person's tournament membership and roles at once; an earlier tournament token then sees no tournaments. Covered by a test",
+    "Which jim-dot-tennis roles may run tournaments is a declared rule in the role table (administrator by default as provider administrator; captain as director only if Jim decides so)",
+    "The tournament server accepts only tokens signed with this instance's own secret, generated at install; no shared or default key exists and the author holds none",
+    "Hand-over tokens are single-use and expire in 60 seconds; nothing from the jim-dot-tennis session is sent to the tournament server",
+    "The tournament server's sign-in, password, user-administration, provisioner and administration routes are refused at the proxy (list in the design note, section 4); every tournament account has no password",
     "The proxy no longer forwards the jim-dot-tennis session cookie to CourtHive routes",
-    "Disabling or demoting a jim-dot-tennis account removes tournament access; this is covered by a test",
+    "Someone who reaches TMX signed out is sent to jim-dot-tennis to sign in, not shown TMX's own form",
     "Public tournament pages stay public and need no sign-in",
-    "The change to the CourtHive forks is as small as possible and recorded in the fork maintenance notes"
+    "No change to the tournament server's source; the TMX change is as small as possible and recorded in the fork maintenance notes"
   ],
   "technical_notes": {
     "files_to_modify": [
       "deploy/Caddyfile",
       "internal/admin/roles.go",
       "internal/auth/",
-      "../competition-factory-server (token verification, login switch)",
-      "../TMX (token acquisition instead of the login form)"
+      "internal/admin (tournament hand-over handler)",
+      "../TMX (signed-out redirect only)"
     ],
     "notes": [
-      "WI-142 decides the mechanism in its design note: either CourtHive verifies a jim-dot-tennis-signed JWT with a per-instance key, or jim-dot-tennis signs with the CourtHive JWT secret generated in WI-144; prefer asymmetric signing so CourtHive holds no key that can mint tokens.",
-      "Past lesson: browser copies of CourtHive tokens truncate; mint and deliver tokens server-side, never by copy and paste.",
+      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22), section 4: the whole chain was run against the unmodified server image, including immediate loss of access on membership removal and refusal of forged, expired and unsigned tokens.",
+      "The app signs 60-second HS256 tokens as the instance service account using COURTHIVE_JWT_SECRET; with the provisioner claim these reach the provisioner interface, so no API key is stored.",
+      "Provisioner-created users have no roles; set client, generate, score through /auth/modify or the calendar is refused with 403.",
+      "Keep the permanent 'instance' provider administrator: the server refuses to remove the last one.",
+      "Tournament account address: <username>@jim-dot-tennis.invalid; external id: the jim-dot-tennis user id.",
+      "Later upstream removes login from the server; the bundle then moves to jim-dot-tennis signing ES256 tokens with the server holding only the public key. Not in this sprint.",
       "The no-tournament-mutations-after-draws rule for the live Parks Cup data still applies to any testing against real tournaments.",
-      "If this proves too large for the sprint, it splits cleanly into its own sprint after 023; the bundle works without it using CourtHive's own login."
+      "If this proves too large for the sprint, it splits cleanly into its own sprint after 023; the bundle then needs an interim way in, which must be designed (the server's password sign-in is not provisioned for anyone)."
     ]
   },
   "testing_requirements": [
