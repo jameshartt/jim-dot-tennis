@@ -1,0 +1,47 @@
+{{define "tournament/home.html"}}
+{{template "layout" .}}
+{{end}}
+
+{{define "head"}}
+<title>{{if .Refused}}Tournaments{{else}}Your tournament home{{end}} - Jim.Tennis</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+    .th-container { display: flex; justify-content: center; padding: 1.5rem 0; }
+    .th-card { background: #fff; padding: 1.75rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100%; max-width: 560px; }
+    .th-card h1 { color: var(--primary-color); margin-bottom: 0.75rem; font-size: 1.6rem; }
+    .th-card p { margin-bottom: 0.8rem; line-height: 1.5; }
+    .th-open { display: inline-block; margin: 0.5rem 0 1rem; font-size: 1.1rem; padding: 0.75rem 1.5rem; }
+    .th-links a { display: inline-block; margin: 0.25rem 1rem 0 0; }
+    .th-note { font-size: 0.9rem; color: #555; }
+</style>
+{{end}}
+
+{{define "user-controls"}}
+<form method="POST" action="/logout" style="display: inline;">
+    <button type="submit" class="btn btn-sm" data-testid="logout-button">Sign out</button>
+</form>
+{{end}}
+
+{{define "content"}}
+<div class="th-container">
+    <div class="th-card" data-testid="tournament-home">
+        {{if .Refused}}
+        <h1>Tournaments</h1>
+        <p data-testid="tournament-home-refused">Tournament management is not part of your account. If you need it, ask one of the club's administrators.</p>
+        {{else}}
+        <h1>Hello, {{.Username}}</h1>
+        {{if .Enabled}}
+        <p>This is where you run the club's tournaments.</p>
+        <a href="{{.ManagementURL}}" class="btn btn-primary th-open" data-testid="tournament-management-link">Open tournament management</a>
+        <p class="th-note" data-testid="tournament-access">{{if .AllAccess}}You can look after every tournament the club runs.{{else}}You can look after your own tournaments and any you have been given.{{end}}</p>
+        {{else}}
+        <p data-testid="tournaments-switched-off">Tournaments are not switched on for this club at the moment. When an administrator switches them on, you can open tournament management from this page.</p>
+        {{end}}
+        {{end}}
+        <p class="th-links">
+            {{if .LeaguePath}}<a href="{{.LeaguePath}}" data-testid="tournament-home-league-link">League dashboard</a>{{end}}
+            <a href="/account/signin-methods">Your sign-in methods</a>
+        </p>
+    </div>
+</div>
+{{end}}

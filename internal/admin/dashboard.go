@@ -78,8 +78,16 @@ func (h *DashboardHandler) HandleDashboard(w http.ResponseWriter, r *http.Reques
 		passkeyWarnings = len(warnings)
 	}
 
+	// The tournament home page, for an administrator or a captain with
+	// tournament access (WI-153); "" for a captain without.
+	tournamentHome := ""
+	if user.TournamentAccessLevel() != models.TournamentAccessNone {
+		tournamentHome = auth.TournamentHomePath
+	}
+
 	// Prepare template data
 	templateData := map[string]interface{}{
+		"TournamentHomePath": tournamentHome,
 		"PasskeyWarnings":    passkeyWarnings,
 		"SignInMethodsPath":  auth.SignInMethodsPath,
 		"User":               user,

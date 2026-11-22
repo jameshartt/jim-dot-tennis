@@ -297,7 +297,7 @@ func (p *LinkPage) signIn(w http.ResponseWriter, r *http.Request, userID int64) 
 		log.Printf("account link: start session for user %d: %v", userID, err)
 		return "/login"
 	}
-	return p.afterPath
+	return p.auth.HomePath(r.Context(), userID, p.afterPath)
 }
 
 func (p *LinkPage) render(w http.ResponseWriter, status int, data linkPageData) {

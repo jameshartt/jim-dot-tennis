@@ -62,6 +62,7 @@
         .badge-admin { background: #e3f2fd; color: #1565c0; }
         .badge-captain { background: #f3e5f5; color: #7b1fa2; }
         .badge-player { background: #e8f5e9; color: #2e7d32; }
+        .tournament-access-fixed { font-size: 0.85rem; color: #555; }
         .badge-active { background: #e8f5e9; color: #2e7d32; }
         .badge-inactive { background: #ffebee; color: #c62828; }
         .action-btn {
@@ -93,7 +94,7 @@
         }
         .new-user-form {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr auto;
+            grid-template-columns: 1fr 1fr 1fr 1fr auto;
             gap: 0.75rem;
             align-items: end;
         }
@@ -145,8 +146,8 @@
             .new-user-form {
                 grid-template-columns: 1fr;
             }
-            .user-table th:nth-child(6),
-            .user-table td:nth-child(6) {
+            .user-table th:nth-child(7),
+            .user-table td:nth-child(7) {
                 display: none;
             }
         }
@@ -202,9 +203,18 @@
                     </div>
                     <div class="form-group" style="margin-bottom: 0;">
                         <label for="role">Role</label>
-                        <select id="role" name="role" required>
+                        <select id="role" name="role" required data-user-create-role>
                             {{range .Roles}}
                             <option value="{{.}}">{{.}}</option>
+                            {{end}}
+                            <option value="{{.TournamentsOnly}}">Tournaments only</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="tournament_access">Tournaments</label>
+                        <select id="tournament_access" name="tournament_access" data-user-create-tournaments>
+                            {{range .TournamentAccessChoices}}
+                            <option value="{{.Value}}">{{.Label}}</option>
                             {{end}}
                         </select>
                     </div>
@@ -221,6 +231,7 @@
                 </form>
                 <p class="form-help">You do not choose a password. Creating the user gives you an invite link to pass on; the person who opens it sets up their own passkey or password.</p>
                 <p class="form-help" data-role-help>A <strong>captain</strong> runs every team: planning, availability, selection, fixtures and rescheduling, results, players and standings. An <strong>admin</strong> can do all of that and also manage users, sessions, club settings, seasons, imports and backups. Players do not need an account: they use their own availability link. Link a captain to their player record so their own teams are marked on the planning dashboard.</p>
+                <p class="form-help" data-tournaments-help><strong>Tournaments only</strong> is for people who run the club's tournaments and nothing else: they sign in like everyone else and go straight to tournament management, with no league pages. Choose <strong>own tournaments</strong> (the ones they run or are given) or <strong>all tournaments</strong>. A captain has no tournament access unless you give it here. Administrators always have every tournament.</p>
             </div>
 
             <div class="content-section">
@@ -231,6 +242,7 @@
                             <tr>
                                 <th>Username</th>
                                 <th>Role</th>
+                                <th>Tournaments</th>
                                 <th>Linked player</th>
                                 <th>Status</th>
                                 <th>Signs in with</th>
@@ -250,14 +262,32 @@
                                         <select name="role" class="inline-select" data-user-role-select onchange="this.form.submit()">
                                             {{$current := lower .Role}}
                                             {{if not (has $.Roles $current)}}
-                                            {{/* A retired role (player, from before WI-132): the account reaches nothing until it is made a captain or admin. */}}
-                                            <option value="" selected disabled>{{$current}} (no access)</option>
+                                            {{/* No league role (stored "player"): Tournaments only, or with no tournament access an account from before WI-132 that reaches nothing. */}}
+                                            <option value="" selected disabled>{{.RoleLabel}}</option>
                                             {{end}}
                                             {{range $.Roles}}
                                             <option value="{{.}}" {{if eq . $current}}selected{{end}}>{{.}}</option>
                                             {{end}}
                                         </select>
                                     </form>
+                                </td>
+                                <td data-user-tournaments="{{.EffectiveTournamentAccess}}">
+                                    {{if eq (lower .Role) "admin"}}
+                                    <span class="tournament-access-fixed">All tournaments (administrator)</span>
+                                    {{else}}
+                                    {{$stored := printf "%s" .TournamentAccess}}{{$only := .IsTournamentsOnly}}
+                                    <form method="POST" action="/admin/league/users/{{.ID}}/tournaments" class="inline-form" data-user-tournaments-form>
+                                        <select name="tournament_access" class="inline-select" data-user-tournaments-select aria-label="Tournament access for {{.Username}}" onchange="this.form.submit()">
+                                            {{range $.TournamentAccessChoices}}
+                                            {{if and $only (eq .Value "none")}}
+                                            {{if eq $stored "none"}}<option value="" selected disabled>{{.Label}}</option>{{end}}
+                                            {{else}}
+                                            <option value="{{.Value}}" {{if eq .Value $stored}}selected{{end}}>{{.Label}}</option>
+                                            {{end}}
+                                            {{end}}
+                                        </select>
+                                    </form>
+                                    {{end}}
                                 </td>
                                 <td>
                                     <form method="POST" action="/admin/league/users/{{.ID}}/player" class="inline-form" data-user-player-form>
@@ -349,6 +379,19 @@
     </main>
 
     <script>
+        // A Tournaments only account needs tournament access: choosing it
+        // picks "own tournaments" if no access was chosen yet.
+        (function () {
+            var role = document.querySelector('[data-user-create-role]');
+            var access = document.querySelector('[data-user-create-tournaments]');
+            if (!role || !access) { return; }
+            role.addEventListener('change', function () {
+                if (role.value === '{{.TournamentsOnly}}' && access.value === 'none') {
+                    access.value = 'own';
+                }
+            });
+        })();
+
         function copyIssuedLink(button) {
             var input = document.getElementById('issued-link-url');
             input.select();

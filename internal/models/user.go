@@ -42,7 +42,10 @@ type Role string
 const (
 	RoleAdmin   Role = "admin"
 	RoleCaptain Role = "captain"
-	RolePlayer  Role = "player"
+	// RoleTournamentsOnly is stored as "player", the retired role value (see
+	// roles.go): it grants no league access. With tournament access (own or
+	// all) the account is shown as "Tournaments only".
+	RoleTournamentsOnly Role = "player"
 )
 
 // User represents an authenticated user
@@ -59,6 +62,10 @@ type User struct {
 	// 034) so that SELECT * still scans. It is always false and nothing reads
 	// it: nobody sets a password for someone else any more.
 	MustChangePassword bool `db:"must_change_password"`
+	// TournamentAccess is the stored tournament access (migration 036).
+	// Read it through TournamentAccessLevel, never directly: administrators
+	// and disabled accounts do not use the stored value.
+	TournamentAccess TournamentAccess `db:"tournament_access"`
 }
 
 // Session represents a user's authenticated session. The browser's cookie

@@ -32,12 +32,21 @@ var forbiddenPage = template.Must(template.New("forbidden").Parse(`<!DOCTYPE htm
 <body>
     <main class="container">
         <div class="forbidden-box" data-testid="forbidden-page">
+            {{if .Tournaments}}
+            <h1>Your account is for tournaments</h1>
+            <p data-testid="forbidden-message">Your account runs the club's tournaments. This part of the site is for the club's league, so it is not part of your account. If you need it, ask one of the club's administrators.</p>
+            <p class="forbidden-actions">
+                <a href="{{.TournamentHome}}" data-testid="forbidden-tournament-home-link">Go to your tournament home</a>
+                <a href="/account/signin-methods">Your sign-in methods</a>
+            </p>
+            {{else}}
             <h1>This page is for administrators</h1>
             <p data-testid="forbidden-message">{{if .Captain}}Your account is a captain account: you can run every team, but this part of the site is kept for the club's administrators.{{else}}Your account does not have a role that can use this part of the site.{{end}} If you need it, ask one of the club's administrators.</p>
             <p class="forbidden-actions">
                 {{if .Captain}}<a href="/admin/league/dashboard" data-testid="forbidden-dashboard-link">Back to the dashboard</a>{{end}}
                 <a href="/account/signin-methods">Your sign-in methods</a>
             </p>
+            {{end}}
         </div>
     </main>
 </body>
@@ -60,7 +69,15 @@ func WriteForbidden(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusForbidden)
-	if err := forbiddenPage.Execute(w, struct{ Captain bool }{models.RoleAtLeast(role, models.RoleCaptain)}); err != nil {
+	data := struct {
+		Captain        bool
+		Tournaments    bool // no league role, but tournament access: offer the tournament home
+		TournamentHome string
+	}{Captain: models.RoleAtLeast(role, models.RoleCaptain), TournamentHome: TournamentHomePath}
+	if user, err := GetUserFromContext(r.Context()); err == nil && !data.Captain {
+		data.Tournaments = HomePathFor(user, "") == TournamentHomePath
+	}
+	if err := forbiddenPage.Execute(w, data); err != nil {
 		log.Printf("Failed to render the forbidden page: %v", err)
 	}
 }

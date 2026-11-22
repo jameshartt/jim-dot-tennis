@@ -187,7 +187,7 @@ func (h *PasskeyHandler) loginFinish(w http.ResponseWriter, r *http.Request) {
 	h.service.SetSessionCookie(w, session)
 	target := safeRedirectPath(r.URL.Query().Get("redirect"))
 	if target == "" {
-		target = h.redirectPath
+		target = HomePathFor(*user, h.redirectPath)
 	}
 	writePasskeyJSON(w, http.StatusOK, map[string]string{"redirect": target})
 }
@@ -472,7 +472,7 @@ func (h *PasskeyHandler) signInMethods(w http.ResponseWriter, r *http.Request) {
 		Next:              safeRedirectPath(q.Get("next")),
 		Enrol:             q.Get("enrol") != "",
 		IsAdmin:           user.Role == models.RoleAdmin,
-		HomePath:          h.redirectPath,
+		HomePath:          HomePathFor(*user, h.redirectPath),
 	}
 	for _, c := range creds {
 		blocked := c.CloneWarningAt != nil

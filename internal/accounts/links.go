@@ -162,24 +162,13 @@ func getLink(ctx context.Context, db sqlx.QueryerContext, where string, arg any)
 
 // Invite makes a new active account with no password and an invite link for
 // it, in one transaction. playerID optionally links the account to a player
-// record (nil or "" for none).
+// record (nil or "" for none). role is admin or captain; the account has no
+// tournament access (InviteAccount makes the other kinds).
 func (s *Service) Invite(ctx context.Context, actor Actor, username string, role models.Role, playerID *string) (Account, IssuedLink, error) {
-	var (
-		account Account
-		issued  IssuedLink
-	)
-	err := s.inTx(ctx, func(tx *sqlx.Tx) error {
-		var err error
-		if account, err = s.createAccount(ctx, tx, actor, username, role, playerID); err != nil {
-			return err
-		}
-		issued, err = s.issueLink(ctx, tx, actor, account, LinkInvite)
-		return err
-	})
-	if err != nil {
+	if _, err := ParseRole(string(role)); err != nil {
 		return Account{}, IssuedLink{}, err
 	}
-	return account, issued, nil
+	return s.InviteAccount(ctx, actor, NewAccount{Username: username, Role: role, PlayerID: playerID})
 }
 
 // IssueLink makes a link of kind for account userID and cancels that

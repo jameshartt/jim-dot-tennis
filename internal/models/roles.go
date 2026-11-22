@@ -9,13 +9,17 @@ package models
 //   - admin: everything a captain can do, plus running the instance (users,
 //     sessions, settings, seasons, imports configuration, backups).
 //
-// RolePlayer is retired: players use link tokens, never accounts. An account
-// left with the player role (from before WI-132) can sign in but reaches
-// nothing that needs a role.
+// The stored role value "player" (RoleTournamentsOnly) grants no league
+// access: players use link tokens, never accounts. Since WI-153 the value is
+// reused for "Tournaments only" accounts, which reach no league page; what
+// they can use is their tournament access (users.tournament_access, read
+// through EffectiveTournamentAccess). An account left with the player role
+// from before WI-132 has no tournament access, so it can sign in but reaches
+// nothing until an administrator gives it a role or tournament access.
 
 // RoleAtLeast reports whether role grants at least min. An administrator has
-// every captain permission; any other role (player, empty, unknown) grants
-// nothing.
+// every captain permission; any other role (tournaments only, empty, unknown)
+// grants nothing in the league.
 func RoleAtLeast(role, min Role) bool {
 	rank := func(r Role) int {
 		switch r {

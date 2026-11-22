@@ -566,11 +566,19 @@ They work while the app is running; there is no need to stop it. The one
 exception is "restore", which only runs while the app is stopped.
 
 Accounts
-  user list                        Show every account: its role, whether it can
-                                   sign in, and when it last signed in.
-  user create <username> --role <role>
+  user list                        Show every account: its role, its tournament
+                                   access, whether it can sign in, and when it
+                                   last signed in.
+  user create <username> --role <role> [--tournaments <access>]
                                    Make a new account. <role> is admin (runs the
-                                   instance) or captain (runs every team).
+                                   instance), captain (runs every team) or
+                                   tournaments (Tournaments only: runs the
+                                   club's tournaments and nothing else).
+                                   <access> is own (their own tournaments and
+                                   any they are given) or all (every
+                                   tournament). A Tournaments only account
+                                   needs one; a captain has none unless you
+                                   give it; administrators always have all.
                                    Prints an invite link once; the person who
                                    opens it sets up their own passkey or
                                    password. The link works once, for 48 hours.
@@ -587,6 +595,11 @@ Accounts
   user enable <username>           Let a disabled account sign in again.
   user role <username> <role>      Change an account's role. Refused if it would
                                    leave no administrator who can sign in.
+  user tournaments <username> <access>
+                                   Change an account's tournament access: none,
+                                   own or all. Not for administrators (they
+                                   always have all). A Tournaments only account
+                                   keeps own or all; to stop it, disable it.
   user sessions revoke <username>  Sign an account out on every device.
 
 Passkeys for administrators

@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 
+	"jim-dot-tennis/internal/accounts"
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
@@ -81,13 +82,19 @@ func New(db *database.DB, templateDir string, courthiveAPIURL string, homeClub c
 	}
 }
 
-// RegisterRoutes registers all admin routes with the given mux
+// SetTournamentAccessObserver sets who the users and sessions pages' account
+// service tells about tournament access changes (accounts.TournamentAccessObserver).
+func (h *Handler) SetTournamentAccessObserver(o accounts.TournamentAccessObserver) {
+	h.service.accounts.SetTournamentAccessObserver(o)
+}
+
 // SetPasskeysAvailable tells the settings page how to find out whether
 // passkeys work at a request's address (auth.Passkeys.Available).
 func (h *Handler) SetPasskeysAvailable(available func(*http.Request) bool) {
 	h.service.passkeysAvailable = available
 }
 
+// RegisterRoutes registers all admin routes with the given mux
 func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middleware) {
 	// Create admin mux for all admin routes. Every pattern must have a role
 	// declared in adminRouteRoles (roles.go); the mux enforces it per request.

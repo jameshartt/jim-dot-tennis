@@ -34,6 +34,7 @@ import (
 	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/secrets"
 	"jim-dot-tennis/internal/setup"
+	"jim-dot-tennis/internal/tournamenthome"
 	"jim-dot-tennis/internal/version"
 	"jim-dot-tennis/internal/webpush"
 )
@@ -165,6 +166,7 @@ func main() {
 		courthiveAPIURL = "http://courthive-server:8383"
 	}
 	adminHandler := admin.New(db, templateDir, courthiveAPIURL, homeClub, homeClub.BHPLTAClubCode(), pushService)
+	adminHandler.SetTournamentAccessObserver(tournamentAccessObserver())
 
 	// Set up players handlers
 	playersHandler := players.New(db, templateDir, homeClub)
@@ -239,6 +241,10 @@ func main() {
 
 	// Admin routes (protected)
 	adminHandler.RegisterRoutes(mux, authMiddleware)
+
+	// Tournament home page (outside /admin/league: signed in, with tournament
+	// access; the handler checks the access itself)
+	tournamenthome.New(homeClub.ClubSettings(), templateDir).RegisterRoutes(mux, authMiddleware.RequireAuth)
 
 	// Public admin-related routes (e.g., club wrapped with lightweight password gate)
 	adminHandler.RegisterPublicRoutes(mux)
@@ -432,6 +438,14 @@ func getProjectRoot() (string, error) {
 }
 
 // loadTemplatesWithFuncs loads templates with function map
+// tournamentAccessObserver is told about committed changes to accounts'
+// tournament access, role, active state and sessions, by the users and
+// sessions pages and by the command line. Nothing listens yet; WI-152 puts
+// the tournament server here.
+func tournamentAccessObserver() accounts.TournamentAccessObserver {
+	return accounts.NoTournamentAccessObserver{}
+}
+
 func loadTemplatesWithFuncs(templateDir string, funcMap template.FuncMap) (*template.Template, error) {
 	// Create a new template with the function map (plus the role helpers the
 	// admin dashboard, which is among templates/*.html, uses)
