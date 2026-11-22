@@ -30,7 +30,7 @@ public tournament pages.
 |---|---|---|---|
 | Tournament server | CourtHive/competition-factory-server 4.19.1 | `ghcr.io/jameshartt/courthive-server` | None to the source. Build files only. |
 | Identity service | CourtHive/courthive-hiveid 0.5.0 | `ghcr.io/jameshartt/courthive-hiveid` | None. Built from the exact upstream commit; no fork. Build files live in `deploy/images/courthive-hiveid/`. |
-| TMX | CourtHive/TMX 8.61.0 | `ghcr.io/jameshartt/courthive-tmx` | Three small source changes (section 2). |
+| TMX | CourtHive/TMX 8.61.0 | `ghcr.io/jameshartt/courthive-tmx` | Five small source changes (section 2). |
 | Public pages | CourtHive/courthive-public 1.23.7 | `ghcr.io/jameshartt/courthive-public` | Five small source changes (section 2). |
 
 All four are MIT, copyright Charles Allen (CourtHive). MIT allows
@@ -70,6 +70,13 @@ owns every other path on the origin, so CourtHive services sit under
   no longer be needed; it is harmless and can be revisited.
 - A `PUBLIC_URL` that starts with `/` is joined to the page's origin, so shared
   links and QR codes carry the club's own address.
+- `VITE_EXTERNAL_LOGIN_URL=/tournament-home/open`: TMX's "Log in" goes to
+  jim-dot-tennis instead of opening TMX's own form.
+- After the single-use token is exchanged, TMX renews its session once. The
+  tournament server's hand-over session names the club by id only; the renewed
+  session from the identity service carries the club's record, which TMX needs
+  to open a tournament from the server and to enable publishing. Found by the
+  end-to-end test; worth offering upstream as a server fix.
 
 ### Public pages
 
@@ -352,6 +359,15 @@ to approve, and the old accounts stay until then.
 - Sockets were watched for 30 to 40 seconds: stable long-polling, and one
   refused score-relay connection with no retry loop.
 
-Not tested: creating a tournament through TMX and seeing it on the public
-pages (WI-147); the upgrade on real data (WI-146); the fork CI workflows, which
-have never run.
+- The bundle end-to-end suite (`make test-e2e-bundle`, WI-147) runs the
+  shipped compose file and Caddyfile from nothing, tournaments on and off:
+  first-run set-up, tournament set-up, hand-over, creating and publishing a
+  tournament in TMX, the public pages (own host only), calendar sync, a
+  tournaments-only person, removal of access with a tournament session open,
+  sign-out, TMX's "Log in", the refused routes, and a fresh browser opening a
+  tournament from the server.
+
+Not tested: the upgrade on real data (WI-146 rehearses on synthetic data until
+a copy of jim.tennis's tournament database is available); the CI workflows in
+the forks and `bundle-smoke.yml`, which have never run because the images are
+not published.
