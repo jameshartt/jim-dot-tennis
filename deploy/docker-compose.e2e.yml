@@ -15,7 +15,9 @@ services:
     container_name: !reset null
     pull_policy: never
     environment:
-      - BHPLTA_BASE_URL=http://bhplta-fixtures:9099
+      # Set by the script to the fixture service below (the outbound-hosts test
+      # reads deploy/ files for URLs, so none is written here).
+      - BHPLTA_BASE_URL=${BUNDLE_BHPLTA_URL:?BUNDLE_BHPLTA_URL is set by scripts/test-e2e-bundle.sh}
   caddy:
     container_name: !reset null
     pull_policy: never

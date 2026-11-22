@@ -84,6 +84,7 @@ run_profile() {
   local logdir="$tmp/logs"
   mkdir -p "$logdir"
   export COMPOSE_PROJECT_NAME="$project" BUNDLE_PORT="$port" BUNDLE_RUNNER_IMAGE="$RUNNER_IMAGE"
+  export BUNDLE_BHPLTA_URL="http://bhplta-fixtures:9099"
   # A leftover COMPOSE_PROFILES in the caller's shell must not leak in.
   unset COMPOSE_PROFILES
   local dc=(docker compose -p "$project" --env-file "$envfile" "${COMPOSE_FILES[@]}")
