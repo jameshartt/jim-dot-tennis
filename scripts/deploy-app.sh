@@ -1,148 +1,106 @@
 #!/usr/bin/env bash
-# Deploy jim-dot-tennis app to production (jim.tennis).
+# Deploy a released version of jim-dot-tennis to production (jim.tennis).
 #
-# Rsyncs the Go source, templates, static assets, migrations, and the
-# root build inputs (Dockerfile, Dockerfile.import, .dockerignore) to the
-# DigitalOcean server, then backs up the DB, tags the current image for
-# rollback, rebuilds the app image, restarts the container, and verifies
-# it reports healthy before returning.
+# The server runs the published image ghcr.io/jameshartt/jim-dot-tennis at a
+# named version; nothing is built there and no source is copied to it. This
+# script sets JIM_DOT_TENNIS_VERSION in the server's .env, pulls that image,
+# restarts the app service only, waits for it to report healthy and checks
+# that /version says the version asked for.
 #
-# Why a script: the rsync set is easy to get wrong by hand. Skipping
-# migrations/ bakes stale migration files into the image (the app fails with
-# "no such column" on startup); skipping the Dockerfile/.dockerignore means
-# build changes silently never take effect on the server.
+# The app backs up its own database before it runs any migration (a
+# jim-dot-tennis-pre-migration-*.tar.gz in the backups folder on the data
+# volume) and refuses to start if that backup cannot be made.
 #
 # Usage:
-#   scripts/deploy-app.sh [OPTIONS]
+#   scripts/deploy-app.sh X.Y.Z       deploy that released version
+#   scripts/deploy-app.sh --current   print the version the server runs now
+#   scripts/deploy-app.sh --help
 #
-# Options:
-#   -n, --dry-run     Run rsync with --dry-run, skip build/restart.
-#   -s, --skip-build  Rsync only. Useful if you want to inspect changes
-#                     on the server before triggering a rebuild.
-#   -h, --help        Show this help.
+# The version is the image tag: no leading "v". Cut the release first (see
+# RELEASING.md). Going back to an older version that used an older database
+# is not just a version change: see "Roll back" in
+# docs/PRODUCTION_QUICK_REFERENCE.md.
 #
-# Compose/Caddy: this script does NOT sync docker-compose or Caddyfile (see the
-# note above the FILES list). Update those on the server by hand when needed.
+# Compose/Caddy: this script does not sync docker-compose or the Caddyfile.
+# Update those on the server by hand when needed.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
-# SERVER, SSH_KEY, REMOTE_PATH come from the environment or scripts/.deploy.env
-# (see scripts/.deploy.env.example); exits with a message if unset.
-. "$REPO_ROOT/scripts/lib-deploy-env.sh"
-APP_CONTAINER="jim-dot-tennis"
-
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-log()  { printf "${GREEN}==>${NC} %s\n" "$*"; }
-warn() { printf "${YELLOW}==>${NC} %s\n" "$*" >&2; }
-err()  { printf "${RED}==>${NC} %s\n" "$*" >&2; }
+log() { printf "${GREEN}==>${NC} %s\n" "$*"; }
+err() { printf "${RED}==>${NC} %s\n" "$*" >&2; }
 
 usage() {
   sed -n '/^# Deploy/,/^$/p' "$0" | sed -e 's/^# \{0,1\}//' -e '/^$/d'
   exit 0
 }
 
-DRY_RUN=0
-SKIP_BUILD=0
+[ $# -eq 1 ] || { err "Give one version, for example: scripts/deploy-app.sh 0.1.0"; exit 1; }
+case "$1" in
+  -h|--help) usage ;;
+esac
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    -n|--dry-run)    DRY_RUN=1; shift ;;
-    -s|--skip-build) SKIP_BUILD=1; shift ;;
-    -h|--help)       usage ;;
-    *)               err "Unknown option: $1"; exit 1 ;;
-  esac
-done
+# SERVER, SSH_KEY, REMOTE_PATH come from the environment or scripts/.deploy.env
+# (see scripts/.deploy.env.example); exits with a message if unset.
+. "$REPO_ROOT/scripts/lib-deploy-env.sh"
+APP_CONTAINER="jim-dot-tennis"
+IMAGE="ghcr.io/jameshartt/jim-dot-tennis"
 
-RSYNC_FLAGS="-avz --delete"
-if [ "$DRY_RUN" = "1" ]; then
-  RSYNC_FLAGS="$RSYNC_FLAGS --dry-run"
-  warn "DRY RUN — no changes will be made"
-fi
+remote() { ssh -i "$SSH_KEY" "$SERVER" "$@"; }
 
-SSH_OPT="ssh -i $SSH_KEY"
+running_version() {
+  remote "docker exec ${APP_CONTAINER} ./jim-dot-tennis version 2>/dev/null | head -1" || true
+}
 
-# Required source dirs. Order doesn't matter for correctness, but keep
-# migrations/ at the end so a forgotten one is the most-recent stderr.
-DIRS=(internal cmd templates static migrations)
-
-for dir in "${DIRS[@]}"; do
-  if [ ! -d "$dir" ]; then
-    err "Missing source dir: $dir"
-    exit 1
-  fi
-  log "Syncing $dir/ → ${SERVER}:${REMOTE_PATH}/${dir}/"
-  rsync $RSYNC_FLAGS -e "$SSH_OPT" "${dir}/" "${SERVER}:${REMOTE_PATH}/${dir}/"
-done
-
-# Root-level build inputs. Without these, a Dockerfile/.dockerignore change
-# never reaches the server and the rebuild silently uses the old build recipe;
-# a go.mod/go.sum change (new dependency) breaks the server build outright.
-# Compose files and the Caddyfile are deliberately NOT synced by this script,
-# and neither is deploy/. The reference deployment (deploy/docker-compose.yml,
-# deploy/Caddyfile, deploy/.env.example) lives in git, but changing the running
-# stack is a manual, deliberate step; this script only ships app source and the
-# build inputs below, then rebuilds and restarts the app service.
-FILES=(go.mod go.sum Dockerfile Dockerfile.import .dockerignore)
-
-for file in "${FILES[@]}"; do
-  if [ ! -f "$file" ]; then
-    err "Missing build file: $file"
-    exit 1
-  fi
-  log "Syncing $file → ${SERVER}:${REMOTE_PATH}/${file}"
-  rsync $RSYNC_FLAGS -e "$SSH_OPT" "$file" "${SERVER}:${REMOTE_PATH}/${file}"
-done
-
-if [ "$DRY_RUN" = "1" ]; then
-  log "Dry run complete."
+if [ "$1" = "--current" ]; then
+  running_version
   exit 0
 fi
 
-if [ "$SKIP_BUILD" = "1" ]; then
-  log "Skipping build/restart (--skip-build). Rsync done."
-  exit 0
+VERSION="$1"
+if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+  err "Not a version: $VERSION (expected X.Y.Z, no leading v)"
+  exit 1
 fi
 
-# Pre-deploy safety net: back up the sqlite DB and tag the current image so a
-# bad build/migration can be rolled back. Both are best-effort — a fresh server
-# with no prior image or DB shouldn't block the first deploy.
-log "Taking pre-deploy DB backup on ${SERVER}..."
-ssh -i "$SSH_KEY" "$SERVER" '
-  docker run --rm -v jim-dot-tennis-data:/data -v jim-dot-tennis-backups:/backups alpine sh -c \
-    "apk add --no-cache sqlite >/dev/null 2>&1 && ts=\$(date +%Y%m%d-%H%M%S) && sqlite3 /data/tennis.db \".backup /backups/pre-deploy-\$ts.db\" && echo pre-deploy-\$ts.db" \
-  || echo "(backup skipped — volume/DB not present)"
-'
+PREVIOUS="$(running_version)"
+log "Server runs now: ${PREVIOUS:-unknown}"
 
-log "Tagging current image as :prev for rollback..."
-ssh -i "$SSH_KEY" "$SERVER" '
-  img=$(docker inspect -f "{{.Config.Image}}" jim-dot-tennis 2>/dev/null) \
-  && docker tag "$img" jim-dot-tennis-app:prev \
-  && echo "rollback tag: jim-dot-tennis-app:prev -> $img" \
-  || echo "(no running image to tag — first deploy?)"
-'
+log "Pulling ${IMAGE}:${VERSION} on ${SERVER}..."
+remote "docker pull -q ${IMAGE}:${VERSION}"
 
-log "Building app image on ${SERVER}..."
-ssh -i "$SSH_KEY" "$SERVER" "cd ${REMOTE_PATH} && docker compose build app && docker compose up -d app"
+log "Setting JIM_DOT_TENNIS_VERSION=${VERSION} and restarting the app..."
+remote "cd ${REMOTE_PATH} \
+  && if grep -q '^JIM_DOT_TENNIS_VERSION=' .env; then \
+       sed -i 's/^JIM_DOT_TENNIS_VERSION=.*/JIM_DOT_TENNIS_VERSION=${VERSION}/' .env; \
+     else \
+       printf '\nJIM_DOT_TENNIS_VERSION=%s\n' '${VERSION}' >> .env; \
+     fi \
+  && docker compose up -d --no-deps app"
 
-log "Waiting for app to become healthy..."
-timeout=60
+log "Waiting for the app to become healthy..."
+timeout=90
 while [ $timeout -gt 0 ]; do
-  status=$(ssh -i "$SSH_KEY" "$SERVER" "docker inspect -f '{{.State.Health.Status}}' ${APP_CONTAINER}" 2>/dev/null || echo "missing")
+  status=$(remote "docker inspect -f '{{.State.Health.Status}}' ${APP_CONTAINER}" 2>/dev/null || echo "missing")
   if [ "$status" = "healthy" ]; then
-    log "App healthy."
-    log "Smoke check: $(curl -s -o /dev/null -w 'HTTP %{http_code} in %{time_total}s' https://jim.tennis/)"
+    got="$(curl -fsS https://jim.tennis/version || true)"
+    if [ "$got" != "$VERSION" ]; then
+      err "App is healthy but https://jim.tennis/version says '${got}', not '${VERSION}'."
+      exit 1
+    fi
+    log "jim.tennis runs ${VERSION} and is healthy."
+    log "Previous version was: ${PREVIOUS:-unknown} (see 'Roll back' in docs/PRODUCTION_QUICK_REFERENCE.md)"
     exit 0
   fi
-  sleep 2
-  timeout=$((timeout - 2))
+  sleep 3
+  timeout=$((timeout - 3))
 done
 
-err "App did not become healthy within 60s. Check: ssh ${SERVER} 'docker logs --tail 50 ${APP_CONTAINER}'"
+err "App did not become healthy within 90s. Check: ssh \$SERVER 'docker logs --tail 50 ${APP_CONTAINER}'"
 exit 1

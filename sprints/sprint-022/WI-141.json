@@ -10,7 +10,7 @@
     "WI-138",
     "WI-140"
   ],
-  "status": "not_started",
+  "status": "completed",
   "recommended_model": {
     "name": "Opus 5.5",
     "id": "claude-opus-5-5",
@@ -42,5 +42,6 @@
   "context": {
     "user_story": "As the maintainer, I want my own club on the same release path as everyone else.",
     "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
-  }
+  },
+  "completed_date": "2026-11-22"
 }

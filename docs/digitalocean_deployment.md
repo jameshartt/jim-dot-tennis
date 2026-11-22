@@ -501,30 +501,13 @@ If you're experiencing database problems:
 
 ### Migration Mismatches ("no such column" errors)
 
-If pages fail with errors like `no such column: latitude`, the database schema is out of sync with the deployed code. This happens when new migration files are added locally but not transferred to the server before rebuilding.
-
-**Root cause:** The Dockerfile `COPY migrations/ ./migrations/` bakes migrations into the image at build time. If the `migrations/` directory on the server is stale, the image will contain old migrations, and the app won't apply the new schema changes on startup.
-
-**Fix:**
-```bash
-# 1. Rsync migrations to the server
-rsync -avz --delete -e "ssh -i $SSH_KEY" \
-  ~/Development/Tennis/jim-dot-tennis/migrations/ $SERVER:$REMOTE_PATH/migrations/
-
-# 2. Rebuild the Go app image to pick up new migrations
-ssh -i $SSH_KEY $SERVER \
-  "cd $REMOTE_PATH && docker compose -f docker-compose.courthive.yml build app"
-
-# 3. Restart the app (migrations run automatically on startup)
-ssh -i $SSH_KEY $SERVER \
-  "cd $REMOTE_PATH && docker compose -f docker-compose.courthive.yml up -d app"
-
-# 4. Verify migration version
-ssh -i $SSH_KEY $SERVER \
-  "sqlite3 /var/lib/docker/volumes/jim-dot-tennis-data/_data/tennis.db 'SELECT version, dirty FROM schema_migrations;'"
-```
-
-**Prevention:** Always include `migrations/` in the rsync step when deploying the Go application. See the quick reference for the complete rsync list.
+Migrations are built into the released binary and run on startup, so the
+database and the code cannot drift apart the way they could when the image was
+built on the server from a hand-copied `migrations/` folder. If `/healthz`
+reports the database is behind or ahead of the binary, check which version is
+running (`curl -s https://jim.tennis/version`) and the startup log
+(`docker logs --tail 50 jim-dot-tennis`): a failed migration stops the app
+with the reason, and the pre-upgrade backup is in `/app/data/backups`.
 
 ### Docker Build Hangs / Server Unresponsive
 

@@ -6,7 +6,7 @@
 
 **Duration**: started 2026-11-21
 
-**Status**: In progress - WI-135 to WI-140 completed 2026-11-21; WI-141 (production switch) waits for the owner
+**Status**: Completed 2026-11-22 - WI-135 to WI-140 on 2026-11-21; release 0.1.0 published and jim.tennis moved onto it (WI-141) on 2026-11-22
 
 **Programme**: Part of the club-readiness programme (Sprints 019-024). Agreed constraints: BHPLTA clubs only; each club hosts its own instance; the original author has no access to any other club's instance; passkeys by default with passwords as an optional fallback; a real captain role; SQLite only; CourtHive bundled as an opt-in so clubs can run their own championships.
 
@@ -74,7 +74,7 @@ Each work item's JSON carries a `recommended_model` with the reason. In short:
 
 ## Outcome so far (2026-11-21)
 
-WI-135 to WI-140 are completed and merged on `sprint-022/packaging-ci-releases`. WI-141 (move jim.tennis onto the released image) is not started: it changes production and needs the owner present, a droplet snapshot and a published release first.
+WI-135 to WI-140 are completed and merged on `sprint-022/packaging-ci-releases`. WI-141 followed on 2026-11-22 (see the last section).
 
 - Verified on the final tree: `make check` passes; `make test-e2e-all`: main suite 226 passed (none skipped), passkey suite 12 passed, fresh install 13 passed; `make test-e2e-multiclub`: 10 passed.
 - No migrations added (latest is still 035; next free 036).
@@ -126,8 +126,21 @@ Independent review (Opus) of `internal/backup` and the CI and release workflows 
 
 ### Known leftovers
 
-- The server running on jim.tennis predates the data-folder lock, so `restore` cannot detect it on the first move (WI-141): stop the app first.
-- `scripts/deploy-app.sh` still builds on the server and its pre-deploy backup writes to the old backups volume; WI-141 retires that path.
 - `docker compose --profile test down -v` run from the repository would try to remove the local development data volume. An agent ran it once this sprint; Docker refused because the volume was in use. Worth guarding (for example marking the volume external).
 - Owner steps: push the first tag (after dating the CHANGELOG heading), make the ghcr.io package public once, add branch protection with the six CI checks, enable Dependabot.
 - `tennis.db.replaced-*` copies from restores are kept until removed by hand.
+
+## Release 0.1.0 and the production switch (2026-11-22)
+
+With the owner's go-ahead and a droplet snapshot taken by the owner first.
+
+- **CI**: first run on GitHub passed all six checks without changes (after a locked billing account, which failed every job in three seconds, was cleared by the owner).
+- **Release**: `v0.1.0` tagged on `main`; the release workflow passed on its first run (validate, CI, both binaries, image, verify, GitHub Release; promote skipped because 0.x is a pre-release). Two binaries and a checksums file are on the release; the image pulls without logging in.
+- **Rehearsal**: the released image was run on another machine against a copy of that day's production database. Pre-upgrade backup written, schema 29 to 35, integrity check ok, every table kept its row count except `sessions` (emptied on purpose by the Sprint 021 migration), five new tables.
+- **Switch (WI-141)**: old image tagged for rollback, compose file changed to the published image (template and static mounts removed, `APP_ENV=production`, healthcheck on `/healthz`, backup sidecar removed), app service recreated. The app wrote its pre-upgrade backup, migrated, and reports healthy; `https://jim.tennis/version` says `0.1.0`. CourtHive, Caddy, Redis and Postgres were not touched.
+- **Rollback**: the old image was started on the server against a copy of the pre-upgrade database and served pages; the procedure is in `docs/PRODUCTION_QUICK_REFERENCE.md` section 1.
+- **`scripts/deploy-app.sh`** now takes a version, pulls it and restarts; it builds nothing. It has not yet been used for a real deploy (the first switch was done by hand).
+
+Not checked after the switch: signing in, a player link and a push notification were not exercised by hand (nobody was signed in to test with); the public pages, `/login`, `/healthz` and `/version` respond, and the row counts match.
+
+Left on the server on purpose: the old source tree, `templates/` and `static/` (the rollback image reads them), the old backups volume, and the pre-upgrade database copy. The 8 accounts named in the startup warning still have passwords known outside the instance.
