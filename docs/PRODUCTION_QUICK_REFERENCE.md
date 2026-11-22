@@ -4,7 +4,7 @@
 **Domain:** jim.tennis
 **SSH:** `ssh -i $SSH_KEY $SERVER`
 **Path:** `$REMOTE_PATH/`
-**Reference deployment in git:** `deploy/docker-compose.yml`, `deploy/Caddyfile`, `deploy/.env.example`. The server-side commands below use the file name the server runs today (`docker-compose.courthive.yml`); the server is reconciled with the reference in WI-141. `scripts/deploy-app.sh` does not sync compose or the Caddyfile.
+**Reference deployment in git:** `deploy/docker-compose.yml`, `deploy/Caddyfile`, `deploy/.env.example`. Since 2026-11-22 the server's app service matches the reference: it runs the published image `ghcr.io/jameshartt/jim-dot-tennis` at the version named by `JIM_DOT_TENNIS_VERSION` in the server's `.env`. The server keeps two identical compose files, `docker-compose.yml` (what plain `docker compose` reads) and `docker-compose.courthive.yml` (what the `-f` commands below name); change both together. `scripts/deploy-app.sh` does not sync compose or the Caddyfile.
 **Go Version:** 1.26 (bumped from 1.25 on 2026-09-25; runtime image alpine:3.24)
 
 ---
@@ -13,32 +13,78 @@
 
 ### 1. Update Go Application (jim-dot-tennis)
 
-**Preferred: use the script.** Wraps the rsync set, build, restart, and a health check.
+The server runs a released image. Nothing is built on the server and no app
+source is copied to it. To ship a change: merge it, cut a release
+(`RELEASING.md`), then point the server at that version.
 
 ```bash
 cd ~/Development/Tennis/jim-dot-tennis
-./scripts/deploy-app.sh             # full deploy: rsync + build + restart + verify
-./scripts/deploy-app.sh --dry-run   # show what would change, no side effects
-./scripts/deploy-app.sh --skip-build # rsync only (inspect on server before rebuilding)
+./scripts/deploy-app.sh 0.1.1       # pull that version, restart the app, verify
+./scripts/deploy-app.sh --current   # what the server runs now
 ```
 
-**Or run the steps by hand (kept for reference / overrides):**
+**Or by hand on the server:**
 
 ```bash
-# Transfer and rebuild
-cd ~/Development/Tennis/jim-dot-tennis
-rsync -avz --delete -e "ssh -i $SSH_KEY" internal/ $SERVER:$REMOTE_PATH/internal/
-rsync -avz --delete -e "ssh -i $SSH_KEY" cmd/ $SERVER:$REMOTE_PATH/cmd/
-rsync -avz --delete -e "ssh -i $SSH_KEY" templates/ $SERVER:$REMOTE_PATH/templates/
-rsync -avz --delete -e "ssh -i $SSH_KEY" static/ $SERVER:$REMOTE_PATH/static/
-rsync -avz --delete -e "ssh -i $SSH_KEY" migrations/ $SERVER:$REMOTE_PATH/migrations/
-ssh -i $SSH_KEY $SERVER "cd $REMOTE_PATH && docker compose build app && docker compose up -d app"
+ssh -i $SSH_KEY $SERVER
+cd $REMOTE_PATH
+sed -i 's/^JIM_DOT_TENNIS_VERSION=.*/JIM_DOT_TENNIS_VERSION=0.1.1/' .env
+docker compose pull app && docker compose up -d --no-deps app
+docker logs --tail 20 jim-dot-tennis      # "ready" line names the version
+curl -s https://jim.tennis/version         # prints the version
 ```
 
-> **Do not forget `migrations/`!** Templates, static files and migrations are built into the binary (`embed.go`) when the image is built, and migrations run automatically on app startup. If new migrations exist in the source but are missing from the server, the build will bake in stale migration files and the app will fail with "no such column" errors at runtime. (The script always includes them.) A template or static change likewise needs the rebuild: the production app does not read `templates/` or `static/` from disk (only `TEMPLATE_RELOAD=true` does, for development), so any bind mounts of them in the server's compose file are ignored and can be removed.
+What happens on start: if the new version changes the database, the app first
+writes `jim-dot-tennis-pre-migration-<date>.tar.gz` into `/app/data/backups`,
+then migrates. If it cannot make that backup it does not start. `/healthz`
+returns 200 only when the database is at the version the binary expects.
 
-**Time:** ~2 minutes
-**Downtime:** ~10 seconds
+**Time:** under a minute once the release exists
+**Downtime:** a few seconds
+
+#### Roll back
+
+- **The new version did not change the database** (no "Backed up the database
+  before upgrading it" line in its log): set `JIM_DOT_TENNIS_VERSION` back to
+  the previous version and run `docker compose up -d --no-deps app`.
+- **It did change the database**: an older version refuses a newer database,
+  so go back to the pre-upgrade backup as well. Stop the app, set the old
+  version in `.env`, restore the `jim-dot-tennis-pre-migration-*.tar.gz` with
+  the old version's image (section 9, "Restore a backup"), start the app.
+  Anything entered since the upgrade is lost, so decide quickly.
+
+#### The switch to the released image (2026-11-22) and what it taught
+
+jim.tennis moved from "rsync the source and build on the server" (schema 29)
+to release 0.1.0 (schema 35) in one step. What was done, in order: droplet
+snapshot; a consistent copy of the database taken on the server with
+`sqlite3 ... ".backup"` and kept outside the data volume; a rehearsal of the
+upgrade on that copy on another machine using the released image; old image
+tagged `jim-dot-tennis-app:pre-0.1.0`; compose file edited (image instead of
+build, template/static mounts removed, `APP_ENV=production`, healthcheck on
+`/healthz`, backup sidecar removed); `docker compose up -d --no-deps app`.
+
+- **Rehearse on a copy of the real database with the real image first.** It
+  took two minutes and showed exactly what the log and the row counts would
+  look like, so the real switch held no surprises.
+- **Everyone is signed out by the upgrade from before 0.1.0.** Sessions are
+  ended on purpose (session tokens are stored hashed from schema 32 on).
+- **The startup log names accounts whose password is known outside the
+  instance** (accounts created by old migrations). Change those passwords.
+- **Rollback from 0.1.0 to the build before it** needs three things together:
+  the compose file kept beside the live one (`*.bak-20261122-pre-0.1.0`), the
+  image tag `jim-dot-tennis-app:pre-0.1.0`, and the pre-upgrade database. The
+  old image was started against a copy of the pre-upgrade database on the
+  server and served pages, so the combination is known to work. That image
+  reads `templates/` and `static/` from the server's disk, so those folders
+  must stay until this rollback is no longer wanted; after that the server
+  needs no app source at all.
+- **The old backup sidecar is gone**; its volume `jim-dot-tennis-backups` and
+  the daily copies in it were left in place and can be deleted once the in-app
+  backups have been running for a while.
+- **GitHub must be able to run Actions.** A locked billing account fails every
+  job in three seconds with "account is locked due to a billing issue", which
+  blocks both CI and the release. Nothing in the repository can fix that.
 
 ---
 

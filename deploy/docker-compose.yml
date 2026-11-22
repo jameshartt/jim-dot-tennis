@@ -23,7 +23,7 @@
 # Expected directory layout (paths below are relative to this file):
 #
 #   <parent>/
-#     jim-dot-tennis/              this repository (checkout or rsync target)
+#     jim-dot-tennis/              this repository checkout (only deploy/ is needed)
 #       deploy/                    this file, Caddyfile, .env
 #     competition-factory-server/  CourtHive API server source (built here)
 #     TMX/dist/                    pre-built TMX frontend, served at /tournaments

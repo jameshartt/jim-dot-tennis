@@ -172,7 +172,7 @@ Sprints 019-024 form the **club-readiness programme**: making the app installabl
 - **Schema**: 032 (must_change_password, retired), 033 (WebAuthn credentials and user handles), 034 (account links, nullable password hash), 035 (hashed sessions, account audit log)
 
 ### Sprint 022: Packaging, CI and Releases
-- **Status**: In progress (WI-135 to WI-140 completed 2026-11-21; WI-141, the production switch, waits for the owner)
+- **Status**: Completed 2026-11-22 (release 0.1.0 published; jim.tennis runs the released image)
 - **Work Items**: 7 (WI-135 to WI-141)
 - **Goal**: Self-contained binary (embedded assets, pure-Go SQLite), CI on every push, tagged releases with binaries and a multi-architecture image, safe upgrades, tested backup and restore, jim.tennis moved onto releases
 - **Directory**: `sprint-022/`
