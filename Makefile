@@ -136,7 +136,7 @@ dev: build run logs
 # ============================================================
 
 # Go image (matches Dockerfile builder stage)
-GO_IMAGE = golang:1.26-alpine
+GO_IMAGE = golang:1.27-alpine
 
 # Docker run for tools that compile the code (vet, deadcode, mod tidy, test).
 # SQLite is pure Go (modernc.org/sqlite), so there is no C toolchain and CGO is off.

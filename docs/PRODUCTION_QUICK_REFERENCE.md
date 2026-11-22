@@ -1026,7 +1026,7 @@ sign anyone out.
 
 ## Go Tooling (Sprint 004)
 
-All commands run inside Docker (no local Go install required). Uses `golang:1.26-alpine`.
+All commands run inside Docker (no local Go install required). Uses `golang:1.27-alpine`.
 
 ```bash
 # Static analysis

@@ -108,7 +108,7 @@ and licence.
 - Third-party actions are pinned to commit SHAs and updated by Dependabot. The
   base images in `Dockerfile`, `Dockerfile.e2e` and `Dockerfile.import` are
   pinned by digest with their tag kept in the reference
-  (`golang:1.26-alpine@sha256:...`), so a build never picks up a different base
+  (`golang:1.27-alpine@sha256:...`), so a build never picks up a different base
   image silently and Dependabot's docker updates bump tag and digest together.
   The Go version is read from `go.mod`.
 - To check the release build without publishing, build the same way the workflow
