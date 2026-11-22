@@ -18,6 +18,7 @@ import (
 	"jim-dot-tennis/internal/backup"
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
+	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/setup"
 	"jim-dot-tennis/internal/version"
@@ -39,11 +40,19 @@ They work while the app is running; there is no need to stop it. The one
 exception is "restore", which only runs while the app is stopped.
 
 Accounts
-  user list                        Show every account: its role, whether it can
-                                   sign in, and when it last signed in.
-  user create <username> --role <role>
+  user list                        Show every account: its role, its tournament
+                                   access, whether it can sign in, and when it
+                                   last signed in.
+  user create <username> --role <role> [--tournaments <access>]
                                    Make a new account. <role> is admin (runs the
-                                   instance) or captain (runs every team).
+                                   instance), captain (runs every team) or
+                                   tournaments (Tournaments only: runs the
+                                   club's tournaments and nothing else).
+                                   <access> is own (their own tournaments and
+                                   any they are given) or all (every
+                                   tournament). A Tournaments only account
+                                   needs one; a captain has none unless you
+                                   give it; administrators always have all.
                                    Prints an invite link once; the person who
                                    opens it sets up their own passkey or
                                    password. The link works once, for 48 hours.
@@ -60,6 +69,11 @@ Accounts
   user enable <username>           Let a disabled account sign in again.
   user role <username> <role>      Change an account's role. Refused if it would
                                    leave no administrator who can sign in.
+  user tournaments <username> <access>
+                                   Change an account's tournament access: none,
+                                   own or all. Not for administrators (they
+                                   always have all). A Tournaments only account
+                                   keeps own or all; to stop it, disable it.
   user sessions revoke <username>  Sign an account out on every device.
 
 Passkeys for administrators
@@ -219,6 +233,8 @@ type command struct {
 	name string   // "help", "user list", "user create", ...
 	args []string // positional arguments after the command words
 	role string   // --role
+	// tournaments is --tournaments (user create only).
+	tournaments string
 }
 
 // parseCommand turns args into a command. Flags may come before or after
@@ -247,6 +263,15 @@ func parseCommand(args []string) (command, error) {
 				value = args[i]
 			}
 			cmd.role = value
+		case "tournaments":
+			if !hasValue {
+				if i+1 >= len(args) {
+					return command{}, fmt.Errorf("%w: --tournaments needs a value: own or all", errUsage)
+				}
+				i++
+				value = args[i]
+			}
+			cmd.tournaments = value
 		default:
 			if strings.Contains(strings.ToLower(name), "pass") {
 				return command{}, fmt.Errorf("%w: passwords are never given on the command line. "+
@@ -268,6 +293,9 @@ func parseCommand(args []string) (command, error) {
 	noRole := func() error {
 		if cmd.role != "" {
 			return fmt.Errorf("%w: --role only goes with \"user create\" (to change a role use \"user role <username> <role>\")", errUsage)
+		}
+		if cmd.tournaments != "" {
+			return fmt.Errorf("%w: --tournaments only goes with \"user create\" (to change it use \"user tournaments <username> <access>\")", errUsage)
 		}
 		return nil
 	}
@@ -321,14 +349,27 @@ func parseCommand(args []string) (command, error) {
 			return cmd, noRole()
 		case "create":
 			cmd.name = "user create"
-			if err := need(1, "user create <username> --role <admin|captain>"); err != nil {
+			if err := need(1, "user create <username> --role <admin|captain|tournaments> [--tournaments <own|all>]"); err != nil {
 				return command{}, err
 			}
 			if cmd.role == "" {
-				return command{}, fmt.Errorf("%w: say which role the new account has: --role admin or --role captain", errUsage)
+				return command{}, fmt.Errorf("%w: say which role the new account has: --role admin, --role captain or --role tournaments", errUsage)
 			}
-			if _, err := accounts.ParseRole(cmd.role); err != nil {
-				return command{}, fmt.Errorf("%w: %v", errUsage, err)
+			role, err := accounts.ParseAccountType(cmd.role)
+			if err != nil {
+				return command{}, fmt.Errorf("%w: the role must be admin, captain or tournaments", errUsage)
+			}
+			access := models.TournamentAccessNone
+			if cmd.tournaments != "" {
+				if access, err = accounts.ParseTournamentAccess(cmd.tournaments); err != nil {
+					return command{}, fmt.Errorf("%w: --tournaments must be own or all", errUsage)
+				}
+			}
+			switch {
+			case role == models.RoleTournamentsOnly && access == models.TournamentAccessNone:
+				return command{}, fmt.Errorf("%w: a Tournaments only account needs --tournaments own or --tournaments all", errUsage)
+			case role == models.RoleAdmin && cmd.tournaments != "":
+				return command{}, fmt.Errorf("%w: administrators always have every tournament: leave out --tournaments", errUsage)
 			}
 			return cmd, nil
 		case "reset", "disable", "enable":
@@ -343,6 +384,15 @@ func parseCommand(args []string) (command, error) {
 				return command{}, err
 			}
 			if _, err := accounts.ParseRole(cmd.args[1]); err != nil {
+				return command{}, fmt.Errorf("%w: %v", errUsage, err)
+			}
+			return cmd, noRole()
+		case "tournaments":
+			cmd.name = "user tournaments"
+			if err := need(2, "user tournaments <username> <none|own|all>"); err != nil {
+				return command{}, err
+			}
+			if _, err := accounts.ParseTournamentAccess(cmd.args[1]); err != nil {
 				return command{}, fmt.Errorf("%w: %v", errUsage, err)
 			}
 			return cmd, noRole()
@@ -428,18 +478,21 @@ func openCLIDatabase(ctx context.Context) (*database.DB, error) {
 
 func (cmd command) run(ctx context.Context, c cliOut, db *database.DB) error {
 	svc := accounts.New(db)
+	svc.SetTournamentAccessObserver(tournamentAccessObserver())
 	actor := accounts.CLIActor(cmd.name)
 	switch cmd.name {
 	case "user list":
 		return userList(ctx, c, svc)
 	case "user create":
-		return userCreate(ctx, c, db, svc, actor, cmd.args[0], cmd.role)
+		return userCreate(ctx, c, db, svc, actor, cmd.args[0], cmd.role, cmd.tournaments)
 	case "user reset":
 		return userReset(ctx, c, db, svc, actor, cmd.args[0])
 	case "user disable", "user enable":
 		return userSetActive(ctx, c, svc, actor, cmd.args[0], cmd.name == "user enable")
 	case "user role":
 		return userRole(ctx, c, svc, actor, cmd.args[0], cmd.args[1])
+	case "user tournaments":
+		return userTournaments(ctx, c, svc, actor, cmd.args[0], cmd.args[1])
 	case "user sessions revoke":
 		return userRevokeSessions(ctx, c, svc, actor, cmd.args[0])
 	case "setup code":
@@ -461,7 +514,7 @@ func userList(ctx context.Context, c cliOut, svc *accounts.Service) error {
 		return nil
 	}
 	tw := tabwriter.NewWriter(c.out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "USERNAME\tROLE\tCAN SIGN IN\tLAST SIGNED IN\tSIGNED IN ON\tNOTE")
+	fmt.Fprintln(tw, "USERNAME\tROLE\tTOURNAMENTS\tCAN SIGN IN\tLAST SIGNED IN\tSIGNED IN ON\tNOTE")
 	admins := 0
 	for _, a := range list {
 		if a.IsActiveAdmin() {
@@ -479,7 +532,11 @@ func userList(ctx context.Context, c cliOut, svc *accounts.Service) error {
 		if a.SignInMethods() == 0 {
 			note = "no way to sign in yet (invite not used)"
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d device(s)\t%s\n", a.Username, a.Role, status, last, a.ActiveSessions, note)
+		tournaments := string(a.TournamentAccess)
+		if a.Role == models.RoleAdmin {
+			tournaments = "all (administrator)"
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%d device(s)\t%s\n", a.Username, a.RoleLabel(), tournaments, status, last, a.ActiveSessions, note)
 	}
 	if err := tw.Flush(); err != nil {
 		return err
@@ -492,16 +549,35 @@ func userList(ctx context.Context, c cliOut, svc *accounts.Service) error {
 	return nil
 }
 
-func userCreate(ctx context.Context, c cliOut, db *database.DB, svc *accounts.Service, actor accounts.Actor, username, roleName string) error {
-	role, err := accounts.ParseRole(roleName)
+func userCreate(ctx context.Context, c cliOut, db *database.DB, svc *accounts.Service, actor accounts.Actor, username, roleName, accessName string) error {
+	role, err := accounts.ParseAccountType(roleName)
 	if err != nil {
 		return err
 	}
-	a, link, err := svc.Invite(ctx, actor, username, role, nil)
+	access := models.TournamentAccessNone
+	if accessName != "" {
+		if access, err = accounts.ParseTournamentAccess(accessName); err != nil {
+			return err
+		}
+	}
+	var (
+		a    accounts.Account
+		link accounts.IssuedLink
+	)
+	if role != models.RoleTournamentsOnly && access == models.TournamentAccessNone {
+		// A plain administrator or captain.
+		a, link, err = svc.Invite(ctx, actor, username, role, nil)
+	} else {
+		a, link, err = svc.InviteAccount(ctx, actor, accounts.NewAccount{Username: username, Role: role, TournamentAccess: access})
+	}
 	if err != nil {
 		return err
 	}
-	c.printf("Created the account %q (%s). It has no password or passkey yet.\n\n", a.Username, a.Role)
+	kind := a.RoleLabel()
+	if a.TournamentAccess != models.TournamentAccessNone {
+		kind += ", " + strings.ToLower(a.TournamentAccess.Label())
+	}
+	c.printf("Created the account %q (%s). It has no password or passkey yet.\n\n", a.Username, kind)
 	printLink(ctx, c, db, link)
 	c.printf("Give it to the person who will use %q. When they open it they set up their own\n"+
 		"passkey or password and are signed in.\n", a.Username)
@@ -615,6 +691,30 @@ func userRole(ctx context.Context, c cliOut, svc *accounts.Service, actor accoun
 	c.printf("Changed %q from %s to %s.\n", a.Username, previous, role)
 	if !a.IsActive {
 		c.printf("This account is disabled. To let it sign in, run:\n    jim-dot-tennis user enable %s\n", a.Username)
+	}
+	return nil
+}
+
+func userTournaments(ctx context.Context, c cliOut, svc *accounts.Service, actor accounts.Actor, username, accessName string) error {
+	access, err := accounts.ParseTournamentAccess(accessName)
+	if err != nil {
+		return err
+	}
+	a, err := svc.Find(ctx, username)
+	if err != nil {
+		return err
+	}
+	if a.Role != models.RoleAdmin && a.TournamentAccess == access {
+		c.printf("%q already has %s; nothing changed.\n", a.Username, strings.ToLower(access.Label()))
+		return nil
+	}
+	previous, err := svc.SetTournamentAccess(ctx, actor, a.ID, access)
+	if err != nil {
+		return err
+	}
+	c.printf("Changed the tournament access of %q from %s to %s.\n", a.Username, previous, access)
+	if !a.IsActive {
+		c.printf("This account is disabled, so it cannot use tournaments until it is enabled:\n    jim-dot-tennis user enable %s\n", a.Username)
 	}
 	return nil
 }

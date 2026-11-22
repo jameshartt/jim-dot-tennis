@@ -84,11 +84,11 @@ func (h *Handler) LoginHandler() http.HandlerFunc {
 		cookie, err := r.Cookie(h.service.config.CookieName)
 		if err == nil {
 			// Validate the session
-			_, err := h.service.ValidateSession(cookie.Value, r)
+			session, err := h.service.ValidateSession(cookie.Value, r)
 			if err == nil {
 				target := safeRedirectPath(r.URL.Query().Get("redirect"))
 				if target == "" {
-					target = h.redirectPath
+					target = h.service.HomePath(r.Context(), session.UserID, h.redirectPath)
 				}
 				// Valid session, redirect to the target page
 				http.Redirect(w, r, target, http.StatusSeeOther)
@@ -143,7 +143,7 @@ func (h *Handler) LoginHandler() http.HandlerFunc {
 				redirectTo = safeRedirectPath(r.URL.Query().Get("redirect"))
 			}
 			if redirectTo == "" {
-				redirectTo = h.redirectPath
+				redirectTo = h.service.HomePath(r.Context(), session.UserID, h.redirectPath)
 			}
 			if redirectTo == "" {
 				log.Printf("WARNING: redirectPath is empty, defaulting to /admin/league")

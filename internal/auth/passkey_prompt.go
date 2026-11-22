@@ -66,6 +66,9 @@ func (h *PasskeyHandler) dismissPasskeyPrompt(w http.ResponseWriter, r *http.Req
 	next := safeRedirectPath(r.PostFormValue("next"))
 	if next == "" {
 		next = h.redirectPath
+		if user, err := GetUserFromContext(r.Context()); err == nil {
+			next = HomePathFor(user, h.redirectPath)
+		}
 	}
 	http.Redirect(w, r, next, http.StatusSeeOther)
 }

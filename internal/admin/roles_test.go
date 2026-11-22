@@ -105,7 +105,7 @@ func newRoleMatrixEnv(t *testing.T) roleMatrixEnv {
 	// administrator from an earlier release needs no data change to keep
 	// full access. A leftover player-role account must reach nothing.
 	cookies := map[models.Role]*http.Cookie{}
-	for _, role := range []models.Role{models.RoleAdmin, models.RoleCaptain, models.RolePlayer} {
+	for _, role := range []models.Role{models.RoleAdmin, models.RoleCaptain, models.RoleTournamentsOnly} {
 		res, err := e.db.Exec(`INSERT INTO users (username, password_hash, role, is_active, created_at, last_login_at) VALUES (?, NULL, ?, TRUE, ?, ?)`,
 			"user-"+string(role), string(role), time.Now(), time.Now())
 		if err != nil {
@@ -169,7 +169,7 @@ func TestAdminRouteRoleMatrix(t *testing.T) {
 			if rec := m.do(method, path, ""); rec.Code != http.StatusSeeOther || !strings.HasPrefix(rec.Header().Get("Location"), "/login?redirect=") {
 				t.Errorf("%s anonymous: %d %q, want 303 to /login", name, rec.Code, rec.Header().Get("Location"))
 			}
-			if rec := m.do(method, path, models.RolePlayer); rec.Code != http.StatusForbidden {
+			if rec := m.do(method, path, models.RoleTournamentsOnly); rec.Code != http.StatusForbidden {
 				t.Errorf("%s player: %d, want 403", name, rec.Code)
 			}
 			if rec := m.do(method, path, models.RoleAdmin); rec.Code != http.StatusOK || rec.Body.String() != reachedBody {
@@ -186,7 +186,7 @@ func TestAdminRouteRoleMatrix(t *testing.T) {
 	}
 
 	// /admin/league itself redirects anyone who can use the dashboard.
-	for role, want := range map[models.Role]int{"": http.StatusSeeOther, models.RolePlayer: http.StatusForbidden, models.RoleCaptain: http.StatusFound, models.RoleAdmin: http.StatusFound} {
+	for role, want := range map[models.Role]int{"": http.StatusSeeOther, models.RoleTournamentsOnly: http.StatusForbidden, models.RoleCaptain: http.StatusFound, models.RoleAdmin: http.StatusFound} {
 		rec := m.do(http.MethodGet, adminRootPath, role)
 		if rec.Code != want {
 			t.Errorf("GET %s as %q: %d, want %d", adminRootPath, role, rec.Code, want)
@@ -312,7 +312,7 @@ func TestForbiddenResponses(t *testing.T) {
 	}
 
 	// A player-role account is not offered the dashboard.
-	rec = m.do(http.MethodGet, "/admin/league/dashboard", models.RolePlayer)
+	rec = m.do(http.MethodGet, "/admin/league/dashboard", models.RoleTournamentsOnly)
 	if rec.Code != http.StatusForbidden || strings.Contains(rec.Body.String(), `href="/admin/league/dashboard"`) {
 		t.Errorf("player 403: %d\n%s", rec.Code, rec.Body.String())
 	}
@@ -321,7 +321,7 @@ func TestForbiddenResponses(t *testing.T) {
 func TestCanUse(t *testing.T) {
 	captain := &models.User{Role: models.RoleCaptain}
 	admin := models.User{Role: models.RoleAdmin}
-	player := &models.User{Role: models.RolePlayer}
+	player := &models.User{Role: models.RoleTournamentsOnly}
 	var nobody *models.User
 	cases := []struct {
 		user   interface{}

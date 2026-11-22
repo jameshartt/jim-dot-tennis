@@ -133,7 +133,7 @@ func TestSettingsAdminOnly(t *testing.T) {
 	if rec := e.do(get(), ""); rec.Code != http.StatusUnauthorized {
 		t.Errorf("signed out GET: %d", rec.Code)
 	}
-	for _, role := range []models.Role{models.RoleCaptain, models.RolePlayer} {
+	for _, role := range []models.Role{models.RoleCaptain, models.RoleTournamentsOnly} {
 		if rec := e.do(get(), role); rec.Code != http.StatusForbidden {
 			t.Errorf("%s GET: %d", role, rec.Code)
 		}

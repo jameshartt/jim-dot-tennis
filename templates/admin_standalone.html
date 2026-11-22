@@ -434,6 +434,11 @@
                                 <span class="action-link-icon">&#127941;</span> Manage Tournaments
                             </a>
                             {{end}}
+                            {{if and .Features.Tournaments .TournamentHomePath}}
+                            <a href="{{.TournamentHomePath}}" class="action-link" data-testid="nav-tournament-home">
+                                <span class="action-link-icon">&#127934;</span> Open Tournament Management
+                            </a>
+                            {{end}}
                         </div>
                     </div>
 
