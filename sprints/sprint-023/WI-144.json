@@ -1,7 +1,7 @@
 {
   "id": "WI-144",
   "title": "Opt-in tournament stack in the packaged deployment",
-  "description": "Add the tournament stack to the released deployment as a compose profile that is off by default: Postgres, Redis, the tournament server, and the Caddy routes for /tournaments and /public alongside the app. Turning it on is one documented step (enable the profile, then switch on 'Tournaments' in settings from WI-122). All secrets (database password, the server's signing secret) are generated on the club's server on first start and stored in its own environment file or volume; nothing is defaulted. The tournament server's port is not published to the internet; only Caddy is. Resource limits reflect the footprint measured in WI-142.",
+  "description": "Add the tournament stack to the released deployment as a compose profile that is off by default: Postgres, Redis, the tournament server, the identity service, one-shot services that fill the TMX and public-pages volumes and create the service account, and the Caddy routes. Turning it on is one documented step (enable the profile, then switch on 'Tournaments' in settings). Every secret is generated on the club's server on first start: the ES256 key pair and key id, the signer token, the service account password, the database password and the tournament server's unused JWT secret. Nothing is defaulted. Only Caddy is reachable from outside.",
   "type": "infrastructure",
   "priority": "high",
   "complexity": "M",
@@ -17,15 +17,16 @@
     "rationale": "Multi-service deployment design with secret generation and health ordering."
   },
   "acceptance_criteria": [
-    "With the profile off, only the app and Caddy run, and the app shows no tournament links",
-    "With the profile on, /tournaments (TMX) and /public (public pages) work under the club's own domain over HTTPS",
-    "Every secret is generated locally on first start; the compose file contains no password, and startup fails clearly rather than falling back to a default",
-    "Only ports 80 and 443 are exposed publicly",
-    "Services start in dependency order with health checks, on a server of the documented minimum size",
+    "With the profile off, only the app and Caddy run, Caddy starts without the tournament services, and the app shows no tournament links",
+    "With the profile on, /tournaments and /public work under the club's own domain over HTTPS",
+    "Every secret is generated locally by one documented step; the compose file contains none, and startup fails clearly if one is missing rather than falling back to a default",
+    "The tournament server runs with JWT_ACCEPT_HS256=false and holds only the public key; the identity service holds the private key and has no JWT_SECRET",
+    "The app receives the service account password and the internal addresses of the tournament server and identity service only when the profile is on",
+    "The proxy routes and refusals are exactly those in the design note, section 4, including removal of the Cookie header on CourtHive routes",
+    "Only ports 80 and 443 are published",
+    "Services start in dependency order with health checks; memory limits: tournament server 512 MB, identity service 256 MB, Postgres 384 MB, Redis 64 MB",
     "Disabling the profile later leaves tournament data intact on its volume",
-    "When the profile is on, the app container also receives the tournament server's signing secret (COURTHIVE_JWT_SECRET); when off it does not need it",
-    "One-shot services copy the front-end files into their volumes (emptying them first) and create the instance service account with a random, discarded password",
-    "Memory limits: tournament server 512 MB, Postgres 384 MB, Redis 64 MB"
+    "The paths /api/rankings and /epixodic at the origin root are answered with 404 by the proxy, not passed to the app"
   ],
   "technical_notes": {
     "files_to_modify": [
@@ -37,11 +38,10 @@
       "deploy/init-secrets.sh or an equivalent first-start step in the app CLI"
     ],
     "notes": [
-      "Start from the live production stack captured in WI-113.",
-      "The app reaches the server at COURTHIVE_API_URL (default http://courthive-server:8383).",
-      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22): minimum server is 1 GB RAM for league only and 2 GB with tournaments (or 1 GB plus 2 GB swap); 20 GB disk.",
-      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22): Caddy must start and serve the app with the profile off; tournament routes are present only when it is on.",
-      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22): the server's port is reached by the app over the internal network; privileged routes are refused at Caddy (list in section 4; the rules themselves land with WI-152)."
+      "See docs/courthive_bundle_design.md (rewritten 2026-11-22 for latest upstream), sections 3 and 4. The test stack used there (compose file and Caddyfile) is the starting point.",
+      "The service account is created with: node src/scripts/admin-user.mjs ensure -e service@jim-dot-tennis.invalid -p <password> (inside the server image; exits 0 when it already exists).",
+      "Set on the tournament server: PERSONS_DISABLED=true, PERSONS_BASE_URL=disabled, DECLARATIONS_DISABLED=true, AMS_DISABLED=true, APP_MODE=production (the value 'development' enables a built-in administrator with a published password), TMX_URL=/tournaments/.",
+      "PEM keys work in an environment file as one line with \\n escapes."
     ]
   },
   "testing_requirements": [

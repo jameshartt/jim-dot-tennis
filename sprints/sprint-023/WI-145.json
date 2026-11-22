@@ -1,7 +1,7 @@
 {
   "id": "WI-145",
   "title": "Provision the club's tournament provider and administrator automatically",
-  "description": "A working stack still needs CourtHive-side setup that today is done by hand with scripts and copied tokens. When an administrator switches Tournaments on, the app performs it against the local tournament server using the server's provisioner interface: it signs short-lived tokens as the instance service account with the tournament server's signing secret, creates a provisioner named jim-dot-tennis and the club's provider owned by it, creates the permanent never-used 'instance' provider administrator, records the provisioner and provider ids, and registers the provider in the app so calendar sync works immediately. No person receives a tournament credential: people reach tournament management through the hand-over in WI-152. The step is safe to repeat.",
+  "description": "A working stack still needs CourtHive-side set-up. When an administrator switches Tournaments on, the app performs it against the local tournament stack with internal/courthive: it signs in to the identity service as the instance service account, creates a provisioner named jim-dot-tennis and assigns the service account to it, creates (or adopts) the club's provider, creates the permanent never-used 'instance' provider administrator, records the provisioner and provider ids, and registers the provider in the app so calendar sync works immediately. No person receives a tournament credential: people reach tournament management through the hand-over in WI-152. The step is safe to repeat.",
   "type": "feature",
   "priority": "high",
   "complexity": "M",
@@ -21,9 +21,9 @@
     "Tournament sync from the app works immediately afterwards and an empty calendar shows a helpful 'create your first tournament' pointer",
     "Failures (server not ready) are reported with a retry, leaving no half-created state",
     "`jim-dot-tennis tournaments provision` offers the same from the server",
-    "No tournament credential is created for or shown to any person; the app stores no API key (it signs its own short-lived tokens)",
-    "Tokens the app signs live 60 seconds, are never logged and never leave the server",
-    "Responses that report 'already exists' (HTTP 201 with error codes ABBREVIATION_EXISTS, SSO_IDENTITY_EXISTS, EMAIL_EXISTS) are treated as existing state when repeating"
+    "Responses that report 'already exists' (HTTP 201 with error codes ABBREVIATION_EXISTS, SSO_IDENTITY_EXISTS, EMAIL_EXISTS) are treated as existing state when repeating",
+    "No tournament credential is created for or shown to any person; the app holds only the service account password from its environment and no signing key",
+    "On an instance whose tournament server already has people the app does not manage, the page lists them (address and role) so an administrator can create tournament-only accounts for them; nothing is changed for them automatically"
   ],
   "technical_notes": {
     "files_to_modify": [
@@ -33,9 +33,7 @@
       "cmd/jim-dot-tennis/cli.go"
     ],
     "notes": [
-      "The tournament server has a seed-admin script and a provider API; use its supported interfaces, not direct database writes.",
-      "Tokens copied from browsers have been truncated in the past - generate and pass credentials programmatically.",
-      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22): mechanism and exact calls are in section 4; all were run against the unmodified server image."
+      "See docs/courthive_bundle_design.md (rewritten 2026-11-22 for latest upstream), section 4. internal/courthive already implements and tests the calls (EnsureProvisioner, EnsureProvider, EnsureAccount for the instance account, Members)."
     ]
   },
   "testing_requirements": [

@@ -7,7 +7,7 @@
   "complexity": "M",
   "parallelisable": false,
   "dependencies": [],
-  "status": "in_progress",
+  "status": "completed",
   "recommended_model": {
     "name": "Fable 5.2",
     "id": "claude-fable-5-2",
@@ -38,5 +38,6 @@
     "user_story": "As the maintainer, I want to know the bundle is permitted and practical before investing in it.",
     "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
   },
-  "status_note": "Design note written and every criterion met by test on 2026-11-22, except the first: the owner's contact with CourtHive's author. All three components are MIT upstream; the public pages were unlicensed at the bundled September 2026 revision and need either the author's one-line confirmation or a move to a revision that carries the LICENSE file. Nothing is published until then."
+  "status_note": "Design rewritten the same day after the owner chose latest upstream and asked for tournament-only accounts. Every component is MIT with a licence file at the bundled revisions, so no permission is outstanding; a courtesy note to CourtHive's author remains the owner's to send. Config, footprint, sign-in and upgrade findings are proven in the design note.",
+  "completed_date": "2026-11-22"
 }

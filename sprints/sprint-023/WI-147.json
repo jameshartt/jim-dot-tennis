@@ -29,8 +29,7 @@
       ".github/workflows/bundle-smoke.yml"
     ],
     "notes": [
-      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22): sign-in to TMX is by the hand-over from jim-dot-tennis, not a form; the test stack built for WI-142 shows the shape (two hostnames behind one Caddy with internal TLS).",
-      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22): the scheduled CI job needs published images; until the licence point is closed it can only run locally against locally built images."
+      "See docs/courthive_bundle_design.md (rewritten 2026-11-22 for latest upstream): sign-in to TMX is by the hand-over; internal/courthive/integration_test.go and the two-hostname test stack show the shape. The CI job needs published images."
     ]
   },
   "testing_requirements": [

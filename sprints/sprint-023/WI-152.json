@@ -1,7 +1,7 @@
 {
   "id": "WI-152",
   "title": "Single sign-on: jim-dot-tennis as the identity source for CourtHive",
-  "description": "One sign-in for both systems. A person signed in to jim-dot-tennis who is allowed to run tournaments opens tournament management without a second login: jim-dot-tennis creates their password-less tournament account through the server's provisioner interface, asks the server for a single-use hand-over token (60 seconds) and redirects the browser to TMX, which exchanges it for its own session. The tournament server accepts only tokens signed with this instance's own secret, and its own sign-in routes are refused at the proxy. Passkeys, recovery links, the account audit log and role changes then cover tournaments too. Decided by Jim on 2026-11-21 (jim-dot-tennis is the identity source); mechanism decided in WI-142 on 2026-11-22. This also resolves security review finding F9 from Sprint 021: the proxy strips the jim-dot-tennis session cookie on the CourtHive routes.",
+  "description": "One sign-in for both systems. A person signed in to jim-dot-tennis who has tournament access opens tournament management without a second login: jim-dot-tennis creates their password-less tournament account through the tournament server's provisioner interface, asks for a single-use hand-over token (60 seconds) and redirects the browser to TMX, which exchanges it for its own session. CourtHive's identity service is the only signer; its sign-in routes are refused at the proxy. Passkeys, recovery links, the account audit log and access changes then cover tournaments too. This also resolves security review finding F9 from Sprint 021: the proxy strips the jim-dot-tennis session cookie on the CourtHive routes.",
   "type": "feature",
   "priority": "high",
   "complexity": "L",
@@ -23,31 +23,28 @@
     "Signing out of jim-dot-tennis removes TMX's tokens from the browser and ends the tournament session on the server",
     "Disabling, demoting or revoking the sessions of a jim-dot-tennis account removes that person's tournament membership and roles at once; an earlier tournament token then sees no tournaments. Covered by a test",
     "Who may run tournaments comes from the per-account tournament access rule of WI-153 (administrators: all; others: none, own or all as granted), mapped to provider administrator (all) or director (own)",
-    "The tournament server accepts only tokens signed with this instance's own secret, generated at install; no shared or default key exists and the author holds none",
     "Hand-over tokens are single-use and expire in 60 seconds; nothing from the jim-dot-tennis session is sent to the tournament server",
     "The tournament server's sign-in, password, user-administration, provisioner and administration routes are refused at the proxy (list in the design note, section 4); every tournament account has no password",
     "The proxy no longer forwards the jim-dot-tennis session cookie to CourtHive routes",
     "Someone who reaches TMX signed out is sent to jim-dot-tennis to sign in, not shown TMX's own form",
     "Public tournament pages stay public and need no sign-in",
-    "No change to the tournament server's source; the TMX change is as small as possible and recorded in the fork maintenance notes"
+    "Tokens are signed only by this instance's identity service with a key generated at install; the tournament server refuses shared-secret tokens; the app holds no signing key",
+    "No change to the tournament server's or identity service's source; the TMX change (an external sign-in address) is as small as possible and recorded in BUNDLE.md"
   ],
   "technical_notes": {
     "files_to_modify": [
       "deploy/Caddyfile",
-      "internal/admin/roles.go",
-      "internal/auth/",
-      "internal/admin (tournament hand-over handler)",
-      "../TMX (signed-out redirect only)"
+      "internal/accounts (observer)",
+      "internal/courthive",
+      "internal/admin or internal/auth (hand-over handler, sign-out)",
+      "../TMX (external sign-in setting)"
     ],
     "notes": [
-      "See docs/courthive_bundle_design.md (WI-142, 2026-11-22), section 4: the whole chain was run against the unmodified server image, including immediate loss of access on membership removal and refusal of forged, expired and unsigned tokens.",
-      "The app signs 60-second HS256 tokens as the instance service account using COURTHIVE_JWT_SECRET; with the provisioner claim these reach the provisioner interface, so no API key is stored.",
-      "Provisioner-created users have no roles; set client, generate, score through /auth/modify or the calendar is refused with 403.",
-      "Keep the permanent 'instance' provider administrator: the server refuses to remove the last one.",
-      "Tournament account address: <username>@jim-dot-tennis.invalid; external id: the jim-dot-tennis user id.",
-      "Later upstream removes login from the server; the bundle then moves to jim-dot-tennis signing ES256 tokens with the server holding only the public key. Not in this sprint.",
-      "The no-tournament-mutations-after-draws rule for the live Parks Cup data still applies to any testing against real tournaments.",
-      "If this proves too large for the sprint, it splits cleanly into its own sprint after 023; the bundle then needs an interim way in, which must be designed (the server's password sign-in is not provisioned for anyone)."
+      "See docs/courthive_bundle_design.md (rewritten 2026-11-22 for latest upstream), section 4: the whole chain was run against the real services with internal/courthive's integration test.",
+      "Store each person's tournament account id; the server offers no lookup once membership is removed.",
+      "WI-153 leaves an observer seam on the accounts service; implement it with internal/courthive (EnsureAccount / RemoveAccount).",
+      "TMX hook: loginModal() in src/components/modals/loginModal.ts is the single entry for every sign-in trigger.",
+      "The no-tournament-mutations-after-draws rule for the live Parks Cup data still applies to any testing against real tournaments."
     ]
   },
   "testing_requirements": [
