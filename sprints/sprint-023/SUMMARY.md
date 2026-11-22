@@ -6,7 +6,7 @@
 
 **Duration**: started 2026-11-22
 
-**Status**: In progress (started 2026-11-22)
+**Status**: Implemented and tested locally on 2026-11-22; publishing the CourtHive images, the upgrade rehearsal on real data and moving jim.tennis onto the bundle wait for the owner
 
 **Programme**: Part of the club-readiness programme (Sprints 019-024). Agreed constraints: BHPLTA clubs only; each club hosts its own instance; the original author has no access to any other club's instance; passkeys by default with passwords as an optional fallback; a real captain role; SQLite only; CourtHive bundled as an opt-in so clubs can run their own championships.
 

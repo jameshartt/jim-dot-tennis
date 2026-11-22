@@ -48,5 +48,5 @@
     "user_story": "As a club, I want the tournament software as ready-made images so that I never build it.",
     "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
   },
-  "status_note": "2026-11-22: all four images built locally on latest upstream and proven together (two hostnames, sign-on, proxy rules). Remaining: outbound_connections.md, and the first push and publish, which wait for the owner. The fork CI workflows have never run."
+  "status_note": "2026-11-22: four images built locally on latest upstream and proven by the bundle end-to-end suite; outbound connections documented. Not done, waiting for the owner: pushing the forks' jdt-bundle branches and publishing the images. The fork CI workflows have never run."
 }

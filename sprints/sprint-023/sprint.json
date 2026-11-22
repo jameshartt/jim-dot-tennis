@@ -24,6 +24,7 @@
       "WI-147",
       "WI-152",
       "WI-153"
-    ]
+    ],
+    "status_note": "2026-11-22: every work item is implemented and tested locally. Open, each waiting for the owner: publishing the CourtHive images and pushing the branches (WI-143), the upgrade rehearsal on a copy of jim.tennis's tournament database, and moving jim.tennis itself onto the bundle."
   }
 }

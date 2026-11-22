@@ -318,9 +318,11 @@ to approve, and the old accounts stay until then.
   the old server reads); migrations 053 and 058 drop `pending_saves` and
   `chat_messages`; and passwords stored in plain text by old versions must be
   hashed with the identity service's script before anyone could sign in with
-  one. Stored tournament records also move from engine 7.1.1 to 7.45.0, which
-  has not been tested on real data. WI-146 rehearses all of this on a copy of
-  jim.tennis's data.
+  one (the bundle runs that script by itself, before the identity service
+  starts; it changes nothing on a fresh install). Stored tournament records
+  also move from engine 7.1.1 to 7.45.0; real Parks Cup records saved under
+  7.1.1 load under 7.45.0 (below), but jim.tennis's whole database has not
+  been through it yet.
 - Before a tournament upgrade the app takes a backup that includes a dump of
   the tournament database (WI-146): the one-shot `courthive-pre-upgrade`
   runs `jim-dot-tennis tournaments pre-upgrade` before every start of the
@@ -341,11 +343,13 @@ to approve, and the old accounts stay until then.
   applied 050 to 064 in seconds, dropped `pending_saves` and `chat_messages`
   (row counts of every other table unchanged), found one plain-text password
   to hash, and all six records (19 events, 10 draws, 329 participants) loaded
-  through the API under engine 7.45.0. The new read-model tables
-  (`draw_definitions`, `match_up_index`, `tournament_participants` and
-  others) start empty; whether anything needs them filled for existing
-  tournaments was not checked. The rehearsal on a copy of jim.tennis's own
-  data is still to be done by the owner.
+  through the API under engine 7.45.0. The new tables
+  `draw_definitions`, `match_up_index`, `tournament_participants` and their
+  like stay empty, and that is correct: they belong to upstream's optional
+  "record sharding", which is off unless an operator installs its trigger and
+  marks a tournament as sharded. The bundle does neither, so nothing needs
+  filling. The rehearsal on a copy of jim.tennis's own data is still to be
+  done; it needs the owner's go-ahead to take a dump from production.
 
 ## 6. Effect on the work items
 
@@ -358,7 +362,9 @@ to approve, and the old accounts stay until then.
 - WI-153: tournament access per account and tournament-only accounts.
 - WI-152: hand-over route, access changes pushed to the tournament stack,
   sign-out, the TMX external sign-in setting.
-- WI-146: tournament database in backups; upgrade rehearsal on real data.
+- WI-146: tournament database in backups and restore; a backup before the
+  tournament server changes version; the rehearsal script. The rehearsal on
+  real data waits for the owner.
 - WI-147: end-to-end test of the bundled stack.
 
 ## How this was tested

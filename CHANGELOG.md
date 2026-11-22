@@ -111,7 +111,12 @@ is kept):
 
 ### Upgrade notes
 
-- Without tournaments: nothing to do. You may delete the lines
+- The app's database moves from version 35 to 37 (a tournament access setting
+  on each account, and a table of people's tournament accounts). As always the
+  app takes a backup first. Every existing account starts with no tournament
+  access; administrators have it without being given it. Going back to 0.1.0
+  afterwards needs that backup.
+- Without tournaments: nothing else to do. You may delete the lines
   `COURTHIVE_PG_PASSWORD` and `COURTHIVE_JWT_SECRET` from `deploy/.env` if
   they still say `change-me`; they are no longer needed.
 - To turn tournaments on after upgrading: if `deploy/.env` still has
