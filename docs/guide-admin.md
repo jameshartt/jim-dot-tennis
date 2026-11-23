@@ -13,15 +13,26 @@ The first time the app starts, it asks you to set up. You choose your club and c
 1. Open the web address of the app.
 2. Enter the setup code the person who installed the app gives you, then follow the steps.
 3. At "Create your login", choose a username and a password. Or choose "Create my login, then add a passkey" to sign in with your fingerprint, face or screen lock instead of typing a password.
-4. When you see "You're all set", the app has read your league from the BHPLTA website: divisions, teams, weeks and fixtures.
+4. When you see "You're all set", the app has read your league from the BHPLTA website. During the season that is the season itself, with its divisions, teams, weeks and fixtures. Between seasons BHPLTA lists no upcoming fixtures, so you see only the league and the clubs, and a note that no season was created. That is normal: see "Between seasons" below.
 
 After that you land on the **Admin Dashboard**. Every page below starts from it. Each page also has a "Help with this page" link that opens the matching part of this guide.
 
-Use the **Sign-in methods** button at the top of the dashboard to add a passkey or change your password at any time.
+Use the **Sign-in methods** button at the top of the dashboard to add a passkey or change your password at any time. Until you have a passkey, each password sign-in first shows the **Sign-in methods** page with "Add a passkey?". Add one there, or press **Not now** to go on to the dashboard.
+
+## Between seasons
+
+If setup ran between seasons, there is no season yet. You can still get the club ready:
+
+- add your players and give them their links (see below);
+- invite your captains and other people;
+- check **Club Settings**;
+- turn on tournaments, if the club wants them (see the [tournaments guide](guide-tournaments.md)).
+
+When BHPLTA publishes the new season's fixtures, go to **Manage Seasons** and press **Start a new season from BHPLTA**. It creates the season, weeks, divisions, teams and fixtures in one go. If it says no season was created, the fixtures are not out yet: try again later. Then check the season as below.
 
 ## Check your first season
 
-Setup creates the first season for you. A few minutes of checking now saves questions later.
+When fixtures are published, setup (or **Start a new season from BHPLTA**) creates the first season for you. A few minutes of checking now saves questions later.
 
 1. On the dashboard, choose **Manage Seasons**.
 2. Check that your season shows **ACTIVE**. If it does not, press **Set Active** beside it.
@@ -50,7 +61,7 @@ To change a name or hide a player who has left, open the player from the players
 
 ## Give players their links
 
-Each player has a personal link. It opens that player's own availability page. No sign-in is needed.
+Each player has a personal link. It opens that player's own availability page. No sign-in is needed. A player does not need to be in a team to get a link: you can send links as soon as you have added the players, even before there is a season.
 
 1. Go to **Manage Players**.
 2. Find the player. In the last column, press **Generate** the first time. It makes the link and copies it.
@@ -115,7 +126,7 @@ Every change is written to the **Account Audit Log**, which you can read from th
 On the dashboard, choose **Club Settings**. Press **Save settings** after changing the top sections.
 
 - **Club identity**: the display name, logo and two colours. The logo is also used as the app icon on phones.
-- **BHPLTA match cards**: your club code (the club scores password), BHPLTA club name and BHPLTA club id. Match-card import needs these. After saving the club code, press **Look up from BHPLTA** to fill in the name and id for you. Your league secretary can tell you the club code.
+- **BHPLTA match cards**: your club code (the club scores password), BHPLTA club name and BHPLTA club id. Match-card import needs these. After saving the club code, press **Look up from BHPLTA** to fill in the name and id for you. Your league secretary can tell you the club code. The BHPLTA club name is not the name people see: it is how the BHPLTA match-card page identifies your club, and it can look odd, for example `St+Anns` with a plus sign. That is right: leave it as it is.
 - **This instance**: the **Public URL**, which is the address people use, starting with `https://`. Links in messages, calendar files and sign-in use it.
 - **Features**: switch **Tournaments**, **Club Wrapped** and **My Tennis** on or off. A feature that is off disappears from the menus.
 - **Sign-in for administrators**: **Require passkeys for administrators** stops administrators signing in with a password. Each administrator must add a passkey first.

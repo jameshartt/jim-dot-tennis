@@ -177,8 +177,7 @@ func Import(ctx context.Context, tx *sqlx.Tx, snap *Snapshot, opts Options) (*Su
 		// No season: the pages showing this summary say what to do meanwhile.
 		im.sum.NoFixtures = true
 		im.sum.Notes = append(im.sum.Notes, "BHPLTA has not published any upcoming fixtures yet, so no season was created. "+
-			"That is normal between seasons. When the new season's fixtures are on the BHPLTA website, "+
-			"use \"Start a new season from BHPLTA\" on the Seasons page.")
+			"That is normal between seasons.")
 		return im.sum, nil
 	}
 	if err := im.season(); err != nil {

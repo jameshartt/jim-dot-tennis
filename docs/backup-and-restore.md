@@ -125,14 +125,26 @@ the terminal:
    docker compose cp app:/app/data/backups/<file> ~/<file>
    ```
 
-   It ends `Copied ... to /root/<file>`.
+   It prints a line ending `Copied`, for example
+   ` jim-dot-tennis copy jim-dot-tennis:/app/data/backups/<file> to /root/<file> Copied`.
+   (Newer versions of Docker Compose put it the other way round:
+   ` jim-dot-tennis Copied jim-dot-tennis:/app/data/backups/<file> to /root/<file>`.)
 
-3. **On your own computer**, in a new terminal, copy it down into the current
-   folder:
+3. **On your own computer**, open a new terminal (PowerShell or Terminal on
+   Windows, Terminal on a Mac or Linux) and copy it down into the folder the
+   terminal is in:
 
    ```
    scp root@203.0.113.10:<file> .
    ```
+
+   In that command, put your server's address in place of `203.0.113.10`, the
+   file name in place of `<file>`, and, if you log in to the server as another
+   user, that user in place of `root`. Keep the `:` and the ` .` at the end
+   (the dot means "here"). It asks for the server's password, or uses your SSH
+   key, as `ssh` does. The file lands in the terminal's current folder: on
+   Windows that is usually your user folder, `C:\Users\<your name>`; on a Mac
+   or Linux, your home folder. The same works for the settings file below.
 
 4. Check the copy is whole. On your own computer:
 
@@ -217,6 +229,24 @@ been used are cancelled: make new ones.
    ```
 
    `user list` shows the accounts from the backup.
+
+5. Open the site and sign in. Everyone's sign-in was ended, so you sign in
+   again. If you sign in with a password and have no passkey yet, the app first
+   shows the **Sign-in methods** page with "Add a passkey?": press **Not now**
+   to go on to the dashboard. Check that the data is as it was when the backup
+   was made: anything added after it is gone.
+
+**Someone shows as "no way to sign in yet (invite not used)".** The restore
+cancelled their unused invite link (and any unused recovery link), so the link
+they have no longer works. Give them a new one: on **Manage Users**, press
+**New invite link** beside them (it lasts 48 hours). Or, on the server:
+
+```
+docker compose exec app ./jim-dot-tennis user reset <username>
+```
+
+That prints a recovery link, which works the same way but lasts one hour. Pass
+it on privately, as with any link (see [Accounts and recovery](accounts-and-recovery.md)).
 
 If step 3 says `Not restored: ...`, nothing was changed. Read the reason, put it
 right and run step 3 again. The reasons you might see are in
@@ -333,12 +363,27 @@ Do this once, so you know it works before you need it. Use a trial copy on your
 own computer ([Installing](install.md), "Trying it locally"), never your real
 server:
 
-1. Download a backup from your real site (Backups page, **Download backup**).
-2. Start a trial copy. You do not need to finish its set-up.
-3. Copy the backup in and restore it as above, from the trial folder:
-   `docker compose cp <file> app:/app/data/backups/<file>`, the `chown`
-   command, `docker compose stop app`, then the `restore` command and
-   `docker compose up -d`.
-4. Open `https://localhost` and sign in with your real username and password.
-   (Passkeys from the real site do not work at `localhost`.)
-5. Remove the trial with `docker compose down -v`: it holds real personal data.
+1. On your real site, note two things you can check afterwards, for example
+   the number of players on **Manage Players** and the name of the player
+   added most recently.
+2. Download a backup from your real site (Backups page, **Download backup**).
+3. Start a trial copy. You do not need to finish its set-up. If you do finish
+   it, add a player there called "Restore Check": the restore should remove
+   them.
+4. Put the backup file in the trial folder, then copy it in and restore it as
+   above, from the trial folder. Put the file name in place of `<file>`:
+
+   ```
+   docker compose exec app mkdir -p /app/data/backups
+   docker compose cp <file> app:/app/data/backups/<file>
+   docker compose exec -u root app chown appuser:appuser /app/data/backups/<file>
+   docker compose stop app
+   docker compose run --rm --no-deps app ./jim-dot-tennis restore /app/data/backups/<file>
+   docker compose up -d
+   ```
+5. Open `https://localhost` and sign in with your real username and password.
+   (Passkeys from the real site do not work at `localhost`.) The app may show
+   the **Sign-in methods** page first: press **Not now**.
+6. Check what you noted in step 1: the same number of players and the same
+   newest player, and no "Restore Check". Then the restore worked.
+7. Remove the trial with `docker compose down -v`: it holds real personal data.
