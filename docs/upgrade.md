@@ -134,9 +134,8 @@ You should see one of:
   then `Migrations applied successfully`: the database was upgraded, and the
   backup taken before it is named. Note its name.
 
-and a last line `jim-dot-tennis X.Y.Z (...) ready: http://localhost:8080, ...`.
-(That `localhost:8080` is the app's address inside its container, not the
-address people use.)
+and a last line `jim-dot-tennis X.Y.Z (...) ready, ... Open https://tennis.example.org in a browser. ...`
+with your own address.
 
 With tournaments on, also check:
 
@@ -177,10 +176,10 @@ The version should be the old one again.
 
 The log said `Backed up the database before upgrading it`. An older version
 cannot use a database a newer one has upgraded: just putting the old version
-back makes the app stop at start with `Database migration failed, so the app
-cannot start: failed to apply migrations: no migration found for version ...`.
-Instead, restore the backup taken just before the upgrade, using the old
-version:
+back makes the app stop at start with `Cannot start: the database was last
+used by a newer version of jim-dot-tennis than this one ...`, and change
+nothing. Instead, restore the backup taken just before the upgrade, using the
+old version:
 
 1. Put the previous files back (this sets the old version):
 
@@ -206,9 +205,9 @@ version:
    docker compose run --rm --no-deps app ./jim-dot-tennis restore /app/data/backups/<file>
    ```
 
-   It should end `Now start the app again.` (It says the backup was made by
-   the new version: that is right. The new version made it, of the database
-   as it was before the upgrade.)
+   It should say `Restored the backup made ... by app version ... just before it upgraded the database`
+   (that is the new version, which made the backup of the database as it was
+   before the upgrade) and end `Now start the app again.`
 
 4. Start everything and check:
 

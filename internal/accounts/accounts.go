@@ -198,7 +198,7 @@ func (s *Service) createAccount(ctx context.Context, tx *sqlx.Tx, actor Actor, u
 	if err != nil {
 		return Account{}, fmt.Errorf("create account: %w", err)
 	}
-	detail := "role " + string(role)
+	detail := "role " + auditRoleName(role, access)
 	if access != models.TournamentAccessNone {
 		detail += " tournament_access=" + string(access)
 	}
@@ -334,7 +334,7 @@ func (s *Service) SetRole(ctx context.Context, actor Actor, id int64, role model
 			return err
 		}
 		return recordAudit(ctx, tx, Record{Time: s.now(), Actor: actor, Action: ActionRoleChange,
-			TargetUserID: id, TargetUsername: before.Username, Detail: fmt.Sprintf("role %s -> %s", before.Role, role)})
+			TargetUserID: id, TargetUsername: before.Username, Detail: fmt.Sprintf("role %s -> %s", auditRoleName(before.Role, before.TournamentAccess), auditRoleName(role, models.TournamentAccessNone))})
 	})
 	if err == nil {
 		s.notifyTournamentAccess(ctx, after, ChangeRole)

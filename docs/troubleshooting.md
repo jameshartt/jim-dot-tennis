@@ -25,7 +25,7 @@ Contents:
 5. [The site does not open, or the browser warns about the certificate](#5-the-site-does-not-open-or-the-browser-warns-about-the-certificate)
 6. [The site has vanished after months of working (the domain lapsed)](#6-the-site-has-vanished-after-months-of-working-the-domain-lapsed)
 7. [The set-up code is refused](#7-the-set-up-code-is-refused)
-8. [Set-up says "Could not reach the BHPLTA fixtures page"](#8-set-up-says-could-not-reach-the-bhplta-fixtures-page)
+8. [Set-up cannot read the BHPLTA website](#8-set-up-cannot-read-the-bhplta-website)
 9. [Passkeys stopped working, or the passkey button is missing](#9-passkeys-stopped-working-or-the-passkey-button-is-missing)
 10. [The app keeps restarting after an upgrade](#10-the-app-keeps-restarting-after-an-upgrade)
 11. [A restore is refused](#11-a-restore-is-refused)
@@ -67,17 +67,16 @@ example to print a new set-up code.
 **What you see:**
 
 ```
-error while interpolating services.caddy.environment.[]: required variable DOMAIN is missing a value: set DOMAIN in deploy/.env (the public hostname, e.g. tennis.example.org)
+error while interpolating services.caddy.environment.[]: required variable DOMAIN is missing a value: set DOMAIN in your .env file (the public hostname, e.g. tennis.example.org)
 ```
 
 or, with tournaments on:
 
 ```
-error while interpolating services.postgres.environment.POSTGRES_PASSWORD: required variable COURTHIVE_PG_PASSWORD is missing a value: COURTHIVE_PG_PASSWORD is missing from deploy/.env - run ./init-tournaments.sh
+error while interpolating services.postgres.environment.POSTGRES_PASSWORD: required variable COURTHIVE_PG_PASSWORD is missing a value: COURTHIVE_PG_PASSWORD is missing from your .env file - run ./init-tournaments.sh
 ```
 
-("deploy/.env" means the `.env` in your install folder.) Nothing was started or
-changed.
+Nothing was started or changed.
 
 **Fix:**
 
@@ -91,8 +90,9 @@ changed.
 If `./init-tournaments.sh` itself says
 `init-tournaments: COURTHIVE_PG_PASSWORD is in .../.env but has no real value. Delete that line and run this again.`,
 open `.env` in an editor (`nano .env`), delete that one line, save
-(Ctrl+O, Enter, Ctrl+X) and run it again. It never changes a line that is
-already there.
+(Ctrl+O, Enter, Ctrl+X) and run it again. It checks every line before it adds
+anything, so nothing was added and there is nothing else to undo. It never
+changes a line that is already there.
 
 ## 3. The app keeps restarting: "Configuration error" or "Startup self-check failed"
 
@@ -219,35 +219,44 @@ and prints a new code in the log:
 docker compose logs --no-log-prefix app | grep "SETUP CODE" | tail -1
 ```
 
-## 8. Set-up says "Could not reach the BHPLTA fixtures page"
+## 8. Set-up cannot read the BHPLTA website
 
-**What you see** at "Choose your club":
+**What you see** at "Choose your club", one of these:
 
 ```
-Could not reach the BHPLTA fixtures page (...). Check that this server can connect to the internet. Nothing was changed, so you can try again.
+Could not reach the BHPLTA fixtures page (...). This server could not connect to the BHPLTA website at all: check that it can connect to the internet and look up web addresses. Nothing was changed, so you can try again.
 ```
 
-The words in brackets give the detail, for example `no such host` or
-`stream error: stream ID 1; PROTOCOL_ERROR; received from peer`.
+```
+The BHPLTA website refused the request for the BHPLTA fixtures page (...). This server reached the website, so its internet connection is working. Wait a few minutes and try again. If it keeps happening, report it at https://github.com/jameshartt/jim-dot-tennis/issues. Nothing was changed, so you can try again.
+```
 
-**Why:** the club step reads the league from the BHPLTA website. Either the
-server cannot reach it, or the website refused the request.
+The words in brackets give the detail. After "Could not reach" it is, for
+example, `... no such host` or `... connection refused`. After "refused" it is
+`HTTP status 403`, `HTTP status 429, too many requests`, or
+`it reset or closed the connection (...)`.
 
-**Fix:**
+**Why:** the club step reads the league from the BHPLTA website. "Could not
+reach" means the server never got through to the website. "Refused" means the
+website was reached but turned the request away.
 
-1. Check the server can reach the website:
+**Fix for "Could not reach":** check the server can reach the website:
 
-   ```
-   docker compose exec app sh -c 'wget -qO- https://www.bhplta.co.uk/ | head -c 60'
-   ```
+```
+docker compose exec app sh -c 'wget -qO- https://www.bhplta.co.uk/ | head -c 60'
+```
 
-   You should see the start of a web page (`<!DOCTYPE html>`). If you see an
-   error instead, the server has no internet access or no working DNS: check
-   with your hosting company.
-2. If that works, the website is up but refused the app's request. Press
-   **Try again** after a few minutes. If it keeps failing, report it on the
-   project's issue page, <https://github.com/jameshartt/jim-dot-tennis/issues>,
-   with the words in brackets (never include your set-up code).
+You should see the start of a web page (`<!DOCTYPE html>`). If you see an error
+instead, the server has no internet access or no working DNS: check with your
+hosting company. Then press **Try again**.
+
+**Fix for "refused":** there is nothing wrong with your server. Press
+**Try again** after a few minutes. If it keeps failing, report it on the
+project's issue page, <https://github.com/jameshartt/jim-dot-tennis/issues>,
+with the words in brackets (never include your set-up code).
+
+If it says `Reading the BHPLTA fixtures page took too long`, the website is slow
+or not answering: try again later.
 
 Nothing is half-done: the club step either finishes or changes nothing. On a
 trial copy you can carry on meanwhile with **Explore with demo data** on the
@@ -289,22 +298,30 @@ Choose the address once and keep it.
 ## 10. The app keeps restarting after an upgrade
 
 **What you see:** after an upgrade (or after going back to an older version),
-`docker compose ps` shows the app `Restarting`, and its log says something like:
+`docker compose ps` shows the app `Restarting`. See why:
 
 ```
-Database migration failed, so the app cannot start: failed to apply migrations: no migration found for version 38: read down for version 38 .: file does not exist
-Nothing was served. Migrations read from: migrations built into this binary. See "Working with Migrations" in CLAUDE.md for a migration that stopped part-way.
+docker compose logs --no-log-prefix --tail 20 app
 ```
 
-**Why:** this exact message means an older version is being started on a
-database a newer version already upgraded. Other `migration ... failed`
-messages mean the upgrade itself failed part-way. The app never serves pages
-from a database in that state.
+One of these:
 
-**Fix:** go back to the version you had before and restore the backup the app
-took before upgrading. Follow "If the database was upgraded" in
-[Upgrading](upgrade.md). (The `CLAUDE.md` it mentions is a file for the app's
-developers; you do not need it.)
+- `Cannot start: the database was last used by a newer version of jim-dot-tennis than this one (...)`.
+  An older version is being started on a database that a newer version has
+  already upgraded. Nothing was changed. Either start the newer version again
+  (set `JIM_DOT_TENNIS_VERSION` in your `.env` file back to it, then
+  `docker compose up -d`), or, to go back to the older version, follow "If the
+  database was upgraded" in [Upgrading](upgrade.md).
+- `Cannot start: migration 0NN failed: ...` or
+  `Cannot start: migration 0NN did not finish the last time the app started ...`.
+  The upgrade itself failed part-way. The app never serves pages from a
+  database in that state. Go back to the version you had before and restore the
+  backup the app took before upgrading: follow "If the database was upgraded" in
+  [Upgrading](upgrade.md). Then report the message on the project's issue page,
+  <https://github.com/jameshartt/jim-dot-tennis/issues>.
+- `Database migration failed, so the app cannot start: ...`. Something else
+  stopped the upgrade before it changed anything. Report the whole message on
+  the issue page.
 
 ## 11. A restore is refused
 
@@ -353,7 +370,9 @@ league site keeps working; tournament pages are unavailable until you act.
 docker compose logs --no-log-prefix courthive-pre-upgrade
 ```
 
-Usually the disk is full (`df -h /`) or the tournament database is not running.
+(This step runs `jim-dot-tennis tournaments pre-upgrade` in a one-off copy of
+the app's container; you never need to run it yourself.) Usually the disk is
+full (`df -h /`) or the tournament database is not running.
 Fix that and run `docker compose up -d` again. To get tournaments back on the
 old version meanwhile, go back as in [Upgrading](upgrade.md) ("If the database
 did not change"). Never start the tournament server with

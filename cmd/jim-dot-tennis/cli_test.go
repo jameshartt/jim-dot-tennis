@@ -382,21 +382,63 @@ func TestCLISetupCode(t *testing.T) {
 	}
 }
 
-// TestHelpTextInOperationsDoc: the operations guide reproduces the help text.
-func TestHelpTextInOperationsDoc(t *testing.T) {
+// helpCommands lists the commands a help text describes: each line indented
+// by exactly two spaces, up to the first argument placeholder or the
+// description column ("user create", "restore --tournaments-only", ...).
+func helpCommands(help string) []string {
+	var cmds []string
+	for _, line := range strings.Split(help, "\n") {
+		if !strings.HasPrefix(line, "  ") || strings.HasPrefix(line, "   ") || len(line) < 3 || line[2] < 'a' || line[2] > 'z' {
+			continue
+		}
+		var words []string
+		for _, w := range strings.Fields(line) {
+			if strings.HasPrefix(w, "<") || strings.HasPrefix(w, "[") || (len(w) > 0 && w[0] >= 'A' && w[0] <= 'Z') {
+				break
+			}
+			words = append(words, w)
+		}
+		// The description starts after a run of spaces; keep only the part
+		// before it.
+		if i := strings.Index(strings.TrimLeft(line, " "), "  "); i >= 0 {
+			head := strings.Fields(strings.TrimLeft(line, " ")[:i])
+			if len(head) < len(words) {
+				words = head
+			}
+		}
+		if len(words) > 0 {
+			cmds = append(cmds, strings.Join(words, " "))
+		}
+	}
+	return cmds
+}
+
+// TestOperatorGuidesCoverEveryCommand: every command `jim-dot-tennis help`
+// lists is shown being run ("jim-dot-tennis <command>") in one of the
+// operator guides, so a new command cannot ship without instructions.
+func TestOperatorGuidesCoverEveryCommand(t *testing.T) {
 	root, err := getProjectRoot()
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc, err := os.ReadFile(filepath.Join(root, "docs", "archive", "PRODUCTION_QUICK_REFERENCE.md"))
-	if err != nil {
-		t.Fatal(err)
+	var guides strings.Builder
+	for _, name := range []string{"accounts-and-recovery.md", "backup-and-restore.md", "upgrade.md", "install.md", "troubleshooting.md"} {
+		b, err := os.ReadFile(filepath.Join(root, "docs", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		guides.Write(b)
 	}
-	if !strings.Contains(string(doc), cliHelp) {
-		t.Fatal("docs/archive/PRODUCTION_QUICK_REFERENCE.md does not contain the current help text; copy cliHelp into section 10")
+	text := guides.String()
+	cmds := helpCommands(cliHelp + cliTournamentsHelp)
+	if len(cmds) < 15 {
+		t.Fatalf("found only %d commands in the help text (%v): has its layout changed?", len(cmds), cmds)
 	}
-	if !strings.Contains(string(doc), strings.TrimPrefix(cliTournamentsHelp, "\n")) {
-		t.Fatal("docs/archive/PRODUCTION_QUICK_REFERENCE.md does not contain the current tournament commands help; copy cliTournamentsHelp into section 10")
+	t.Logf("commands in the help text: %q", cmds)
+	for _, cmd := range cmds {
+		if !strings.Contains(text, "jim-dot-tennis "+cmd) {
+			t.Errorf("no operator guide in docs/ shows \"jim-dot-tennis %s\"; document it (docs/accounts-and-recovery.md, docs/backup-and-restore.md or docs/upgrade.md)", cmd)
+		}
 	}
 }
 

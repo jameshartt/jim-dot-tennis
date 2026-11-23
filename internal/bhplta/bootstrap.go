@@ -6,13 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
-	"net/url"
 
 	"github.com/jmoiron/sqlx"
 
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/services"
+	"jim-dot-tennis/internal/version"
 )
 
 // Fetcher reads a Snapshot from the BHPLTA site (*Source implements it).
@@ -90,19 +89,21 @@ func Describe(err error) string {
 	what := fe.What
 
 	var status *services.HTTPStatusError
-	var netErr net.Error
-	var urlErr *url.Error
-	switch {
-	case errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &netErr) && netErr.Timeout()):
-		return fmt.Sprintf("Reading %s took too long. The BHPLTA website may be slow or unreachable from this server.", what)
-	case errors.Is(err, context.Canceled):
+	switch services.ClassifyFetchError(err) {
+	case services.FetchCancelled:
 		return fmt.Sprintf("Reading %s was cancelled.", what)
+	case services.FetchTimeout:
+		return fmt.Sprintf("Reading %s took too long. The BHPLTA website may be slow or unreachable from this server.", what)
+	case services.FetchRefused:
+		return fmt.Sprintf("The BHPLTA website refused the request for %s (%s). This server reached the website, so its internet connection is working. Wait a few minutes and try again. If it keeps happening, report it at %s/issues.", what, services.FetchRefusedDetail(err), version.ProjectURL)
+	case services.FetchNoConnection:
+		return fmt.Sprintf("Could not reach %s (%v). This server could not connect to the BHPLTA website at all: check that it can connect to the internet and look up web addresses.", what, innermost(err))
+	}
+	switch {
 	case errors.As(err, &status):
 		return fmt.Sprintf("Reading %s failed: the BHPLTA website answered with HTTP status %d.", what, status.Status)
 	case errors.Is(err, services.ErrUnexpectedMarkup):
 		return fmt.Sprintf("%s did not look as expected (%v). The BHPLTA website may have changed; this app may need an update to read it.", capitalise(what), errors.Unwrap(err))
-	case errors.As(err, &urlErr) || errors.As(err, &netErr):
-		return fmt.Sprintf("Could not reach %s (%v). Check that this server can connect to the internet.", what, innermost(err))
 	default:
 		return fmt.Sprintf("Reading %s failed: %v.", what, innermost(err))
 	}

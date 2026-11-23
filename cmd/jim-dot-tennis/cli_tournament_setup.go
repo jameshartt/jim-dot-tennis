@@ -187,7 +187,7 @@ func tournamentsStatus(ctx context.Context, c cliOut, svc *tournaments.Service, 
 func tournamentsProvision(ctx context.Context, c cliOut, db *database.DB, svc *tournaments.Service, abbreviation string) error {
 	if !svc.Configured() {
 		return fmt.Errorf("the bundled tournament software is not switched on in this deployment (%s is empty), so there is nothing to set up. "+
-			"The operations guide's tournaments section says how to switch it on", envCourtHiveServicePassword)
+			"docs/install.md, \"Optional: turning on tournaments\", says how to switch it on", envCourtHiveServicePassword)
 	}
 	clubName := config.DefaultDisplayName
 	holder, err := config.NewHomeClubHolder(ctx, repository.NewClubRepository(db), repository.NewSettingsRepository(db))

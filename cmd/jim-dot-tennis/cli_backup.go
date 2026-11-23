@@ -48,12 +48,12 @@ func runBackup(ctx context.Context, c cliOut, stderr io.Writer) int {
 		return exitError
 	}
 	c.printf("Backup made and checked:\n\n    %s\n\n", res.Path)
-	c.printf("%d bytes; database version %d; %d uploaded file(s); app version %s.\n",
+	c.printf("%d bytes; database version %d; %d uploaded file(s); made by app version %s.\n",
 		res.Size, res.Manifest.SchemaVersion, len(res.Manifest.Files), res.Manifest.AppVersion)
 	c.printf("%s\n", tournamentLine(res.Manifest))
 	c.printf("Backups kept in %s: the newest %d.\n\n", cfg.Dir, max(cfg.Keep, 1))
 	c.printf("It holds everyone's personal details and password hashes: keep it private.\n" +
-		"It is on the same disk as the app; copy it off this server too (see the operations guide).\n")
+		"It is on the same disk as the app; copy it off this server too (see \"Copy a backup off the server\" in docs/backup-and-restore.md).\n")
 	return exitOK
 }
 
@@ -85,9 +85,9 @@ func runRestore(ctx context.Context, c cliOut, stderr io.Writer, archive string)
 	if err != nil {
 		switch {
 		case errors.Is(err, backup.ErrTournamentMismatch):
-			fmt.Fprintf(stderr, "Not restored: %v.\nDo not start the app or the tournament services until this is put right: see \"If a restore stops part-way\" in the backups section of the operations guide.\n", err)
+			fmt.Fprintf(stderr, "Not restored: %v.\nDo not start the app or the tournament services until this is put right: see \"If a restore stops part-way\" in docs/backup-and-restore.md.\n", err)
 		case errors.Is(err, backup.ErrUndoFailed):
-			fmt.Fprintf(stderr, "Not restored: %v.\nSome of the current files may have been moved: see \"If a restore stops part-way\" in the backups section of the operations guide before starting the app.\n", err)
+			fmt.Fprintf(stderr, "Not restored: %v.\nSome of the current files may have been moved: see \"If a restore stops part-way\" in docs/backup-and-restore.md before starting the app.\n", err)
 		case errors.Is(err, backup.ErrServerRunning), errors.Is(err, backup.ErrNewerBackup), errors.Is(err, backup.ErrTournamentInUse),
 			strings.Contains(err.Error(), "Nothing was changed"), strings.Contains(err.Error(), "before anything was changed"):
 			// The message already says nothing was changed.
@@ -103,8 +103,7 @@ func runRestore(ctx context.Context, c cliOut, stderr io.Writer, archive string)
 		fmt.Fprintf(stderr, "Warning (the restore itself is done): %s\n", w)
 	}
 	m := res.Manifest
-	c.printf("\nRestored the backup made %s (%s backup, app version %s).\n",
-		m.CreatedAt.Local().Format("2 Jan 2006 15:04"), m.Kind, m.AppVersion)
+	c.printf("\nRestored %s.\n", describeBackup(m))
 	if res.SchemaFrom != res.SchemaTo {
 		c.printf("Its database was upgraded from version %d to %d.\n", res.SchemaFrom, res.SchemaTo)
 	}
@@ -121,4 +120,25 @@ func runRestore(ctx context.Context, c cliOut, stderr io.Writer, archive string)
 	printTournamentRestore(c, res, archive)
 	c.printf("\nNow start the app again.\n")
 	return exitOK
+}
+
+// describeBackup says when a backup was made and by which version of the
+// app, without suggesting the version is the one the data came from: a
+// pre-migration (or pre-upgrade) backup is made by the NEW version, of the
+// database as it was before that version upgraded it.
+func describeBackup(m backup.Manifest) string {
+	when := m.CreatedAt.Local().Format("2 Jan 2006 15:04")
+	switch m.Kind {
+	case backup.KindPreMigration:
+		return fmt.Sprintf("the backup made %s by app version %s just before it upgraded the database "+
+			"(a pre-migration backup: it holds the database as it was before that upgrade, at database version %d)",
+			when, m.AppVersion, m.SchemaVersion)
+	case backup.KindPreUpgrade:
+		return fmt.Sprintf("the backup made %s by app version %s just before a new version of the tournament software first started "+
+			"(a pre-upgrade backup: it holds the data as it was before that upgrade, at database version %d)",
+			when, m.AppVersion, m.SchemaVersion)
+	default:
+		return fmt.Sprintf("the backup made %s (%s backup, made by app version %s, database version %d)",
+			when, m.Kind, m.AppVersion, m.SchemaVersion)
+	}
 }

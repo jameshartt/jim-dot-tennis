@@ -112,7 +112,15 @@ func ProcessDivisionPDFs(outputDir string) error {
 func downloadPDF(url, filepath string) error {
 	fmt.Printf("Downloading PDF from %s...\n", url)
 
-	resp, err := http.Get(url)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to download PDF: %w", err)
+	}
+	// An honest User-Agent, like the app's own (internal/version.UserAgent;
+	// this tool is a separate module and cannot import it). The BHPLTA site
+	// refuses Go's default User-Agent.
+	req.Header.Set("User-Agent", "jim-dot-tennis-pdf-scraper (+https://github.com/jameshartt/jim-dot-tennis)")
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to download PDF: %w", err)
 	}

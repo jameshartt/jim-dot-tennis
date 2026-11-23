@@ -98,6 +98,11 @@ test.describe("Fresh install", () => {
     await expect(page.locator(".alert-error, .alert-danger, [role=alert]").first()).toContainText(
       "Nothing was changed",
     );
+    // Nothing listens there, so the message says the server could not
+    // connect at all (not that the website refused).
+    await expect(page.locator(".alert-error, .alert-danger, [role=alert]").first()).toContainText(
+      "Could not reach the BHPLTA fixtures page",
+    );
     expect(sqlite("SELECT COUNT(*) FROM clubs;")).toEqual(["0"]);
     expect(sqlite("SELECT COUNT(*) FROM fixtures;")).toEqual(["0"]);
   });

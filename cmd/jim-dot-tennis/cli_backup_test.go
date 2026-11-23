@@ -138,3 +138,19 @@ func TestPreMigrationBackupGatesMigrations(t *testing.T) {
 		})
 	}
 }
+
+// A pre-migration backup is made by the NEW version, of the database before
+// that version upgraded it; the restore summary says exactly that.
+func TestDescribeBackupNamesWhoMadeIt(t *testing.T) {
+	m := backup.Manifest{Kind: backup.KindPreMigration, AppVersion: "0.3.0", SchemaVersion: 38}
+	got := describeBackup(m)
+	for _, want := range []string{"by app version 0.3.0 just before it upgraded the database", "as it was before that upgrade", "database version 38"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("describeBackup(pre-migration) = %q, missing %q", got, want)
+		}
+	}
+	m.Kind = backup.KindManual
+	if got := describeBackup(m); !strings.Contains(got, "manual backup, made by app version 0.3.0") {
+		t.Errorf("describeBackup(manual) = %q", got)
+	}
+}

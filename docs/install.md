@@ -246,7 +246,8 @@ What they are:
 
 This folder, `~/jim-dot-tennis`, is your **install folder**. Run every
 `docker compose` command in it (`cd ~/jim-dot-tennis` first if you have logged
-in again). Some messages from the app call it "the deploy folder".
+in again). Messages from the app call it "the folder holding
+docker-compose.yml".
 
 ## Step 6: Make your settings file
 
@@ -355,8 +356,9 @@ certificate" in [Troubleshooting](troubleshooting.md).
 The set-up pages are now switched off for good. You are the first
 administrator.
 
-If the club step says "Could not reach the BHPLTA fixtures page", see that
-message in [Troubleshooting](troubleshooting.md).
+If the club step cannot read the BHPLTA website, see "Set-up cannot read the
+BHPLTA website" in [Troubleshooting](troubleshooting.md). Its message says
+whether the server could not connect at all or the website refused.
 
 ## Step 10: The first things to do
 

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"jim-dot-tennis/internal/normalize"
+	"jim-dot-tennis/internal/version"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -60,7 +61,7 @@ func FetchFixtures(ctx context.Context, client *http.Client, url string) ([]Scra
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+	req.Header.Set("User-Agent", version.UserAgent())
 
 	resp, err := client.Do(req)
 	if err != nil {

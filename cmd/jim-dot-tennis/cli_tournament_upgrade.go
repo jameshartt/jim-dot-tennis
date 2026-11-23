@@ -39,9 +39,9 @@ func runTournamentsPreUpgrade(ctx context.Context, c cliOut, stderr io.Writer) i
 	stop := func(format string, args ...any) int {
 		fmt.Fprintf(stderr, "Stopped before the tournament server started: %s.\n", fmt.Sprintf(format, args...))
 		fmt.Fprintf(stderr, "Nothing in the tournament database was changed, and the league site keeps working.\n"+
-			"Fix the cause above, then run \"docker compose up -d\" again in the deploy folder. The tournament server\n"+
-			"starts once this step has made its backup. The operations guide (backups section, \"Tournament\n"+
-			"upgrades\") says what else you can do.\n")
+			"Fix the cause above, then run \"docker compose up -d\" again in the folder holding docker-compose.yml.\n"+
+			"The tournament server starts once this step has made its backup. docs/troubleshooting.md\n"+
+			"(\"service courthive-pre-upgrade didn't complete successfully\") says what else you can do.\n")
 		return exitError
 	}
 	cfg, err := backup.FromEnv()
@@ -124,7 +124,7 @@ func printTournamentRestore(c cliOut, res backup.RestoreResult, archive string) 
 	case backup.TournamentRestored:
 		c.printf("\nThe tournament database was restored from the backup too.\n")
 		c.printf("The tournament database it replaced is kept as %s in the data folder.\n", filepath.Base(res.TournamentSafetyCopy))
-		c.printf("Start the tournament server and identity service again after the app (docker compose up -d in the deploy folder).\n")
+		c.printf("Start the tournament server and identity service again after the app (docker compose up -d, in the folder holding docker-compose.yml).\n")
 	case backup.TournamentNotInBackup:
 		c.printf("\nThis backup has no tournament data, so the tournament database was left as it is.\n")
 		c.printf("People's tournament accounts are matched up again when they next open tournament management.\n")
@@ -156,13 +156,12 @@ func runRestoreTournaments(ctx context.Context, c cliOut, stderr io.Writer, file
 		return exitError
 	}
 	if res.Manifest != nil {
-		c.printf("\nRestored the tournament data of the backup made %s (%s backup, app version %s).\n",
-			res.Manifest.CreatedAt.Local().Format("2 Jan 2006 15:04"), res.Manifest.Kind, res.Manifest.AppVersion)
+		c.printf("\nRestored the tournament data of %s.\n", describeBackup(*res.Manifest))
 	} else {
 		c.printf("\nRestored the tournament database from the dump %s.\n", filepath.Base(file))
 	}
 	c.printf("The app's database was not touched. The tournament database it replaced is kept as %s in the data folder.\n",
 		filepath.Base(res.SafetyCopy))
-	c.printf("\nNow start the app, then the tournament server and identity service (docker compose up -d in the deploy folder).\n")
+	c.printf("\nNow start the app, then the tournament server and identity service (docker compose up -d, in the folder holding docker-compose.yml).\n")
 	return exitOK
 }

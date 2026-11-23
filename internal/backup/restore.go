@@ -167,7 +167,7 @@ func Restore(ctx context.Context, cfg Config, archivePath string, migrations fs.
 	defer restoreLock.Release()
 	lock, err := AcquireLock(cfg.LockPath())
 	if errors.Is(err, ErrLocked) {
-		return res, fmt.Errorf("%w: the app (or another restore) is using %s. Stop the app first, then run restore again in a one-off container (see the backups section of the operations guide). Nothing was changed",
+		return res, fmt.Errorf("%w: the app (or another restore) is using %s. Stop the app first, then run restore again in a one-off container (see \"Put a backup back (restore)\" in docs/backup-and-restore.md). Nothing was changed",
 			ErrServerRunning, dataDir)
 	}
 	if err != nil {
@@ -410,7 +410,7 @@ func RestoreTournaments(ctx context.Context, cfg Config, path string) (Tournamen
 	dataDir := cfg.DataDir()
 	if cfg.Tournament == nil {
 		return res, fmt.Errorf("this deployment has no tournament database settings (%s and the others are empty), so there is nowhere to restore tournament data to. "+
-			"Turn the tournament stack on first (the operations guide's tournaments section). Nothing was changed", EnvPGHost)
+			"Turn the tournament stack on first (docs/install.md, \"Optional: turning on tournaments\"). Nothing was changed", EnvPGHost)
 	}
 	if info, err := os.Stat(dataDir); err != nil || !info.IsDir() {
 		return res, fmt.Errorf("the data folder %s (from DB_PATH=%s) does not exist. Mount the app's data volume there, or set DB_PATH", dataDir, cfg.DBPath)
@@ -425,7 +425,7 @@ func RestoreTournaments(ctx context.Context, cfg Config, path string) (Tournamen
 	defer restoreLock.Release()
 	lock, err := AcquireLock(cfg.LockPath())
 	if errors.Is(err, ErrLocked) {
-		return res, fmt.Errorf("%w: the app (or another restore) is using %s. Stop the app first, then run restore again in a one-off container (see the backups section of the operations guide). Nothing was changed",
+		return res, fmt.Errorf("%w: the app (or another restore) is using %s. Stop the app first, then run restore again in a one-off container (see \"Put a backup back (restore)\" in docs/backup-and-restore.md). Nothing was changed",
 			ErrServerRunning, dataDir)
 	}
 	if err != nil {
@@ -680,7 +680,7 @@ func swapIn(ctx context.Context, cfg Config, stagedDB, stagedUploads, owner stri
 	defer func() {
 		if err != nil {
 			if uerr := undo.run(); uerr != nil {
-				err = fmt.Errorf("%w. Then %w (%v): check the data folder %s against the operations guide before starting the app",
+				err = fmt.Errorf("%w. Then %w (%v): check the data folder %s as \"If a restore stops part-way\" in docs/backup-and-restore.md says, before starting the app",
 					err, ErrUndoFailed, uerr, cfg.DataDir())
 			}
 		}

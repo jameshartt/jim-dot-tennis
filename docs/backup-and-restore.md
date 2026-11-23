@@ -84,7 +84,7 @@ Backup made and checked:
 
     /app/data/backups/jim-dot-tennis-backup-20261123T083111Z.tar.gz
 
-57959 bytes; database version 38; 0 uploaded file(s); app version X.Y.Z.
+57959 bytes; database version 38; 0 uploaded file(s); made by app version X.Y.Z.
 Does not include tournament data (this deployment has no tournament stack).
 ```
 
@@ -241,10 +241,53 @@ it was.
 - A backup **with** tournament data, restored where tournaments are off,
   brings back the league data only, and says the tournament data was not
   restored. To restore it later, turn tournaments on, stop the three as above,
-  and run the restore with `restore --tournaments-only /app/data/backups/<file>`.
+  and run:
+
+  ```
+  docker compose run --rm --no-deps app ./jim-dot-tennis restore --tournaments-only /app/data/backups/<file>
+  ```
 - A backup **without** tournament data (made with tournaments off, or a
   `pre-migration` backup) restores the league data and leaves the tournament
   data as it is.
+
+### If a restore stops part-way
+
+A restore that is stopped (Ctrl+C, the server restarting) before it swaps the
+files in leaves everything as it was: run it again. Two rarer messages need you
+to look before starting the app.
+
+**"Some of the current files may have been moved"** (or "check the data
+folder"). With the app still stopped, list the data folder:
+
+```
+docker compose run --rm --no-deps app ls -la /app/data
+```
+
+`tennis.db` should be there. If it is missing, put the copy the restore kept
+back in its place. Put the `<date>` you see in the listing in place of
+`<date>`:
+
+```
+docker compose run --rm --no-deps app sh -c 'cp -p /app/data/tennis.db.replaced-<date> /app/data/tennis.db'
+```
+
+If there is also a `tennis.db.replaced-<date>-wal`, copy it to
+`/app/data/tennis.db-wal` the same way. If the club logo is missing afterwards,
+copy it from `/app/data/branding.replaced-<date>/` back into
+`/app/data/branding/`. Then `docker compose up -d`.
+
+**"Do not start the app or the tournament services until this is put right"**
+(the two databases no longer match). The tournament database was restored, the
+app's could not be put in place, and putting the tournament database back
+failed too. Start nothing. The message names the safety copy,
+`courthive.dump.replaced-<date>`. With the app, the tournament server and the
+identity service stopped, put it back:
+
+```
+docker compose run --rm --no-deps app ./jim-dot-tennis restore --tournaments-only /app/data/courthive.dump.replaced-<date>
+```
+
+Then `docker compose up -d`.
 
 ### Tidy up after a restore
 

@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -342,14 +343,25 @@ func main() {
 	} else if len(removed) > 0 {
 		log.Printf("Removed %d older pre-upgrade backup(s)", len(removed))
 	}
-	log.Printf("jim-dot-tennis %s ready: %s, database %s, %s mode",
-		version.Long(), "http://localhost"+server.Addr, getEnv("DB_PATH", "./tennis.db"), runMode())
+	log.Printf("jim-dot-tennis %s ready, database %s, %s mode. %s",
+		version.Long(), getEnv("DB_PATH", "./tennis.db"), runMode(), whereToOpen(homeClub.ClubSettings(), server.Addr))
 	if err := serve(server, authService.StartCleanup, backups.Start); err != nil {
 		db.Close()
 		log.Fatalf("Server stopped: %v", err)
 	}
 	// Normal shutdown: the deferred db.Close() runs and the process exits 0.
 	log.Printf("Stopped cleanly")
+}
+
+// whereToOpen is the end of the start-up line: the address people open (the
+// public URL, when one is set) and the internal listening address, said so
+// that nobody takes "localhost:8080" for the address of the site.
+func whereToOpen(cs *config.ClubSettings, addr string) string {
+	internal := fmt.Sprintf("The app listens on port %s inside its container (http://localhost%s there)", strings.TrimPrefix(addr, ":"), addr)
+	if p, ok, _ := cs.ResolvePublicURL(); ok {
+		return fmt.Sprintf("Open %s in a browser. %s; that is not the address to open.", p.Base, internal)
+	}
+	return internal + ". No public address is set yet (PUBLIC_URL in your .env file, or Public URL on the Club Settings page)."
 }
 
 // backupThenMigrate takes the pre-migration backup (backup.BeforeMigrations:
@@ -380,14 +392,15 @@ func backupThenMigrate(db *database.DB, cfg backup.Config, migrations fs.FS, lab
 func migrateOrStop(db *database.DB, migrations fs.FS, label string, fatalf func(format string, args ...any)) {
 	if err := db.ExecuteMigrationsFS(migrations, label); err != nil {
 		var me *database.MigrationError
-		if errors.As(err, &me) {
-			// The message names the migration and lists the recovery steps.
+		var newer *database.NewerSchemaError
+		if errors.As(err, &me) || errors.As(err, &newer) {
+			// The message says what happened and lists the recovery steps.
 			fatalf("Cannot start: %v", err)
 			return
 		}
 		fatalf("Database migration failed, so the app cannot start: %v\n"+
 			"Nothing was served. Migrations read from: %s. "+
-			"See \"Working with Migrations\" in CLAUDE.md for a migration that stopped part-way.", err, label)
+			"See \"The app keeps restarting after an upgrade\" in docs/troubleshooting.md.", err, label)
 	}
 }
 

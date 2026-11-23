@@ -24,3 +24,17 @@ func TestLongShowsAllThree(t *testing.T) {
 		t.Errorf("Short() = %q", Short())
 	}
 }
+
+func TestUserAgentIsHonest(t *testing.T) {
+	old := Version
+	defer func() { Version = old }()
+	Version = "1.2.3"
+	if got, want := UserAgent(), "jim-dot-tennis/1.2.3 (+https://github.com/jameshartt/jim-dot-tennis)"; got != want {
+		t.Errorf("UserAgent() = %q, want %q", got, want)
+	}
+	for _, browser := range []string{"Mozilla", "Chrome", "Safari", "Gecko", "Firefox"} {
+		if strings.Contains(UserAgent(), browser) {
+			t.Errorf("UserAgent() = %q pretends to be a browser (%s)", UserAgent(), browser)
+		}
+	}
+}

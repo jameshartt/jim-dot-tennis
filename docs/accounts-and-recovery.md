@@ -13,8 +13,8 @@ cd ~/jim-dot-tennis
 docker compose exec app ./jim-dot-tennis user list
 ```
 
-`docker exec -it jim-dot-tennis ./jim-dot-tennis user list` does the same; the
-app's own messages use that form.
+`docker exec -it jim-dot-tennis ./jim-dot-tennis user list` does the same, from
+any folder.
 
 To see every command with a short explanation:
 

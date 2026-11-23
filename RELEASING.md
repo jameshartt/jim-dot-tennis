@@ -64,7 +64,11 @@ pre-release: it is marked as one on GitHub and never changes `latest`.
    any) and the version tag on ghcr.io, and tag again.
 7. First release only: make the package public (see below).
 8. Check the result: the release page has two binaries, the checksums file and
-   notes; `docker pull ghcr.io/jameshartt/jim-dot-tennis:X.Y.Z` works from a
+   notes (the install files are not attached: clubs download
+   `docker-compose.yml`, `.env.example`, `Caddyfile` and `init-tournaments.sh`
+   from the tag's `deploy/` folder on raw.githubusercontent.com, as
+   `docs/install.md` and `docs/upgrade.md` show, so the tagged commit's
+   `deploy/` is what they get); `docker pull ghcr.io/jameshartt/jim-dot-tennis:X.Y.Z` works from a
    machine that is not logged in; running it prints the version
    (`docker run --rm ghcr.io/jameshartt/jim-dot-tennis:X.Y.Z ./jim-dot-tennis version`).
 9. Edit the GitHub release notes if the generated list needs a sentence of
@@ -104,8 +108,10 @@ four tournament images it was tested with, in one table:
   images themselves; they come from other repositories.
 - Before a release that changes the tournament server image, run
   `scripts/rehearse-tournament-upgrade.sh` on a dump of a real tournament
-  database at the previous release's schema (the operations guide, section
-  9) and note the result in the pull request.
+  database at the previous release's schema and note the result in the pull
+  request. The script's header says how to get a dump (`pg_dump -Fc` in the
+  tournament database container, or `tournaments/courthive.dump` out of a
+  backup).
 
 ## One-time: make the package public
 

@@ -98,7 +98,7 @@ who runs the server will need to arrange it.
 
 | To | When | What is sent |
 |---|---|---|
-| The BHPLTA website (`www.bhplta.co.uk`) | When an administrator imports a season, match cards or club details; at first set-up; when someone opens the fixture generator | Ordinary page requests. For match cards and club look-up, your club's BHPLTA club code and name, as the BHPLTA website itself asks for them. The fixture generator's requests name this software and its public source code. No personal data. |
+| The BHPLTA website (`www.bhplta.co.uk`) | When an administrator imports a season, match cards or club details; at first set-up; when someone opens the fixture generator | Ordinary page requests. For match cards and club look-up, your club's BHPLTA club code and name, as the BHPLTA website itself asks for them. Every request names this software, its version and its public source code; it never pretends to be a web browser. No personal data. |
 | A fixtures page address an administrator types in | When that administrator imports a season from it | A page request |
 | Open-Meteo (`api.open-meteo.com`), a free weather service | When an administrator opens a fixture page within the forecast window | The venue's location and the dates. No account, no names. |
 | Browser notification services: Google (`fcm.googleapis.com`, `android.googleapis.com`), Mozilla (`push.services.mozilla.com`), Apple (`push.apple.com`), Microsoft (`notify.windows.com`) | When a notification is sent to someone who turned notifications on | The notification, encrypted so only that person's browser can read it, and your site's address |
@@ -106,7 +106,11 @@ who runs the server will need to arrange it.
 | Docker Hub (`docker.io`) and the GitHub container registry (`ghcr.io`) | Only when you run `docker compose pull` to install or upgrade | Requests for the software |
 
 With tournaments on, the tournament parts talk only to each other and to the
-app, inside the server. They make no connections outside it.
+app, inside the server. They make no connections outside it. The app uses them
+to set your club up, to give people tournament access (it sends their
+usernames), and for backups of the tournament data.
+
+No part of the app downloads anything when it starts.
 
 There are no others: no analytics, telemetry, error reporting, crash uploads,
 licence checks, update checks or remote logging. The app sends no email and no

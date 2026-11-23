@@ -90,6 +90,19 @@ func (a Account) RoleLabel() string {
 	return string(a.Role)
 }
 
+// auditRoleName is the role as the account audit log names it. A
+// Tournaments only account is stored with the retired role value "player"
+// (models.RoleTournamentsOnly); recording that as "role player" would read
+// as a league role it does not have, so with tournament access it is
+// "tournaments-only". An account left with the retired role and no
+// tournament access is still "player".
+func auditRoleName(role models.Role, access models.TournamentAccess) string {
+	if role == models.RoleTournamentsOnly && access != models.TournamentAccessNone {
+		return "tournaments-only"
+	}
+	return string(role)
+}
+
 // checkNewAccountAccess checks the role and tournament access of an account
 // about to be created.
 func checkNewAccountAccess(role models.Role, access models.TournamentAccess) error {

@@ -25,17 +25,20 @@ import (
 	"jim-dot-tennis/internal/version"
 )
 
-// cliHelp is the text `jim-dot-tennis help` prints. The archived runbook docs/archive/PRODUCTION_QUICK_REFERENCE.md
-// reproduces it; keep the two in step.
+// cliHelp is the text `jim-dot-tennis help` prints. The operator guides
+// (docs/accounts-and-recovery.md, docs/backup-and-restore.md, docs/upgrade.md)
+// show how to run every command it lists; TestOperatorGuidesCoverEveryCommand
+// checks that each listed command appears in one of them.
 const cliHelp = `jim-dot-tennis - the club's tennis app
 
 Run it with no command to start the web app. That is what the app's
 container does, so you never need to start it by hand.
 
 The commands below are for the person who looks after the club's server.
-Run them on the server, inside the app's container, for example:
+Run them on the server, inside the app's container. From the folder
+holding docker-compose.yml, for example:
 
-    docker exec -it jim-dot-tennis ./jim-dot-tennis user list
+    docker compose exec app ./jim-dot-tennis user list
 
 They work while the app is running; there is no need to stop it. The one
 exception is "restore", which only runs while the app is stopped.
@@ -117,8 +120,9 @@ Backups
   restore <file>                   Put a backup back: its database and logo
                                    replace the current ones. Refused while the
                                    app is running, so stop the app and run it
-                                   in a one-off container (the operations
-                                   guide shows how). A backup from an older
+                                   in a one-off container (see
+                                   docs/backup-and-restore.md, "Put a backup
+                                   back (restore)"). A backup from an older
                                    version is upgraded; one from a newer
                                    version is refused. The database it replaces
                                    is kept beside it (tennis.db.replaced-...),
@@ -556,7 +560,7 @@ func openCLIDatabase(ctx context.Context) (*database.DB, error) {
 	}
 	if _, err := os.Stat(path); err != nil {
 		return nil, fmt.Errorf("there is no database at %s. Run this command inside the app's container "+
-			"(docker exec -it jim-dot-tennis ./jim-dot-tennis ...), where DB_PATH points at the app's database", path)
+			"(from the folder holding docker-compose.yml: docker compose exec app ./jim-dot-tennis ...), where DB_PATH points at the app's database", path)
 	}
 	// database.New sets WAL and a busy timeout, so this works alongside the
 	// running server: a write waits briefly for the server's instead of failing.
@@ -581,7 +585,10 @@ func openCLIDatabase(ctx context.Context) (*database.DB, error) {
 		return nil, fmt.Errorf("the database at %s has not been set up yet. Start the app once, then try again", path)
 	case st.Dirty:
 		db.Close()
-		return nil, fmt.Errorf("the database at %s is part-way through an upgrade (version %d) and needs attention before anything else changes it; see docs/troubleshooting.md", path, st.Version)
+		return nil, fmt.Errorf("the database at %s is part-way through an upgrade (version %d) and needs attention before anything else changes it; see \"The app keeps restarting after an upgrade\" in docs/troubleshooting.md", path, st.Version)
+	case st.Version > latest:
+		db.Close()
+		return nil, &database.NewerSchemaError{Found: st.Version, Latest: latest}
 	case st.Version < latest:
 		db.Close()
 		return nil, fmt.Errorf("the database is at version %d but this program needs version %d. Start (or restart) the app once so it upgrades the database, then try again", st.Version, latest)

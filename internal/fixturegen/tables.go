@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"jim-dot-tennis/internal/normalize"
+	"jim-dot-tennis/internal/version"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -143,7 +144,7 @@ func FetchTables(ctx context.Context, client *http.Client, url string) (*Tables,
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	req.Header.Set("User-Agent", "jim.tennis fixture generator (+https://github.com/jameshartt/jim-dot-tennis)")
+	req.Header.Set("User-Agent", version.UserAgent())
 	req.Header.Set("Accept", "text/html")
 
 	resp, err := client.Do(req)
