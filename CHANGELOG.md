@@ -25,7 +25,13 @@ here. GitHub also generates a list of merged changes for each release; this file
 is the curated version that matters to operators. Moving from several versions
 back: read the Upgrade notes of every version in between.
 
-## [Unreleased]
+## [0.2.0] - 2026-11-23
+
+### Summary
+
+Tournaments in the box: an optional tournament stack (CourtHive) that a club
+switches on, with one sign-in for league and tournaments, tournament access
+set per person, and tournament data in the app's backups.
 
 ### Added
 
@@ -95,6 +101,7 @@ is kept):
 
 | Part | Image |
 |---|---|
+| jim-dot-tennis | `ghcr.io/jameshartt/jim-dot-tennis:0.2.0` |
 | Tournament server | `ghcr.io/jameshartt/courthive-server:4.19.1-jdt.1` |
 | Identity service | `ghcr.io/jameshartt/courthive-hiveid:0.5.0-jdt.1` |
 | TMX | `ghcr.io/jameshartt/courthive-tmx:8.61.0-jdt.1` |

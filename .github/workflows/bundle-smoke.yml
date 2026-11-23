@@ -14,9 +14,8 @@ name: Bundle smoke
 # STATUS: this workflow has never run. The four images
 #   ghcr.io/jameshartt/courthive-server, courthive-hiveid, courthive-tmx and
 #   courthive-public
-# are published (public) at the versions in deploy/docker-compose.yml, but
-# GitHub Actions has not been able to run for this account. Before relying on
-# it: start it with "Run workflow" and read the
+# are published (public) at the versions in deploy/docker-compose.yml. Before
+# relying on it: start it with "Run workflow" and read the
 # result before trusting the schedule.
 
 on:

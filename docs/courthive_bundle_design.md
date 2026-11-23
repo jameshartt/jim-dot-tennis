@@ -459,5 +459,5 @@ to approve, and the old accounts stay until then.
   tournament, and is refused a hand-over into the first.
 
 Not tested: the CI workflows in the forks and `bundle-smoke.yml`, which have
-never run (GitHub Actions is billing-locked for this account). The images are
-published, so `BUNDLE_PULL=1` now works.
+not run yet: `bundle-smoke.yml` starts by hand, on a schedule or on a release,
+and only from `main`. The images are published, so `BUNDLE_PULL=1` works.

@@ -48,5 +48,5 @@
     "user_story": "As a club, I want the tournament software as ready-made images so that I never build it.",
     "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
   },
-  "status_note": "Completed 2026-11-23. The forks' jdt-bundle branches are pushed and the four images are published as public packages on ghcr.io (amd64 only, pushed from the maintainer's machine; anonymous pull checked). The fork CI workflows and bundle-smoke.yml have never run because GitHub Actions is billing-locked for this account."
+  "status_note": "Completed 2026-11-23. The forks' jdt-bundle branches are pushed and the four images are published as public packages on ghcr.io (amd64 only, pushed from the maintainer's machine; anonymous pull checked). bundle-smoke.yml has not run yet (it starts by hand, on a schedule or on a release, from main)."
 }
