@@ -85,8 +85,9 @@ you may see this instead, even with tournaments off:
 error while interpolating services.courthive-service-account.environment.PG_PASSWORD: required variable COURTHIVE_PG_PASSWORD is missing a value: COURTHIVE_PG_PASSWORD is missing from deploy/.env - run ./init-tournaments.sh
 ```
 
-The name after `services.` and the end of the line can differ. It is about the
-tournament secrets.
+The name after `services.` and the variable named can differ (any name
+starting `COURTHIVE_`). It is about the tournament secrets. Where the message
+says `deploy/.env`, it means the `.env` file in your install folder.
 
 **Why:** those older files ask for the tournament secrets on every start, even
 for a club that runs the league only, when the server has Docker Compose
