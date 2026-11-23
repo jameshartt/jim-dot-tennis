@@ -9,7 +9,7 @@
 #   1. builds the app image from this checkout (tagged locally) and the
 #      Playwright runner image; the four CourtHive images must already exist
 #      locally under the names in deploy/docker-compose.yml (BUNDLE_PULL=1
-#      pulls them: CI does that; they are not published yet);
+#      pulls them: CI does that);
 #   2. writes a THROWAWAY env file (deploy/.env.example with DOMAIN=localhost
 #      so Caddy issues a certificate from its own CA), runs the real
 #      deploy/init-tournaments.sh against it when the profile is on, and
@@ -67,7 +67,7 @@ fi
 if [ "$MODE" != off ]; then
   for img in "${COURTHIVE_IMAGES[@]}"; do
     docker image inspect "$img" >/dev/null 2>&1 || {
-      echo "missing image $img (set BUNDLE_PULL=1 once the images are published)" >&2
+      echo "missing image $img (set BUNDLE_PULL=1 to pull the published images)" >&2
       exit 1
     }
   done

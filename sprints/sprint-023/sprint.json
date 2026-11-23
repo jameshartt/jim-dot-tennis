@@ -26,6 +26,6 @@
       "WI-153",
       "WI-154"
     ],
-    "status_note": "2026-11-23: branches pushed and pull request #30 opened; the upgrade rehearsal on a copy of jim.tennis's tournament data passed. WI-154 (several sets of tournaments per installation, chosen per person) added at the owner's request and implemented locally. Open, each waiting for the owner: publishing the CourtHive images (WI-143) and moving jim.tennis itself onto the bundle."
+    "status_note": "2026-11-23: branches pushed and pull request #30 opened; the upgrade rehearsal on a copy of jim.tennis's tournament data passed. WI-154 (several sets of tournaments per installation, chosen per person) added at the owner's request and implemented locally. The four CourtHive images were published as public packages (WI-143 completed). Open, waiting for the owner: merging pull request #30 and moving jim.tennis itself onto the bundle."
   }
 }

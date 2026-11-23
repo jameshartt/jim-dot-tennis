@@ -408,8 +408,9 @@ to approve, and the old accounts stay until then.
 
 ## 6. Effect on the work items
 
-- WI-143: four images on latest upstream, built locally and tested. Remaining:
-  outbound connections documented, and publishing once the owner says so.
+- WI-143: four images on latest upstream, tested, and published on
+  2026-11-23 as public packages (amd64 only), pushed from the maintainer's
+  machine. Outbound connections documented.
 - WI-144: compose profile with Postgres, Redis, tournament server, identity
   service, the two content services and the set-up step; secrets generated at
   install; the proxy rules of section 4; memory limits of section 3.
@@ -457,6 +458,6 @@ to approve, and the old accounts stay until then.
   only, who is handed over into it, cannot fetch the first provider's
   tournament, and is refused a hand-over into the first.
 
-Not tested: the CI workflows in
-the forks and `bundle-smoke.yml`, which have never run because the images are
-not published.
+Not tested: the CI workflows in the forks and `bundle-smoke.yml`, which have
+never run (GitHub Actions is billing-locked for this account). The images are
+published, so `BUNDLE_PULL=1` now works.
