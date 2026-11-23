@@ -41,6 +41,8 @@ CLAUDE.md
 PROFILE_IMPLEMENTATION.md
 COURTHIVE_SETUP.md
 docs/
+# ...except the user guides, which are built into the binary (guides.go)
+!docs/guide-*.md
 sprints/
 
 # Docker/compose files (not needed inside the build context)

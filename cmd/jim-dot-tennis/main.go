@@ -28,6 +28,7 @@ import (
 	"jim-dot-tennis/internal/database"
 	"jim-dot-tennis/internal/fixturegen"
 	"jim-dot-tennis/internal/health"
+	"jim-dot-tennis/internal/help"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/players"
 	"jim-dot-tennis/internal/render"
@@ -262,6 +263,10 @@ func main() {
 		// tournament stack did not take (it was down, say).
 		go tournamentService.RunReconciler(context.Background(), time.Minute)
 	}
+
+	// User guides, rendered from docs/guide-*.md built into the binary (the
+	// player sheet is public, the others need a signed-in account)
+	help.New(jimdottennis.Guides(), templateDir).RegisterRoutes(mux, authMiddleware.RequireAuth)
 
 	// Public admin-related routes (e.g., club wrapped with lightweight password gate)
 	adminHandler.RegisterPublicRoutes(mux)

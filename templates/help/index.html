@@ -1,0 +1,32 @@
+{{define "help/index.html"}}
+{{template "layout" .}}
+{{end}}
+
+{{define "head"}}
+<title>Guides - Jim.Tennis</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+    .help-wrap { max-width: 760px; margin: 0 auto; padding: 1.5rem 0; }
+    .help-wrap h1 { color: var(--primary-color); margin-bottom: 0.5rem; }
+    .help-list { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: 0.75rem; }
+    .help-card { display: block; padding: 1rem 1.1rem; border: 1px solid #e1e8ed; border-radius: 8px; background: #fff; text-decoration: none; color: inherit; }
+    .help-card:hover { background: #f3f7f4; }
+    .help-card strong { display: block; font-size: 1.15rem; color: var(--primary-color); }
+</style>
+{{end}}
+
+{{define "user-controls"}}
+<a href="/admin/league/dashboard" class="btn btn-sm">Dashboard</a>
+{{end}}
+
+{{define "content"}}
+<div class="help-wrap" data-testid="help-index">
+    <h1>Guides</h1>
+    <p>Help for running the club's app. These pages come with the app, so they always match the version you have.</p>
+    <ul class="help-list">
+        {{range .Guides}}
+        <li><a class="help-card" href="{{.Path}}" data-testid="help-guide-{{.Slug}}"><strong>{{.Title}}</strong>{{.Summary}}</a></li>
+        {{end}}
+    </ul>
+</div>
+{{end}}

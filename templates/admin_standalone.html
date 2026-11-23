@@ -334,6 +334,7 @@
         <div class="container">
             <div class="admin-container">
                 <h1 data-testid="dashboard-title">{{if .User.IsAdmin}}Admin Dashboard{{else}}Captain Dashboard{{end}}</h1>
+                {{if .User.IsAdmin}}<a class="help-link help-link-dark" href="/help/admin" data-testid="help-link">Help with this page</a>{{else}}<a class="help-link help-link-dark" href="/help/captain" data-testid="help-link">Help with this page</a>{{end}}
 
                 {{if .PasskeyWarnings}}
                 <div class="alert alert-danger" role="alert" data-testid="passkey-warning-banner">
