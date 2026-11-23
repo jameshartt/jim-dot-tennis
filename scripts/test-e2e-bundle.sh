@@ -109,7 +109,7 @@ run_profile() {
     local oneshots=()
     if [ "$1" = on ]; then
       want+=(postgres redis courthive-server courthive-hiveid)
-      oneshots=(courthive-service-account tmx-content public-content)
+      oneshots=(check-tournament-secrets courthive-service-account tmx-content public-content)
     fi
     while [ $SECONDS -lt $deadline ]; do
       local ok=1
