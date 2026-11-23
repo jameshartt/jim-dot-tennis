@@ -25,6 +25,33 @@ here. GitHub also generates a list of merged changes for each release; this file
 is the curated version that matters to operators. Moving from several versions
 back: read the Upgrade notes of every version in between.
 
+## [0.2.1] - 2026-11-23
+
+### Summary
+
+A fix for clubs that kept tournaments in CourtHive before this app managed
+them.
+
+### Fixed
+
+- Tournament set-up takes on an existing set of tournaments whose code has
+  spaces or punctuation (for example "St Ann's"), including as the club's own
+  at the first set-up. Before, such a code was refused.
+
+The bundled set this version was tested with:
+
+| Part | Image |
+|---|---|
+| jim-dot-tennis | `ghcr.io/jameshartt/jim-dot-tennis:0.2.1` |
+| Tournament server | `ghcr.io/jameshartt/courthive-server:4.19.1-jdt.1` |
+| Identity service | `ghcr.io/jameshartt/courthive-hiveid:0.5.0-jdt.1` |
+| TMX | `ghcr.io/jameshartt/courthive-tmx:8.61.0-jdt.1` |
+| Public pages | `ghcr.io/jameshartt/courthive-public:1.23.7-jdt.1` |
+
+### Upgrade notes
+
+None: replace the image and restart.
+
 ## [0.2.0] - 2026-11-23
 
 ### Summary
