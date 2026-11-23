@@ -51,7 +51,7 @@
                             <input type="text" id="name" name="name" value="{{.Tournament.Name}}" required>
                         </div>
                         <div class="form-group">
-                            <label for="provider_id">Provider</label>
+                            <label for="provider_id">Set of tournaments</label>
                             <select id="provider_id" name="provider_id" required>
                                 {{range .Providers}}
                                 <option value="{{.ID}}" {{if eq .ID $.Tournament.ProviderID}}selected{{end}}>{{.Name}}</option>

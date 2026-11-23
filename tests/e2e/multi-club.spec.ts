@@ -81,7 +81,7 @@ test.describe('Multi-club verification (Hove Park as home)', () => {
   test('about page loads', async ({ page }) => {
     await page.goto('/about');
     const content = await page.textContent('body');
-    expect(content).toContain('jim.tennis');
+    expect(content).toContain('Jim.Tennis');
   });
 
   test('home/away designation is reversed', async ({ page }) => {

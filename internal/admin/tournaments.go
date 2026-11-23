@@ -49,7 +49,7 @@ func (h *TournamentsHandler) HandleProviders(w http.ResponseWriter, r *http.Requ
 func (h *TournamentsHandler) handleProvidersList(w http.ResponseWriter, r *http.Request) {
 	providers, err := h.service.GetAllTournamentProviders()
 	if err != nil {
-		logAndError(w, "Failed to load providers", err, http.StatusInternalServerError)
+		logAndError(w, "Failed to load sets of tournaments", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -91,11 +91,11 @@ func (h *TournamentsHandler) handleProviderCreate(w http.ResponseWriter, r *http
 
 	if err := h.service.CreateTournamentProvider(provider); err != nil {
 		log.Printf("Failed to create provider: %v", err)
-		http.Redirect(w, r, "/admin/league/tournaments/providers?error=Failed+to+create+provider", http.StatusSeeOther)
+		http.Redirect(w, r, "/admin/league/tournaments/providers?error=Failed+to+create+set+of+tournaments", http.StatusSeeOther)
 		return
 	}
 
-	http.Redirect(w, r, "/admin/league/tournaments/providers?success=Provider+created", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/league/tournaments/providers?success=Set+of+tournaments+created", http.StatusSeeOther)
 }
 
 // HandleProviderEdit handles GET (edit form) and POST (update/delete) for a single provider
@@ -108,7 +108,7 @@ func (h *TournamentsHandler) HandleProviderEdit(w http.ResponseWriter, r *http.R
 
 	providerID, err := parseIDFromPath(r.URL.Path, "/admin/league/tournaments/providers/")
 	if err != nil {
-		http.Error(w, "Invalid provider ID", http.StatusBadRequest)
+		http.Error(w, "Invalid set of tournaments ID", http.StatusBadRequest)
 		return
 	}
 
@@ -125,7 +125,7 @@ func (h *TournamentsHandler) HandleProviderEdit(w http.ResponseWriter, r *http.R
 func (h *TournamentsHandler) handleProviderEditGet(w http.ResponseWriter, r *http.Request, providerID uint) {
 	provider, err := h.service.GetTournamentProviderByID(providerID)
 	if err != nil {
-		logAndError(w, "Provider not found", err, http.StatusNotFound)
+		logAndError(w, "Set of tournaments not found", err, http.StatusNotFound)
 		return
 	}
 
@@ -157,13 +157,13 @@ func (h *TournamentsHandler) handleProviderEditPost(w http.ResponseWriter, r *ht
 			http.Redirect(w, r, "/admin/league/tournaments/providers?error="+err.Error(), http.StatusSeeOther)
 			return
 		}
-		http.Redirect(w, r, "/admin/league/tournaments/providers?success=Provider+deleted", http.StatusSeeOther)
+		http.Redirect(w, r, "/admin/league/tournaments/providers?success=Set+of+tournaments+deleted", http.StatusSeeOther)
 		return
 	}
 
 	provider, err := h.service.GetTournamentProviderByID(providerID)
 	if err != nil {
-		logAndError(w, "Provider not found", err, http.StatusNotFound)
+		logAndError(w, "Set of tournaments not found", err, http.StatusNotFound)
 		return
 	}
 
@@ -176,11 +176,11 @@ func (h *TournamentsHandler) handleProviderEditPost(w http.ResponseWriter, r *ht
 	}
 
 	if err := h.service.UpdateTournamentProvider(provider); err != nil {
-		logAndError(w, "Failed to update provider", err, http.StatusInternalServerError)
+		logAndError(w, "Failed to update set of tournaments", err, http.StatusInternalServerError)
 		return
 	}
 
-	http.Redirect(w, r, "/admin/league/tournaments/providers?success=Provider+updated", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/league/tournaments/providers?success=Set+of+tournaments+updated", http.StatusSeeOther)
 }
 
 // --- Tournament routes ---
@@ -212,7 +212,7 @@ func (h *TournamentsHandler) handleTournamentsList(w http.ResponseWriter, r *htt
 
 	providers, err := h.service.GetAllTournamentProviders()
 	if err != nil {
-		logAndError(w, "Failed to load providers", err, http.StatusInternalServerError)
+		logAndError(w, "Failed to load sets of tournaments", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -247,7 +247,7 @@ func (h *TournamentsHandler) handleTournamentCreate(w http.ResponseWriter, r *ht
 	providerIDStr := r.FormValue("provider_id")
 	providerID, err := strconv.ParseUint(providerIDStr, 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid provider ID", http.StatusBadRequest)
+		http.Error(w, "Invalid set of tournaments ID", http.StatusBadRequest)
 		return
 	}
 
@@ -311,7 +311,7 @@ func (h *TournamentsHandler) handleTournamentEditGet(w http.ResponseWriter, r *h
 
 	providers, err := h.service.GetAllTournamentProviders()
 	if err != nil {
-		logAndError(w, "Failed to load providers", err, http.StatusInternalServerError)
+		logAndError(w, "Failed to load sets of tournaments", err, http.StatusInternalServerError)
 		return
 	}
 
@@ -427,7 +427,7 @@ func (h *TournamentsHandler) HandleSync(w http.ResponseWriter, r *http.Request) 
 
 	providerID, err := parseIDFromPath(r.URL.Path, "/admin/league/tournaments/sync/")
 	if err != nil {
-		http.Error(w, "Invalid provider ID", http.StatusBadRequest)
+		http.Error(w, "Invalid set of tournaments ID", http.StatusBadRequest)
 		return
 	}
 

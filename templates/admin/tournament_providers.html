@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tournament Providers - Jim.Tennis Admin</title>
+    <title>Sets of tournaments - Jim.Tennis Admin</title>
     <link rel="stylesheet" href="{{asset "/static/css/main.css"}}">
     <script src="{{asset "/static/js/htmx-1.9.4.min.js"}}"></script>
     <style>
@@ -43,9 +43,9 @@
         <div class="container">
             <div class="breadcrumb">
                 <a href="/admin/league/dashboard">Admin Dashboard</a> &gt;
-                <a href="/admin/league/tournaments">Tournaments</a> &gt; Providers
+                <a href="/admin/league/tournaments">Tournaments</a> &gt; Sets of tournaments
             </div>
-            <h1>Tournament Providers</h1>
+            <h1>Sets of tournaments</h1>
             <a class="help-link" href="/help/tournaments#sets-of-tournaments" data-testid="help-link">Help with this page</a>
         </div>
     </header>
@@ -53,19 +53,19 @@
     <main class="admin-content">
         <div class="container">
             <div class="action-bar">
-                <h2>CourtHive Providers <span class="count-badge">{{len .Providers}}</span></h2>
-                <button type="button" class="btn-save" onclick="document.getElementById('create-form').style.display='block'">+ Add Provider</button>
+                <h2>Sets of tournaments <span class="count-badge">{{len .Providers}}</span></h2>
+                <button type="button" class="btn-save" onclick="document.getElementById('create-form').style.display='block'">+ Add set of tournaments</button>
             </div>
 
             {{if .Success}}<div class="success-message">{{.Success}}</div>{{end}}
             {{if .Error}}<div class="error-message">{{.Error}}</div>{{end}}
 
             <div id="create-form" class="create-form">
-                <h3>Add New Provider</h3>
+                <h3>Add a set of tournaments</h3>
                 <form method="POST" action="/admin/league/tournaments/providers">
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="name">Provider Name</label>
+                            <label for="name">Name</label>
                             <input type="text" id="name" name="name" placeholder="e.g. {{.HomeClubName}}" required>
                         </div>
                         <div class="form-group">
@@ -97,7 +97,7 @@
                         <td>
                             <div class="btn-actions">
                                 <a href="/admin/league/tournaments/providers/{{.ID}}" class="btn-edit">Edit</a>
-                                <form method="POST" action="/admin/league/tournaments/providers/{{.ID}}" style="display:inline;" onsubmit="return confirm('Delete provider {{.Name}}?')">
+                                <form method="POST" action="/admin/league/tournaments/providers/{{.ID}}" style="display:inline;" onsubmit="return confirm('Delete the set of tournaments {{.Name}}?')">
                                     <input type="hidden" name="action" value="delete">
                                     <button type="submit" class="btn-delete">Delete</button>
                                 </form>
@@ -109,8 +109,8 @@
             </table>
             {{else}}
             <div class="no-providers">
-                <h3>No Providers</h3>
-                <p>Add a CourtHive provider to get started syncing tournaments.</p>
+                <h3>No sets of tournaments</h3>
+                <p>Add a set of tournaments to get started.</p>
             </div>
             {{end}}
         </div>

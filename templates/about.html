@@ -84,22 +84,22 @@
     <main>
         <div class="container">
             <div class="about-page">
-                <h1>About jim.tennis</h1>
+                <h1>About Jim.Tennis</h1>
 
                 <div class="about-section">
                     <h2>The problem</h2>
                     <p>If you've ever run a parks league team, you know the drill. Every week you're chasing players on WhatsApp, trying to work out who's available, juggling multiple teams, and hoping you haven't accidentally picked someone who's on holiday. It means hours of manual admin &mdash; messaging every player individually, keeping track of replies in your head or on scraps of paper, and crossing your fingers that you haven't double-booked anyone.</p>
-                    <p>jim.tennis was built to make all of that go away.</p>
+                    <p>Jim.Tennis was built to make all of that go away.</p>
                 </div>
 
                 <div class="about-section">
                     <h2>What does it actually do?</h2>
                     <p><strong>Players manage their own availability.</strong> Each player gets a personal link &mdash; no login, no app to download, it just works in any browser on any phone. They see the next four weeks of fixtures and mark themselves as available or unavailable as they go. The idea is that players check in every week or so, keeping things current so captains aren't chasing stale information.</p>
                     <p><strong>Captains see everything on one screen.</strong> For any given fixture, you get a colour-coded view of every player in your club: who's available, who might be if needed, and who's definitely not. No spreadsheets, no scrolling back through group chats.</p>
-                    <p><strong>Team selection is straightforward.</strong> Pick your teams from the available players, and the system keeps track of who's playing where. It'll warn you if you're about to select someone who's already playing for another team that week.</p>
-                    <p><strong>It handles the league rules for you.</strong> In the second half of the season, the BHPLTA lock-in rule means that players who've appeared more than four times (five or more) for a higher division team can't drop down to play for a lower one. The system tracks all of this automatically &mdash; it shows you exactly how many appearances each player has, warns you when someone is close to being locked in, and blocks selection when they've crossed the threshold. No more end-of-season surprises.</p>
-                    <p><strong>Results and standings update automatically.</strong> Match results are imported directly from the BHPLTA website, so your club's standings are always up to date without anyone having to type scores in manually.</p>
-                    <p><strong>Minimal personal data.</strong> The only personal information stored is player names &mdash; no email addresses, no phone numbers, no passwords for players. As members of a sports club playing in a public league, some level of visibility is expected, and the system is designed to stay well within that.</p>
+                    <p><strong>Team selection is straightforward.</strong> Pick your teams from the available players, and the system keeps track of who's playing where. It warns you if you pick someone who has already played for another team that week. It is a warning only: you can still choose them.</p>
+                    <p><strong>It handles the league rules for you.</strong> In the second half of the season, the BHPLTA lock-in rule means that a player who has appeared five or more times for a higher division team can no longer play for a lower one. The system tracks all of this automatically &mdash; it shows you how many appearances each player has, shows when someone is close to being locked in, and switches off selecting a player for a lower team once they have reached five. No more end-of-season surprises.</p>
+                    <p><strong>Results and standings update automatically.</strong> Match results are imported from the BHPLTA website, so your club's standings stay up to date without anyone having to type scores in manually.</p>
+                    <p><strong>Minimal personal data.</strong> The only personal information stored about players is their names &mdash; no email addresses, no phone numbers, no passwords for players. As members of a sports club playing in a public league, some level of visibility is expected, and the system is designed to stay well within that.</p>
                 </div>
 
                 <div class="about-section" data-testid="about-guides">
@@ -112,7 +112,7 @@
                     <div class="about-label">Built by</div>
                     <div class="about-name">James Hartt</div>
                     <div class="about-role">Creator & Developer</div>
-                    <p>jim.tennis was designed and built by James Hartt at St Ann's Tennis Club for the Brighton & Hove Parks League. The code is free and open source &mdash; the intention is that each club runs their own deployment with their own data. If your club has someone vaguely techie, they can grab the code and set up an instance for your club.</p>
+                    <p>Jim.Tennis was designed and built by James Hartt at St Ann's Tennis Club for the Brighton & Hove Parks League. The code is free and open source &mdash; each club runs its own copy of the software with its own data. Nobody outside your club has access to that copy or its data.</p>
                     <p><a href="https://github.com/jameshartt">github.com/jameshartt</a></p>
                 </div>
 
@@ -121,30 +121,29 @@
                     <div class="about-name">CourtHive</div>
                     <div class="about-role">Charles Allen, Primary Developer</div>
                     <p>Cup and tournament management is developed and maintained by <a href="https://courthive.com">CourtHive</a>, with the primary development effort by Charles Allen. CourtHive provides tournament scheduling, draw management, and live scoring.</p>
-                    <p>Starting from the 2026 season, the Parks Cup is run through its own CourtHive instance hosted on jim.tennis. Previous Parks Cups were run on the public CourtHive platform &mdash; having a dedicated deployment just gives us more flexibility for our own specific needs. This isn't an attempt to compete with CourtHive &mdash; quite the opposite, it's built on top of it.</p>
+                    <p>Where your club has switched tournaments on, they run on tournament software that is part of your club's own copy of Jim.Tennis. It is built on top of CourtHive.</p>
                 </div>
 
                 <div class="about-section">
                     <h2>Acknowledgements</h2>
-                    <p>The <strong>Brighton & Hove Parks League Tennis Association</strong> (BHPLTA) organises the parks league that jim.tennis is built around. Match card data is imported from the BHPLTA website.</p>
-                    <p><strong>St Ann's Tennis Club</strong> has been the home for jim.tennis since the 2025 season.</p>
+                    <p>The <strong>Brighton & Hove Parks League Tennis Association</strong> (BHPLTA) organises the parks league that Jim.Tennis is built around. Match card data is imported from the BHPLTA website.</p>
+                    <p>Jim.Tennis was first built for, and used by, St Ann's Tennis Club.</p>
                 </div>
 
                 <div class="about-section">
-                    <h2>Get in Touch</h2>
-                    <p>If you have questions about jim.tennis or want to chat about whether it could work for your club, the easiest way to reach James is through the <strong>Parks Team Captains</strong> WhatsApp group. If you're already in the group, just drop a message there.</p>
-                    <p>You can also <a href="https://github.com/jameshartt/jim-dot-tennis/issues">open an issue on GitHub</a> for bug reports, feature requests, or general questions.</p>
+                    <h2>Questions</h2>
+                    <p>Questions about this site go to your own club's administrators. The project itself lives on GitHub: <a href="https://github.com/jameshartt/jim-dot-tennis">github.com/jameshartt/jim-dot-tennis</a>.</p>
                 </div>
 
                 <div class="about-section">
-                    <h2>Why "jim.tennis"?</h2>
+                    <h2>Why "Jim.Tennis"?</h2>
                     <p>The name comes from the creator's on-court habit of shouting "JIM!" at himself &mdash; loudly, earnestly, and with varying degrees of composure &mdash; as a form of positive self-talk. Whether it actually helps is up for debate, but it never fails to entertain the nearby courts.</p>
                     <p>It comes from a genuine love for what is, in our humble opinion, the best sport in the world.</p>
                 </div>
 
                 <div class="about-section">
                     <h2>Open Source</h2>
-                    <p>jim.tennis is open-source software, released under the <a href="https://github.com/jameshartt/jim-dot-tennis/blob/main/LICENSE">MIT License</a>.</p>
+                    <p>Jim.Tennis is open-source software, released under the <a href="https://github.com/jameshartt/jim-dot-tennis/blob/main/LICENSE">MIT License</a>.</p>
                     <p>If you're interested in the code or running your own instance, visit the <a href="https://github.com/jameshartt/jim-dot-tennis">GitHub repository</a>.</p>
                 </div>
             </div>

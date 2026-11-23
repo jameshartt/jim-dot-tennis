@@ -35,10 +35,16 @@ If something looks wrong, ask your league secretary before changing it. The data
 
 Players do not have accounts. They get a private link instead (see the next section). You add each player once.
 
+The app cannot bring your players in for you. Setup, the season set-up from BHPLTA and **Club Data Import** read clubs, divisions, teams and fixtures, but not players. **Match Card Import** only matches the names on a match card to players you have already added. So the quickest way for a new club is to add your players by hand, as below, before you import any match cards. It takes about a minute for each player.
+
+Spell each name as the BHPLTA match cards do. The match card import finds players by name, and a name it cannot match is listed as unmatched.
+
 1. On the dashboard, choose **Manage Players**.
 2. Press **+ Add New Player**.
 3. Enter the first name, last name and gender, then press **Create Player**.
 4. Go to **Manage Teams**, choose a team, press **Add Players**, tick the players for that squad and confirm.
+
+Once your players are added, a match card import adds any of your club's players who played for one of your teams to that team's squad for the season. You can still add players to squads by hand before then, so that captains can pick them.
 
 To change a name or hide a player who has left, open the player from the players list. The page has **Update Player**, and **Deactivate Player** (with **Reactivate** if they come back). A deactivated player keeps their history.
 

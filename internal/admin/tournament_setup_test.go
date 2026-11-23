@@ -159,7 +159,7 @@ func TestSwitchingTournamentsOnWithoutTheBundledStack(t *testing.T) {
 		t.Fatalf("switch on: %d %q", rec.Code, loc)
 	}
 	body := getPage(e, strings.SplitN(loc, "#", 2)[0])
-	if !strings.Contains(body, "not switched on in this deployment") || !strings.Contains(body, "operations guide") {
+	if !strings.Contains(body, "not switched on in this deployment") || !strings.Contains(body, "docs/install.md") {
 		t.Fatal("no note about the bundled stack")
 	}
 	// The legacy path: a provider added by hand still syncs.

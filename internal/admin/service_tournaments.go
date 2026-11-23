@@ -83,7 +83,7 @@ func (s *Service) DeleteTournamentProvider(id uint) error {
 		return fmt.Errorf("checking tournament count: %w", err)
 	}
 	if count > 0 {
-		return fmt.Errorf("cannot delete provider with %d tournaments — remove them first", count)
+		return fmt.Errorf("cannot delete a set of tournaments that still has %d tournaments: remove them first", count)
 	}
 	if current, err := s.tournamentProviderRepository.FindByID(ctx, id); err == nil && current.Managed() {
 		return fmt.Errorf("%s is managed on the tournament server by this app, with the people who use it, and cannot be deleted here", current.ProviderAbbr)

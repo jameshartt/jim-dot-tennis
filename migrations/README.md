@@ -153,7 +153,7 @@ This has been done deliberately once:
 
 ## Troubleshooting
 
-- **Dirty Database State**: If a migration fails partway through, the database is marked "dirty" and the schema may be inconsistent. The app refuses to start, naming the migration and listing the recovery steps, and `/healthz` stays failing. The version is never forced: restore the backup the app took just before running the migrations (`jim-dot-tennis-pre-migration-<date>.tar.gz` in the backups folder, with `jim-dot-tennis restore` run by the previous version; `docs/PRODUCTION_QUICK_REFERENCE.md` section 9), start the previous version of the app, and report the failing migration. (`MIGRATE_ALLOW_DIRTY_FORCE`, which used to force it in development, has been removed.)
+- **Dirty Database State**: If a migration fails partway through, the database is marked "dirty" and the schema may be inconsistent. The app refuses to start, naming the migration and listing the recovery steps, and `/healthz` stays failing. The version is never forced: restore the backup the app took just before running the migrations (`jim-dot-tennis-pre-migration-<date>.tar.gz` in the backups folder, with `jim-dot-tennis restore` run by the previous version; `docs/backup-and-restore.md`; `docs/troubleshooting.md`), start the previous version of the app, and report the failing migration. (`MIGRATE_ALLOW_DIRTY_FORCE`, which used to force it in development, has been removed.)
 
 - **Migration Version Mismatch**: If you need to force a specific migration version, you can use the migrate down tool to roll back to a specific version, then run the migration tool again to apply migrations up to the desired version.
 
