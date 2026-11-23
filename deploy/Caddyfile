@@ -1,6 +1,6 @@
-# Caddyfile for the packaged deployment (see deploy/docker-compose.yml).
+# Caddyfile for the packaged deployment (see docker-compose.yml next to it).
 #
-# The site address is the DOMAIN environment variable (set in deploy/.env and
+# The site address is the DOMAIN environment variable (set in your .env file and
 # passed to the caddy service). Caddy obtains and renews the TLS certificate
 # for that domain automatically; DNS must point at this host and ports 80/443
 # must be reachable.

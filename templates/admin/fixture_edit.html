@@ -40,6 +40,7 @@
                         {{if .FixtureDetail.Division}}{{.FixtureDetail.Division.Name}}{{else}}Division TBD{{end}}
                         {{if .FixtureDetail.Week}} - Week {{.FixtureDetail.Week.WeekNumber}}{{end}}
                     </h1>
+            <a class="help-link" href="/help/captain#move-a-fixture" data-testid="help-link">Help with this page</a>
                     <p class="teams-vs">
                         <span class="team-name">{{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}</span>
                         <span class="vs-text">vs</span>

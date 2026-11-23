@@ -95,6 +95,7 @@
                 <a href="/admin/league/dashboard">Admin Dashboard</a> &gt; Tournaments
             </div>
             <h1>Tournament Management</h1>
+            <a class="help-link" href="/help/tournaments#set-the-club-up-for-tournaments" data-testid="help-link">Help with this page</a>
         </div>
     </header>
 
@@ -103,7 +104,7 @@
             <div class="action-bar">
                 <h2>Tournaments</h2>
                 <div class="action-bar-right">
-                    <a href="/admin/league/tournaments/providers" class="btn-edit" style="padding:0.5rem 1rem;font-size:0.9rem;">Manage Providers</a>
+                    <a href="/admin/league/tournaments/providers" class="btn-edit" style="padding:0.5rem 1rem;font-size:0.9rem;">Manage sets of tournaments</a>
                     <button type="button" class="btn-save" onclick="document.getElementById('create-form').style.display='block'">+ Add Tournament</button>
                 </div>
             </div>
@@ -115,8 +116,8 @@
             <section class="setup-panel" id="tournament-setup" data-tournament-setup="{{if not .Configured}}not-configured{{else if .SetUp}}set-up{{else}}not-set-up{{end}}">
                 <h3>Tournament set-up</h3>
                 {{if not .Configured}}
-                <p data-setup-not-configured>The bundled tournament software is not switched on in this deployment, so this app cannot set the club up on it. Tournaments still work with a tournament server added by hand under "Manage Providers".</p>
-                <p class="setup-hint">To switch the bundled tournament software on, the person who looks after the server follows the tournaments section of the operations guide.</p>
+                <p data-setup-not-configured>The bundled tournament software is not switched on in this deployment, so this app cannot set the club up on it. Tournaments still work with a tournament server added by hand under "Manage sets of tournaments".</p>
+                <p class="setup-hint">To switch the bundled tournament software on, the person who looks after the server follows docs/install.md.</p>
                 {{else}}
                     {{if eq .Outcome "done"}}<div class="success-message" role="status" data-setup-outcome="done">{{if and .Last .Last.Further}}{{.Last.ProviderName}} is ready. Nobody has been given it yet apart from administrators: choose who can manage it on the <a href="{{.UsersPath}}">users page</a>.{{else}}Tournament set-up finished.{{if .Last}}{{if not .Last.MadeAnything}} Everything was already in place; nothing was changed.{{end}}{{end}}{{end}}</div>{{end}}
                     {{if .Problem}}<div class="error-message" role="alert">{{.Problem}}</div>{{end}}
@@ -223,7 +224,7 @@
                             <input type="text" id="name" name="name" required>
                         </div>
                         <div class="form-group">
-                            <label for="provider_id">Provider *</label>
+                            <label for="provider_id">Set of tournaments *</label>
                             <select id="provider_id" name="provider_id" required>
                                 <option value="">-- Select --</option>
                                 {{range .Providers}}
@@ -270,7 +271,7 @@
                 <thead>
                     <tr>
                         <th>Tournament</th>
-                        <th>Provider</th>
+                        <th>Set of tournaments</th>
                         <th>Dates</th>
                         <th>Status</th>
                         <th>Visibility</th>

@@ -251,3 +251,21 @@ footer {
         padding: 1.5rem;
     }
 } 
+/* Help link on admin pages (opens the matching section of the in-app guide).
+   White on the coloured admin header; help-link-dark where the page is light. */
+.help-link {
+    display: inline-block;
+    margin-top: 0.4rem;
+    font-size: 0.9rem;
+    color: #fff;
+    text-decoration: underline;
+}
+
+.help-link:hover,
+.help-link:focus {
+    text-decoration: none;
+}
+
+.help-link-dark {
+    color: var(--primary-color);
+}

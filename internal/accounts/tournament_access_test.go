@@ -55,7 +55,7 @@ func TestCreateTournamentsOnlyAccount(t *testing.T) {
 	if link.Kind != LinkInvite || link.Username != "tina" {
 		t.Fatalf("invite: %+v", link)
 	}
-	if got := accessAuditRows(t, s, "tina", ActionCreate); len(got) != 1 || got[0] != "cli role player tournament_access=own" {
+	if got := accessAuditRows(t, s, "tina", ActionCreate); len(got) != 1 || got[0] != "cli role tournaments-only tournament_access=own" {
 		t.Errorf("create audit: %q", got)
 	}
 	if got := obs.take(); got != "tina created own" {

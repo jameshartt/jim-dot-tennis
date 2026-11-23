@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Shared loader for operator-specific deployment settings.
 #
-# Sourced by the deploy/maintenance scripts. Reads SERVER, SSH_KEY and
+# Sourced by the maintainer scripts (deploy-app.sh, download-database.sh). Reads SERVER, SSH_KEY and
 # REMOTE_PATH from the environment, falling back to an untracked
 # scripts/.deploy.env (copy scripts/.deploy.env.example and fill it in).
 # Exits non-zero with a clear message if any are missing.

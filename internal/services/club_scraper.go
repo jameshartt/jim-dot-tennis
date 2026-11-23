@@ -16,6 +16,7 @@ import (
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/normalize"
 	"jim-dot-tennis/internal/repository"
+	"jim-dot-tennis/internal/version"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -213,11 +214,9 @@ func FetchClubPage(ctx context.Context, client *http.Client, base, slug string) 
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0")
+	req.Header.Set("User-Agent", version.UserAgent())
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
 	req.Header.Set("Accept-Language", "en-GB,en;q=0.5")
-	req.Header.Set("Accept-Encoding", "gzip, deflate")
-	req.Header.Set("Connection", "keep-alive")
 
 	resp, err := client.Do(req)
 	if err != nil {

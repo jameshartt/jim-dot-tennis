@@ -113,7 +113,7 @@ test.describe.serial("Admin Club Settings", () => {
       await expect(note.locator("[data-setup-not-configured]")).toContainText(
         "not switched on in this deployment",
       );
-      await expect(note).toContainText("operations guide");
+      await expect(note).toContainText("docs/install.md");
       await expect(adminPage.locator("#feature_tournaments")).toBeChecked();
 
       // The tournaments page shows the set-up panel in the same state, with

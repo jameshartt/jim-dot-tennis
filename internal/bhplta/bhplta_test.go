@@ -293,6 +293,8 @@ func TestFetchFailuresAreReadableAndWriteNothing(t *testing.T) {
 		overrides map[string]http.HandlerFunc
 		closed    bool
 		want      string
+		also      string // a second phrase the message must contain
+		notWant   string // a phrase the message must not contain
 	}{
 		{
 			name: "fixtures page error status",
@@ -312,6 +314,27 @@ func TestFetchFailuresAreReadableAndWriteNothing(t *testing.T) {
 			name:   "site unreachable",
 			closed: true,
 			want:   "Could not reach the BHPLTA fixtures page",
+			also:   "check that it can connect to the internet",
+		},
+		{
+			name: "fixtures page refused",
+			overrides: map[string]http.HandlerFunc{"/bhplta_tables/fixtures/": func(w http.ResponseWriter, r *http.Request) {
+				http.Error(w, "Forbidden", http.StatusForbidden)
+			}},
+			want:    "The BHPLTA website refused the request for the BHPLTA fixtures page (HTTP status 403)",
+			also:    "its internet connection is working",
+			notWant: "check that",
+		},
+		{
+			name: "fixtures page reset",
+			overrides: map[string]http.HandlerFunc{"/bhplta_tables/fixtures/": func(w http.ResponseWriter, r *http.Request) {
+				conn, _, err := w.(http.Hijacker).Hijack()
+				if err == nil {
+					_ = conn.Close()
+				}
+			}},
+			want:    "The BHPLTA website refused the request for the BHPLTA fixtures page (it reset or closed the connection",
+			notWant: "check that",
 		},
 	}
 	for _, tc := range cases {
@@ -326,8 +349,12 @@ func TestFetchFailuresAreReadableAndWriteNothing(t *testing.T) {
 			if !errors.As(err, &fe) {
 				t.Fatalf("Run: %v, want a *FetchError", err)
 			}
-			if msg := Describe(err); !strings.Contains(msg, tc.want) {
-				t.Errorf("Describe: %q, want it to contain %q", msg, tc.want)
+			msg := Describe(err)
+			if !strings.Contains(msg, tc.want) || !strings.Contains(msg, tc.also) {
+				t.Errorf("Describe: %q, want it to contain %q and %q", msg, tc.want, tc.also)
+			}
+			if tc.notWant != "" && strings.Contains(strings.ToLower(msg), tc.notWant) {
+				t.Errorf("Describe: %q, must not contain %q", msg, tc.notWant)
 			}
 			assertEmpty(t, db)
 		})

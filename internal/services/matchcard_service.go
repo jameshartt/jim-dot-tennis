@@ -17,6 +17,7 @@ import (
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/normalize"
 	"jim-dot-tennis/internal/repository"
+	"jim-dot-tennis/internal/version"
 )
 
 // MatchCardService handles importing match card data from BHPLTA
@@ -320,19 +321,14 @@ func (s *MatchCardService) fetchMatchCards(config ImportConfig, week int) ([]byt
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set headers to match the browser request
+	// The same form fields and headers the BHPLTA page's own script sends.
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Accept-Language", "en-GB,en;q=0.5")
-	req.Header.Set("Accept-Encoding", "gzip, deflate")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0")
+	req.Header.Set("User-Agent", version.UserAgent())
 	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 	req.Header.Set("Origin", "https://www.bhplta.co.uk")
 	req.Header.Set("Referer", "https://www.bhplta.co.uk/bhplta_tables/parks-league-match-cards/")
-	req.Header.Set("Connection", "keep-alive")
-	req.Header.Set("Sec-Fetch-Dest", "empty")
-	req.Header.Set("Sec-Fetch-Mode", "cors")
-	req.Header.Set("Sec-Fetch-Site", "same-origin")
 
 	// Set cookies for authentication - use the same format as working curl
 	cookieParts := []string{
@@ -350,7 +346,7 @@ func (s *MatchCardService) fetchMatchCards(config ImportConfig, week int) ([]byt
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return nil, &HTTPStatusError{URL: config.BaseURL, Status: resp.StatusCode}
 	}
 
 	// Handle compressed response

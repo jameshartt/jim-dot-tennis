@@ -739,17 +739,17 @@ func explain(key string, err error) string {
 	case key == stepReach:
 		return "The tournament server did not answer. It may still be starting: wait a minute, then try again."
 	case errors.Is(err, courthive.ErrAccountUnknown):
-		return "The permanent tournament administrator already exists on the tournament server, but outside the club's place there, and this app cannot find it. This happens when the tournament software was set up from another copy of this app's database. See the tournaments section of the operations guide."
+		return "The permanent tournament administrator already exists on the tournament server, but outside the club's place there, and this app cannot find it. This happens when the tournament software was set up from another copy of this app's database. See docs/install.md."
 	case signIn && isAPI && (apiErr.Status == 401 || apiErr.Status == 403):
 		return "The tournament sign-in service did not accept this app's service password. Check that COURTHIVE_SERVICE_PASSWORD is the password the tournament stack was set up with, restart the app, then try again."
 	case signIn && !isAPI:
 		return "The tournament sign-in service did not answer. It may still be starting: wait a minute, then try again."
 	case signIn:
-		return "The tournament sign-in service refused the request. Try again; if it keeps happening, see the operations guide."
+		return "The tournament sign-in service refused the request. Try again; if it keeps happening, see docs/troubleshooting.md."
 	case key == stepRegister:
 		return "This app could not save the club's tournament calendar. Try again."
 	case isAPI:
-		return "The tournament server refused this step. Try again; if it keeps happening, see the operations guide."
+		return "The tournament server refused this step. Try again; if it keeps happening, see docs/troubleshooting.md."
 	case strings.HasPrefix(err.Error(), "courthive:"):
 		return "The tournament stack stopped answering during this step. Wait a minute, then try again."
 	}

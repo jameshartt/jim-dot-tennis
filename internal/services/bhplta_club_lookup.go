@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"jim-dot-tennis/internal/version"
+
 	"github.com/PuerkitoBio/goquery"
 )
 
@@ -70,7 +72,7 @@ func (l *BHPLTAClubLookup) Lookup(ctx context.Context, clubCode string) (BHPLTAC
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
 	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 	req.Header.Set("Referer", l.pageURL)
-	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0")
+	req.Header.Set("User-Agent", version.UserAgent())
 	req.Header.Set("Cookie", "clubcode="+clubCode)
 
 	resp, err := l.client.Do(req)
@@ -79,7 +81,7 @@ func (l *BHPLTAClubLookup) Lookup(ctx context.Context, clubCode string) (BHPLTAC
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return BHPLTAClubIdentity{}, fmt.Errorf("BHPLTA answered with status %d", resp.StatusCode)
+		return BHPLTAClubIdentity{}, &HTTPStatusError{URL: l.ajaxURL, Status: resp.StatusCode}
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
 	if err != nil {

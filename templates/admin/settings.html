@@ -43,6 +43,7 @@
                 <a href="/admin/league">Admin Dashboard</a> &gt; Club Settings
             </div>
             <h1>Club Settings</h1>
+            <a class="help-link" href="/help/admin#club-settings" data-testid="help-link">Help with this page</a>
         </div>
     </header>
 
@@ -55,8 +56,8 @@
             <section class="content-section" id="tournament-setup" data-tournament-setup-outcome="{{.Outcome}}">
                 <h2>Tournament set-up</h2>
                 {{if eq .Outcome "external"}}
-                <p data-setup-not-configured>Tournaments are switched on. The bundled tournament software is not switched on in this deployment, so nothing was set up on it. If this site uses a tournament server added by hand (under Tournaments, "Manage Providers"), that carries on as before.</p>
-                <span class="hint">To switch the bundled tournament software on, the person who looks after the server follows the tournaments section of the operations guide.</span>
+                <p data-setup-not-configured>Tournaments are switched on. The bundled tournament software is not switched on in this deployment, so nothing was set up on it. If this site uses a tournament server added by hand (under Tournaments, "Manage sets of tournaments"), that carries on as before.</p>
+                <span class="hint">To switch the bundled tournament software on, the person who looks after the server follows docs/install.md.</span>
                 {{else}}
                 {{if .Problem}}<div class="alert alert-error" role="alert">{{.Problem}}</div>{{end}}
                 {{with .Last}}

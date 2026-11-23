@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Deploy a released version of jim-dot-tennis to production (jim.tennis).
+# Maintainer tool: deploy a released version of jim-dot-tennis to the maintainer's
+# own server over SSH. A club upgrades its own copy with docs/upgrade.md instead.
 #
 # The server runs the published image ghcr.io/jameshartt/jim-dot-tennis at a
 # named version; nothing is built there and no source is copied to it. This
@@ -19,7 +20,7 @@
 # The version is the image tag: no leading "v". Cut the release first (see
 # RELEASING.md). Going back to an older version that used an older database
 # is not just a version change: see "Roll back" in
-# docs/PRODUCTION_QUICK_REFERENCE.md.
+# docs/archive/PRODUCTION_QUICK_REFERENCE.md.
 #
 # Compose/Caddy: this script does not sync docker-compose or the Caddyfile.
 # Update those on the server by hand when needed.
@@ -95,7 +96,7 @@ while [ $timeout -gt 0 ]; do
       exit 1
     fi
     log "jim.tennis runs ${VERSION} and is healthy."
-    log "Previous version was: ${PREVIOUS:-unknown} (see 'Roll back' in docs/PRODUCTION_QUICK_REFERENCE.md)"
+    log "Previous version was: ${PREVIOUS:-unknown} (see 'Roll back' in docs/archive/PRODUCTION_QUICK_REFERENCE.md)"
     exit 0
   fi
   sleep 3

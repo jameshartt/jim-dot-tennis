@@ -1,8 +1,7 @@
 # Account Roles: Captain, Administrator and Tournaments Only
 
 There are three kinds of account: captain, administrator and Tournaments
-only. This page says what each can do. It is written so the user guide can
-reuse it as it stands.
+only. This page says what each can do. The user guides draw on it.
 
 Players do not have accounts. Each player uses their own private link to give
 their availability and look after their profile.
@@ -40,8 +39,8 @@ disabled account has no tournament access.
 ### Clubs with more than one set of tournaments
 
 A club can keep separate sets of tournaments, for example one for the club's
-own tournaments and one for a league cup (the tournament software calls each
-one a "provider"). Most clubs have one and can ignore this.
+own tournaments and one for a league cup. Most clubs have one and can ignore
+this.
 
 With more than one, the users page shows tick boxes under "Can manage
 tournaments for" beside each person who has tournament access. The own or
@@ -93,7 +92,7 @@ has its tournament home page and its own sign-in methods.
 | BHPLTA settings and club data import | No | Yes |
 | Seasons: create, copy, set up, set active, delete, start from BHPLTA | No | Yes |
 | Divisions and the division review | No | Yes |
-| Tournaments (CourtHive): the club's tournament list and providers | No | Yes |
+| Tournaments (CourtHive): the club's tournament list and sets of tournaments | No | Yes |
 | Tournament set-up: setting the club up on the tournament server, and running it again | No | Yes |
 | Tournament management | If given access | Yes, always all |
 | Season Wrapped (the club's season review page) | No | Yes |

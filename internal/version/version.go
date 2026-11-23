@@ -17,6 +17,25 @@ var (
 	Date    = "unknown" // build time, UTC, RFC 3339
 )
 
+// ProjectURL is the project's home page. The User-Agent names it so a
+// website owner who sees our requests can find out what they are.
+const ProjectURL = "https://github.com/jameshartt/jim-dot-tennis"
+
+// UserAgent is the User-Agent header for every request this software makes
+// to the BHPLTA website (and any other site it reads pages from): honest,
+// naming the software, its version and the project, for example
+// "jim-dot-tennis/0.2.1 (+https://github.com/jameshartt/jim-dot-tennis)".
+// It never pretends to be a browser: the BHPLTA site resets requests that
+// claim to be Chrome and refuses Go's default User-Agent with 403, but
+// answers this one.
+func UserAgent() string {
+	v := Version
+	if v == "" {
+		v = "dev"
+	}
+	return "jim-dot-tennis/" + v + " (+" + ProjectURL + ")"
+}
+
 // Short is the version alone: what is shown to people and at /version.
 func Short() string { return Version }
 

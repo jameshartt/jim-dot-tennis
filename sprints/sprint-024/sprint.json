@@ -3,10 +3,10 @@
     "id": "sprint-024",
     "name": "Documentation and Onboarding for New Clubs",
     "goal": "A volunteer at another BHPLTA club, with no familiarity with the project and modest technical confidence, can install it, set it up, keep it backed up and upgraded, and explain it to their captains and players - using only what ships with the project. Close with version 1.0.0.",
-    "start_date": null,
+    "start_date": "2026-11-23",
     "end_date": null,
     "type": "numbered",
-    "status": "planned",
+    "status": "in_progress",
     "programme": "club-readiness (sprints 019-024)",
     "focus_areas": [
       "Install, upgrade, backup and troubleshooting guides written for a first-time operator",

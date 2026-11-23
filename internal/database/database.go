@@ -204,6 +204,18 @@ func (db *DB) ExecuteMigrationsFS(migrations fs.FS, label string) error {
 	// A dirty database means an earlier migration stopped part-way, so the
 	// schema may be half changed. Never carry on over that and never force the
 	// version to hide it: stop and say what to do (see MigrationError).
+	// A database a newer version has upgraded has migrations this build
+	// does not have; golang-migrate would only say "no migration found for
+	// version N". Say what happened instead, and change nothing.
+	if err == nil {
+		latest, lerr := LatestMigration(migrations)
+		if lerr != nil {
+			return lerr
+		}
+		if version > latest {
+			return &NewerSchemaError{Found: version, Latest: latest}
+		}
+	}
 	if dirty {
 		return &MigrationError{Version: version, Dirty: true}
 	}

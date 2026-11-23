@@ -1,16 +1,18 @@
 #!/bin/sh
 # Copyright (c) 2025-2026 James Hartt. Licensed under the MIT License.
 #
-# Creates the secrets the tournament stack needs and adds them to deploy/.env.
-# Run it once, on the server, before turning tournaments on:
+# Creates the secrets the tournament stack needs and adds them to your .env
+# file. Run it once, on the server, in the folder holding docker-compose.yml,
+# before turning tournaments on:
 #
-#   cd deploy
 #   ./init-tournaments.sh
 #
 # Every value is made here, on your server, with openssl. Nothing has a
 # default and nothing is sent anywhere. The script:
 #   - adds only the variables that .env does not have yet, and never changes
 #     or removes a line that is already there, so it is safe to run again;
+#   - checks every line first: if one is empty or a placeholder such as
+#     change-me, it stops before writing anything;
 #   - never prints a secret;
 #   - makes .env readable by its owner only (mode 600).
 #
@@ -19,7 +21,7 @@
 # on the server itself rather than in a container so that it works before any
 # image has been pulled and no secret passes through Docker.
 #
-# Variables it writes (see deploy/.env.example for what each is for):
+# Variables it writes (see .env.example for what each is for):
 #   COURTHIVE_PG_PASSWORD, COURTHIVE_JWT_SECRET, COURTHIVE_JWT_PRIVATE_KEY,
 #   COURTHIVE_JWT_PUBLIC_KEY, COURTHIVE_JWT_KID, COURTHIVE_SIGNER_TOKEN,
 #   COURTHIVE_SERVICE_PASSWORD
@@ -37,15 +39,9 @@ fail() {
 	exit 1
 }
 
-command -v openssl >/dev/null 2>&1 || fail "openssl is not installed. Install it (for example: sudo apt install openssl) and run this again."
-
 if [ ! -f "$env_file" ]; then
 	fail "$env_file not found. Create it first (cp .env.example .env, then fill in the REQUIRED values)."
 fi
-
-# Everything created from here on is private to this user.
-umask 077
-chmod 600 "$env_file"
 
 # The value of a variable in .env: the last line that sets it, without
 # surrounding quotes. Prints nothing when it is not there.
@@ -74,6 +70,28 @@ hex() {
 	openssl rand -hex "$1"
 }
 
+secrets="COURTHIVE_JWT_PRIVATE_KEY COURTHIVE_JWT_PUBLIC_KEY COURTHIVE_JWT_KID COURTHIVE_SIGNER_TOKEN COURTHIVE_SERVICE_PASSWORD COURTHIVE_PG_PASSWORD COURTHIVE_JWT_SECRET"
+
+# Check every line first, so a leftover empty or placeholder line stops the
+# script before anything is written (has stops with a message for those).
+for var in $secrets; do
+	has "$var" || :
+done
+
+# The key pair: both halves or neither. A pair cannot be completed from one
+# half here without risking a mismatch, so a half pair is an error.
+if has COURTHIVE_JWT_PRIVATE_KEY; then have_private=1; else have_private=0; fi
+if has COURTHIVE_JWT_PUBLIC_KEY; then have_public=1; else have_public=0; fi
+if [ "$have_private" -ne "$have_public" ]; then
+	fail "$env_file has only one of COURTHIVE_JWT_PRIVATE_KEY and COURTHIVE_JWT_PUBLIC_KEY. Delete the one that is there (and COURTHIVE_JWT_KID) and run this again."
+fi
+
+command -v openssl >/dev/null 2>&1 || fail "openssl is not installed. Install it (for example: sudo apt install openssl) and run this again."
+
+# Everything created from here on is private to this user.
+umask 077
+chmod 600 "$env_file"
+
 added=0
 header_written=0
 
@@ -93,13 +111,6 @@ append() {
 	added=$((added + 1))
 }
 
-# The key pair: both halves or neither. A pair cannot be completed from one
-# half here without risking a mismatch, so a half pair is an error.
-if has COURTHIVE_JWT_PRIVATE_KEY; then have_private=1; else have_private=0; fi
-if has COURTHIVE_JWT_PUBLIC_KEY; then have_public=1; else have_public=0; fi
-if [ "$have_private" -ne "$have_public" ]; then
-	fail "$env_file has only one of COURTHIVE_JWT_PRIVATE_KEY and COURTHIVE_JWT_PUBLIC_KEY. Delete the one that is there (and COURTHIVE_JWT_KID) and run this again."
-fi
 if [ "$have_private" -eq 0 ]; then
 	# ES256: an EC key on the P-256 curve. genpkey writes PKCS#8 PEM.
 	private_pem=$(openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 2>/dev/null) ||

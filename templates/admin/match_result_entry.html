@@ -205,6 +205,7 @@
     <main class="results-container">
         <div class="fixture-header-card">
             <h1>{{if .FixtureDetail.Division}}{{.FixtureDetail.Division.Name}}{{end}} {{if .FixtureDetail.Week}}- Week {{.FixtureDetail.Week.WeekNumber}}{{end}}</h1>
+            <a class="help-link" href="/help/captain#enter-the-result" data-testid="help-link">Help with this page</a>
             <div class="teams">
                 {{if .FixtureDetail.HomeTeam}}{{.FixtureDetail.HomeTeam.Name}}{{else}}TBD{{end}}
                 vs

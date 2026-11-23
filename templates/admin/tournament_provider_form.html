@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Provider - Jim.Tennis Admin</title>
+    <title>Edit set of tournaments - Jim.Tennis Admin</title>
     <link rel="stylesheet" href="{{asset "/static/css/main.css"}}">
     <style>
         .admin-header { background: var(--primary-color); color: white; padding: 1rem 0; margin-bottom: 2rem; }
@@ -24,9 +24,10 @@
             <div class="breadcrumb">
                 <a href="/admin/league/dashboard">Admin Dashboard</a> &gt;
                 <a href="/admin/league/tournaments">Tournaments</a> &gt;
-                <a href="/admin/league/tournaments/providers">Providers</a> &gt; Edit
+                <a href="/admin/league/tournaments/providers">Sets of tournaments</a> &gt; Edit
             </div>
-            <h1>Edit Provider</h1>
+            <h1>Edit set of tournaments</h1>
+            <a class="help-link" href="/help/tournaments#sets-of-tournaments" data-testid="help-link">Help with this page</a>
         </div>
     </header>
 
@@ -36,7 +37,7 @@
                 <h2>{{.Provider.Name}}</h2>
                 <form method="POST" action="/admin/league/tournaments/providers/{{.Provider.ID}}">
                     <div class="form-group">
-                        <label for="name">Provider Name</label>
+                        <label for="name">Name</label>
                         <input type="text" id="name" name="name" value="{{.Provider.Name}}" required>
                     </div>
                     <div class="form-group">

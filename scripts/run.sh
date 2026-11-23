@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Jim-dot-tennis local runner script
-# This script builds the binary and runs it with the database at the project root
+# Local runner: builds the binary and runs it with the database at the project root
+# (the same as make run-local, without Docker). For development only.
 
 set -e
 

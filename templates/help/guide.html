@@ -1,0 +1,48 @@
+{{define "help/guide.html"}}
+{{template "layout" .}}
+{{end}}
+
+{{define "head"}}
+<title>{{.Rendered.Title}} - Jim.Tennis</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+    .help-wrap { max-width: 760px; margin: 0 auto; padding: 1rem 0 2rem; }
+    .help-nav { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-bottom: 1rem; font-size: 0.95rem; }
+    .help-toc { background: #f3f7f4; border-radius: 8px; padding: 0.75rem 1rem; margin: 1rem 0 1.5rem; }
+    .help-toc summary { cursor: pointer; font-weight: 600; }
+    .help-toc ul { margin: 0.5rem 0 0 1.2rem; padding: 0; }
+    .help-body { background: #fff; padding: 1.25rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); line-height: 1.6; overflow-wrap: anywhere; }
+    .help-body h1 { color: var(--primary-color); font-size: 1.8rem; margin-bottom: 0.75rem; }
+    .help-body h2 { color: var(--primary-color); font-size: 1.35rem; margin: 1.75rem 0 0.5rem; scroll-margin-top: 1rem; }
+    .help-body h3 { font-size: 1.1rem; margin: 1.25rem 0 0.4rem; scroll-margin-top: 1rem; }
+    .help-body p, .help-body ul, .help-body ol { margin-bottom: 0.8rem; }
+    .help-body ul, .help-body ol { padding-left: 1.4rem; }
+    .help-body li { margin-bottom: 0.3rem; }
+    .help-body code { background: #f1f3f5; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.92em; }
+    .help-body a { color: #1a5490; }
+    .help-body :target { background: #fff8d6; }
+    .help-body table { display: block; overflow-x: auto; border-collapse: collapse; width: 100%; font-size: 0.95rem; margin-bottom: 1rem; }
+    .help-body th, .help-body td { border-bottom: 1px solid #e1e8ed; padding: 0.4rem 0.5rem; text-align: left; vertical-align: top; }
+    .help-body th { background: #f8f9fa; }
+    @media (max-width: 600px) { .help-body { padding: 0.9rem; } .help-body table { font-size: 0.85rem; } }
+</style>
+{{end}}
+
+{{define "user-controls"}}
+<a href="javascript:history.back()" class="btn btn-sm">Back</a>
+{{end}}
+
+{{define "content"}}
+<div class="help-wrap" data-testid="help-guide" data-guide="{{.Guide.Slug}}">
+    <nav class="help-nav" aria-label="Guides">
+        {{range .Guides}}<a href="{{.Path}}">{{.Title}}</a>{{end}}
+    </nav>
+    {{if .Rendered.Headings}}
+    <details class="help-toc">
+        <summary>On this page</summary>
+        <ul>{{range .Rendered.Headings}}<li><a href="#{{.ID}}">{{.Text}}</a></li>{{end}}</ul>
+    </details>
+    {{end}}
+    <article class="help-body">{{.Rendered.HTML}}</article>
+</div>
+{{end}}

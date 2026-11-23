@@ -173,7 +173,7 @@ For technical issues:
 
 ## Related Documentation
 
-- [Automatic Nonce Extraction](automatic_nonce_extraction.md) - Technical details
-- [Command Line Import Tools](../scripts/) - CLI alternatives  
-- [Admin Dashboard](technical_implementation_plan.md) - Overall admin system
-- [Match Card Data Structure](../internal/services/) - Data models and processing 
+- [Guide for administrators](guide-admin.md) - the admin dashboard
+- [Account roles](roles.md) - who can open the import page
+- [Outside connections](outbound_connections.md) - the BHPLTA website is the one this page contacts
+- `cmd/import-matchcards` - a command line version of the same import, for scripting
