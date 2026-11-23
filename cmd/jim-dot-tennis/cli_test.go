@@ -388,15 +388,15 @@ func TestHelpTextInOperationsDoc(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc, err := os.ReadFile(filepath.Join(root, "docs", "PRODUCTION_QUICK_REFERENCE.md"))
+	doc, err := os.ReadFile(filepath.Join(root, "docs", "archive", "PRODUCTION_QUICK_REFERENCE.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(doc), cliHelp) {
-		t.Fatal("docs/PRODUCTION_QUICK_REFERENCE.md does not contain the current help text; copy cliHelp into section 10")
+		t.Fatal("docs/archive/PRODUCTION_QUICK_REFERENCE.md does not contain the current help text; copy cliHelp into section 10")
 	}
 	if !strings.Contains(string(doc), strings.TrimPrefix(cliTournamentsHelp, "\n")) {
-		t.Fatal("docs/PRODUCTION_QUICK_REFERENCE.md does not contain the current tournament commands help; copy cliTournamentsHelp into section 10")
+		t.Fatal("docs/archive/PRODUCTION_QUICK_REFERENCE.md does not contain the current tournament commands help; copy cliTournamentsHelp into section 10")
 	}
 }
 

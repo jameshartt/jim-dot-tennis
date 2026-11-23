@@ -1,6 +1,6 @@
-# Contributing to jim.tennis
+# Contributing to jim-dot-tennis
 
-Thanks for your interest in contributing. This guide covers two things: how to contribute code, and how to adapt jim.tennis for your own club.
+Thanks for your interest in contributing. This guide covers two things: how to contribute code, and what adapting the software for your own club involves. Running it for your club does not need any of the developer material: start with [docs/install.md](docs/install.md).
 
 ## Developer Guide
 
@@ -23,8 +23,15 @@ make local
 ### Running tests
 
 ```bash
-# Full E2E test suite (runs Playwright in Docker — no local Node.js needed)
-make test-e2e
+make test                 # Go unit tests (in Docker; PKG=./internal/... narrows them)
+make test-js              # fixture generator engine tests
+
+# Browser tests (Playwright in Docker, no local Node.js needed)
+make test-e2e             # main suite, on its own app instance and data volume
+make test-e2e-auth        # passkeys, invite and recovery links, password fallback
+make test-e2e-fresh       # an empty install and the first-run setup flow
+make test-e2e-multiclub   # the app configured for a different home club
+make test-e2e-bundle      # the shipped deploy/ stack with tournaments on and off (needs the CourtHive images)
 
 # Run tests matching a pattern
 make test-e2e-grep FILTER="login"
@@ -41,7 +48,7 @@ make test-e2e-report
 The project uses Docker-based Go tooling for formatting and static analysis:
 
 ```bash
-make check            # Run all checks (vet, lint, fmt, imports, deadcode)
+make check            # vet, gofmt, lint, deadcode, Go tests and fixture generator tests
 make fmt-fix          # Auto-fix formatting
 make imports-fix      # Auto-fix imports
 ```
@@ -102,7 +109,11 @@ Keep PRs focused — one feature or fix per PR where practical.
 cmd/                  Entry points and CLI utilities
 internal/
   admin/              Admin interface handlers and service layer
-  auth/               Authentication (session-based and token-based)
+  auth/               Sign-in (passkeys, optional passwords), sessions, player links
+  accounts/           Accounts, invite and recovery links, roles
+  backup/             Backups and restore
+  tournaments/        The bundled tournament software (CourtHive) set-up
+  help/               In-app guides, rendering docs/guide-*.md
   config/             Home club configuration, context helpers, middleware
   database/           Database connection and migrations
   models/             Data structures
@@ -116,8 +127,10 @@ templates/            Server-rendered HTML templates
   admin/              Admin interface templates
   players/            Player-facing templates
 static/               CSS, JavaScript, images, PWA assets
+embed.go              Builds templates, static files and migrations into the binary
+deploy/               The packaged install: compose file, Caddyfile, .env.example
 tests/e2e/            Playwright browser tests
-docs/                 Deployment and operations documentation
+docs/                 Guides for operators and users (docs/archive/ is history)
 ```
 
 ### Database migrations
@@ -126,9 +139,10 @@ Migrations are numbered sequentially (`001_`, `002_`, etc.) and run automaticall
 
 ```bash
 # Migrations live in migrations/ as .up.sql and .down.sql pairs
-# To manually run or rollback:
-docker run ... go run cmd/migrate/main.go
-docker run ... go run cmd/migrate-down/main.go
+# The app applies them itself at start, after taking a backup.
+# To run or roll back by hand (inside the Go image):
+go run cmd/migrate/main.go
+go run cmd/migrate-down/main.go
 ```
 
 Always create both up and down migration files.
@@ -137,83 +151,46 @@ Always create both up and down migration files.
 
 ## Club Adaptation Guide
 
-jim.tennis was originally built for St Ann's Tennis Club in the Brighton & Hove Parks League. Since then, the architecture has been made club-agnostic — the home club is configured via environment variables, so you no longer need to edit Go source files to run it for your own club.
+The software was built at St Ann's Tennis Club for the Brighton & Hove Parks League and is now packaged for any BHPLTA club. Each club runs its own copy. Nothing needs editing in the source: the club is chosen in the first-run setup in your browser, and everything else is a setting in the app or an environment variable.
 
-### What you'd get
+### How a club runs it
 
-- Player availability tracking with token-based access (no passwords for players)
-- Team selection workflow with captain notifications
-- Fixture scheduling with venue details and iCal feeds
-- Match result import from the BHPLTA website
-- Standings and match history
-- Push notifications via PWA
-- Admin dashboard for managing everything
+- **Release image, not source.** A club runs the published image `ghcr.io/jameshartt/jim-dot-tennis:<version>` through `deploy/docker-compose.yml`. Nothing is built on the server. The binary carries its own templates, static files and migrations (`embed.go`), so there is nothing else to copy.
+- **SQLite only.** The database is one SQLite file on the data volume, opened through the pure-Go driver `modernc.org/sqlite` (no C toolchain, CGO off). There is no other database option for the app.
+- **Backups are built in.** The app backs itself up daily and before every upgrade, and `jim-dot-tennis backup` and `restore` do it by hand. See [docs/backup-and-restore.md](docs/backup-and-restore.md).
+- **Sign-in.** Passkeys are the default. A password is an optional fallback that each person can add. There is no email: administrators pass on invite and recovery links themselves. See [docs/accounts-and-recovery.md](docs/accounts-and-recovery.md).
+- **Roles.** Administrator, captain, and Tournaments only. Players have no accounts; they use their own private link. See [docs/roles.md](docs/roles.md).
+- **Tournaments are optional.** The bundled CourtHive software (tournament management, public tournament pages) is a compose profile that is off until you switch it on. See [docs/guide-tournaments.md](docs/guide-tournaments.md) and [docs/courthive_bundle_design.md](docs/courthive_bundle_design.md).
+- **Your copy is yours alone.** It ships with no accounts and no shared secrets, and it sends nothing to the author. See [docs/outbound_connections.md](docs/outbound_connections.md).
+- **Command line.** The same binary has operator commands for accounts, passkeys, backups, setup codes and tournaments. Run `docker exec -it jim-dot-tennis ./jim-dot-tennis help` to see them.
 
-### What you'd need
+### What you need
 
-**Technical skills:** Comfort with Docker and the command line. You don't need Go knowledge for basic setup — all club-specific configuration is done through environment variables.
-
-**A server:** jim.tennis runs on a single small VPS (1 CPU, 1GB RAM, 2GB swap). See [docs/digitalocean_deployment.md](docs/digitalocean_deployment.md) for the current setup.
+A small server (1 GB of memory is enough for the league; 2 GB if you switch tournaments on), Docker with the compose plugin, and a domain name. Comfort with a command line is enough: no Go knowledge is needed. The steps are in [docs/install.md](docs/install.md).
 
 ### Configuration (environment variables)
 
-Set these environment variables to run jim.tennis for your club:
+The reference file is `deploy/.env.example`, which lists every variable the stack and the app read. The ones you are most likely to meet:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `HOME_CLUB_ID` | Unless chosen in setup | Database ID of your club. Overrides `HOME_CLUB_NAME` and the club stored by first-run setup; with none of the three the app starts in setup mode (`/setup`) |
-| `HOME_CLUB_NAME` | Fallback | Club name for fuzzy lookup if `HOME_CLUB_ID` is not set |
-| `HOME_CLUB_LOGO_PATH` | Optional | URL path to a club logo; overrides the logo uploaded on the Club Settings page. See "Club logo" below. |
-| `BHPLTA_CLUB_CODE` | Optional | Your club's code on the BHPLTA website; overrides the code stored on the Club Settings page |
-| `WRAPPED_ACCESS_PASSWORD` | Optional | Code that unlocks the club wrapped pages. When unset (recommended) each instance generates its own code on first start; administrators see it on the Club Settings page. A placeholder value such as `change-me` stops the app starting with `APP_ENV=production`. |
-| `MY_TENNIS_ENABLED` | Optional | `true`/`1` shows the "My Tennis" call-to-action. Off when unset. |
-| `LEAGUE_TABLES_URL` | Optional | Source page for the public fixture generator's league tables (default: the BHPLTA league tables page). |
-| `COURTHIVE_API_URL` | Optional | CourtHive API URL (default: `http://courthive-server:8383`; only relevant with tournament management). |
-| `PUBLIC_URL` | Production | The instance's public address, e.g. `https://tennis.example.org`. Overrides the Public URL stored on the Club Settings page. Required (https only) when `APP_ENV=production`: the app refuses to start without it. Used for links sent to players, the push-notification contact, calendar-file UIDs and (later) passkeys. The reference compose defaults it to `https://$DOMAIN`. |
-| `APP_ENV` | Production | Set to `production` for a live instance: requires a valid https `PUBLIC_URL` and refuses `DEV_MODE`. The reference compose sets it. |
-| `DEV_MODE` | Dev only | `true`/`1` stops session cookies being marked Secure, so the app works over plain http (local runs, the e2e containers; set by the root `docker-compose.yml`, `make run-local` and `scripts/run.sh`). Session cookies are Secure by default. Never set in production. |
-| `PORT` | Optional | HTTP listen port (default: `8080`). |
-| `DB_TYPE` | Optional | Only `sqlite3` is supported; any other value fails at startup. |
-| `DB_PATH` | Optional | SQLite file path (default: `./tennis.db`; `/app/data/tennis.db` in Docker). |
-| `TEMPLATE_RELOAD` | Dev only | `true` re-parses templates on every request (hot reload). Leave unset in production. |
+| `DOMAIN` / `PUBLIC_URL` | Production | The address people use, for example `https://tennis.example.org`. The app refuses to start in production without a valid https `PUBLIC_URL`. It is used for links, calendar feeds and passkeys, so keep it stable. |
+| `JIM_DOT_TENNIS_VERSION` | Production | The release to run. |
+| `HOME_CLUB_ID` / `HOME_CLUB_NAME` | Optional | Normally you choose your club in first-run setup. These override it. |
+| `BHPLTA_CLUB_CODE` | Optional | Your club's code on the BHPLTA website; can be set on the Club Settings page instead. |
+| `BACKUP_DIR`, `BACKUP_INTERVAL`, `BACKUP_KEEP` | Optional | Where backups go, how often (default daily, or `off`) and how many to keep (default 14). |
+| `COMPOSE_PROFILES=tournaments` | Optional | Turns on the bundled tournament software. |
+| `DB_PATH` | Optional | SQLite file path (`/app/data/tennis.db` in the container). |
+| `APP_ENV`, `DEV_MODE`, `TEMPLATE_RELOAD` | Development | `APP_ENV=production` is set by the compose file. `DEV_MODE` and `TEMPLATE_RELOAD` are for local development only and must never be set in production. |
 
-You'll also want to update:
-- Domain name and Caddy configuration
-- Any club-specific branding in templates (optional — templates use the club name from the database)
+### Club logo and branding
 
-### Club logo
+Upload the logo on **Admin Dashboard, Club Settings** (PNG, JPEG or WebP, up to 2 MB). It is stored on the data volume, survives upgrades, and a square logo of at least 192 pixels becomes the installed app's icon. The same page sets the display name and the two club colours.
 
-The points table and weekly overview pages display a club logo. Upload it on **Admin Dashboard → Club Settings** (PNG, JPEG or WebP, up to 2 MB). It is stored on the data volume next to the database, so it survives upgrades, and a square logo of at least 192 pixels is also used as the installed app's icon. The same page sets the display name, the two club colours and the BHPLTA identifiers.
+### What is specific to the BHPLTA
 
-`HOME_CLUB_LOGO_PATH` still works and takes precedence: point it at an image you serve yourself (for example one mounted into `/app/static/`). Without either there is no logo.
-
-### What's already handled
-
-These used to require code changes but are now built in:
-
-- **Home/away team logic** — determined by `HOME_CLUB_ID`, not hardcoded
-- **Club name in templates** — injected dynamically from the database via middleware
-- **Club name, logo and colours** — set on the Club Settings page (`HOME_CLUB_LOGO_PATH` overrides the logo)
-- **Divisions label on the points table** — computed dynamically from the divisions your teams are playing in
-- **BHPLTA club code, name and id** — set on the Club Settings page (`BHPLTA_CLUB_CODE` overrides the code)
-- **Apostrophe normalisation** — a centralised normalisation layer (`internal/normalize/`) handles the various Unicode apostrophe characters that appear across data sources
-
-### Remaining customisation (if needed)
-
-- **BHPLTA integration** — the match card import assumes the BHPLTA's website structure and data format. If your league uses a different website, you'd need to adapt the scraper in `internal/services/`.
-- **Tournament management** — the CourtHive integration is optional and can be disabled by not running the CourtHive stack.
-
-### Rough effort estimate
-
-| Category | Effort |
-|----------|--------|
-| Deployment to a new server | A few hours if you're comfortable with Docker |
-| Configuring for your club | Set 2-3 environment variables |
-| Customising branding/templates | Optional — a few hours if you want custom styling |
-| Adapting for a non-BHPLTA league | Significant — depends entirely on the target website |
+The match card import, the season import and the fixture generator read the BHPLTA website. A league that is not run through that website would need those parts adapted (`internal/services/`, `internal/bhplta/`). Clubs in the BHPLTA need no code changes.
 
 ### Getting help
 
-If you're thinking about adapting jim.tennis for your club, the easiest way to reach James is through the **Parks Team Captains** WhatsApp group — if you're already in the group, just drop a message there.
-
-You can also [open a club enquiry issue](https://github.com/jameshartt/jim-dot-tennis/issues/new?template=club_enquiry.md) on GitHub. Happy to answer questions about what's involved.
+Ask through the **Parks Team Captains** WhatsApp group, or [open a club enquiry issue](https://github.com/jameshartt/jim-dot-tennis/issues/new?template=club_enquiry.md) on GitHub.

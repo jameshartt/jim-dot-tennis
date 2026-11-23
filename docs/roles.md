@@ -1,8 +1,7 @@
 # Account Roles: Captain, Administrator and Tournaments Only
 
 There are three kinds of account: captain, administrator and Tournaments
-only. This page says what each can do. It is written so the user guide can
-reuse it as it stands.
+only. This page says what each can do. The user guides draw on it.
 
 Players do not have accounts. Each player uses their own private link to give
 their availability and look after their profile.

@@ -1,10 +1,12 @@
 #!/bin/bash
 set -e
 
-# Download Database Script for Jim.Tennis
-# Downloads the production database from DigitalOcean server and replaces local database
+# Download Database Script (maintainer tool, not needed to run a club's copy)
+# Copies the database from a server you reach over SSH and replaces the local
+# development database with it. Backups are the way to move data between
+# installs: see docs/backup-and-restore.md.
 
-# Configuration - matches deploy-digitalocean.sh
+# Configuration
 # SERVER, SSH_KEY, REMOTE_PATH come from the environment or scripts/.deploy.env
 # (see scripts/.deploy.env.example); the script exits with a message if unset.
 . "$(cd "$(dirname "$0")" && pwd)/lib-deploy-env.sh"

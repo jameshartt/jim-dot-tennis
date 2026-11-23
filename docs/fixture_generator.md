@@ -2,7 +2,7 @@
 
 `/fixture-generator` turns one season's final league tables into the next
 season's fixtures. It is public (no login) and writes nothing to the database:
-the committee can open it on any jim.tennis site, work through the four steps,
+the committee can open it on any club's copy of the site, work through the four steps,
 and download a fixture file that every club loads into its own site.
 
 ## The four steps

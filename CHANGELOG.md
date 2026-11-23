@@ -272,7 +272,7 @@ this list):
    (default `backups/` beside the database), and one before each upgrade. They
    hold personal data and password hashes: copy them off the server too. Restore
    with `jim-dot-tennis restore <file>` while the server is stopped
-   (`docs/PRODUCTION_QUICK_REFERENCE.md`, section 9).
+   (`docs/archive/PRODUCTION_QUICK_REFERENCE.md`, section 9).
 10. **SQLite is pure Go.** The database file and its format are unchanged, but
     build tooling that assumed CGO or a C toolchain no longer needs it, and the
     runtime image carries no SQLite package.

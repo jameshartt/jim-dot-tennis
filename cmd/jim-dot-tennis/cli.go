@@ -25,7 +25,7 @@ import (
 	"jim-dot-tennis/internal/version"
 )
 
-// cliHelp is the text `jim-dot-tennis help` prints. docs/PRODUCTION_QUICK_REFERENCE.md
+// cliHelp is the text `jim-dot-tennis help` prints. The archived runbook docs/archive/PRODUCTION_QUICK_REFERENCE.md
 // reproduces it; keep the two in step.
 const cliHelp = `jim-dot-tennis - the club's tennis app
 
@@ -581,7 +581,7 @@ func openCLIDatabase(ctx context.Context) (*database.DB, error) {
 		return nil, fmt.Errorf("the database at %s has not been set up yet. Start the app once, then try again", path)
 	case st.Dirty:
 		db.Close()
-		return nil, fmt.Errorf("the database at %s is part-way through an upgrade (version %d) and needs attention before anything else changes it; see the migration notes in docs/PRODUCTION_QUICK_REFERENCE.md", path, st.Version)
+		return nil, fmt.Errorf("the database at %s is part-way through an upgrade (version %d) and needs attention before anything else changes it; see docs/troubleshooting.md", path, st.Version)
 	case st.Version < latest:
 		db.Close()
 		return nil, fmt.Errorf("the database is at version %d but this program needs version %d. Start (or restart) the app once so it upgrades the database, then try again", st.Version, latest)
