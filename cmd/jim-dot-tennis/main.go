@@ -34,6 +34,8 @@ import (
 	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/secrets"
 	"jim-dot-tennis/internal/setup"
+	"jim-dot-tennis/internal/tournamenthome"
+	"jim-dot-tennis/internal/tournaments"
 	"jim-dot-tennis/internal/version"
 	"jim-dot-tennis/internal/webpush"
 )
@@ -53,6 +55,13 @@ func main() {
 
 	// Say what is wrong with the settings in plain words before anything opens.
 	if err := checkEnvironment(); err != nil {
+		log.Fatalf("Cannot start: %v", err)
+	}
+	// The bundled tournament stack (optional): one client for everything
+	// that talks to it. A bad setting stops start-up; its message never
+	// quotes the password.
+	tournamentStack, tournamentCfg, err := tournamentClient()
+	if err != nil {
 		log.Fatalf("Cannot start: %v", err)
 	}
 
@@ -160,11 +169,16 @@ func main() {
 	authHandler := auth.NewHandler(authService, templateDir, "/admin/league")
 
 	// Set up admin handlers
-	courthiveAPIURL := os.Getenv("COURTHIVE_API_URL")
-	if courthiveAPIURL == "" {
-		courthiveAPIURL = "http://courthive-server:8383"
+	adminHandler := admin.New(db, templateDir, tournamentCfg.ServerURL, homeClub, homeClub.BHPLTAClubCode(), pushService)
+	// One tournament service: it sets the club up on the bundled tournament
+	// stack (when this deployment has one), keeps people's tournament
+	// accounts in line with their access here, and hands them over.
+	tournamentService := tournaments.NewService(db, tournamentStack)
+	adminHandler.SetTournamentAccessObserver(tournamentAccessObserver(tournamentService))
+	adminHandler.SetTournamentSetup(tournamentService)
+	if tournamentStack.Configured() {
+		log.Printf("Bundled tournament stack: %s (sign-in service %s)", tournamentCfg.ServerURL, tournamentCfg.IdentityURL)
 	}
-	adminHandler := admin.New(db, templateDir, courthiveAPIURL, homeClub, homeClub.BHPLTAClubCode(), pushService)
 
 	// Set up players handlers
 	playersHandler := players.New(db, templateDir, homeClub)
@@ -239,6 +253,15 @@ func main() {
 
 	// Admin routes (protected)
 	adminHandler.RegisterRoutes(mux, authMiddleware)
+
+	// Tournament home page (outside /admin/league: signed in, with tournament
+	// access; the handler checks the access itself)
+	tournamenthome.New(homeClub.ClubSettings(), tournamentService, templateDir).RegisterRoutes(mux, authMiddleware.RequireAuth)
+	if tournamentStack.Configured() {
+		// Retry any change to a person's tournament access that the
+		// tournament stack did not take (it was down, say).
+		go tournamentService.RunReconciler(context.Background(), time.Minute)
+	}
 
 	// Public admin-related routes (e.g., club wrapped with lightweight password gate)
 	adminHandler.RegisterPublicRoutes(mux)
@@ -432,6 +455,18 @@ func getProjectRoot() (string, error) {
 }
 
 // loadTemplatesWithFuncs loads templates with function map
+// tournamentAccessObserver is told about committed changes to accounts'
+// tournament access, role, active state and sessions, by the users and
+// sessions pages and by the command line. With the bundled tournament stack
+// it is the tournament service, which brings the tournament server into line;
+// without one, nothing listens.
+func tournamentAccessObserver(svc *tournaments.Service) accounts.TournamentAccessObserver {
+	if svc == nil || !svc.Configured() {
+		return accounts.NoTournamentAccessObserver{}
+	}
+	return svc
+}
+
 func loadTemplatesWithFuncs(templateDir string, funcMap template.FuncMap) (*template.Template, error) {
 	// Create a new template with the function map (plus the role helpers the
 	// admin dashboard, which is among templates/*.html, uses)

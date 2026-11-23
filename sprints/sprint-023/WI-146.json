@@ -9,7 +9,7 @@
   "dependencies": [
     "WI-144"
   ],
-  "status": "not_started",
+  "status": "completed",
   "recommended_model": {
     "name": "Opus 5.5",
     "id": "claude-opus-5-5",
@@ -31,7 +31,9 @@
     ],
     "notes": [
       "Existing tournaments with draws must never be modified by tooling without a backup first.",
-      "The known manual sequence is in docs/PRODUCTION_QUICK_REFERENCE.md section 4 (backfill-calendar-tournaments between migrations 047 and 048)."
+      "The known manual sequence is in docs/PRODUCTION_QUICK_REFERENCE.md section 4 (backfill-calendar-tournaments between migrations 047 and 048).",
+      "See docs/courthive_bundle_design.md (rewritten 2026-11-22 for latest upstream), section 5: no hand-run backfill is needed between migrations 050 and 064; the rehearsal on a copy of jim.tennis data must cover the one-way migration 052, the dropped tables (053, 058), hashing any plain-text passwords with the identity service's script, and tournament records moving from engine 7.1.1 to 7.45.0.",
+      "The app image gains the Postgres client tools; dump and restore run over the internal network with the generated database password."
     ]
   },
   "testing_requirements": [
@@ -41,5 +43,7 @@
   "context": {
     "user_story": "As a club, I want my championship draws to be as safe as my league data.",
     "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
-  }
+  },
+  "status_note": "Merged 2026-11-22. Round trip proven on the real stack (a tournament with a draw survives backup, wipe and restore; hand-over still works). A failed pre-upgrade backup leaves the tournament server stopped (league site unaffected) until the operator acts or goes back a version. The rehearsal ran on a synthetic old database holding real Parks Cup records; the run on a copy of jim.tennis's database waits for the owner.",
+  "completed_date": "2026-11-22"
 }

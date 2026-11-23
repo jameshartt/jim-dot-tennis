@@ -97,6 +97,25 @@ generated on first start), and it sends nothing to the software's author. See
 [What this instance connects to](docs/outbound_connections.md#what-this-instance-connects-to)
 for every outbound connection it makes.
 
+### Tournaments (optional)
+
+The package can also run your club's own tournaments (CourtHive: tournament
+management at `/tournaments`, public tournament pages at `/public`). It is off
+until you turn it on, and needs a server with 2 GB of memory (or 1 GB with
+2 GB of swap). On the server, in the `deploy` folder:
+
+```bash
+./init-tournaments.sh                          # once: makes the secrets, adds them to .env
+echo COMPOSE_PROFILES=tournaments >> .env      # turns the tournament services on
+docker compose up -d                           # starts them (the first time takes a minute)
+```
+
+Then sign in as an administrator and switch on **Tournaments** on the Club
+Settings page. Every secret is made on your server by the script; none is
+shared with anyone. See
+[docs/docker_setup.md](docs/docker_setup.md#tournaments-optional) for what
+runs, how to check it and how to turn it off again.
+
 ### Configuration
 
 The application uses environment variables to identify your club:
@@ -110,7 +129,7 @@ The application uses environment variables to identify your club:
 | `WRAPPED_ACCESS_PASSWORD` | Optional | Code that unlocks the club wrapped pages. When unset (recommended) each instance generates its own code on first start; administrators see it on the Club Settings page. A placeholder value such as `change-me` stops the app starting with `APP_ENV=production`. |
 | `MY_TENNIS_ENABLED` | Optional | `true`/`1` shows the "My Tennis" call-to-action. Off when unset. |
 | `LEAGUE_TABLES_URL` | Optional | Source page for the public fixture generator's league tables (default: the BHPLTA league tables page). |
-| `COURTHIVE_API_URL` | Optional | CourtHive API URL (default: `http://courthive-server:8383`). |
+| `COURTHIVE_API_URL` | Optional | Internal address of the tournament server (default: `http://courthive-server:8383`). The packaged deployment passes it, with `COURTHIVE_IDENTITY_URL`, `COURTHIVE_SERVICE_PASSWORD` and the tournament database settings, only while tournaments are on. |
 | `PUBLIC_URL` | Production | The instance's public address, e.g. `https://tennis.example.org`. Overrides the Public URL stored on the Club Settings page. Required (https only) when `APP_ENV=production`: the app refuses to start without it. Used for links sent to players, the push-notification contact, calendar-file UIDs and (later) passkeys. In the reference stack set it in `deploy/.env` (normally `https://` plus `DOMAIN`). |
 | `APP_ENV` | Production | Set to `production` for a live instance: requires a valid https `PUBLIC_URL` and refuses `DEV_MODE`. The reference compose sets it. |
 | `DEV_MODE` | Dev only | `true`/`1` stops session cookies being marked Secure, so the app works over plain http (local runs, the e2e containers; set by the root `docker-compose.yml`, `make run-local` and `scripts/run.sh`). Session cookies are Secure by default. Never set in production. |
@@ -121,7 +140,7 @@ The application uses environment variables to identify your club:
 
 **iCal note.** Calendar files carry the UID `fixture-<id>@<host of PUBLIC_URL>`. The host is part of every event's identity, so changing it (for example `jim.tennis` to `www.jim.tennis`) makes calendar apps treat already-subscribed events as new and duplicate them. Set `PUBLIC_URL` to the host your players already use and keep it stable.
 
-The production stack (app, CourtHive, Caddy) is defined in [`deploy/`](deploy/): `deploy/docker-compose.yml`, `deploy/Caddyfile` and `deploy/.env.example`, which lists every variable the stack and the app read. See [docs/docker_setup.md](docs/docker_setup.md) for more.
+The packaged deployment (app and Caddy, plus the optional tournament stack) is defined in [`deploy/`](deploy/): `deploy/docker-compose.yml`, `deploy/Caddyfile`, `deploy/init-tournaments.sh` and `deploy/.env.example`, which lists every variable the stack and the app read. See [docs/docker_setup.md](docs/docker_setup.md) for more.
 
 ### Running tests
 

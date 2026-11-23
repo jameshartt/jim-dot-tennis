@@ -1,0 +1,61 @@
+{
+  "id": "WI-153",
+  "title": "Tournament-only accounts and per-account tournament access",
+  "description": "Some people run tournaments and have nothing to do with the league: today they exist only inside CourtHive. Give jim-dot-tennis a way to hold them, so it stays the only place anyone signs in. Add a per-account tournament access setting (none, own tournaments only, all of the club's tournaments) and an account type with no league access at all, shown as 'Tournaments only'. Administrators always have access to all tournaments. A captain has none unless an administrator grants it. A tournament-only account signs in the same way as everyone else (passkey by default, recovery links, audit log) and lands on a page with one thing to do: open tournament management. This item covers the accounts, the rules and the pages; the hand-over into TMX and the calls to the tournament server are WI-152.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "M",
+  "parallelisable": true,
+  "dependencies": [
+    "WI-142"
+  ],
+  "status": "completed",
+  "recommended_model": {
+    "name": "Opus 5.5",
+    "id": "claude-opus-5-5",
+    "rationale": "Account and role changes with security consequences, in code with an established pattern to follow."
+  },
+  "acceptance_criteria": [
+    "users has a tournament_access value per account: none, own (their own and assigned tournaments) or all (every tournament of the club); added by a migration that does not rebuild the users table",
+    "One function answers 'what tournament access does this account have': administrators always all; any other active account, its stored value; disabled accounts none. Every caller uses it",
+    "An administrator can create a 'Tournaments only' account from the users page and from the command line, choosing own or all; it has no league access and cannot open any /admin/league page",
+    "An administrator can change any non-administrator account's tournament access (including a captain's) from the users page and the command line; the change is written to the account audit log",
+    "A tournament-only account with no tournament access cannot be created or left behind: removing its access is refused with an explanation (disable the account instead)",
+    "After sign-in a tournament-only account lands on a tournament home page, not the league dashboard; the page links to tournament management when Tournaments is switched on and says so plainly when it is not",
+    "Passkey, password, recovery-link, sign-in-methods and session rules apply to tournament-only accounts exactly as to captains; the administrator passkey rules are unchanged",
+    "The existing role column and its values are unchanged in the database; the no-league-access accounts use the existing 'player' role value, which already grants nothing. Code and pages call it 'Tournaments only' and the retired-role comments are updated to say so",
+    "docs/roles.md describes the tournament-only account and the tournament access setting",
+    "Unit tests cover the access function, creation, the audit entries and every refused case; an e2e test signs in as a tournament-only account, sees the tournament home page and is refused the league dashboard"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "migrations/036_tournament_access.up.sql and .down.sql",
+      "internal/models/roles.go",
+      "internal/models/user.go",
+      "internal/accounts/accounts.go",
+      "internal/admin/users.go",
+      "templates/admin (users page)",
+      "internal/auth (landing after sign-in, forbidden page)",
+      "cmd/jim-dot-tennis/cli.go",
+      "docs/roles.md",
+      "tests/e2e"
+    ],
+    "notes": [
+      "Do not rebuild the users table to widen the role CHECK: foreign keys are on and other tables cascade from users. Add a column instead (ALTER TABLE ... ADD COLUMN with a CHECK and a default).",
+      "The role table in internal/admin/roles.go stays the single source for /admin/league. The tournament home page lives outside /admin/league and has its own explicit guard.",
+      "WI-152 adds the route that hands a person over to tournament management and calls internal/courthive when access changes; leave a clear seam (an interface the accounts service calls after a change to access, role or active state) and a no-op implementation.",
+      "Existing CourtHive-only people on jim.tennis get tournament-only accounts when that instance adopts the bundle; that migration is a production step for the owner to approve, not part of this item."
+    ]
+  },
+  "testing_requirements": [
+    "make check",
+    "e2e for sign-in and landing as a tournament-only account"
+  ],
+  "context": {
+    "user_story": "As a club administrator, I want the people who only run tournaments to have accounts here, so that there is one place to sign in and one place to remove access.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships.",
+    "added": "2026-11-22, at the owner's request"
+  },
+  "completed_date": "2026-11-22",
+  "status_note": "Merged 2026-11-22. make check, main e2e (228) and passkey e2e (12) pass."
+}

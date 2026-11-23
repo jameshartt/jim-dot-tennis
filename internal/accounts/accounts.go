@@ -83,6 +83,9 @@ type Account struct {
 	ActiveSessions int         `db:"active_sessions"` // valid, unexpired sessions
 	HasPassword    bool        `db:"has_password"`
 	Passkeys       int         `db:"passkeys"`
+	// TournamentAccess is the stored value; what the account can use is
+	// EffectiveTournamentAccess (tournament_access.go).
+	TournamentAccess models.TournamentAccess `db:"tournament_access"`
 }
 
 // SignInMethods is the number of ways the account can sign in (passkeys plus
@@ -100,18 +103,19 @@ func (a Account) IsActiveAdmin() bool { return a.IsActive && a.Role == models.Ro
 
 // Service performs account operations on the database.
 type Service struct {
-	db  *database.DB
-	now func() time.Time
+	db       *database.DB
+	now      func() time.Time
+	observer TournamentAccessObserver // told about committed changes (tournament_access.go)
 }
 
 // New returns the account service over db.
 func New(db *database.DB) *Service {
-	return &Service{db: db, now: time.Now}
+	return &Service{db: db, now: time.Now, observer: NoTournamentAccessObserver{}}
 }
 
 const accountColumns = `
 	u.id, u.username, u.role, u.player_id, u.is_active,
-	u.created_at, u.last_login_at,
+	u.created_at, u.last_login_at, u.tournament_access,
 	(COALESCE(u.password_hash, '') <> '') AS has_password,
 	(SELECT COUNT(*) FROM webauthn_credentials c WHERE c.user_id = u.id) AS passkeys,
 	(SELECT COUNT(*) FROM sessions s
@@ -163,25 +167,27 @@ func getAccount(ctx context.Context, db sqlx.QueryerContext, where string, arg a
 }
 
 // createAccount inserts an active account with no password inside tx and
-// records it (Invite, in links.go, is the only way an account is made here:
-// its owner sets up how they sign in through the invite link). playerID links
-// the account to a player record and may be nil.
-func (s *Service) createAccount(ctx context.Context, tx *sqlx.Tx, actor Actor, username string, role models.Role, playerID *string) (Account, error) {
+// records it (Invite and InviteAccount, in links.go and tournament_access.go,
+// are the only ways an account is made here: its owner sets up how they sign
+// in through the invite link). playerID links the account to a player record
+// and may be nil. role is admin, captain or models.RoleTournamentsOnly (which
+// needs tournament access: checkNewAccountAccess).
+func (s *Service) createAccount(ctx context.Context, tx *sqlx.Tx, actor Actor, username string, role models.Role, playerID *string, access models.TournamentAccess) (Account, error) {
 	username = strings.TrimSpace(username)
 	if !usernamePattern.MatchString(username) {
 		return Account{}, &InvalidUsernameError{Username: username}
 	}
-	if _, err := ParseRole(string(role)); err != nil {
+	if err := checkNewAccountAccess(role, access); err != nil {
 		return Account{}, err
 	}
 	now := s.now()
 	// The insert is the transaction's first statement, so it holds the write
 	// lock before the checks below read anything.
 	res, err := tx.ExecContext(ctx, `
-		INSERT INTO users (username, password_hash, role, player_id, is_active, created_at, last_login_at)
-		SELECT ?, NULL, ?, NULL, TRUE, ?, ?
+		INSERT INTO users (username, password_hash, role, player_id, is_active, created_at, last_login_at, tournament_access)
+		SELECT ?, NULL, ?, NULL, TRUE, ?, ?, ?
 		WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = ? COLLATE NOCASE)`,
-		username, role, now, now, username)
+		username, role, now, now, access, username)
 	if err != nil {
 		return Account{}, fmt.Errorf("create account: %w", err)
 	}
@@ -193,6 +199,9 @@ func (s *Service) createAccount(ctx context.Context, tx *sqlx.Tx, actor Actor, u
 		return Account{}, fmt.Errorf("create account: %w", err)
 	}
 	detail := "role " + string(role)
+	if access != models.TournamentAccessNone {
+		detail += " tournament_access=" + string(access)
+	}
 	if playerID != nil && *playerID != "" {
 		var exists, linked int
 		if err := tx.GetContext(ctx, &exists, `SELECT COUNT(*) FROM players WHERE id = ?`, *playerID); err != nil {
@@ -278,6 +287,9 @@ func (s *Service) SetActive(ctx context.Context, actor Actor, id int64, active b
 		return recordAudit(ctx, tx, Record{Time: s.now(), Actor: actor, Action: action,
 			TargetUserID: id, TargetUsername: before.Username, Detail: detail})
 	})
+	if err == nil {
+		s.notifyTournamentAccess(ctx, after, ChangeActive)
+	}
 	return after, err
 }
 
@@ -287,7 +299,10 @@ func (s *Service) SetRole(ctx context.Context, actor Actor, id int64, role model
 	if _, err := ParseRole(string(role)); err != nil {
 		return "", err
 	}
-	var previous models.Role
+	var (
+		previous models.Role
+		after    Account
+	)
 	err := s.inTx(ctx, func(tx *sqlx.Tx) error {
 		before, err := getAccount(ctx, tx, `u.id = ?`, id)
 		if err != nil {
@@ -315,9 +330,15 @@ func (s *Service) SetRole(ctx context.Context, actor Actor, id int64, role model
 			}
 			return ErrLastAdmin
 		}
+		if after, err = getAccount(ctx, tx, `u.id = ?`, id); err != nil {
+			return err
+		}
 		return recordAudit(ctx, tx, Record{Time: s.now(), Actor: actor, Action: ActionRoleChange,
 			TargetUserID: id, TargetUsername: before.Username, Detail: fmt.Sprintf("role %s -> %s", before.Role, role)})
 	})
+	if err == nil {
+		s.notifyTournamentAccess(ctx, after, ChangeRole)
+	}
 	return previous, err
 }
 
@@ -346,10 +367,13 @@ const lastActiveAdminCondition = `
 // RevokeSessions ends every session of account id and returns how many were
 // still valid.
 func (s *Service) RevokeSessions(ctx context.Context, actor Actor, id int64) (int64, error) {
-	var ended int64
+	var (
+		ended int64
+		a     Account
+	)
 	err := s.inTx(ctx, func(tx *sqlx.Tx) error {
-		a, err := getAccount(ctx, tx, `u.id = ?`, id)
-		if err != nil {
+		var err error
+		if a, err = getAccount(ctx, tx, `u.id = ?`, id); err != nil {
 			return err
 		}
 		if ended, err = endSessions(ctx, tx, id); err != nil {
@@ -358,23 +382,27 @@ func (s *Service) RevokeSessions(ctx context.Context, actor Actor, id int64) (in
 		return recordAudit(ctx, tx, Record{Time: s.now(), Actor: actor, Action: ActionRevokeSessions,
 			TargetUserID: id, TargetUsername: a.Username, Detail: fmt.Sprintf("sessions_ended=%d", ended)})
 	})
+	if err == nil {
+		s.notifyTournamentAccess(ctx, a, ChangeSessionsRevoked)
+	}
 	return ended, err
 }
 
 // RevokeSession ends one session (the admin sessions page), named by its
 // numeric id (sessions.id, not a credential). The session id is not recorded.
 func (s *Service) RevokeSession(ctx context.Context, actor Actor, sessionID int64) error {
-	return s.inTx(ctx, func(tx *sqlx.Tx) error {
-		var owner struct {
-			ID       int64  `db:"id"`
-			Username string `db:"username"`
-		}
-		err := tx.GetContext(ctx, &owner, `SELECT u.id, u.username FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = ?`, sessionID)
+	var owner Account
+	err := s.inTx(ctx, func(tx *sqlx.Tx) error {
+		var ownerID int64
+		err := tx.GetContext(ctx, &ownerID, `SELECT s.user_id FROM sessions s WHERE s.id = ?`, sessionID)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil // nothing to end
 		}
 		if err != nil {
 			return fmt.Errorf("look up session: %w", err)
+		}
+		if owner, err = getAccount(ctx, tx, `u.id = ?`, ownerID); err != nil {
+			return err
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE sessions SET is_valid = FALSE WHERE id = ?`, sessionID); err != nil {
 			return fmt.Errorf("end session: %w", err)
@@ -382,6 +410,10 @@ func (s *Service) RevokeSession(ctx context.Context, actor Actor, sessionID int6
 		return recordAudit(ctx, tx, Record{Time: s.now(), Actor: actor, Action: ActionRevokeSession,
 			TargetUserID: owner.ID, TargetUsername: owner.Username})
 	})
+	if err == nil && owner.ID != 0 {
+		s.notifyTournamentAccess(ctx, owner, ChangeSessionsRevoked)
+	}
+	return err
 }
 
 // CleanupExpiredSessions marks every expired session invalid.

@@ -1,48 +1,66 @@
-# Reference production deployment for jim.tennis (jim-dot-tennis + CourtHive).
-#
-# This is the stack production actually runs, with every secret and the domain
-# expressed as a variable. Run it from this directory:
+# The packaged deployment of jim-dot-tennis: the app and Caddy, plus an
+# optional tournament stack (CourtHive). Run it from this directory:
 #
 #   cd deploy
-#   cp .env.example .env        # then fill in every value
+#   cp .env.example .env        # then fill in the REQUIRED values
 #   docker compose up -d
 #
-# The app runs the published image ghcr.io/jameshartt/jim-dot-tennis at the
-# version in JIM_DOT_TENNIS_VERSION (pinned default below, no leading "v"):
-# nothing is compiled on your server. To upgrade, read the "Upgrade notes" for
-# the new version in CHANGELOG.md, set the variable in .env and run
-# `docker compose pull app && docker compose up -d app`. The app takes a backup
-# before it migrates. To build the app from source instead (development), use
-# the repository's root docker-compose.yml. The CourtHive server below is still
-# built from its source checkout.
+# Every image is published; nothing is compiled on your server. The app runs
+# ghcr.io/jameshartt/jim-dot-tennis at the version in JIM_DOT_TENNIS_VERSION
+# (pinned default below, no leading "v"). To upgrade, read the "Upgrade notes"
+# for the new version in CHANGELOG.md, set the variable in .env and run
+# `docker compose pull && docker compose up -d`. The app takes a backup before
+# it migrates. To build the app from source instead (development), use the
+# repository's root docker-compose.yml.
 #
 # Compose reads deploy/.env automatically (it sits next to this file).
 # Required variables use ${VAR:?message}: a missing value stops compose with a
 # clear error instead of silently starting with an empty secret.
 #
-# Expected directory layout (paths below are relative to this file):
+# --- Tournaments (optional, off by default) ---------------------------------
 #
-#   <parent>/
-#     jim-dot-tennis/              this repository checkout (only deploy/ is needed)
-#       deploy/                    this file, Caddyfile, .env
-#     competition-factory-server/  CourtHive API server source (built here)
-#     TMX/dist/                    pre-built TMX frontend, served at /tournaments
-#     courthive-public/dist/       pre-built public viewer, served at /public
+# The services marked `profiles: [tournaments]` run only when the profile is
+# on. Turn it on with these two steps, in this directory:
 #
-# NOTE: scripts/deploy-app.sh does NOT sync this file or the Caddyfile to the
-# server; changing the running stack is always a deliberate, manual step.
+#   ./init-tournaments.sh                         # writes the secrets into .env, once
+#   echo COMPOSE_PROFILES=tournaments >> .env     # then: docker compose up -d
+#
+# Always turn it on through COMPOSE_PROFILES in .env, not `--profile` on the
+# command line: the rest of this file reads COMPOSE_PROFILES to decide whether
+# the tournament secrets are required, whether the app is told about the
+# tournament services, and whether Caddy routes to them. This file has no other
+# profile, so "COMPOSE_PROFILES is not empty" means "tournaments are on".
+#
+# With the profile off only `app` and `caddy` run, none of the tournament
+# variables is needed, and Caddy answers the tournament paths with a plain 404.
+# Turning the profile off later stops the tournament services and keeps their
+# data: the volumes stay until you delete them yourself.
+#
+# The ${COMPOSE_PROFILES:+${VAR:?message}} form used below means: when the
+# profile is on, VAR is required (compose stops with the message if it is
+# missing or empty); when it is off, the value is empty and nothing is
+# required. Plain ${VAR:?} would not do: compose checks it even for services in
+# a profile that is off.
+#
+# Only Caddy publishes ports (80 and 443). Every other service is reachable
+# only on the internal network.
 #
 # Named volumes below carry fixed `name:` values. Do not rename them: a new name
 # means a new, empty volume and the existing data is orphaned.
+#
+# NOTE: scripts/deploy-app.sh does NOT sync this file or the Caddyfile to a
+# server; changing the running stack is always a deliberate, manual step.
+# jim.tennis itself still runs an older, source-built layout: see "jim.tennis
+# until it adopts the bundle" in docs/PRODUCTION_QUICK_REFERENCE.md.
 
 # Fixed project name so network/container labels do not depend on the directory
-# this file lives in (production's project is named after its checkout directory).
+# this file lives in.
 name: jim-dot-tennis
 
 services:
   # The jim-dot-tennis app, from the published release image
   app:
-    image: ghcr.io/jameshartt/jim-dot-tennis:${JIM_DOT_TENNIS_VERSION:-0.1.0}
+    image: ghcr.io/jameshartt/jim-dot-tennis:${JIM_DOT_TENNIS_VERSION:-0.2.0}
     container_name: jim-dot-tennis
     restart: unless-stopped
     volumes:
@@ -69,6 +87,20 @@ services:
       - BACKUP_INTERVAL=${BACKUP_INTERVAL:-}
       - BACKUP_KEEP=${BACKUP_KEEP:-}
       - BACKUP_DIR=${BACKUP_DIR:-}
+      # Tournaments. All empty unless the profile is on. The two addresses are
+      # internal; the app signs in to the identity service as the service
+      # account. The database settings are for backups of the tournament data.
+      - COURTHIVE_API_URL=${COMPOSE_PROFILES:+${COURTHIVE_API_URL:-http://courthive-server:8383}}
+      - COURTHIVE_IDENTITY_URL=${COMPOSE_PROFILES:+${COURTHIVE_IDENTITY_URL:-http://courthive-hiveid:3140}}
+      - COURTHIVE_SERVICE_PASSWORD=${COMPOSE_PROFILES:+${COURTHIVE_SERVICE_PASSWORD:?COURTHIVE_SERVICE_PASSWORD is missing from deploy/.env - run ./init-tournaments.sh}}
+      - COURTHIVE_PG_HOST=${COMPOSE_PROFILES:+postgres}
+      - COURTHIVE_PG_PORT=${COMPOSE_PROFILES:+5432}
+      - COURTHIVE_PG_USER=${COMPOSE_PROFILES:+courthive}
+      - COURTHIVE_PG_DATABASE=${COMPOSE_PROFILES:+courthive}
+      - COURTHIVE_PG_PASSWORD=${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:?COURTHIVE_PG_PASSWORD is missing from deploy/.env - run ./init-tournaments.sh}}
+      # Recorded in each backup's manifest. Keep it the same as the
+      # courthive-server image below.
+      - COURTHIVE_SERVER_IMAGE=${COMPOSE_PROFILES:+ghcr.io/jameshartt/courthive-server:${COURTHIVE_SERVER_VERSION:-4.19.1-jdt.1}}
     networks:
       - tennis-network
     healthcheck:
@@ -76,13 +108,54 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      # Checked every 2 seconds while starting, so Caddy (and, with the
+      # profile on, the tournament stack) need not wait 30 seconds.
+      start_period: 120s
+      start_interval: 2s
 
-  # Redis for CourtHive
+  # Caddy reverse proxy with automatic HTTPS. The only service with ports.
+  caddy:
+    image: caddy:2-alpine
+    container_name: jim-dot-tennis-caddy
+    restart: unless-stopped
+    # Caddy waits for the app only. The league site must never depend on the
+    # tournament services: if one of them is slow or broken, Caddy still
+    # starts and answers 502 for the tournament paths until they are ready.
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Filled by tmx-content and public-content. With the profile off they are
+      # empty (or hold an earlier copy) and Caddy does not serve them.
+      - tmx-files:/srv/tournaments:ro
+      - public-files:/srv/public:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      - DOMAIN=${DOMAIN:?set DOMAIN in deploy/.env (the public hostname, e.g. tennis.example.org)}
+      # "on" when the profile is on, empty when it is off. The Caddyfile
+      # routes the tournament paths only when this is "on".
+      - TOURNAMENTS=${COMPOSE_PROFILES:+on}
+    networks:
+      - tennis-network
+
+  # ---------------------------------------------------------------------------
+  # Tournament stack (profile "tournaments")
+  # ---------------------------------------------------------------------------
+
+  # Redis for the tournament server (cache; nothing here is the only copy).
   redis:
     image: redis:7-alpine
+    profiles: [tournaments]
     container_name: courthive-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes
+    # Stays inside its 64 MB memory limit by dropping the least used keys.
+    command: redis-server --appendonly yes --maxmemory 48mb --maxmemory-policy allkeys-lru
+    mem_limit: 64m
     volumes:
       - redis-data:/data
     networks:
@@ -92,15 +165,20 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
+      start_interval: 2s
 
-  # Postgres for CourtHive
+  # Postgres: the tournament database, shared by the tournament server and the
+  # identity service. The tournament server creates its schema at start.
   postgres:
     image: postgres:18-alpine
+    profiles: [tournaments]
     container_name: courthive-postgres
     restart: unless-stopped
+    mem_limit: 384m
     environment:
       POSTGRES_USER: courthive
-      POSTGRES_PASSWORD: ${COURTHIVE_PG_PASSWORD:?set COURTHIVE_PG_PASSWORD in deploy/.env (openssl rand -hex 24)}
+      POSTGRES_PASSWORD: ${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:?COURTHIVE_PG_PASSWORD is missing from deploy/.env - run ./init-tournaments.sh}}
       POSTGRES_DB: courthive
     volumes:
       - courthive-pg-data:/var/lib/postgresql
@@ -111,75 +189,261 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 60s
+      start_interval: 2s
 
-  # CourtHive API Server
+  # One-shot, before every start of the tournament server: the backup before
+  # a tournament upgrade (WI-146). The tournament server migrates its database
+  # when it starts, and some of its migrations cannot be undone, so a new
+  # server image must never start on data that has no fresh backup. This runs
+  # the app's own image (`jim-dot-tennis tournaments pre-upgrade`), with the
+  # app's data volume, and compares COURTHIVE_SERVER_IMAGE (keep it the same
+  # as courthive-server's image below) with the image recorded in the app's
+  # database the last time:
+  #   - the same (an ordinary restart): it does nothing and exits at once;
+  #   - different: it makes a full backup, the app's data and a dump of the
+  #     tournament database, into the backups folder
+  #     (jim-dot-tennis-pre-upgrade-<time>.tar.gz), checks it, then records
+  #     the new image;
+  #   - a new, empty tournament database: it records the image (nothing to
+  #     keep).
+  # If it cannot make the backup it exits with status 1 and records nothing:
+  # courthive-server (which waits for it to complete successfully) is not
+  # started or replaced, and `docker compose up -d` reports the failure. The
+  # app and Caddy do not depend on it, so the league site keeps running. Its
+  # message is in `docker compose logs courthive-pre-upgrade`. Fix the cause
+  # and run `docker compose up -d` again (the operations guide, backups
+  # section, "Tournament upgrades").
+  #
+  # Never start the tournament server with `--no-deps`: that skips this step.
+  courthive-pre-upgrade:
+    image: ghcr.io/jameshartt/jim-dot-tennis:${JIM_DOT_TENNIS_VERSION:-0.2.0}
+    profiles: [tournaments]
+    container_name: courthive-pre-upgrade
+    restart: "no"
+    depends_on:
+      # The app first: its own migrations (and the backup before them) are
+      # done, and this backup holds its data as it now is.
+      app:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - tennis-data:/app/data
+    environment:
+      - DB_TYPE=sqlite3
+      - DB_PATH=/app/data/tennis.db
+      - BACKUP_DIR=${BACKUP_DIR:-}
+      - COURTHIVE_PG_HOST=${COMPOSE_PROFILES:+postgres}
+      - COURTHIVE_PG_PORT=${COMPOSE_PROFILES:+5432}
+      - COURTHIVE_PG_USER=${COMPOSE_PROFILES:+courthive}
+      - COURTHIVE_PG_DATABASE=${COMPOSE_PROFILES:+courthive}
+      - COURTHIVE_PG_PASSWORD=${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:?COURTHIVE_PG_PASSWORD is missing from deploy/.env - run ./init-tournaments.sh}}
+      - COURTHIVE_SERVER_IMAGE=${COMPOSE_PROFILES:+ghcr.io/jameshartt/courthive-server:${COURTHIVE_SERVER_VERSION:-4.19.1-jdt.1}}
+    command: ["./jim-dot-tennis", "tournaments", "pre-upgrade"]
+    healthcheck:
+      disable: true
+    networks:
+      - tennis-network
+
+  # The tournament server (CourtHive competition-factory-server). Verifies
+  # tokens with the public key only; the identity service signs them.
   courthive-server:
-    build:
-      context: ../../competition-factory-server
-      dockerfile: Dockerfile
+    image: ghcr.io/jameshartt/courthive-server:${COURTHIVE_SERVER_VERSION:-4.19.1-jdt.1}
+    profiles: [tournaments]
     container_name: courthive-server
     restart: unless-stopped
+    mem_limit: 512m
     depends_on:
       redis:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      # Migrations only after the backup (see above).
+      courthive-pre-upgrade:
+        condition: service_completed_successfully
     volumes:
-      - courthive-data:/app/data
-      - courthive-cache:/app/cache
+      - courthive-archives:/app/.archives-local
     environment:
-      - NODE_ENV=production
-      - APP_NAME=Competition Factory Server
-      - APP_MODE=production
-      - APP_PORT=8383
-      - STORAGE_PROVIDER=postgres
-      - JWT_SECRET=${COURTHIVE_JWT_SECRET:?set COURTHIVE_JWT_SECRET in deploy/.env (openssl rand -hex 32)}
-      - JWT_VALIDITY=2h
-      - TRACKER_CACHE=/app/cache
-      - REDIS_URL=redis://redis:6379
-      - REDIS_TTL=28800000
-      - REDIS_HOST=redis
-      - REDIS_USERNAME=
-      - REDIS_PASSWORD=
-      - REDIS_PORT=6379
-      - PG_HOST=postgres
-      - PG_PORT=5432
-      - PG_USER=courthive
-      - PG_PASSWORD=${COURTHIVE_PG_PASSWORD:?set COURTHIVE_PG_PASSWORD in deploy/.env (openssl rand -hex 24)}
-      - PG_DATABASE=courthive
+      APP_NAME: Competition Factory Server
+      # Never "development": that turns on a built-in administrator whose
+      # password is published.
+      APP_MODE: production
+      APP_PORT: "8383"
+      STORAGE_PROVIDER: postgres
+      ARCHIVES_PATH: /app/.archives-local
+      # Must be set for the server to start. Unused: with JWT_ACCEPT_HS256=false
+      # tokens signed with it are refused, so it is not a master key.
+      JWT_SECRET: ${COMPOSE_PROFILES:+${COURTHIVE_JWT_SECRET:?COURTHIVE_JWT_SECRET is missing from deploy/.env - run ./init-tournaments.sh}}
+      JWT_ACCEPT_HS256: "false"
+      JWT_PUBLIC_KEY: ${COMPOSE_PROFILES:+${COURTHIVE_JWT_PUBLIC_KEY:?COURTHIVE_JWT_PUBLIC_KEY is missing from deploy/.env - run ./init-tournaments.sh}}
+      JWT_KID: ${COMPOSE_PROFILES:+${COURTHIVE_JWT_KID:?COURTHIVE_JWT_KID is missing from deploy/.env - run ./init-tournaments.sh}}
+      HIVEID_BASE_URL: http://courthive-hiveid:3140
+      HIVEID_SIGNER_TOKEN: ${COMPOSE_PROFILES:+${COURTHIVE_SIGNER_TOKEN:?COURTHIVE_SIGNER_TOKEN is missing from deploy/.env - run ./init-tournaments.sh}}
+      # Browsers may call the server from this instance's own address only.
+      CFS_CORS_ORIGINS: https://${DOMAIN:?set DOMAIN in deploy/.env (the public hostname, e.g. tennis.example.org)}
+      TMX_URL: /tournaments/
+      # Services the bundle does not ship: switched off, so nothing is called.
+      PERSONS_DISABLED: "true"
+      PERSONS_BASE_URL: disabled
+      DECLARATIONS_DISABLED: "true"
+      AMS_DISABLED: "true"
+      REDIS_URL: redis://redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      PG_HOST: postgres
+      PG_PORT: "5432"
+      PG_USER: courthive
+      PG_PASSWORD: ${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:?COURTHIVE_PG_PASSWORD is missing from deploy/.env - run ./init-tournaments.sh}}
+      PG_DATABASE: courthive
     networks:
       - tennis-network
+    # The test is built into the image (GET /factory/version); this only makes
+    # the first checks come sooner.
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8383/"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 120s
+      start_interval: 3s
 
-  # Caddy reverse proxy with SSL
-  caddy:
-    image: caddy:2-alpine
-    # Production's docker-compose.override.yml renames this container; the name
-    # below is what actually runs there.
-    container_name: jim-dot-tennis-caddy
+  # The identity service (CourtHive HiveID): the only signer of tokens (ES256).
+  # It has no JWT_SECRET on purpose: with one, a missing private key would make
+  # it sign weaker tokens instead of failing.
+  courthive-hiveid:
+    image: ghcr.io/jameshartt/courthive-hiveid:${COURTHIVE_HIVEID_VERSION:-0.5.0-jdt.1}
+    profiles: [tournaments]
+    container_name: courthive-hiveid
     restart: unless-stopped
+    mem_limit: 256m
     depends_on:
-      app:
+      postgres:
         condition: service_healthy
+      # Its tables are created by the tournament server's migrations.
       courthive-server:
         condition: service_healthy
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - ../../TMX/dist:/srv/tournaments
-      - ../../courthive-public/dist:/srv/public
-      - caddy-data:/data
-      - caddy-config:/config
+      courthive-hash-passwords:
+        condition: service_completed_successfully
     environment:
-      - DOMAIN=${DOMAIN:?set DOMAIN in deploy/.env (the public hostname, e.g. tennis.example.org)}
+      NODE_ENV: production
+      PORT: "3140"
+      PG_HOST: postgres
+      PG_PORT: "5432"
+      PG_USER: courthive
+      PG_PASSWORD: ${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:?COURTHIVE_PG_PASSWORD is missing from deploy/.env - run ./init-tournaments.sh}}
+      PG_DATABASE: courthive
+      JWT_SIGN_ES256: "true"
+      JWT_ACCEPT_HS256: "false"
+      JWT_PRIVATE_KEY: ${COMPOSE_PROFILES:+${COURTHIVE_JWT_PRIVATE_KEY:?COURTHIVE_JWT_PRIVATE_KEY is missing from deploy/.env - run ./init-tournaments.sh}}
+      JWT_PUBLIC_KEY: ${COMPOSE_PROFILES:+${COURTHIVE_JWT_PUBLIC_KEY:?COURTHIVE_JWT_PUBLIC_KEY is missing from deploy/.env - run ./init-tournaments.sh}}
+      JWT_KID: ${COMPOSE_PROFILES:+${COURTHIVE_JWT_KID:?COURTHIVE_JWT_KID is missing from deploy/.env - run ./init-tournaments.sh}}
+      HIVEID_SIGNER_TOKEN: ${COMPOSE_PROFILES:+${COURTHIVE_SIGNER_TOKEN:?COURTHIVE_SIGNER_TOKEN is missing from deploy/.env - run ./init-tournaments.sh}}
+      TMX_URL: /tournaments/
+      PUBLIC_URL: /public/
     networks:
       - tennis-network
+    healthcheck:
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+      start_interval: 2s
+
+  # Upgrade steps. A bundled set that needs a step run between the tournament
+  # server's migrations and the next service ships that step here, as a
+  # one-shot service ordered with depends_on, and the release's Upgrade notes
+  # in CHANGELOG.md say so (RELEASING.md). Each must be safe to run on every
+  # start and must exit non-zero when it fails, so what depends on it does
+  # not start.
+  #
+  # One-shot: hashes any password the tournament database still holds in
+  # plain text (older CourtHive versions stored some that way; the identity
+  # service now accepts only hashed ones). It uses the identity service's own
+  # script, which changes nothing when there is nothing to hash (every fresh
+  # install), makes its changes in one transaction and can run again safely.
+  # Only its count line is shown: the script also lists the affected
+  # addresses, which stay out of the logs.
+  courthive-hash-passwords:
+    image: ghcr.io/jameshartt/courthive-hiveid:${COURTHIVE_HIVEID_VERSION:-0.5.0-jdt.1}
+    profiles: [tournaments]
+    container_name: courthive-hash-passwords
+    restart: "no"
+    depends_on:
+      # After the tournament server's migrations.
+      courthive-server:
+        condition: service_healthy
+    environment:
+      PG_HOST: postgres
+      PG_PORT: "5432"
+      PG_USER: courthive
+      PG_PASSWORD: ${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:?COURTHIVE_PG_PASSWORD is missing from deploy/.env - run ./init-tournaments.sh}}
+      PG_DATABASE: courthive
+    command:
+      - sh
+      - -c
+      - >-
+        if out=$$(node scripts/hash-plaintext-passwords.mjs --apply 2>&1);
+        then printf '%s\n' "$$out" | grep -E '^(users: |Hashed )' || true;
+        else echo "password hashing step failed: check the database settings and run docker compose up -d again" >&2; exit 1;
+        fi
+    healthcheck:
+      disable: true
+    networks:
+      - tennis-network
+
+  # One-shot: makes sure the service account the app signs in with exists
+  # (service@jim-dot-tennis.invalid). Safe to run on every start: an existing
+  # account is left as it is. The password reaches the script through its
+  # environment, not its command line, and the script's output is discarded so
+  # nothing about it can reach the logs. A failure shows as this service
+  # exiting with status 1 ("docker compose ps -a").
+  courthive-service-account:
+    image: ghcr.io/jameshartt/courthive-server:${COURTHIVE_SERVER_VERSION:-4.19.1-jdt.1}
+    profiles: [tournaments]
+    container_name: courthive-service-account
+    restart: "no"
+    depends_on:
+      courthive-server:
+        condition: service_healthy
+    environment:
+      PG_HOST: postgres
+      PG_PORT: "5432"
+      PG_USER: courthive
+      PG_PASSWORD: ${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:?COURTHIVE_PG_PASSWORD is missing from deploy/.env - run ./init-tournaments.sh}}
+      PG_DATABASE: courthive
+      CFS_ADMIN_EMAIL: service@jim-dot-tennis.invalid
+      CFS_ADMIN_PASSWORD: ${COMPOSE_PROFILES:+${COURTHIVE_SERVICE_PASSWORD:?COURTHIVE_SERVICE_PASSWORD is missing from deploy/.env - run ./init-tournaments.sh}}
+    command:
+      - sh
+      - -c
+      - >-
+        if node src/scripts/admin-user.mjs ensure >/dev/null 2>&1;
+        then echo "service account ready";
+        else echo "service account step failed: check the database settings and run docker compose up -d again" >&2; exit 1;
+        fi
+    networks:
+      - tennis-network
+
+  # One-shots: copy the built front ends (TMX at /tournaments, the public
+  # tournament pages at /public) into the volumes Caddy serves. They run on
+  # every `docker compose up` and replace the files with the image's copy.
+  tmx-content:
+    image: ghcr.io/jameshartt/courthive-tmx:${COURTHIVE_TMX_VERSION:-8.61.0-jdt.1}
+    profiles: [tournaments]
+    container_name: courthive-tmx-content
+    restart: "no"
+    volumes:
+      - tmx-files:/out
+    network_mode: none
+
+  public-content:
+    image: ghcr.io/jameshartt/courthive-public:${COURTHIVE_PUBLIC_VERSION:-1.23.7-jdt.1}
+    profiles: [tournaments]
+    container_name: courthive-public-content
+    restart: "no"
+    volumes:
+      - public-files:/out
+    network_mode: none
 
 networks:
   tennis-network:
@@ -188,15 +452,18 @@ networks:
 volumes:
   tennis-data:
     name: jim-dot-tennis-data
-  redis-data:
-    name: courthive-redis-data
-  courthive-data:
-    name: courthive-data
-  courthive-cache:
-    name: courthive-cache
   caddy-data:
     name: caddy-data
   caddy-config:
     name: caddy-config
+  # Tournament data. Kept when the profile is turned off.
   courthive-pg-data:
     name: courthive-pg-data
+  redis-data:
+    name: courthive-redis-data
+  courthive-archives:
+    name: courthive-archives
+  tmx-files:
+    name: courthive-tmx-files
+  public-files:
+    name: courthive-public-files

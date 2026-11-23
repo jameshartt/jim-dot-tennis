@@ -1,7 +1,7 @@
 {
   "id": "WI-143",
-  "title": "Publish club-neutral images of the three CourtHive components",
-  "description": "Implement the configuration approach from WI-142 in the forks and publish versioned images: the tournament server, and the two static front ends (TMX and the public pages) either as small web-server images or as content images mounted by Caddy. Add CI to each fork that builds from the jim-tennis-deploy branch, runs that project's existing checks, and publishes to GitHub Container Registry with a version that records the upstream version it is based on. Remove every jim.tennis-specific value from the built output.",
+  "title": "Club-neutral images of the four CourtHive components",
+  "description": "Build versioned, club-neutral images of the tournament server, the identity service (courthive-hiveid), TMX and the public pages from the latest upstream. Each fork carries a jdt-bundle branch (upstream commit, link overrides removed, the smallest source changes, build files); the identity service is built from the exact upstream commit with no fork (deploy/images/courthive-hiveid). CI drafts in each fork build on push and publish to GitHub Container Registry on a bundle-v tag.",
   "type": "infrastructure",
   "priority": "high",
   "complexity": "L",
@@ -9,19 +9,21 @@
   "dependencies": [
     "WI-142"
   ],
-  "status": "not_started",
+  "status": "completed",
   "recommended_model": {
     "name": "Opus 5.5",
     "id": "claude-opus-5-5",
     "rationale": "Build and configuration changes across three TypeScript projects with known past pitfalls."
   },
   "acceptance_criteria": [
-    "Three published images, each usable under any hostname without rebuilding",
-    "No built file contains jim.tennis, the author's server address, or any secret",
-    "Image tags encode the upstream version and the fork revision",
-    "Each fork's CI builds and publishes on tag, after its tests pass",
-    "The pnpm link-override hazard is handled in CI (build fails clearly if link: entries are present)",
-    "Attribution and licence files required by WI-142 are inside each image"
+    "Four images build locally under their final names and tags (courthive-server 4.19.1-jdt.1, courthive-hiveid 0.5.0-jdt.1, courthive-tmx 8.61.0-jdt.1, courthive-public 1.23.7-jdt.1), each usable under any hostname without rebuilding",
+    "No built file contains jim.tennis, the author's server address or any secret; the front ends contact no host but their own on load",
+    "Tags carry the upstream version; labels carry the upstream commit and fork commit",
+    "Each image carries the upstream MIT text, a NOTICE and third-party licences under /licenses",
+    "The build fails clearly if a link: override is present",
+    "The server image contains src/scripts/admin-user.mjs; front-end images contain no source maps",
+    "What the front ends can still contact after a person's choice (Google Fonts, map tiles, linked sheets, typed-in image addresses) is listed in docs/outbound_connections.md",
+    "Nothing is pushed to GitHub or a registry until the owner says so; then each fork's CI builds and publishes on tag after its checks pass"
   ],
   "technical_notes": {
     "files_to_modify": [
@@ -33,8 +35,10 @@
       "CI workflows and Dockerfiles in each fork"
     ],
     "notes": [
-      "Work happens in three other repositories on their jim-tennis-deploy branches; keep changes minimal so future rebases onto upstream stay cheap, and offer generally useful changes upstream.",
-      "Pushing workflow files needs the `workflow` token scope."
+      "See docs/courthive_bundle_design.md (rewritten 2026-11-22 for latest upstream), sections 1 and 2.",
+      "Fork branches: jdt-bundle in competition-factory-server, TMX and courthive-public (local, unpushed). BUNDLE.md in each lists the changes and how to move to a newer upstream.",
+      "Node 26 images have no corepack: the Dockerfiles install the pnpm named in packageManager.",
+      "Pushing workflow files needs the workflow token scope."
     ]
   },
   "testing_requirements": [
@@ -43,5 +47,6 @@
   "context": {
     "user_story": "As a club, I want the tournament software as ready-made images so that I never build it.",
     "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
-  }
+  },
+  "status_note": "Completed 2026-11-23. The forks' jdt-bundle branches are pushed and the four images are published as public packages on ghcr.io (amd64 only, pushed from the maintainer's machine; anonymous pull checked). bundle-smoke.yml has not run yet (it starts by hand, on a schedule or on a release, from main)."
 }

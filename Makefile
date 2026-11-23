@@ -3,7 +3,7 @@
 	vet fmt fmt-fix imports imports-fix lint deadcode tidy check test test-js \
 	test-e2e test-e2e-bootstrap test-e2e-safe test-e2e-safe-keep test-e2e-restore \
 	test-e2e-headed test-e2e-grep test-e2e-failed \
-	test-e2e-report test-e2e-results test-e2e-clean test-e2e-multiclub test-e2e-fresh test-e2e-auth test-e2e-all
+	test-e2e-report test-e2e-results test-e2e-clean test-e2e-multiclub test-e2e-fresh test-e2e-auth test-e2e-bundle test-e2e-all
 
 # Docker compose command
 DOCKER_COMPOSE = docker compose
@@ -255,6 +255,15 @@ test-e2e-fresh:
 test-e2e-auth:
 	@./scripts/test-e2e-auth.sh $(ARGS)
 
+# Bundle smoke test (WI-147): the SHIPPED deploy/docker-compose.yml and Caddyfile
+# with the app built from this checkout and the four CourtHive images (they must
+# exist locally; BUNDLE_PULL=1 pulls them), run end to end with Playwright, once
+# with the tournaments profile on and once off. Not part of test-e2e-all: it needs
+# the CourtHive images. BUNDLE_MODE=on|off|both (default both); extra Playwright
+# args via ARGS="-g TMX". See scripts/test-e2e-bundle.sh and tests/e2e/README.md.
+test-e2e-bundle:
+	@./scripts/test-e2e-bundle.sh $(or $(BUNDLE_MODE),both) $(if $(ARGS),-- $(ARGS))
+
 # Everything: main suite, passkey-enabled suite, fresh-install suite. Runs all
 # three even if one fails and exits non-zero if any did.
 test-e2e-all:
@@ -345,33 +354,32 @@ test-e2e-multiclub: test-e2e-bootstrap
 # CourtHive
 # ============================================================
 
-# CourtHive compose file: the reference deployment. Needs deploy/.env (copy
-# deploy/.env.example; DOMAIN=localhost for local use) and sibling checkouts of
-# competition-factory-server, TMX and courthive-public (see the file header).
-COURTHIVE_COMPOSE = $(DOCKER_COMPOSE) -f deploy/docker-compose.yml
+# The packaged deployment with the tournaments profile on. Needs deploy/.env
+# (copy deploy/.env.example; DOMAIN=localhost and PUBLIC_URL=https://localhost
+# for local use) with the secrets from deploy/init-tournaments.sh. Uses the
+# published images; nothing is built. COMPOSE_PROFILES here overrides .env.
+COURTHIVE_COMPOSE = COMPOSE_PROFILES=tournaments $(DOCKER_COMPOSE) -f deploy/docker-compose.yml
 
 # TMX source directory (relative to this project)
 TMX_DIR = ../TMX
 
-# Build TMX frontend for local development
+# Build a TMX source checkout (development of TMX itself; the packaged stack
+# uses the published TMX image, not this build)
 build-tmx:
 	@echo "Building TMX frontend for local development..."
 	cd $(TMX_DIR) && pnpm build
 
-# Build and start the full CourtHive stack locally
-courthive: build-tmx
-	@echo "Starting CourtHive stack..."
-	$(COURTHIVE_COMPOSE) up -d --build
+# Start the packaged stack with tournaments on
+courthive: courthive-up
 
-# Start the CourtHive stack without rebuilding TMX
 courthive-up:
 	$(COURTHIVE_COMPOSE) up -d
 
-# Stop the CourtHive stack
+# Stop the packaged stack (every service; volumes and data are kept)
 courthive-down:
 	$(COURTHIVE_COMPOSE) down
 
-# Restart the CourtHive stack
+# Restart the packaged stack
 courthive-restart: courthive-down courthive-up
 
 # View CourtHive stack logs

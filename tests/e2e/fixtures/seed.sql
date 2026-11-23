@@ -37,6 +37,23 @@ VALUES (
 );
 
 -- ============================================================
+-- Tournaments only user: testtournaments / testpassword123 (WI-153)
+-- No league role (stored role 'player') and access to its own tournaments.
+-- Used by roles.spec.ts; no passkeys.
+-- ============================================================
+INSERT OR REPLACE INTO users (id, username, password_hash, role, is_active, created_at, last_login_at, tournament_access)
+VALUES (
+  901,
+  'testtournaments',
+  '$2b$12$l1qlpyQB/eSK2rr5RY3FV.fn1WJVWQmBh1G.0s/WC6TnrQOVj0DRK',
+  'player',
+  1,
+  '2025-01-01 00:00:00',
+  '2025-01-01 00:00:00',
+  'own'
+);
+
+-- ============================================================
 -- Season
 -- ============================================================
 INSERT OR REPLACE INTO seasons (id, name, year, start_date, end_date, is_active)

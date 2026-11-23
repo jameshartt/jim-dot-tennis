@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 
+	"jim-dot-tennis/internal/accounts"
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/config"
 	"jim-dot-tennis/internal/database"
@@ -81,13 +82,19 @@ func New(db *database.DB, templateDir string, courthiveAPIURL string, homeClub c
 	}
 }
 
-// RegisterRoutes registers all admin routes with the given mux
+// SetTournamentAccessObserver sets who the users and sessions pages' account
+// service tells about tournament access changes (accounts.TournamentAccessObserver).
+func (h *Handler) SetTournamentAccessObserver(o accounts.TournamentAccessObserver) {
+	h.service.accounts.SetTournamentAccessObserver(o)
+}
+
 // SetPasskeysAvailable tells the settings page how to find out whether
 // passkeys work at a request's address (auth.Passkeys.Available).
 func (h *Handler) SetPasskeysAvailable(available func(*http.Request) bool) {
 	h.service.passkeysAvailable = available
 }
 
+// RegisterRoutes registers all admin routes with the given mux
 func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middleware) {
 	// Create admin mux for all admin routes. Every pattern must have a role
 	// declared in adminRouteRoles (roles.go); the mux enforces it per request.
@@ -156,6 +163,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, authMiddleware *auth.Middle
 	adminMux.HandleFunc("/admin/league/tournaments/edit/", h.tournamentsOnly(h.tournaments.HandleTournamentEdit))
 	adminMux.HandleFunc("/admin/league/tournaments/toggle-visibility/", h.tournamentsOnly(h.tournaments.HandleToggleVisibility))
 	adminMux.HandleFunc("/admin/league/tournaments/sync/", h.tournamentsOnly(h.tournaments.HandleSync))
+	adminMux.HandleFunc(tournamentSetupPath, h.tournamentsOnly(h.tournaments.HandleSetup))
+	adminMux.HandleFunc(tournamentAddSetPath, h.tournamentsOnly(h.tournaments.HandleAddSet))
+	adminMux.HandleFunc(tournamentRenameSetPath, h.tournamentsOnly(h.tournaments.HandleRenameSet))
 
 	// Captain planning dashboard (Sprint 017)
 	adminMux.HandleFunc("/admin/league/planning", h.planning.HandleDashboard)

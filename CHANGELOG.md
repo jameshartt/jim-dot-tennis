@@ -25,6 +25,137 @@ here. GitHub also generates a list of merged changes for each release; this file
 is the curated version that matters to operators. Moving from several versions
 back: read the Upgrade notes of every version in between.
 
+## [0.2.0] - 2026-11-23
+
+### Summary
+
+Tournaments in the box: an optional tournament stack (CourtHive) that a club
+switches on, with one sign-in for league and tournaments, tournament access
+set per person, and tournament data in the app's backups.
+
+### Added
+
+- **One sign-in for league and tournaments.** With the tournament stack on,
+  people sign in here and nowhere else. "Open tournament management" hands
+  them over already signed in; CourtHive's own sign-in, password and
+  user-administration routes are closed at the proxy. Signing out here signs
+  that browser out of tournament management too.
+- **Tournament access per account, and "Tournaments only" accounts.** Each
+  account has tournament access of none, own tournaments, or all. Administrators
+  always have all. An administrator can create an account for someone who only
+  runs tournaments; it has no league access. Removing access or disabling an
+  account takes their tournaments away on their next request.
+- **More than one set of tournaments.** A club can keep separate sets of
+  tournaments on its tournament software, for example one for the club and
+  one for a league cup. An administrator adds a set on the Tournaments page
+  (or takes on one that is already there, with its tournaments), names it,
+  and ticks who can manage it on the users page. Someone with more than one
+  is asked which tournaments to manage, by name, when they open tournament
+  management. Administrators always have every set; nobody else is given a
+  new set until an administrator chooses them. From the server:
+  `jim-dot-tennis tournaments add-provider <code> <name>` and
+  `user tournaments <username> <access> --providers <codes>`.
+- **Tournament set-up.** Switching Tournaments on sets the club up on the
+  bundled tournament software; the Tournaments page shows the state and can
+  run it again. `jim-dot-tennis tournaments provision` and `tournaments status`
+  do the same from the server.
+
+- **Tournaments in the packaged deployment, off by default.**
+  `deploy/docker-compose.yml` can now run the tournament stack (CourtHive)
+  next to the app, as the compose profile `tournaments`: Postgres, Redis, the
+  tournament server, its identity service, TMX at `/tournaments` and the
+  public tournament pages at `/public`. Every image is published; nothing is
+  built on your server. To turn it on: run `deploy/init-tournaments.sh` once,
+  add `COMPOSE_PROFILES=tournaments` to `deploy/.env`, run
+  `docker compose up -d`, then switch on Tournaments in Club Settings.
+- **`deploy/init-tournaments.sh`** makes every tournament secret on your own
+  server (a signing key pair and its id, a signer token, the service account
+  password, the database password and the tournament server's unused JWT
+  secret) and adds them to `deploy/.env`. It never overwrites a value, never
+  prints one, and sets `.env` to mode 600. Nothing has a default: with
+  tournaments on, compose refuses to start if any secret is missing.
+
+- **Tournament data in backups.** With the tournament stack on, every backup
+  (daily, by hand, or downloaded) also holds a dump of the tournament
+  database, so one file restores the whole club. If the tournament database
+  cannot be dumped, no backup is made and the Backups page says why. The
+  Backups page and `jim-dot-tennis backup` say whether a backup includes
+  tournament data.
+- **Restore brings back both.** `jim-dot-tennis restore` of such a backup
+  restores the tournament database too, in one transaction, after keeping a
+  copy of the one it replaces; it refuses while the tournament server or
+  identity service is still running. `restore --tournaments-only` restores
+  just the tournament data.
+- **Safe tournament upgrades.** Before a new tournament server image first
+  starts, a one-shot step (`courthive-pre-upgrade`) makes a backup with the
+  tournament data; if it cannot, the new tournament server does not start
+  and the league site keeps running. A second one-shot
+  (`courthive-hash-passwords`) hashes any tournament password still stored
+  in plain text. Upgrading stays "set the version, pull, restart".
+- **`scripts/rehearse-tournament-upgrade.sh`** checks, on a throwaway copy of
+  a tournament database dump, that the bundled tournament server upgrades it
+  and every tournament still loads.
+
+Bundled tournament set (tested together; `RELEASING.md` says how this table
+is kept):
+
+| Part | Image |
+|---|---|
+| jim-dot-tennis | `ghcr.io/jameshartt/jim-dot-tennis:0.2.0` |
+| Tournament server | `ghcr.io/jameshartt/courthive-server:4.19.1-jdt.1` |
+| Identity service | `ghcr.io/jameshartt/courthive-hiveid:0.5.0-jdt.1` |
+| TMX | `ghcr.io/jameshartt/courthive-tmx:8.61.0-jdt.1` |
+| Public pages | `ghcr.io/jameshartt/courthive-public:1.23.7-jdt.1` |
+
+### Changed
+
+- With tournaments off, only the app and Caddy run, and Caddy answers
+  `/tournaments`, `/public`, `/api/courthive` and `/socket.io` with a plain
+  404. `/api/rankings` and `/epixodic` at the site root always get 404.
+- With tournaments on, Caddy removes the `Cookie` header before passing a
+  request to the tournament stack, and refuses (404) its sign-in, account,
+  administration, provisioner and internal routes; only Caddy publishes ports.
+  Memory limits: tournament server 512 MB, identity service 256 MB, Postgres
+  384 MB, Redis 64 MB.
+- `deploy/docker-compose.yml` no longer builds CourtHive from a source
+  checkout or serves front ends from `../../TMX/dist` and
+  `../../courthive-public/dist`.
+- The app's image carries the Postgres 18 client tools (`pg_dump`,
+  `pg_restore`, `psql`) for the tournament database's backups: about 14 MB
+  more on disk (114 MB to 128 MB), about 5 MB more to download.
+- The app's health check is tried every 2 seconds while it starts, so Caddy
+  (and the tournament stack) start sooner.
+
+### Upgrade notes
+
+- The app's database moves from version 35 to 38 (a tournament access setting
+  on each account, a table of people's tournament accounts, and which sets of
+  tournaments each person can manage). As always the
+  app takes a backup first. Every existing account starts with no tournament
+  access; administrators have it without being given it. Going back to 0.1.0
+  afterwards needs that backup.
+- Without tournaments: nothing else to do. You may delete the lines
+  `COURTHIVE_PG_PASSWORD` and `COURTHIVE_JWT_SECRET` from `deploy/.env` if
+  they still say `change-me`; they are no longer needed.
+- To turn tournaments on after upgrading: if `deploy/.env` still has
+  `COURTHIVE_PG_PASSWORD=change-me` or `COURTHIVE_JWT_SECRET=change-me`,
+  delete those lines first, then follow the steps above.
+  `init-tournaments.sh` stops and says so if it finds them.
+- An instance that already ran CourtHive from the old source-built layout
+  (jim.tennis) must not switch to this file without a planned move: the
+  identity service, the sign-in model and the tournament database version all
+  change (`docs/courthive_bundle_design.md`, section 5). The old volumes
+  `courthive-data` and `courthive-cache` are not used by the new file and are
+  left alone.
+- With tournaments on: backups now fail when the tournament database cannot
+  be dumped (before, they never included it). The first
+  `docker compose up -d` after this upgrade makes one
+  `jim-dot-tennis-pre-upgrade-*.tar.gz` backup before the tournament server
+  starts (no tournament server image had been recorded yet).
+- A backup that includes tournament data cannot be restored with version
+  0.1.0 (it refuses it as unreadable). Backups without tournament data, and
+  the backup the app takes before its own upgrades, can be.
+
 ## [0.1.0] - 2026-11-22
 
 ### Summary

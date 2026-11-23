@@ -15,6 +15,10 @@
 // with an operating-system lock on a file in the data directory that the
 // server holds for as long as it runs (lock_unix.go).
 //
+// When the bundled tournament stack is part of the deployment (the
+// COURTHIVE_PG_* settings, tournament.go), the archive also holds a dump of
+// the tournament database, and restore puts both back.
+//
 // An archive holds personal data, password hashes, passkey public keys, the
 // web push private key and every other secret the database stores. Archives
 // are written 0600 in a 0700 directory and are never served by the web app
@@ -59,6 +63,12 @@ type Config struct {
 	Dir      string        // where archives are kept
 	Keep     int           // how many regular archives to keep (at least 1)
 	Interval time.Duration // scheduled backup interval; 0 = no schedule
+	// Tournament is the tournament stack's database, nil when the stack is
+	// not part of this deployment. When set, every backup must include it.
+	Tournament TournamentDatabase
+	// ServerImage is the tournament server image (COURTHIVE_SERVER_IMAGE),
+	// recorded in the manifest when known.
+	ServerImage string
 }
 
 // DataDir is the directory holding the database: the data volume.
@@ -118,5 +128,11 @@ func FromEnv() (Config, error) {
 	if err == nil {
 		c.Dir = abs
 	}
+	t, err := TournamentFromEnv()
+	if err != nil {
+		return c, err
+	}
+	c.Tournament = t
+	c.ServerImage = strings.TrimSpace(os.Getenv(EnvServerImage))
 	return c, nil
 }

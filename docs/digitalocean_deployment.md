@@ -81,27 +81,25 @@ The production deployment comprises multiple services orchestrated via Docker Co
 |---------|-------------|--------------|
 | **jim-dot-tennis** (app) | Go 1.25 web application serving the league management UI | `docker-compose.yml` |
 | **import** | On-demand tools container for match card and club data imports | `docker-compose.yml` (tools profile) |
-| **competition-factory-server** | CourtHive API server (Node.js) for tournament management | `deploy/docker-compose.yml` |
-| **TMX frontend** | Static tournament management UI served via Caddy | `deploy/docker-compose.yml` |
-| **courthive-public** | Public-facing CourtHive UI served via Caddy | `deploy/docker-compose.yml` |
-| **Redis** | In-memory data store used by the CourtHive server (`redis:7-alpine`) | `deploy/docker-compose.yml` |
+| **courthive-server**, **courthive-hiveid** | Tournament server and identity service (CourtHive), published images; only with the `tournaments` profile on | `deploy/docker-compose.yml` |
+| **tmx-content**, **public-content** | One-shot services that copy TMX and the public tournament pages into volumes Caddy serves (`tournaments` profile) | `deploy/docker-compose.yml` |
+| **Postgres**, **Redis** | Tournament database and cache (`postgres:18-alpine`, `redis:7-alpine`; `tournaments` profile) | `deploy/docker-compose.yml` |
 | **Caddy** | Reverse proxy handling SSL termination and routing for all services (`caddy:2-alpine`) | `deploy/docker-compose.yml` |
 
-The root `docker-compose.yml` is for local development and E2E only. The production stack is defined by the reference deployment in `deploy/docker-compose.yml` (with `deploy/Caddyfile` and `deploy/.env.example`), which includes all of the above services on a shared `tennis-network` bridge network.
+The root `docker-compose.yml` is for local development and E2E only. A club's stack is the packaged deployment in `deploy/docker-compose.yml` (with `deploy/Caddyfile` and `deploy/.env.example`), on a shared `tennis-network` bridge network. Tournaments are off by default; turning them on is described in `docs/docker_setup.md` ("Tournaments (optional)").
 
-> **Server-side commands in this document** still say `docker compose -f docker-compose.courthive.yml`, which is the file name the running server uses today. The repository no longer has a file of that name; the reference is `deploy/docker-compose.yml`. Reconciling the server with it is tracked as WI-141 (Sprint 021).
+> **jim.tennis is different for now.** Its server still runs the older, source-built CourtHive layout and the commands in this document that name `docker-compose.courthive.yml` are for that server. See "jim.tennis until it adopts the bundle" in `docs/PRODUCTION_QUICK_REFERENCE.md`.
 
 ### CourtHive Stack Management
 
-The Makefile provides dedicated targets for managing the CourtHive stack:
+The Makefile has shortcuts that run `deploy/docker-compose.yml` with the tournaments profile on:
 
 ```bash
-make courthive           # Build TMX frontend and start the full CourtHive stack
-make courthive-up        # Start the CourtHive stack without rebuilding TMX
-make courthive-down      # Stop the CourtHive stack
-make courthive-restart   # Restart the CourtHive stack
-make courthive-logs      # View CourtHive stack logs
-make build-tmx           # Build TMX frontend only
+make courthive-up        # Start the packaged stack with tournaments on
+make courthive-down      # Stop it (every service; data is kept)
+make courthive-restart   # Stop and start it
+make courthive-logs      # Follow its logs
+make build-tmx           # Build a TMX source checkout (development of TMX only)
 ```
 
 ### Admin Routes

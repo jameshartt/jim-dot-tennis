@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginAsCaptain } from "./helpers/auth";
+import { continueAfterPasswordSignIn, loginAsCaptain, loginWith } from "./helpers/auth";
 
 // Roles: see docs/roles.md. testcaptain is seeded (fixtures/seed.sql).
 
@@ -61,5 +61,42 @@ test.describe("Administrator role", () => {
       await expect(page.locator(`[data-testid="${id}"]`)).toBeVisible();
     }
     await context.close();
+  });
+});
+
+// WI-153: testtournaments is seeded as a Tournaments only account with access
+// to its own tournaments (fixtures/seed.sql).
+test.describe("Tournaments only account", () => {
+  test("signs in to the tournament home page and is refused the league", async ({ page }) => {
+    await loginWith(page, "testtournaments", "testpassword123");
+    await continueAfterPasswordSignIn(page);
+    await page.waitForURL("**/tournament-home");
+    await expect(page.locator('[data-testid="tournament-home"]')).toBeVisible();
+
+    // One thing to do: open tournament management, or (with Tournaments
+    // switched off for the club) a plain explanation.
+    const open = page.locator('[data-testid="tournament-management-link"]');
+    const off = page.locator('[data-testid="tournaments-switched-off"]');
+    expect((await open.count()) + (await off.count())).toBe(1);
+    if (await open.count()) {
+      await expect(open).toHaveAttribute("href", "/tournament-home/open");
+    }
+    await expect(page.locator('[data-testid="tournament-home-league-link"]')).toHaveCount(0);
+
+    for (const path of ["/admin/league/dashboard", "/admin/league/players", "/admin/league/users"]) {
+      const response = await page.goto(path);
+      expect(response?.status(), path).toBe(403);
+      await expect(page.locator('[data-testid="forbidden-page"]'), path).toBeVisible();
+    }
+    await page.locator('[data-testid="forbidden-tournament-home-link"]').click();
+    await page.waitForURL("**/tournament-home");
+  });
+
+  test("a captain without tournament access is not offered the tournament home", async ({ page }) => {
+    await loginAsCaptain(page);
+    await expect(page.locator('[data-testid="nav-tournament-home"]')).toHaveCount(0);
+    const response = await page.goto("/tournament-home");
+    expect(response?.status()).toBe(403);
+    await expect(page.locator('[data-testid="tournament-home-refused"]')).toBeVisible();
   });
 });

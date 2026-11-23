@@ -1,4 +1,15 @@
-# CourtHive Integration Setup
+# CourtHive Integration Setup (source-built layout)
+
+> **Clubs: you do not need this page.** Tournaments are part of the packaged
+> deployment and are turned on with one script and one line in `deploy/.env`:
+> see "Tournaments (optional)" in `docs/docker_setup.md`. Nothing on this page
+> is needed for that.
+>
+> This page describes the older way of running CourtHive from source
+> checkouts, which jim.tennis still uses until it adopts the bundle (see
+> `docs/PRODUCTION_QUICK_REFERENCE.md`). The compose file and Caddyfile it
+> refers to are now `docs/archive/docker-compose.jim-tennis-source-built.yml`
+> and `docs/archive/Caddyfile.jim-tennis-source-built`.
 
 This document describes the environment configuration needed for the CourtHive integration.
 
@@ -133,22 +144,17 @@ pnpm build --mode development    # Local: http://localhost/api/courthive
 
 ### 4. Start Docker Services
 
-```bash
-cd /path/to/jim-dot-tennis/deploy
-cp .env.example .env      # fill in every value; for local use DOMAIN=localhost
-docker compose up -d --build
-```
-
-The stack is defined by `deploy/docker-compose.yml` and `deploy/Caddyfile`
-(the directory layout it expects is described at the top of the compose file).
-The old `docker-compose.courthive.yml` and `Caddyfile.courthive` are archived
-under `docs/archive/`.
+Use the source-built compose file recorded in
+`docs/archive/docker-compose.jim-tennis-source-built.yml` (with
+`docs/archive/Caddyfile.jim-tennis-source-built`), copied into a folder that
+sits beside the source checkouts the way its header describes, with its own
+`.env`. `deploy/docker-compose.yml` no longer builds CourtHive from source.
 
 ### 5. Verify Services
 
 All containers should show as "healthy":
 ```bash
-cd deploy && docker compose ps
+docker compose ps
 ```
 
 Test endpoints:
@@ -162,8 +168,9 @@ Test endpoints:
 
 ### Set the domain
 
-`deploy/Caddyfile` serves the site named by the `DOMAIN` variable (set it in
-`deploy/.env`); there is nothing to edit in the Caddyfile itself.
+The Caddyfile serves the site named by the `DOMAIN` variable (set it in the
+`.env` next to the compose file); there is nothing to edit in the Caddyfile
+itself.
 
 ### Point DNS
 
@@ -172,7 +179,6 @@ Point your `DOMAIN` A record to your server IP.
 ### Deploy
 
 ```bash
-cd deploy
 docker compose up -d --build
 ```
 

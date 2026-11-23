@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"jim-dot-tennis/internal/models"
@@ -60,8 +61,18 @@ func (s *Service) CreateTournamentProvider(provider *models.TournamentProvider) 
 	return s.tournamentProviderRepository.Create(ctx, provider)
 }
 
+// UpdateTournamentProvider changes a provider's name and code. The code of
+// one the app manages on the tournament server (WI-154) cannot change: it is
+// the provider's code there.
 func (s *Service) UpdateTournamentProvider(provider *models.TournamentProvider) error {
 	ctx := context.Background()
+	current, err := s.tournamentProviderRepository.FindByID(ctx, provider.ID)
+	if err != nil {
+		return err
+	}
+	if current.Managed() && !strings.EqualFold(strings.TrimSpace(current.ProviderAbbr), strings.TrimSpace(provider.ProviderAbbr)) {
+		return fmt.Errorf("the code of %s is its code on the tournament server and cannot be changed here", current.ProviderAbbr)
+	}
 	return s.tournamentProviderRepository.Update(ctx, provider)
 }
 
@@ -73,6 +84,9 @@ func (s *Service) DeleteTournamentProvider(id uint) error {
 	}
 	if count > 0 {
 		return fmt.Errorf("cannot delete provider with %d tournaments — remove them first", count)
+	}
+	if current, err := s.tournamentProviderRepository.FindByID(ctx, id); err == nil && current.Managed() {
+		return fmt.Errorf("%s is managed on the tournament server by this app, with the people who use it, and cannot be deleted here", current.ProviderAbbr)
 	}
 	return s.tournamentProviderRepository.Delete(ctx, id)
 }

@@ -395,6 +395,9 @@ func TestHelpTextInOperationsDoc(t *testing.T) {
 	if !strings.Contains(string(doc), cliHelp) {
 		t.Fatal("docs/PRODUCTION_QUICK_REFERENCE.md does not contain the current help text; copy cliHelp into section 10")
 	}
+	if !strings.Contains(string(doc), strings.TrimPrefix(cliTournamentsHelp, "\n")) {
+		t.Fatal("docs/PRODUCTION_QUICK_REFERENCE.md does not contain the current tournament commands help; copy cliTournamentsHelp into section 10")
+	}
 }
 
 // mustHashForTest is a password hash, for giving an account a way to sign in.

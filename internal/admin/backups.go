@@ -79,26 +79,32 @@ type backupRow struct {
 	Size         string
 	CreatedAt    time.Time
 	PreMigration bool
+	PreUpgrade   bool // taken before a tournament server upgrade
+	// Tournaments: the backup includes the tournament data.
+	Tournaments bool
 }
 
 // backupsData is what templates/admin/backups.html renders.
 type backupsData struct {
-	User         *models.User
-	Configured   bool
-	Archives     []backupRow
-	HasBackup    bool
-	LastAt       time.Time
-	Stale        bool
-	StaleAfter   string
-	Schedule     string
-	Keep         int
-	Dir          string
-	LastError    string
-	Confirmed    bool
-	HasPassword  bool
-	PasskeyOnly  bool // administrators must use passkeys: no password field
-	Error        string
-	DownloadPath string
+	User       *models.User
+	Configured bool
+	// TournamentsOn: the tournament stack is part of this deployment, so
+	// every backup must include its data.
+	TournamentsOn bool
+	Archives      []backupRow
+	HasBackup     bool
+	LastAt        time.Time
+	Stale         bool
+	StaleAfter    string
+	Schedule      string
+	Keep          int
+	Dir           string
+	LastError     string
+	Confirmed     bool
+	HasPassword   bool
+	PasskeyOnly   bool // administrators must use passkeys: no password field
+	Error         string
+	DownloadPath  string
 }
 
 // backupErrors are the messages for ?error= on the page.
@@ -152,8 +158,14 @@ func (h *BackupsHandler) HandleBackups(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Printf("Backups page: cannot list %s: %v", cfg.Dir, err)
 		}
+		data.TournamentsOn = cfg.Tournament != nil
 		for _, a := range list {
-			data.Archives = append(data.Archives, backupRow{Name: a.Name, Size: describeSize(a.Size), CreatedAt: a.CreatedAt.Local(), PreMigration: a.PreMigration})
+			row := backupRow{Name: a.Name, Size: describeSize(a.Size), CreatedAt: a.CreatedAt.Local(), PreMigration: a.PreMigration, PreUpgrade: a.PreUpgrade}
+			// Only the manifest (the archive's first entry) is read.
+			if m, err := backup.ReadManifest(a.Path); err == nil {
+				row.Tournaments = m.HasTournaments()
+			}
+			data.Archives = append(data.Archives, row)
 		}
 		// The last backup is the newest one that can be believed: a file
 		// named as if made in the future, or one that is not a readable

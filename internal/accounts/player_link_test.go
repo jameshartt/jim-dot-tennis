@@ -28,10 +28,10 @@ func TestParseRoleRetiresPlayer(t *testing.T) {
 	s, _ := newTestService(t)
 	mustCreate(t, s, "alice", models.RoleAdmin)
 	bob := mustCreate(t, s, "bob", models.RoleCaptain)
-	if _, _, err := s.Invite(ctx, cli, "pat", models.RolePlayer, nil); !errors.Is(err, ErrInvalidRole) {
+	if _, _, err := s.Invite(ctx, cli, "pat", models.RoleTournamentsOnly, nil); !errors.Is(err, ErrInvalidRole) {
 		t.Errorf("invite as player: err %v", err)
 	}
-	if _, err := s.SetRole(ctx, cli, bob.ID, models.RolePlayer); !errors.Is(err, ErrInvalidRole) {
+	if _, err := s.SetRole(ctx, cli, bob.ID, models.RoleTournamentsOnly); !errors.Is(err, ErrInvalidRole) {
 		t.Errorf("change to player: err %v", err)
 	}
 }

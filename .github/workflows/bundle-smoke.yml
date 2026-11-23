@@ -1,0 +1,77 @@
+name: Bundle smoke
+
+# WI-147: the packaged deployment (deploy/docker-compose.yml and
+# deploy/Caddyfile, unmodified) run end to end with the tournaments profile on
+# and then off: first-run set-up, tournament set-up, the hand-over to TMX, a
+# tournament made in TMX and seen on the public pages and in the app, a
+# Tournaments only account, ending access, signing out, the refused proxy
+# routes. See scripts/test-e2e-bundle.sh and tests/e2e/README.md.
+#
+# NOT a required check, and NOT part of ci.yml: it pulls the four bundled
+# CourtHive images from ghcr.io, which takes minutes and depends on images that
+# are published separately.
+#
+# STATUS: this workflow has never run. The four images
+#   ghcr.io/jameshartt/courthive-server, courthive-hiveid, courthive-tmx and
+#   courthive-public
+# are published (public) at the versions in deploy/docker-compose.yml. Before
+# relying on it: start it with "Run workflow" and read the
+# result before trusting the schedule.
+
+on:
+  schedule:
+    - cron: "17 4 * * 1" # Mondays, 04:17 UTC
+  workflow_dispatch:
+  # A release is created by release.yml with GITHUB_TOKEN, and events made with
+  # that token do not start other workflows, so listen for the Release workflow
+  # finishing instead of the "release published" event.
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+
+permissions:
+  contents: read
+  packages: read # pull the CourtHive images
+
+concurrency:
+  group: bundle-smoke
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    name: Bundle smoke (tournaments on, then off)
+    # After a release only when the release itself succeeded.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # After a release, the commit that was released.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: Playwright base image
+        uses: ./.github/actions/playwright-image
+      - name: Log in to ghcr.io
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run the bundle smoke test
+        # Builds the app image from this checkout, pulls the four CourtHive
+        # images at the versions pinned in deploy/docker-compose.yml, runs the
+        # profile-on and profile-off flows, then removes everything.
+        run: BUNDLE_PULL=1 make test-e2e-bundle
+      - name: Upload container logs and Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bundle-smoke
+          path: |
+            tests/e2e/bundle/artifacts/
+            tests/e2e/bundle/test-results/
+            tests/e2e/bundle/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14

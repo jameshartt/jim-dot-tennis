@@ -19,6 +19,9 @@ type TournamentProviderRepository interface {
 	Create(ctx context.Context, provider *models.TournamentProvider) error
 	Update(ctx context.Context, provider *models.TournamentProvider) error
 	Delete(ctx context.Context, id uint) error
+	// SetCourthiveID records the tournament server's id for the provider:
+	// from then on the app manages it (WI-154).
+	SetCourthiveID(ctx context.Context, id uint, courthiveID string) error
 	CountTournaments(ctx context.Context, providerID uint) (int, error)
 }
 
@@ -33,7 +36,7 @@ func NewTournamentProviderRepository(db *database.DB) TournamentProviderReposito
 func (r *tournamentProviderRepository) FindAll(ctx context.Context) ([]models.TournamentProvider, error) {
 	var providers []models.TournamentProvider
 	err := r.db.SelectContext(ctx, &providers, `
-		SELECT id, name, provider_abbr, created_at, updated_at
+		SELECT id, name, provider_abbr, courthive_provider_id, created_at, updated_at
 		FROM tournament_providers
 		ORDER BY name ASC
 	`)
@@ -43,7 +46,7 @@ func (r *tournamentProviderRepository) FindAll(ctx context.Context) ([]models.To
 func (r *tournamentProviderRepository) FindAllWithCounts(ctx context.Context) ([]models.TournamentProvider, error) {
 	var providers []models.TournamentProvider
 	err := r.db.SelectContext(ctx, &providers, `
-		SELECT tp.id, tp.name, tp.provider_abbr, tp.created_at, tp.updated_at,
+		SELECT tp.id, tp.name, tp.provider_abbr, tp.courthive_provider_id, tp.created_at, tp.updated_at,
 		       COUNT(t.id) AS tournament_count
 		FROM tournament_providers tp
 		LEFT JOIN tournaments t ON t.provider_id = tp.id
@@ -56,7 +59,7 @@ func (r *tournamentProviderRepository) FindAllWithCounts(ctx context.Context) ([
 func (r *tournamentProviderRepository) FindByID(ctx context.Context, id uint) (*models.TournamentProvider, error) {
 	var provider models.TournamentProvider
 	err := r.db.GetContext(ctx, &provider, `
-		SELECT id, name, provider_abbr, created_at, updated_at
+		SELECT id, name, provider_abbr, courthive_provider_id, created_at, updated_at
 		FROM tournament_providers
 		WHERE id = ?
 	`, id)
@@ -69,7 +72,7 @@ func (r *tournamentProviderRepository) FindByID(ctx context.Context, id uint) (*
 func (r *tournamentProviderRepository) FindByAbbr(ctx context.Context, abbr string) (*models.TournamentProvider, error) {
 	var provider models.TournamentProvider
 	err := r.db.GetContext(ctx, &provider, `
-		SELECT id, name, provider_abbr, created_at, updated_at
+		SELECT id, name, provider_abbr, courthive_provider_id, created_at, updated_at
 		FROM tournament_providers
 		WHERE provider_abbr = ?
 	`, abbr)
@@ -85,8 +88,8 @@ func (r *tournamentProviderRepository) Create(ctx context.Context, provider *mod
 	provider.UpdatedAt = now
 
 	result, err := r.db.NamedExecContext(ctx, `
-		INSERT INTO tournament_providers (name, provider_abbr, created_at, updated_at)
-		VALUES (:name, :provider_abbr, :created_at, :updated_at)
+		INSERT INTO tournament_providers (name, provider_abbr, courthive_provider_id, created_at, updated_at)
+		VALUES (:name, :provider_abbr, :courthive_provider_id, :created_at, :updated_at)
 	`, provider)
 	if err != nil {
 		return err
@@ -111,6 +114,12 @@ func (r *tournamentProviderRepository) Update(ctx context.Context, provider *mod
 
 func (r *tournamentProviderRepository) Delete(ctx context.Context, id uint) error {
 	_, err := r.db.ExecContext(ctx, `DELETE FROM tournament_providers WHERE id = ?`, id)
+	return err
+}
+
+func (r *tournamentProviderRepository) SetCourthiveID(ctx context.Context, id uint, courthiveID string) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE tournament_providers SET courthive_provider_id = ?, updated_at = ? WHERE id = ?`,
+		courthiveID, time.Now(), id)
 	return err
 }
 

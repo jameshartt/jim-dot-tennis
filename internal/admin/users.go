@@ -34,6 +34,7 @@ func NewUsersHandler(service *Service, templateDir string) *UsersHandler {
 //	POST /admin/league/users                       create an account and its invite link
 //	POST /admin/league/users/{id}/toggle-active    enable or disable
 //	POST /admin/league/users/{id}/role             change role (admin or captain)
+//	POST /admin/league/users/{id}/tournaments      change tournament access (none, own or all)
 //	POST /admin/league/users/{id}/player           link to a player record (empty: unlink)
 //	POST /admin/league/users/{id}/invite           new invite link (users_links.go)
 //	POST /admin/league/users/{id}/recover          recovery link (users_links.go)
@@ -96,16 +97,22 @@ func (h *UsersHandler) renderUsers(w http.ResponseWriter, r *http.Request, user 
 		return
 	}
 
+	sets, picked := h.tournamentSets(r)
+
 	data := map[string]interface{}{
-		"User":         usersPageUser{ID: user.ID, Username: user.Username},
-		"Users":        users,
-		"PendingLinks": pending,
-		"Players":      h.linkablePlayers(r, users),
-		"PlayerNames":  h.linkedPlayerNames(r, users),
-		"Roles":        assignableRoles,
-		"IssuedLink":   issued,
-		"SuccessMsg":   r.URL.Query().Get("success"),
-		"ErrorMsg":     r.URL.Query().Get("error"),
+		"User":                    usersPageUser{ID: user.ID, Username: user.Username},
+		"Users":                   users,
+		"PendingLinks":            pending,
+		"Players":                 h.linkablePlayers(r, users),
+		"PlayerNames":             h.linkedPlayerNames(r, users),
+		"Roles":                   assignableRoles,
+		"TournamentAccessChoices": tournamentAccessChoices,
+		"TournamentsOnly":         accounts.AccountTypeTournaments,
+		"TournamentSets":          sets,
+		"PickedSets":              picked,
+		"IssuedLink":              issued,
+		"SuccessMsg":              r.URL.Query().Get("success"),
+		"ErrorMsg":                r.URL.Query().Get("error"),
 	}
 
 	tmpl, err := parseTemplate(h.templateDir, "admin/users.html")
@@ -152,9 +159,75 @@ func (h *UsersHandler) linkablePlayers(r *http.Request, users []accounts.Account
 	return out
 }
 
-// assignableRoles are the roles the users page offers (the player role is
-// retired: players use link tokens, not accounts).
+// assignableRoles are the roles the users page offers for an existing
+// account (players use link tokens, not accounts). A new account can also be
+// "Tournaments only" (accounts.AccountTypeTournaments).
 var assignableRoles = []string{string(models.RoleCaptain), string(models.RoleAdmin)}
+
+// accessChoice is one tournament access option on the users page.
+type accessChoice struct {
+	Value string
+	Label string
+}
+
+// tournamentAccessChoices are the tournament access options, in order.
+var tournamentAccessChoices = []accessChoice{
+	{string(models.TournamentAccessNone), models.TournamentAccessNone.Label()},
+	{string(models.TournamentAccessOwn), models.TournamentAccessOwn.Label()},
+	{string(models.TournamentAccessAll), models.TournamentAccessAll.Label()},
+}
+
+// tournamentSet is one set of tournaments (a managed provider) an account
+// can be given on the users page.
+type tournamentSet struct {
+	ID   uint
+	Name string
+	Code string
+	Own  bool // the club's own: what an account with nothing stored has
+}
+
+// tournamentSets returns the sets of tournaments to offer on the users page
+// and what is stored for each account (an account with nothing stored has
+// the club's own). sets is empty unless the club has more than one: with one
+// there is nothing to choose.
+func (h *UsersHandler) tournamentSets(r *http.Request) (sets []tournamentSet, picked map[int64]map[uint]bool) {
+	svc := h.service.tournamentSetup
+	if svc == nil {
+		return nil, nil
+	}
+	choices, err := svc.Choices(r.Context())
+	if err != nil {
+		log.Printf("Users page: the sets of tournaments could not be read: %v", err)
+		return nil, nil
+	}
+	for _, p := range choices.Managed {
+		if p.RowID == 0 {
+			continue
+		}
+		name := p.Name
+		if name == "" {
+			name = p.Abbr
+		}
+		sets = append(sets, tournamentSet{ID: p.RowID, Name: name, Code: p.Abbr, Own: p.Own})
+	}
+	if len(sets) < 2 {
+		return nil, nil
+	}
+	return sets, choices.Picked
+}
+
+// parseTournamentSets reads the ticked sets of tournaments from a form.
+func parseTournamentSets(r *http.Request) ([]uint, error) {
+	var out []uint
+	for _, v := range r.Form["tournament_set"] {
+		id, err := strconv.ParseUint(v, 10, 32)
+		if err != nil {
+			return nil, accounts.ErrUnknownTournamentProvider
+		}
+		out = append(out, uint(id))
+	}
+	return out, nil
+}
 
 // linkedPlayerNames maps the player id of every linked account to the
 // player's name, for the per-account "Linked player" control.
@@ -188,10 +261,22 @@ func (h *UsersHandler) handleUsersPost(w http.ResponseWriter, r *http.Request, u
 		return
 	}
 
-	role, err := accounts.ParseRole(r.FormValue("role"))
+	role, err := accounts.ParseAccountType(r.FormValue("role"))
 	if err != nil {
 		http.Redirect(w, r, "/admin/league/users?error=Invalid+role", http.StatusSeeOther)
 		return
+	}
+	access := models.TournamentAccessNone
+	if v := r.FormValue("tournament_access"); v != "" {
+		if access, err = accounts.ParseTournamentAccess(v); err != nil {
+			redirectUsersError(w, r, err, "Invalid tournament access")
+			return
+		}
+	}
+	if role == models.RoleAdmin {
+		// Administrators always have every tournament; the form's choice
+		// does not apply to them.
+		access = models.TournamentAccessNone
 	}
 
 	var playerID *string
@@ -199,7 +284,17 @@ func (h *UsersHandler) handleUsersPost(w http.ResponseWriter, r *http.Request, u
 		playerID = &id
 	}
 
-	_, issued, err := h.service.accounts.Invite(r.Context(), actorFor(user), username, role, playerID)
+	var sets []uint
+	if role != models.RoleAdmin && access != models.TournamentAccessNone {
+		if sets, err = parseTournamentSets(r); err != nil {
+			redirectUsersError(w, r, err, "Invalid choice of tournaments")
+			return
+		}
+	}
+
+	_, issued, err := h.service.accounts.InviteAccount(r.Context(), actorFor(user), accounts.NewAccount{
+		Username: username, Role: role, PlayerID: playerID, TournamentAccess: access, TournamentProviders: sets,
+	})
 	if err != nil {
 		log.Printf("Failed to create user: %v", err)
 		redirectUsersError(w, r, err, "Failed to create user")
@@ -272,6 +367,50 @@ func (h *UsersHandler) handleUserAction(w http.ResponseWriter, r *http.Request, 
 		}
 		http.Redirect(w, r, "/admin/league/users?success=Role+updated+successfully", http.StatusSeeOther)
 
+	case "tournaments":
+		// Tournament access: the same rule as changing a role (an
+		// administrator, no further confirmation). The accounts service
+		// refuses an administrator's and taking a Tournaments only
+		// account's access away.
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Invalid form data", http.StatusBadRequest)
+			return
+		}
+		access, err := accounts.ParseTournamentAccess(r.FormValue("tournament_access"))
+		if err != nil {
+			redirectUsersError(w, r, err, "Invalid tournament access")
+			return
+		}
+		if _, err := h.service.accounts.SetTournamentAccess(r.Context(), actorFor(currentUser), targetID, access); err != nil {
+			log.Printf("Failed to update tournament access: %v", err)
+			redirectUsersError(w, r, err, "Failed to update tournament access")
+			return
+		}
+		http.Redirect(w, r, "/admin/league/users?success=Tournament+access+updated", http.StatusSeeOther)
+
+	case "tournament-sets":
+		// Which sets of tournaments the person can manage (WI-154). Shown
+		// only when the club has more than one.
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Invalid form data", http.StatusBadRequest)
+			return
+		}
+		sets, err := parseTournamentSets(r)
+		if err != nil {
+			redirectUsersError(w, r, err, "Invalid choice of tournaments")
+			return
+		}
+		if len(sets) == 0 {
+			http.Redirect(w, r, "/admin/league/users?error="+url.QueryEscape("Tick at least one. To stop someone managing tournaments altogether, set their Tournaments to \"No tournaments\"."), http.StatusSeeOther)
+			return
+		}
+		if err := h.service.accounts.SetTournamentProviders(r.Context(), actorFor(currentUser), targetID, sets); err != nil {
+			log.Printf("Failed to update the sets of tournaments: %v", err)
+			redirectUsersError(w, r, err, "Failed to update which tournaments they can manage")
+			return
+		}
+		http.Redirect(w, r, "/admin/league/users?success="+url.QueryEscape("Updated which tournaments they can manage"), http.StatusSeeOther)
+
 	case "player":
 		// Link the account to a player record, change it, or remove it
 		// (empty player_id). "My teams" on the planning dashboard uses it.
@@ -316,6 +455,10 @@ func redirectUsersError(w http.ResponseWriter, r *http.Request, err error, fallb
 	case errors.As(err, &invalidName):
 		msg = upperFirst(err.Error())
 	case errors.Is(err, accounts.ErrAdminNeedsPasskey), errors.Is(err, accounts.ErrEnableNeedsPasskey):
+		msg = upperFirst(err.Error())
+	case errors.Is(err, accounts.ErrInvalidTournamentAccess), errors.Is(err, accounts.ErrTournamentsOnlyNeedsAccess),
+		errors.Is(err, accounts.ErrAdminTournamentAccess), errors.Is(err, accounts.ErrUnknownTournamentProvider),
+		errors.Is(err, accounts.ErrAdminTournamentProviders):
 		msg = upperFirst(err.Error())
 	}
 	http.Redirect(w, r, "/admin/league/users?error="+url.QueryEscape(msg), http.StatusSeeOther)

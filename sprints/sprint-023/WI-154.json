@@ -1,0 +1,67 @@
+{
+  "id": "WI-154",
+  "title": "Several sets of tournaments per installation, chosen per person",
+  "description": "jim.tennis keeps two providers on its tournament server: one for St Ann's own tournaments and one for the Parks Cup. The bundle assumed one provider per installation, so the second could not be reached through the app. Let an installation manage more than one provider (a separate set of tournaments), let an administrator choose which each person can manage (several if needed), and make opening tournaments clear for someone who has more than one: they choose by name, and the word 'provider' is never shown to them.",
+  "type": "feature",
+  "priority": "high",
+  "complexity": "L",
+  "parallelisable": false,
+  "dependencies": [
+    "WI-145",
+    "WI-152",
+    "WI-153"
+  ],
+  "status": "completed",
+  "recommended_model": {
+    "name": "Fable 5.2",
+    "id": "claude-fable-5-2",
+    "rationale": "Changes who belongs to what on the tournament server across the client, set-up, account sync, the hand-over and three pages, and depends on upstream multi-provider behaviour that had to be read and proven."
+  },
+  "acceptance_criteria": [
+    "tournament_providers records the tournament server's id for each provider the app manages; the club's own, set up earlier, is recorded by the migration; no table is rebuilt",
+    "An administrator can add a further provider from the tournaments page and from the command line; one that already exists on the tournament server with that code is taken on with its tournaments, not duplicated; this is proven against the real tournament server",
+    "Every managed provider keeps the permanent administrator, and running set-up again checks each of them",
+    "One function answers which providers an account belongs to: administrators every managed provider; anyone else with tournament access the ones picked for them; with none picked the club's own only; no access or a disabled account none",
+    "A provider added later is given to nobody but administrators until an administrator chooses them",
+    "Account sync sets membership and role in each chosen provider and removes membership from every other managed provider; global roles are cleared only when none is left; a change that cannot be applied is kept and retried as before",
+    "The hand-over names the provider and is refused for one the person does not belong to",
+    "Presentation (owner's condition): someone with more than one set is asked 'Which tournaments do you want to manage?' with one clearly labelled choice per set, led by the name an administrator gave it and the code only as small secondary text; the word 'provider' and bare codes are not shown; with one set the single button is unchanged; one line says how to reach the other set later",
+    "A link to the hand-over that names no set (TMX's own 'Log in') goes to that choice when the person has more than one, and straight through when they have one",
+    "Each managed set has a name the administrator sets when adding it and can change later; the form says it is what people see when choosing",
+    "The users page shows tick boxes under 'Can manage tournaments for', labelled with the same names, only when the club has more than one set",
+    "Changing a person's sets is recorded in the account audit log and reaches the tournament server like a change of access",
+    "The choice page passes the accessibility checks at desktop and phone width and is covered by the bundle end-to-end test"
+  ],
+  "technical_notes": {
+    "files_to_modify": [
+      "migrations/038_tournament_provider_choice.up.sql and .down.sql",
+      "internal/courthive/client.go (Providers reads the administrators' listing; RemoveMembership and ClearRoles replace RemoveAccount) and courthivetest/fake.go",
+      "internal/tournaments/providers.go (new), setup.go, accounts.go",
+      "internal/accounts/tournament_providers.go (new), tournament_access.go, audit.go",
+      "internal/tournamenthome/handler.go, templates/tournament/home.html",
+      "internal/admin/tournament_setup.go, users.go, roles.go, handler.go, service_tournaments.go; templates/admin/tournaments.html, users.html",
+      "cmd/jim-dot-tennis/cli.go, cli_tournament_setup.go",
+      "scripts/test-e2e-bundle.sh, tests/e2e/bundle/bundle-on.spec.ts",
+      "docs/courthive_bundle_design.md, docs/roles.md, docs/PRODUCTION_QUICK_REFERENCE.md, CHANGELOG.md, CLAUDE.md"
+    ],
+    "notes": [
+      "The tournament server's provisioner listing (GET /provisioner/providers) shows only providers the provisioner already owns. Finding one made by hand needs POST /provider/allproviders, which a super-administrator (the service account) may call. Before this the take-over of an existing provider was only proven against a fake that listed everything.",
+      "A tournament session acts for one provider at a time (upstream's resolveActingProviderId): the hand-over token names it, and with several memberships and no choice the session acts for none. So the app always names one.",
+      "The settings keys tournament_provider_id and tournament_provider_abbr still mean the club's own provider: the one a person gets when nothing is picked for them.",
+      "The name people choose by lives in the app only. It is not written to the tournament server, whose own name for the provider is what TMX and the public pages show.",
+      "A provider the app manages cannot be deleted from the app, and its code cannot be changed, on the older providers page."
+    ]
+  },
+  "testing_requirements": [
+    "make check",
+    "make test-e2e-bundle",
+    "make test-e2e (the users page changed)"
+  ],
+  "context": {
+    "user_story": "As the administrator of a club that runs both its own tournaments and a league cup, I want to choose who can manage which, so that a cup organiser from another club does not see our club's tournaments and our own organisers are not confused by the cup's.",
+    "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships.",
+    "added": "2026-11-23, at the owner's request. Owner's condition on 2026-11-23: opening tournaments with several sets must be presented clearly."
+  },
+  "completed_date": "2026-11-23",
+  "status_note": "Implemented 2026-11-23 on sprint-023. make check passes; bundle end-to-end 17 passed with tournaments on (three runs in a row) and 4 with them off; main end-to-end 229 passed. Proven on the real tournament stack: taking on a provider made outside the app, the choice of tournaments by name (accessibility checks at desktop and phone width), TMX's own switcher through the proxy, and a person picked for the second provider only (handed over into it, cannot fetch the first provider's tournament, refused a hand-over into the first). Found and fixed on the way: the provisioner's listing hides providers it does not own, so taking on a hand-made provider would have failed on the real server. Known limits: the name people choose by is kept in the app and is not written to the tournament server; TMX's switcher shows the provider's code."
+}

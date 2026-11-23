@@ -75,6 +75,26 @@
 {{define "scripts"}}
 {{if .PasskeysAvailable}}<script src="{{asset "/static/passkey.js"}}"></script>{{end}}
 <script>
+    // Anyone who sees this page is signed out here, so sign this browser out
+    // of tournament management too: end its tournament session and forget
+    // its two tokens (same origin, so this page can).
+    (function() {
+        try {
+            var refresh = localStorage.getItem('tmxRefreshToken');
+            if (refresh) {
+                fetch('/api/courthive/auth/logout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refreshToken: refresh }),
+                    credentials: 'omit',
+                    keepalive: true
+                }).catch(function() {});
+            }
+            localStorage.removeItem('tmxToken');
+            localStorage.removeItem('tmxRefreshToken');
+        } catch (e) { /* storage not available: nothing to forget */ }
+    })();
+
     // Focus the username field (or the password, when the username is
     // filled in), unless the password form is folded away behind passkeys.
     document.addEventListener('DOMContentLoaded', function() {

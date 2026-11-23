@@ -442,16 +442,24 @@ type ProTennisPlayer struct {
 
 // TournamentProvider represents a CourtHive provider organisation
 type TournamentProvider struct {
-	ID           uint      `json:"id" db:"id"`
-	Name         string    `json:"name" db:"name"`
-	ProviderAbbr string    `json:"provider_abbr" db:"provider_abbr"`
-	CreatedAt    time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+	ID           uint   `json:"id" db:"id"`
+	Name         string `json:"name" db:"name"`
+	ProviderAbbr string `json:"provider_abbr" db:"provider_abbr"`
+	// CourthiveProviderID is the tournament server's id for the provider
+	// once the app has taken it on (WI-154); "" for one that is only a
+	// calendar to sync.
+	CourthiveProviderID string    `json:"-" db:"courthive_provider_id"`
+	CreatedAt           time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at" db:"updated_at"`
 
 	// Not stored in DB — populated by queries
 	Tournaments     []Tournament `json:"tournaments,omitempty"`
 	TournamentCount int          `json:"tournament_count,omitempty" db:"tournament_count"`
 }
+
+// Managed reports whether the app has taken the provider on at the
+// tournament server and keeps people's membership of it in line.
+func (p TournamentProvider) Managed() bool { return p.CourthiveProviderID != "" }
 
 // Tournament represents a tournament synced from CourtHive
 type Tournament struct {

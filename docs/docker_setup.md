@@ -33,16 +33,23 @@ The application will be available at http://localhost:8080
 
 Backups are made by the app itself (no separate container): see [Backup Strategy](#backup-strategy).
 
-### CourtHive Stack (`deploy/docker-compose.yml`)
+### Packaged deployment (`deploy/docker-compose.yml`)
 
-The reference deployment (`deploy/docker-compose.yml`, `deploy/Caddyfile`, `deploy/.env.example`) is the stack production runs. It extends the deployment with additional services for tournament management:
+The packaged deployment (`deploy/docker-compose.yml`, `deploy/Caddyfile`, `deploy/.env.example`) is what a club runs on its server. Every image is published; nothing is built there. By default it runs two services:
 
-1. **jim-dot-tennis app** - The core Go application
-2. **competition-factory-server** - CourtHive API server (NestJS)
-3. **TMX Frontend** - Tournament management interface (served via Caddy from pre-built static files)
-4. **courthive-public** - Public-facing CourtHive site (served via Caddy)
-5. **Redis** and **Postgres** - `redis:7-alpine` and `postgres:18-alpine` for CourtHive
-6. **Caddy** - `caddy:2-alpine` reverse proxy with automatic SSL
+1. **app** - jim-dot-tennis, from `ghcr.io/jameshartt/jim-dot-tennis`
+2. **caddy** - `caddy:2-alpine`, the only service with open ports (80 and 443), with automatic HTTPS
+
+With tournaments turned on (see [Tournaments (optional)](#tournaments-optional)) it also runs:
+
+3. **courthive-server** - the tournament server (CourtHive), 512 MB memory limit
+4. **courthive-hiveid** - the identity service that signs tournament sign-in tokens, 256 MB
+5. **postgres** - `postgres:18-alpine`, the tournament database, 384 MB
+6. **redis** - `redis:7-alpine`, the tournament server's cache, 64 MB
+7. **tmx-content**, **public-content** - copy TMX and the public tournament pages into volumes for Caddy, then stop
+8. **courthive-service-account** - makes sure the account the app signs in to the tournament stack with exists, then stops
+
+jim.tennis itself still runs an older, source-built layout; see "jim.tennis until it adopts the bundle" in `docs/PRODUCTION_QUICK_REFERENCE.md`.
 
 ## Docker Volumes
 
@@ -50,13 +57,100 @@ The core setup uses one Docker volume:
 
 1. `jim-dot-tennis-data` - The SQLite database, uploaded logos (`branding/`) and the app's own backups (`backups/`)
 
-The CourtHive stack adds additional volumes:
+The packaged deployment adds:
 
-2. `courthive-redis-data` - Redis persistence
-3. `courthive-data` - CourtHive server data
-4. `courthive-cache` - CourtHive tracker cache
-5. `caddy-data` - Caddy TLS certificates and data
-6. `caddy-config` - Caddy configuration
+2. `caddy-data` - Caddy TLS certificates and data
+3. `caddy-config` - Caddy configuration
+
+With tournaments on:
+
+4. `courthive-pg-data` - the tournament database (all tournament data)
+5. `courthive-redis-data` - Redis persistence
+6. `courthive-archives` - the tournament server's provider archives
+7. `courthive-tmx-files`, `courthive-public-files` - the two front ends, refilled from their images on every `docker compose up`
+
+Turning tournaments off keeps these volumes and their data.
+
+## Tournaments (optional)
+
+Tournaments are off until you turn them on. With them on the server needs
+2 GB of memory (or 1 GB with 2 GB of swap); see
+`docs/courthive_bundle_design.md` section 3.
+
+### Turn tournaments on
+
+On the server, in the `deploy` folder (where `.env` is):
+
+1. Make the secrets. This is done once and is safe to repeat:
+
+   ```bash
+   ./init-tournaments.sh
+   ```
+
+   It needs `openssl` (installed on almost every Linux server). It adds seven
+   variables to the end of `.env`, never changes a line that is already
+   there, prints no secret, and makes `.env` readable by you only. If it says
+   a variable "has no real value", delete that line from `.env` and run it
+   again (a `.env` copied from release 0.1.0 has two `change-me` lines).
+
+2. Turn the profile on and start everything:
+
+   ```bash
+   echo COMPOSE_PROFILES=tournaments >> .env
+   docker compose up -d
+   ```
+
+   The first start downloads about 1.3 GB of images and takes a minute or
+   two. Compose starts the services in order and waits for each to be
+   healthy. Use the `.env` line, not `docker compose --profile tournaments`:
+   the compose file reads `COMPOSE_PROFILES` to decide what the app and Caddy
+   are told.
+
+3. Sign in to the app as an administrator and switch on **Tournaments** on the
+   Club Settings page.
+
+### Check it
+
+```bash
+docker compose ps -a
+```
+
+`app`, `caddy`, `courthive-server`, `courthive-hiveid`, `postgres` and `redis`
+should be "healthy" or "running". `tmx-content`, `public-content` and
+`courthive-service-account` should say "Exited (0)": they do their job and
+stop. "Exited (1)" for `courthive-service-account` means the service account
+could not be made; run `docker compose up -d` again, and if it still fails
+look at `docker compose logs courthive-server`. Then open
+`https://<your domain>/tournaments/` and `https://<your domain>/public/`.
+
+If compose stops with "COURTHIVE_... is missing from deploy/.env", run
+`./init-tournaments.sh`.
+
+### Turn tournaments off
+
+Remove (or comment out) the `COMPOSE_PROFILES=tournaments` line in `.env`,
+then:
+
+```bash
+docker compose --profile tournaments down   # stops everything, keeps all data
+docker compose up -d                        # starts the app and Caddy again
+```
+
+The `down` is needed because `docker compose up -d` leaves running services
+of a profile that is off as they are. The site is unavailable for the few
+seconds in between. Tournament data stays in its volumes; turning tournaments
+on again brings it back. Keep the secrets in `.env`: they are needed to read
+that data again.
+
+### What Caddy allows
+
+With tournaments off, `/tournaments`, `/public`, `/api/courthive` and
+`/socket.io` answer with a plain 404. With them on, `/api/courthive` and
+`/socket.io` go to the tournament stack with the `Cookie` header removed, and
+the tournament stack's own sign-in, account, administration and internal
+routes answer 404 (people sign in to jim-dot-tennis only). The exact rules are
+at the top of `deploy/Caddyfile` and in `docs/courthive_bundle_design.md`
+section 4. `/api/rankings` and `/epixodic` at the site root always answer 404.
 
 ## Common Operations
 
@@ -99,15 +193,16 @@ The `make lint` target runs golangci-lint with 11 linters enabled: errcheck, gov
 
 ## CourtHive Operations
 
-The Makefile provides targets for managing the full CourtHive stack:
+The Makefile has shortcuts that run `deploy/docker-compose.yml` with the
+tournaments profile on (they need `deploy/.env`, with the secrets from
+`deploy/init-tournaments.sh`):
 
 ```bash
-make build-tmx        # Build TMX frontend (requires pnpm in ../TMX)
-make courthive        # Build TMX and start the full CourtHive stack
-make courthive-up     # Start the CourtHive stack without rebuilding TMX
-make courthive-down   # Stop the CourtHive stack
-make courthive-restart # Restart the CourtHive stack
-make courthive-logs   # View CourtHive stack logs
+make courthive-up      # Start the packaged stack with tournaments on
+make courthive-down    # Stop it (all services; data is kept)
+make courthive-restart # Stop and start it
+make courthive-logs    # Follow its logs
+make build-tmx         # Build a TMX source checkout in ../TMX (development only; the stack uses the published image)
 ```
 
 ## Development Workflow

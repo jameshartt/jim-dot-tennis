@@ -4,8 +4,50 @@
 **Domain:** jim.tennis
 **SSH:** `ssh -i $SSH_KEY $SERVER`
 **Path:** `$REMOTE_PATH/`
-**Reference deployment in git:** `deploy/docker-compose.yml`, `deploy/Caddyfile`, `deploy/.env.example`. Since 2026-11-22 the server's app service matches the reference: it runs the published image `ghcr.io/jameshartt/jim-dot-tennis` at the version named by `JIM_DOT_TENNIS_VERSION` in the server's `.env`. The server keeps two identical compose files, `docker-compose.yml` (what plain `docker compose` reads) and `docker-compose.courthive.yml` (what the `-f` commands below name); change both together. `scripts/deploy-app.sh` does not sync compose or the Caddyfile.
+**Packaged deployment in git:** `deploy/docker-compose.yml`, `deploy/Caddyfile`, `deploy/.env.example`, `deploy/init-tournaments.sh`: what a club runs, with tournaments as the opt-in `tournaments` profile (turning it on: `docs/docker_setup.md`, "Tournaments (optional)"). jim.tennis matches it for the app service only; its CourtHive part is still the older layout described in the next section. The server keeps two identical compose files, `docker-compose.yml` (what plain `docker compose` reads) and `docker-compose.courthive.yml` (what the `-f` commands below name); change both together. `scripts/deploy-app.sh` does not sync compose or the Caddyfile.
 **Go Version:** 1.26 (bumped from 1.25 on 2026-09-25; runtime image alpine:3.24)
+
+---
+
+## jim.tennis until it adopts the bundle
+
+jim.tennis has not moved to the packaged tournament stack yet. Until the owner
+moves it (a planned step with a rehearsal on a copy of the data; see
+`docs/courthive_bundle_design.md` sections 4 and 5), this is what is true on
+the server, and sections 2, 3, 4, 8 and 8b below apply to it only:
+
+- **App service:** the same as the packaged deployment. Since 2026-11-22 it
+  runs the published image `ghcr.io/jameshartt/jim-dot-tennis` at the version
+  named by `JIM_DOT_TENNIS_VERSION` in the server's `.env` (section 1).
+- **CourtHive server:** built on the server from a source checkout of
+  `competition-factory-server` next to the jim-dot-tennis checkout
+  (section 4), container `courthive-server`, signing tokens with
+  `JWT_SECRET` (HS256). There is no separate identity service and no
+  `COMPOSE_PROFILES`; the CourtHive services always run.
+- **TMX and the public pages:** built on a workstation from the
+  `jim-tennis-deploy` branches and copied to `TMX/dist` and
+  `courthive-public/dist` on the server, which Caddy serves directly
+  (sections 2 and 3). The published `courthive-tmx` and `courthive-public`
+  images are not used there.
+- **Accounts:** CourtHive accounts with their own passwords, managed with the
+  scripts in sections 8 and 8b. In the packaged deployment people sign in to
+  jim-dot-tennis only and those routes are closed.
+- **Caddy:** container `tennis-caddy` (renamed by the server's
+  `docker-compose.override.yml`), with the older Caddyfile: no cookie removal
+  and no refused CourtHive routes.
+- **Volumes:** `courthive-data` and `courthive-cache` are still mounted there.
+  The packaged deployment does not use them; it uses `courthive-pg-data` and
+  `courthive-redis-data` (same names, same purpose) plus new ones.
+- **Record of the layout:** the files that describe it, as they were in
+  `deploy/` up to release 0.1.0, are
+  `docs/archive/docker-compose.jim-tennis-source-built.yml` and
+  `docs/archive/Caddyfile.jim-tennis-source-built`.
+
+Do not copy the packaged `deploy/docker-compose.yml` or `deploy/Caddyfile`
+onto the server, and do not run `init-tournaments.sh` there, until the move is
+planned: the new stack would start a new identity service against the existing
+tournament database, migrate that database (no way back without a backup) and
+lock out the existing CourtHive accounts.
 
 ---
 
@@ -88,7 +130,7 @@ build, template/static mounts removed, `APP_ENV=production`, healthcheck on
 
 ---
 
-### 2. Update TMX Frontend
+### 2. Update TMX Frontend (jim.tennis source-built layout)
 
 ```bash
 # Build and transfer
@@ -123,7 +165,7 @@ rsync -avz --delete -e "ssh -i $SSH_KEY" dist/ $SERVER:$REMOTE_PATH/TMX/dist/
 
 ---
 
-### 3. Update Public Frontend
+### 3. Update Public Frontend (jim.tennis source-built layout)
 
 ```bash
 # Build and transfer
@@ -141,7 +183,7 @@ rsync -avz --delete -e "ssh -i $SSH_KEY" dist/ $SERVER:$REMOTE_PATH/courthive-pu
 
 ---
 
-### 4. Update CourtHive Server
+### 4. Update CourtHive Server (jim.tennis source-built layout)
 
 ```bash
 # Transfer and rebuild
@@ -229,7 +271,7 @@ ssh -i $SSH_KEY $SERVER "cd $REMOTE_PATH && docker compose down && docker compos
 
 ---
 
-### 8. Create CourtHive User
+### 8. Create CourtHive User (jim.tennis source-built layout)
 
 ```bash
 ssh -i $SSH_KEY $SERVER "docker exec -i courthive-server node" << 'EOFNODE'
@@ -270,7 +312,7 @@ EOFNODE
 
 ---
 
-### 8b. Reset CourtHive User Password
+### 8b. Reset CourtHive User Password (jim.tennis source-built layout)
 
 For when someone has signed up via an invite link but can't log in. The most common cause was mobile keyboards capitalizing the first character of the email — fixed upstream in TMX `loginModal.ts` (`type: 'email'`) and `competition-factory-server` `users.service.ts` (lowercase normalization), but worth knowing about for any user who registered before those fixes shipped.
 
@@ -381,9 +423,116 @@ ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ./jim-dot-tennis backup"
 # List the backups on the server
 ssh -i $SSH_KEY $SERVER "docker exec jim-dot-tennis ls -l /app/data/backups"
 
-# CourtHive data backup (not yet part of the app's backup)
-ssh -i $SSH_KEY $SERVER "docker run --rm -v courthive-data:/data alpine tar czf - -C /data ." > ~/backups/courthive-$(date +%Y%m%d).tar.gz
+# jim.tennis only (older layout, not the packaged stack): CourtHive's data is not in the app's backup there
+ssh -i $SSH_KEY $SERVER "docker exec courthive-postgres pg_dump -U courthive -Fc courthive" > ~/backups/courthive-$(date +%Y%m%d).dump
 ```
+
+#### Tournament data in backups
+
+With the tournament stack on (the packaged `deploy/docker-compose.yml` with
+`COMPOSE_PROFILES=tournaments`), the app is given the tournament database's
+settings (`COURTHIVE_PG_*`), and **every backup also holds a dump of the
+tournament database**: tournaments, draws, results, tournament accounts. One
+file restores the whole club. The dump is made with the Postgres tools in
+the app's image (`pg_dump`, custom format) over the internal network, after
+the app's own copy, and read back right through before the backup counts.
+
+- `jim-dot-tennis backup` says "Includes tournament data" (with the dump's
+  size, the Postgres version and the tournament server's latest migration),
+  or "Does not include tournament data" when the stack is off.
+- The Backups page says the same for the deployment and for each backup.
+- **If the tournament database cannot be dumped** (Postgres stopped, wrong
+  password), **no backup is made**: the command says why and exits with an
+  error, and a scheduled backup shows as failed on the Backups page with the
+  reason. A file that quietly lacks the tournament data is never reported as
+  a good backup. Fix the cause (usually `docker compose up -d` in the deploy
+  folder) and take one by hand.
+- The backup the app takes before its own upgrades holds the app's data
+  only: the app's migrations do not touch the tournament database, and the
+  league site must not wait for Postgres. The tournament database has its own
+  backup before a tournament upgrade (below).
+- The password never appears in a command line, a log, an error or the
+  backup's manifest.
+
+#### Tournament upgrades
+
+The tournament server upgrades its own database when it starts, and some of
+those changes cannot be undone without a backup. So the packaged deployment
+runs a one-shot step, `courthive-pre-upgrade` (the app's image running
+`jim-dot-tennis tournaments pre-upgrade`), before the tournament server
+every time `docker compose up -d` starts it. The tournament server waits for
+this step to finish successfully. The app and Caddy do not wait for it.
+
+- **Ordinary restart** (same tournament server image as last time): the step
+  says "Tournament server image unchanged" and does nothing.
+- **New tournament server image** (a new release of jim-dot-tennis changed
+  the bundled set): the step makes a full backup, the app's data and the
+  tournament database, as `jim-dot-tennis-pre-upgrade-<date>.tar.gz` in the
+  backups folder, checks it, records the new image, and only then lets the
+  tournament server start and upgrade its database. The newest such backup is
+  kept until a later upgrade makes another.
+- **New, empty tournament database** (first start): nothing to keep; it
+  records the image.
+- **The backup cannot be made**: the step fails. `docker compose up -d`
+  ends with `service "courthive-pre-upgrade" didn't complete successfully`.
+  The new tournament server is not started, so the tournament database is
+  untouched; Docker has already removed the old tournament server's
+  container, so tournament pages are unavailable until you act. The league
+  site keeps working. See why with
+  `docker compose logs courthive-pre-upgrade`, fix it, and run
+  `docker compose up -d` again. To run the previous version meanwhile, put
+  the previous `JIM_DOT_TENNIS_VERSION` back in `.env` and run
+  `docker compose up -d`: the previous tournament server image is the one
+  last recorded, so it starts without needing a backup.
+
+Never start the tournament server with `docker compose up --no-deps`: that
+skips the step. A restart of the server itself (`docker restart`, or the
+server rebooting) does not change the image, so it needs no backup.
+
+After the tournament server has upgraded, a second one-shot,
+`courthive-hash-passwords`, runs the identity service's own script to hash
+any password the tournament database still holds in plain text (older
+CourtHive versions stored some that way). It changes nothing when there is
+nothing to hash and prints only a count line. The identity service starts
+after it.
+
+**Steps between versions.** If a future bundled set needs a step run between
+the tournament server's upgrade and the next service (like the calendar
+backfill CourtHive once needed between its migrations 047 and 048), that
+release ships the step as another one-shot service in
+`deploy/docker-compose.yml`, ordered with `depends_on`, and its Upgrade notes
+in `CHANGELOG.md` say so. Upgrading stays "set the version, pull, restart".
+
+**Going back after a tournament upgrade that went wrong:** restore the
+`jim-dot-tennis-pre-upgrade-*.tar.gz` backup with the previous
+`JIM_DOT_TENNIS_VERSION` in `.env` (see "Restore a backup" below, with the
+tournament stack on), then `docker compose up -d`.
+
+#### Rehearse a tournament upgrade on a copy of the data
+
+`scripts/rehearse-tournament-upgrade.sh <dump>` checks, on a throwaway copy,
+that the bundled tournament server upgrades an existing tournament database
+cleanly. Run it on your own computer or the server, with Docker; it uses its
+own compose project and volumes, publishes no ports, prints no secrets and
+removes everything when it ends. `<dump>` is a dump of the tournament database
+in plain SQL or custom format, for example:
+
+```bash
+# Packaged stack (custom format)
+docker exec courthive-postgres pg_dump -U courthive -Fc courthive > courthive.dump
+# Or out of a backup: tar xzf jim-dot-tennis-backup-<date>.tar.gz tournaments/courthive.dump
+scripts/rehearse-tournament-upgrade.sh courthive.dump
+```
+
+It restores the dump into a fresh Postgres 18, starts the bundled tournament
+server against it and waits for its migrations, runs the password-hashing
+step in dry run, starts the identity service, and reports: the migrations
+applied, row counts per table before and after, tables dropped, whether the
+server came up healthy, and whether every tournament can still be loaded
+through the server's API (counts by provider; failures by tournament id
+only). The dump holds personal data: keep it private and delete it after.
+`SERVER_IMAGE=... HIVEID_IMAGE=...` choose other images (default: the ones
+`deploy/docker-compose.yml` ships).
 
 #### Keep a copy off the server
 
@@ -443,6 +592,53 @@ ssh -i $SSH_KEY $SERVER 'bash -c '\''docker run --rm --volumes-from jim-dot-tenn
 ssh -i $SSH_KEY $SERVER "docker start jim-dot-tennis && sleep 5 && docker exec jim-dot-tennis wget -qO- http://localhost:8080/healthz"
 ```
 
+**With the tournament stack on**, use these steps instead. They differ in
+three places: the tournament server and identity service are stopped too
+(they hold the tournament database open, and restore refuses while anything
+else is connected to it: "the tournament database is in use ... Nothing was
+changed"); Postgres stays running; and the one-off container joins the app's
+network so it can reach Postgres. Run them on the server, in the deploy folder.
+
+```bash
+# 1. Put the backup in the data volume (as above; mkdir is for a new server
+#    that has made no backup yet)
+docker exec jim-dot-tennis mkdir -p /app/data/backups
+docker cp /tmp/<file> jim-dot-tennis:/app/data/backups/<file> && docker exec -u root jim-dot-tennis chown appuser:appuser /app/data/backups/<file>
+
+# 2. Stop the app, the tournament server and the identity service (Postgres keeps running)
+docker stop jim-dot-tennis courthive-server courthive-hiveid
+
+# 3. Restore both, with the app container's image, environment, volumes and network
+bash -c 'docker run --rm --volumes-from jim-dot-tennis --network "$(docker inspect -f "{{range \$k, \$v := .NetworkSettings.Networks}}{{\$k}}{{end}}" jim-dot-tennis)" --env-file <(docker inspect -f "{{range .Config.Env}}{{println .}}{{end}}" jim-dot-tennis) "$(docker inspect -f "{{.Image}}" jim-dot-tennis)" ./jim-dot-tennis restore /app/data/backups/<file>'
+
+# 4. Start everything (the app first; the tournament services after the pre-upgrade step)
+docker compose up -d
+```
+
+What restore does with the tournament database, in this order: it unpacks
+and checks the whole backup and prepares the app's database; reads the
+tournament dump right through; checks nothing else is connected; dumps the
+current tournament database to `courthive.dump.replaced-<date>` in the data
+folder (the safety copy); replaces the tournament database's whole content
+in **one transaction** (if anything fails, Postgres rolls it back and the
+tournament database is exactly as it was); and only then puts the app's
+database in place. If that last step fails, it puts the tournament database
+back from the safety copy, so both are as they were. Its last lines say
+what happened to each database.
+
+- A backup **with** tournament data on a deployment **without** the
+  tournament stack: the app's data is restored, and restore says the
+  tournament data in the backup was not restored. To restore it later, turn
+  the tournament stack on, stop the three containers as in step 2, and run
+  step 3 with `restore --tournaments-only /app/data/backups/<file>`.
+- A backup **without** tournament data (made with the stack off, or a
+  pre-migration backup) on a deployment with it: the app's data is restored
+  and the tournament database is left as it is. People's tournament accounts
+  are matched again when they next open tournament management.
+- `courthive.dump.replaced-<date>` copies are removed like the other
+  `.replaced-` copies (below). `restore --tournaments-only` also accepts one
+  of them, to put that tournament database back.
+
 If step 3 says "Not restored", nothing was changed (unless it says putting
 things back did not fully work: see below); start the app again and read the
 message. If it cannot read the file ("permission denied"), add `--user root`
@@ -473,6 +669,14 @@ did not fully work**, look in `/app/data` before starting the app:
 `tennis.db.replaced-<date>` back to `tennis.db` (and `tennis.db.replaced-<date>-wal`
 to `tennis.db-wal`, if there is one); if a logo is missing, copy it from
 `branding.replaced-<date>/` back into `branding/`. Then start the app.
+
+If restore reports that **the two databases no longer match** (the
+tournament database was restored, the app's database could not be put in
+place, and putting the tournament database back failed too), do not start
+anything. The message names the safety copy. Put it back with step 3 of the
+tournament restore above, using
+`restore --tournaments-only /app/data/courthive.dump.replaced-<date>`, then
+start everything.
 
 **After a failed upgrade** (the app stops with "migration NNN failed"):
 restore the newest `jim-dot-tennis-pre-migration-*.tar.gz` using the image of
@@ -566,11 +770,24 @@ They work while the app is running; there is no need to stop it. The one
 exception is "restore", which only runs while the app is stopped.
 
 Accounts
-  user list                        Show every account: its role, whether it can
-                                   sign in, and when it last signed in.
-  user create <username> --role <role>
+  user list                        Show every account: its role, its tournament
+                                   access, whether it can sign in, and when it
+                                   last signed in.
+  user create <username> --role <role> [--tournaments <access>] [--providers <codes>]
                                    Make a new account. <role> is admin (runs the
-                                   instance) or captain (runs every team).
+                                   instance), captain (runs every team) or
+                                   tournaments (Tournaments only: runs the
+                                   club's tournaments and nothing else).
+                                   <access> is own (their own tournaments and
+                                   any they are given) or all (every
+                                   tournament). A Tournaments only account
+                                   needs one; a captain has none unless you
+                                   give it; administrators always have all.
+                                   <codes> is for a club that keeps more than
+                                   one set of tournaments ("tournaments
+                                   status" lists them): the codes, separated
+                                   by commas, of the sets the person can
+                                   manage. Without it they get the club's own.
                                    Prints an invite link once; the person who
                                    opens it sets up their own passkey or
                                    password. The link works once, for 48 hours.
@@ -587,6 +804,15 @@ Accounts
   user enable <username>           Let a disabled account sign in again.
   user role <username> <role>      Change an account's role. Refused if it would
                                    leave no administrator who can sign in.
+  user tournaments <username> <access> [--providers <codes>]
+                                   Change an account's tournament access: none,
+                                   own or all. Not for administrators (they
+                                   always have all). A Tournaments only account
+                                   keeps own or all; to stop it, disable it.
+                                   With --providers, also choose which sets of
+                                   tournaments the person can manage (codes
+                                   separated by commas), replacing the earlier
+                                   choice.
   user sessions revoke <username>  Sign an account out on every device.
 
 Passkeys for administrators
@@ -613,7 +839,10 @@ Backups
                                    the app is running. The app also makes one
                                    on its own every day (BACKUP_INTERVAL) and
                                    before every upgrade, and keeps the newest
-                                   14 (BACKUP_KEEP).
+                                   14 (BACKUP_KEEP). With the tournament stack
+                                   on, the file also holds the tournament
+                                   database; if that cannot be included, no
+                                   backup is made and the command says why.
   restore <file>                   Put a backup back: its database and logo
                                    replace the current ones. Refused while the
                                    app is running, so stop the app and run it
@@ -626,6 +855,15 @@ Backups
                                    once the restore is confirmed good. While
                                    it runs, the other commands refuse.
                                    Everyone has to sign in again afterwards.
+                                   A backup with tournament data restores the
+                                   tournament database too (stop the
+                                   tournament server and identity service
+                                   first; a copy of the database it replaces
+                                   is kept as courthive.dump.replaced-...).
+  restore --tournaments-only <file>
+                                   Put back only the tournament data of a
+                                   backup (or a courthive.dump.replaced-...
+                                   copy). The app's database is not touched.
 
   version                          Show which version of the app this is, the
                                    commit it was built from and when.
@@ -655,6 +893,62 @@ Good to know
     run the app can read them, and keep a copy off this server: a backup on
     the same disk is lost with the server.
 ```
+
+`jim-dot-tennis help` then prints the tournament commands:
+
+```
+Tournaments
+  tournaments status               Say whether the bundled tournament software
+                                   is switched on in this deployment, whether
+                                   the app can reach it, which version it runs,
+                                   and whether the club is set up on it. Lists
+                                   the club's sets of tournaments with their
+                                   codes.
+  tournaments provision [--abbreviation <code>]
+                                   Set the club up on the bundled tournament
+                                   software, as switching Tournaments on in
+                                   Club Settings does: connect the app to it,
+                                   make the club's place on it, make the
+                                   permanent tournament administrator, and add
+                                   the club's calendar to the app. Safe to run
+                                   again: what already exists is left as it is,
+                                   and a set-up that stopped part-way is
+                                   finished. <code> is the club's tournament
+                                   code (2 to 12 letters or digits); without
+                                   it the one the app suggests is used. Once
+                                   the club is set up the code cannot change.
+                                   Lists tournament accounts the app did not
+                                   make; nothing is changed for them.
+  tournaments add-provider <code> <name>
+                                   For a club that keeps more than one set of
+                                   tournaments (for example one for the club
+                                   and one for a league cup): add another
+                                   beside the club's own. <code> is 2 to 12
+                                   letters or digits and cannot change later;
+                                   <name> is what people see when they choose
+                                   which tournaments to manage. If the
+                                   tournament server already has a set with
+                                   that code, it is taken on as it is, with
+                                   its tournaments. Nobody but administrators
+                                   is given it: choose who with "user
+                                   tournaments <username> <access> --providers
+                                   <codes>" or on the users page. The club
+                                   must be set up first. Safe to run again.
+  tournaments pre-upgrade          Run by the deployment before the tournament
+                                   server starts; you do not need to run it.
+                                   When the tournament server image differs
+                                   from the one last recorded, it makes a
+                                   backup with the tournament data first, and
+                                   fails (so the tournament server does not
+                                   start) if it cannot. Nothing to do on an
+                                   ordinary restart.
+```
+
+**Tournament set-up.** When the bundled tournament software is part of the installation (see "Tournaments" in `docs/docker_setup.md`), switching Tournaments on in Club Settings sets the club up on it straight away; `tournaments provision` does the same from the server. Running it again is always safe: anything already in place is left alone, and a set-up that stopped part-way (for example because the tournament software was still starting) is finished. A failure names the step that failed. The club's tournament code is made from the club's name, can be edited before the first set-up, and cannot be changed afterwards. People who already have accounts on the tournament software that this app did not make are listed and nothing is changed for them: give each a Tournaments only account on the users page.
+
+**More than one set of tournaments.** A club can keep separate sets of tournaments on the tournament software, for example one for the club's own tournaments and one for a league cup (the tournament software calls each a "provider"). Most clubs need only the one that set-up makes. To add another, use "Add another set of tournaments" in the Tournament set-up panel on the tournaments page, or `tournaments add-provider <code> <name>`. The name is what people see when they choose which tournaments to manage and can be changed later; the code cannot. If the tournament software already has a set with that code (made by hand before this app looked after it), it is taken on as it is, with its tournaments, and the panel lists such sets under "Already on the tournament server, not yet taken on". Adding a set gives it to nobody except administrators, who always have every set: tick who else can manage it on the users page ("Can manage tournaments for"), or run `user tournaments <username> <own|all> --providers <codes>`. Someone with nothing chosen has the club's own set only. `tournaments status` lists the sets with their codes. A set the app manages cannot be deleted from the app, and running set-up again checks every set.
+
+If set-up says the permanent administrator account exists but cannot be found, the tournament software was set up from a different copy of this app's database. Restore the database that set it up, or start the tournament software with an empty database.
 
 ### 11. Passkeys
 
@@ -1155,7 +1449,8 @@ password manager or an untracked operator runbook.
 
 **Environment secrets** (set in the server's `.env`, never committed):
 - `WRAPPED_ACCESS_PASSWORD`: optional override for the Club Wrapped access code. Leave it unset and the instance generates its own code on first start (shown on the admin Club Settings page). A placeholder such as `change-me` stops the app starting in production.
-- `COURTHIVE_JWT_SECRET`: must match `JWT_SECRET` of competition-factory-server (`.env` under `$REMOTE_PATH`)
+- `COURTHIVE_JWT_SECRET` (jim.tennis source-built layout): must match `JWT_SECRET` of competition-factory-server (`.env` under `$REMOTE_PATH`)
+- Packaged deployment with tournaments on: the seven `COURTHIVE_*` secrets are made on the server by `deploy/init-tournaments.sh` and live only in its `deploy/.env` (list in `deploy/.env.example`). Nobody needs to know them; keep `.env` safe and private, because the tournament services need the same values to use their data again.
 
 ---
 
