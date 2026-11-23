@@ -7,7 +7,7 @@
   "complexity": "M",
   "parallelisable": true,
   "dependencies": [],
-  "status": "in_progress",
+  "status": "completed",
   "recommended_model": {
     "name": "Sonnet 5.5",
     "id": "claude-sonnet-5-5",

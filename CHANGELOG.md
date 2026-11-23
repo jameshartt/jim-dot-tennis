@@ -25,6 +25,65 @@ here. GitHub also generates a list of merged changes for each release; this file
 is the curated version that matters to operators. Moving from several versions
 back: read the Upgrade notes of every version in between.
 
+## [1.0.0-rc.1] - 2026-11-23
+
+### Summary
+
+A release candidate for 1.0.0, made to test the new guides on a clean machine.
+Clubs should wait for 1.0.0.
+
+### Added
+
+- Guides for the person who runs the server: `docs/install.md`,
+  `docs/upgrade.md`, `docs/backup-and-restore.md`, `docs/troubleshooting.md`,
+  `docs/accounts-and-recovery.md` and `docs/privacy-and-data.md`.
+- Guides for administrators, captains, players and people running
+  tournaments, served by the app itself at `/help`, with a "Help with this
+  page" link on the admin pages.
+
+### Changed
+
+- Every request to the BHPLTA website now says honestly that it comes from
+  jim-dot-tennis, with the version and the project's address. It no longer
+  pretends to be a web browser.
+- Admin pages say "set of tournaments" everywhere; the word "provider" is no
+  longer shown.
+- The About page is true for any club's copy.
+- The start-up log names the address to open in a browser.
+- Messages from the server commands point at the new guides.
+
+### Fixed
+
+- First-run set-up and season set-up could fail with "Could not reach the
+  BHPLTA fixtures page" because the BHPLTA website refuses requests that
+  pretend to be Chrome.
+- When the BHPLTA website refuses a request, the message says so. It no
+  longer tells you to check the internet connection.
+- Starting an older version on a database that a newer version has upgraded
+  now stops with a clear explanation and changes nothing.
+- `init-tournaments.sh` checks for leftover placeholder lines before it
+  writes anything to `.env`.
+- The account audit log describes tournaments-only accounts correctly.
+
+### Removed
+
+- Old import and deployment scripts that the app has replaced. Old planning
+  documents moved to `docs/archive/`.
+
+The bundled set this version was tested with:
+
+| Part | Image |
+|---|---|
+| jim-dot-tennis | `ghcr.io/jameshartt/jim-dot-tennis:1.0.0-rc.1` |
+| Tournament server | `ghcr.io/jameshartt/courthive-server:4.19.1-jdt.1` |
+| Identity service | `ghcr.io/jameshartt/courthive-hiveid:0.5.0-jdt.1` |
+| TMX | `ghcr.io/jameshartt/courthive-tmx:8.61.0-jdt.1` |
+| Public pages | `ghcr.io/jameshartt/courthive-public:1.23.7-jdt.1` |
+
+### Upgrade notes
+
+None: replace the image and restart. There is no database change since 0.2.1.
+
 ## [0.2.1] - 2026-11-23
 
 ### Summary

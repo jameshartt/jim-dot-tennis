@@ -35,7 +35,7 @@ If something looks wrong, ask your league secretary before changing it. The data
 
 Players do not have accounts. They get a private link instead (see the next section). You add each player once.
 
-The app cannot bring your players in for you. Setup, the season set-up from BHPLTA and **Club Data Import** read clubs, divisions, teams and fixtures, but not players. **Match Card Import** only matches the names on a match card to players you have already added. So the quickest way for a new club is to add your players by hand, as below, before you import any match cards. It takes about a minute for each player.
+For now, the app cannot bring your players in for you. Setup, the season set-up from BHPLTA and **Club Data Import** read clubs, divisions, teams and fixtures, but not players. **Match Card Import** only matches the names on a match card to players you have already added. So the quickest way for a new club is to add your players by hand, as below, before you import any match cards. It takes about a minute for each player.
 
 Spell each name as the BHPLTA match cards do. The match card import finds players by name, and a name it cannot match is listed as unmatched.
 
