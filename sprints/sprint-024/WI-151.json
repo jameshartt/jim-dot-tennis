@@ -11,7 +11,7 @@
     "WI-149",
     "WI-150"
   ],
-  "status": "not_started",
+  "status": "in_progress",
   "recommended_model": {
     "name": "Sonnet 5.5",
     "id": "claude-sonnet-5-5",

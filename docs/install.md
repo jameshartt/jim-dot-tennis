@@ -560,9 +560,10 @@ and 8. This version needs no tournament secrets for this: only "Optional:
 turning on tournaments" uses them.
 
 **If you chose an older version** (1.0.0-rc.1 or older, for example 0.2.1),
-the first two commands may stop with `required variable COURTHIVE_... is
-missing a value`. Run `./init-tournaments.sh` once, then carry on. Problem 2
-in [Troubleshooting](troubleshooting.md) explains why.
+`docker compose pull` may stop with `required variable COURTHIVE_... is
+missing a value`. If it does, run `./init-tournaments.sh` once, then run the
+commands below again from the top. Problem 2 in
+[Troubleshooting](troubleshooting.md) explains why.
 
 ```
 docker compose pull
