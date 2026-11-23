@@ -321,8 +321,8 @@ to approve, and the old accounts stay until then.
   one (the bundle runs that script by itself, before the identity service
   starts; it changes nothing on a fresh install). Stored tournament records
   also move from engine 7.1.1 to 7.45.0; real Parks Cup records saved under
-  7.1.1 load under 7.45.0 (below), but jim.tennis's whole database has not
-  been through it yet.
+  7.1.1 load under 7.45.0 (below), and a copy of jim.tennis's whole database
+  went through it in the rehearsal of 2026-11-23 (below).
 - Before a tournament upgrade the app takes a backup that includes a dump of
   the tournament database (WI-146): the one-shot `courthive-pre-upgrade`
   runs `jim-dot-tennis tournaments pre-upgrade` before every start of the
@@ -348,8 +348,12 @@ to approve, and the old accounts stay until then.
   like stay empty, and that is correct: they belong to upstream's optional
   "record sharding", which is off unless an operator installs its trigger and
   marks a tournament as sharded. The bundle does neither, so nothing needs
-  filling. The rehearsal on a copy of jim.tennis's own data is still to be
-  done; it needs the owner's go-ahead to take a dump from production.
+  filling. The rehearsal on a copy of jim.tennis's own data was run on
+  2026-11-23 with `scripts/rehearse-tournament-upgrade.sh` and passed:
+  migrations 050 to 064 applied unaided in seconds, no row count changed
+  (two empty tables dropped, ten empty ones added), every password was
+  already hashed, the identity service came up healthy, and both tournaments
+  (13 events, 13 draws) loaded through the API.
 
 ## 6. Effect on the work items
 
@@ -396,7 +400,6 @@ to approve, and the old accounts stay until then.
   sign-out, TMX's "Log in", the refused routes, and a fresh browser opening a
   tournament from the server.
 
-Not tested: the upgrade on real data (WI-146 rehearses on synthetic data until
-a copy of jim.tennis's tournament database is available); the CI workflows in
+Not tested: the CI workflows in
 the forks and `bundle-smoke.yml`, which have never run because the images are
 not published.
