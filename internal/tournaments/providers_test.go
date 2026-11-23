@@ -334,3 +334,37 @@ func TestHandoverNamesTheProvider(t *testing.T) {
 		t.Error("the tournament server handed someone over into a provider they do not belong to")
 	}
 }
+
+// A provider made before the app managed tournaments can have a code the app
+// would never make ("St Ann's"). It is taken on as it is, however its code is
+// typed; a code like that which is not on the tournament server is refused.
+func TestAnExistingProviderWithAnOddCodeIsTakenOn(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	e.fake.AddProvider("St Ann's", "St Ann's Tennis", false)
+	e.fake.AddProvider("BHPLTA", "Brighton and Hove Parks LTA", false)
+
+	if _, err := e.svc.Provision(ctx, actor, Request{Abbreviation: "Not There!", Name: "x"}); err == nil {
+		t.Fatal("a malformed code that names nothing on the tournament server was accepted")
+	}
+	if len(e.fake.Providers()) != 2 {
+		t.Fatalf("a refused code made a provider: %d providers", len(e.fake.Providers()))
+	}
+	if _, err := e.svc.Provision(ctx, actor, Request{Abbreviation: "bhplta", Name: "Parks Cup"}); err != nil {
+		t.Fatal(err)
+	}
+	res, err := e.svc.AddProvider(ctx, actor, " st ann's ", "St Ann's club tournaments")
+	if err != nil || !res.OK {
+		t.Fatalf("AddProvider: %+v, %v", res, err)
+	}
+	got, _ := e.svc.ManagedProviders(ctx)
+	if codes(got) != "BHPLTA,St Ann's" && codes(got) != "BHPLTA St Ann's" {
+		t.Fatalf("managed = %q", codes(got))
+	}
+	if len(e.fake.Providers()) != 2 {
+		t.Fatalf("taking on made a new provider: %d providers", len(e.fake.Providers()))
+	}
+	if res, err := e.svc.AddProvider(ctx, actor, "St Ann's", ""); err != nil || res.MadeAnything() {
+		t.Fatalf("running it again changed something: %+v, %v", res, err)
+	}
+}

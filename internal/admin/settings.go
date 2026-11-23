@@ -20,7 +20,6 @@ import (
 	"jim-dot-tennis/internal/repository"
 	"jim-dot-tennis/internal/secrets"
 	"jim-dot-tennis/internal/services"
-	"jim-dot-tennis/internal/tournaments"
 )
 
 // Settings page routes.
@@ -297,7 +296,7 @@ func (h *SettingsHandler) tournamentAbbreviation(r *http.Request, cs *config.Clu
 		return "", nil
 	}
 	if v := strings.TrimSpace(r.FormValue("tournament_abbreviation")); v != "" {
-		a, err := tournaments.NormalizeAbbreviation(v)
+		a, err := setup.ResolveAbbreviation(r.Context(), v)
 		if err != nil {
 			return "", formError{sentence(err.Error()) + "."}
 		}

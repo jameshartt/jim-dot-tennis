@@ -228,7 +228,7 @@ func (s *Service) AddProvider(ctx context.Context, actor accounts.Actor, abbrevi
 	if st.providerID == "" {
 		return nil, ErrNotSetUp
 	}
-	abbr, err := NormalizeAbbreviation(abbreviation)
+	abbr, err := s.ResolveAbbreviation(ctx, abbreviation)
 	if err != nil {
 		return nil, err
 	}

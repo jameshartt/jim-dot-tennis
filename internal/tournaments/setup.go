@@ -281,6 +281,33 @@ func NormalizeAbbreviation(s string) (string, error) {
 	return s, nil
 }
 
+// ResolveAbbreviation returns the code to use for what an administrator
+// typed: a well-formed code as NormalizeAbbreviation gives it, or, when it is
+// not well formed, the exact code of a provider already on the tournament
+// server that it names. An installation that kept tournaments before the app
+// managed them can have codes with spaces or punctuation ("St Ann's"); those
+// are taken on as they are, never made.
+func (s *Service) ResolveAbbreviation(ctx context.Context, input string) (string, error) {
+	a, err := NormalizeAbbreviation(input)
+	if err == nil {
+		return a, nil
+	}
+	want := strings.TrimSpace(input)
+	if want == "" || len(want) > 64 || !s.Configured() {
+		return "", err
+	}
+	all, listErr := s.client.Providers(ctx)
+	if listErr != nil {
+		return "", err
+	}
+	for _, p := range all {
+		if code := strings.TrimSpace(p.Abbreviation); strings.EqualFold(code, want) {
+			return code, nil
+		}
+	}
+	return "", err
+}
+
 // dropWords are left out of an abbreviation made from a club's name.
 var dropWords = map[string]bool{
 	"tennis": true, "club": true, "lawn": true, "tc": true, "ltc": true,
@@ -394,7 +421,7 @@ func (s *Service) Provision(ctx context.Context, actor accounts.Actor, req Reque
 	}
 	abbr := st.abbreviation
 	if req.Abbreviation != "" {
-		a, err := NormalizeAbbreviation(req.Abbreviation)
+		a, err := s.ResolveAbbreviation(ctx, req.Abbreviation)
 		if err != nil {
 			return nil, err
 		}
