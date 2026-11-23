@@ -280,7 +280,7 @@ func TestAdoptsProviderMadeByHandAndListsUnmanagedAccounts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if o := outcomes(res); o[stepProvider] != OutcomeMade || o[stepRegister] != OutcomeExisted {
+	if o := outcomes(res); o[stepProvider] != OutcomeMade || o[stepRegister] != OutcomeMade { // the kept row now carries the tournament server's id
 		t.Fatalf("steps = %+v", res.Steps)
 	}
 	if p := e.fake.Providers(); len(p) != 1 || !p[0].Managed {

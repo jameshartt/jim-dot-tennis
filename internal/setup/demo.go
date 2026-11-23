@@ -76,7 +76,7 @@ var clearedTables = []string{
 // migration has to decide.
 var keptTables = []string{
 	"account_audit_log", "account_links", "app_settings", "login_attempts", "push_subscriptions", "sessions", "sqlite_sequence",
-	"tennis_players", "tournament_accounts", "tournament_providers", "tournaments", "users", "vapid_keys",
+	"tennis_players", "tournament_accounts", "tournament_providers", "tournaments", "user_tournament_providers", "users", "vapid_keys",
 	"webauthn_credentials", "webauthn_user_handles",
 }
 

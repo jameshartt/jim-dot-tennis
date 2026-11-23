@@ -122,6 +122,10 @@ type NewAccount struct {
 	// only account needs own or all; an administrator takes none (they
 	// always have all).
 	TournamentAccess models.TournamentAccess
+	// TournamentProviders are the sets of tournaments picked for the account
+	// (tournament_providers ids; see SetTournamentProviders). None means the
+	// club's own only. Not for an administrator.
+	TournamentProviders []uint
 }
 
 // InviteAccount makes a new active account with no password, and an invite
@@ -142,6 +146,11 @@ func (s *Service) InviteAccount(ctx context.Context, actor Actor, n NewAccount) 
 		var err error
 		if account, err = s.createAccount(ctx, tx, actor, n.Username, n.Role, n.PlayerID, n.TournamentAccess); err != nil {
 			return err
+		}
+		if len(n.TournamentProviders) > 0 {
+			if _, err := s.setTournamentProviders(ctx, tx, actor, account, n.TournamentProviders); err != nil {
+				return err
+			}
 		}
 		issued, err = s.issueLink(ctx, tx, actor, account, LinkInvite)
 		return err

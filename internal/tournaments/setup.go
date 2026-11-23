@@ -46,7 +46,8 @@ type Client interface {
 	EnsureAccount(ctx context.Context, providerID string, a courthive.Account) (string, error)
 	Members(ctx context.Context, providerID string) ([]courthive.Member, error)
 	Providers(ctx context.Context) ([]courthive.Provider, error)
-	RemoveAccount(ctx context.Context, providerID, userID, email string) error
+	RemoveMembership(ctx context.Context, providerID, userID string) error
+	ClearRoles(ctx context.Context, email string) error
 	HandoverToken(ctx context.Context, providerID, externalID string) (string, error)
 }
 
@@ -145,6 +146,9 @@ type Result struct {
 	Problem       string             `json:"problem,omitempty"`     // plain words
 	Detail        string             `json:"detail,omitempty"`      // the reason the tournament stack gave
 	Unmanaged     []UnmanagedAccount `json:"unmanaged,omitempty"`
+	// Further: the run added (or checked) a further provider beside the
+	// club's own (AddProvider), not the club's set-up.
+	Further bool `json:"further,omitempty"`
 }
 
 // MadeAnything reports whether the run made or completed anything.
@@ -354,6 +358,7 @@ const (
 	stepProvider    = "provider"
 	stepInstance    = "instance"
 	stepRegister    = "register"
+	stepFurther     = "further"
 )
 
 var stepLabels = map[string]string{
@@ -362,6 +367,13 @@ var stepLabels = map[string]string{
 	stepProvider:    "The club on the tournament server",
 	stepInstance:    "Permanent tournament administrator",
 	stepRegister:    "The club's tournament calendar in this app",
+	stepFurther:     "The club's other sets of tournaments",
+}
+
+// furtherLabels are the labels of a run that adds a further provider.
+var furtherLabels = map[string]string{
+	stepProvider: "The new set of tournaments on the tournament server",
+	stepRegister: "Its tournament calendar in this app",
 }
 
 // Provision sets the club up on the tournament stack, or finishes or checks
@@ -401,13 +413,25 @@ func (s *Service) Provision(ctx context.Context, actor accounts.Actor, req Reque
 		name = abbr
 	}
 
-	res := &Result{RanAt: s.now().UTC(), By: actorName(actor), Abbreviation: abbr, ProviderName: name}
+	return s.run(ctx, actor, st, abbr, name, true)
+}
+
+// run does the steps of a set-up run for one provider: the club's own
+// (own), or a further one.
+func (s *Service) run(ctx context.Context, actor accounts.Actor, st stored, abbr, name string, own bool) (*Result, error) {
+	res := &Result{RanAt: s.now().UTC(), By: actorName(actor), Abbreviation: abbr, ProviderName: name, Further: !own}
+	label := func(key string) string {
+		if !own && furtherLabels[key] != "" {
+			return furtherLabels[key]
+		}
+		return stepLabels[key]
+	}
 	done := func(key string, outcome Outcome, detail string) {
-		res.Steps = append(res.Steps, Step{Key: key, Label: stepLabels[key], Outcome: outcome, Detail: detail})
+		res.Steps = append(res.Steps, Step{Key: key, Label: label(key), Outcome: outcome, Detail: detail})
 	}
 	fail := func(key string, err error) (*Result, error) {
-		res.Steps = append(res.Steps, Step{Key: key, Label: stepLabels[key], Outcome: OutcomeFailed})
-		res.FailedStep = stepLabels[key]
+		res.Steps = append(res.Steps, Step{Key: key, Label: label(key), Outcome: OutcomeFailed})
+		res.FailedStep = label(key)
 		res.Problem = explain(key, err)
 		res.Detail = err.Error()
 		s.finish(ctx, actor, res)
@@ -423,7 +447,13 @@ func (s *Service) Provision(ctx context.Context, actor accounts.Actor, req Reque
 	// The abbreviation is stored before anything is made, so a run that stops
 	// part-way (even after the provider is made) is retried with the same
 	// one, and the provider is adopted rather than made twice.
-	if err := save(repository.SettingTournamentProviderAbbr, abbr, st.abbreviation); err != nil {
+	if own {
+		if err := save(repository.SettingTournamentProviderAbbr, abbr, st.abbreviation); err != nil {
+			return nil, err
+		}
+	}
+	before, err := s.managed(ctx, st)
+	if err != nil {
 		return nil, err
 	}
 
@@ -446,18 +476,26 @@ func (s *Service) Provision(ctx context.Context, actor accounts.Actor, req Reque
 	}
 	done(stepProvisioner, outcome(created), "")
 
-	// 3. The club's provider (adopted if one with the abbreviation exists).
+	// 3. The provider (adopted if one with the abbreviation exists).
 	providerID, created, err := s.client.EnsureProvider(ctx, provisionerID, abbr, name)
 	if err != nil {
 		return fail(stepProvider, err)
 	}
-	if err := save(repository.SettingTournamentProviderID, providerID, st.providerID); err != nil {
-		return fail(stepProvider, err)
+	known := false
+	if own {
+		known = st.providerID == providerID
+		if err := save(repository.SettingTournamentProviderID, providerID, st.providerID); err != nil {
+			return fail(stepProvider, err)
+		}
+	} else {
+		for _, p := range before {
+			known = known || p.CourthiveID == providerID
+		}
 	}
 	switch {
 	case created:
 		done(stepProvider, OutcomeMade, abbr+", "+name)
-	case st.providerID != providerID:
+	case !known:
 		done(stepProvider, OutcomeMade, abbr+": found on the tournament server and taken on by this app")
 	default:
 		done(stepProvider, OutcomeExisted, abbr)
@@ -465,59 +503,90 @@ func (s *Service) Provision(ctx context.Context, actor accounts.Actor, req Reque
 
 	// 4. The permanent "instance" administrator, so a person can always be
 	// removed. The member list also gives the accounts the app does not manage.
-	members, err := s.client.Members(ctx, providerID)
+	instanceID, instanceThere, unmanaged, err := s.ensureInstance(ctx, providerID, st.instanceID)
 	if err != nil {
 		return fail(stepInstance, err)
 	}
-	instanceThere := false
-	for _, m := range members {
-		if m.Provider == courthive.SSOProvider && m.ExternalID == courthive.InstanceExternalID && m.Role == courthive.RoleProviderAdmin {
-			instanceThere = true
-		}
-		if m.Provider != courthive.SSOProvider {
-			res.Unmanaged = append(res.Unmanaged, UnmanagedAccount{Email: m.Email, Role: m.Role})
-		}
-	}
-	instance := courthive.Account{
-		ExternalID: courthive.InstanceExternalID,
-		Email:      courthive.AccountEmail(courthive.InstanceExternalID),
-		Role:       courthive.RoleProviderAdmin,
-		UserID:     st.instanceID,
-	}
-	instanceID, err := s.client.EnsureAccount(ctx, providerID, instance)
-	if errors.Is(err, courthive.ErrAccountUnknown) {
-		// The account exists on the server but is in no provider this app can
-		// see it through, and its id was not stored (for example the app's
-		// database was replaced, or the club's provider was made again).
-		// Look for it in the other providers the app owns.
-		if instance.UserID, err = s.findInstanceAccount(ctx); err == nil {
-			instanceID, err = s.client.EnsureAccount(ctx, providerID, instance)
-		}
-	}
-	if err != nil {
-		return fail(stepInstance, err)
-	}
+	res.Unmanaged = unmanaged
 	if err := save(repository.SettingTournamentInstanceAccountID, instanceID, st.instanceID); err != nil {
 		return fail(stepInstance, err)
 	}
 	done(stepInstance, outcome(!instanceThere), "Never used to sign in")
 
-	// 5. The provider in the app's own list, so calendar sync works now.
-	madeRow, err := s.register(ctx, abbr, name)
+	// 5. The provider in the app's own list, with the tournament server's id,
+	// so calendar sync works now and the app manages who belongs to it.
+	madeRow, err := s.register(ctx, abbr, name, providerID)
 	if err != nil {
 		return fail(stepRegister, err)
 	}
 	done(stepRegister, outcome(madeRow), "")
+
+	// 6. A set-up run also checks the club's other providers: each keeps its
+	// permanent administrator.
+	if own {
+		var codes []string
+		restored := false
+		for _, p := range before {
+			if p.CourthiveID == providerID {
+				continue
+			}
+			_, there, _, err := s.ensureInstance(ctx, p.CourthiveID, instanceID)
+			if err != nil {
+				return fail(stepFurther, err)
+			}
+			restored = restored || !there
+			codes = append(codes, p.Abbr)
+		}
+		if len(codes) > 0 {
+			done(stepFurther, outcome(restored), strings.Join(codes, ", "))
+		}
+	}
 
 	res.OK = true
 	s.finish(ctx, actor, res)
 	return res, nil
 }
 
-// findInstanceAccount finds the "instance" account's id through the member
-// lists of the providers the app's provisioner owns. ErrAccountUnknown when
-// it is in none of them.
-func (s *Service) findInstanceAccount(ctx context.Context) (string, error) {
+// ensureInstance makes sure the permanent "instance" administrator belongs
+// to the provider. It returns the account's id on the tournament server,
+// whether it was already there, and the provider's accounts the app does not
+// manage.
+func (s *Service) ensureInstance(ctx context.Context, providerID, knownID string) (id string, there bool, unmanaged []UnmanagedAccount, err error) {
+	members, err := s.client.Members(ctx, providerID)
+	if err != nil {
+		return "", false, nil, err
+	}
+	for _, m := range members {
+		if m.Provider == courthive.SSOProvider && m.ExternalID == courthive.InstanceExternalID && m.Role == courthive.RoleProviderAdmin {
+			there = true
+		}
+		if m.Provider != courthive.SSOProvider {
+			unmanaged = append(unmanaged, UnmanagedAccount{Email: m.Email, Role: m.Role})
+		}
+	}
+	instance := courthive.Account{
+		ExternalID: courthive.InstanceExternalID,
+		Email:      courthive.AccountEmail(courthive.InstanceExternalID),
+		Role:       courthive.RoleProviderAdmin,
+		UserID:     knownID,
+	}
+	id, err = s.client.EnsureAccount(ctx, providerID, instance)
+	if errors.Is(err, courthive.ErrAccountUnknown) {
+		// The account exists on the server but is in no provider this app can
+		// see it through, and its id was not stored (for example the app's
+		// database was replaced, or the club's provider was made again).
+		// Look for it in the other providers the app owns.
+		if instance.UserID, err = s.findAccount(ctx, courthive.InstanceExternalID); err == nil {
+			id, err = s.client.EnsureAccount(ctx, providerID, instance)
+		}
+	}
+	return id, there, unmanaged, err
+}
+
+// findAccount finds the id of the app-made account with this external id
+// through the member lists of the providers the app's provisioner owns.
+// ErrAccountUnknown when it is in none of them.
+func (s *Service) findAccount(ctx context.Context, externalID string) (string, error) {
 	providers, err := s.client.Providers(ctx)
 	if err != nil {
 		return "", err
@@ -531,7 +600,7 @@ func (s *Service) findInstanceAccount(ctx context.Context) (string, error) {
 			return "", err
 		}
 		for _, m := range members {
-			if m.Provider == courthive.SSOProvider && m.ExternalID == courthive.InstanceExternalID && m.UserID != "" {
+			if m.Provider == courthive.SSOProvider && m.ExternalID == externalID && m.UserID != "" {
 				return m.UserID, nil
 			}
 		}
@@ -546,19 +615,23 @@ func outcome(made bool) Outcome {
 	return OutcomeExisted
 }
 
-// register makes sure tournament_providers has a row for abbr, matching an
-// existing one whatever its case.
-func (s *Service) register(ctx context.Context, abbr, name string) (made bool, err error) {
+// register makes sure tournament_providers has a row for abbr (matching an
+// existing one whatever its case) that carries the tournament server's id.
+// made reports whether the row was created or newly given the id.
+func (s *Service) register(ctx context.Context, abbr, name, courthiveID string) (made bool, err error) {
 	list, err := s.providers.FindAll(ctx)
 	if err != nil {
 		return false, err
 	}
 	for _, p := range list {
 		if strings.EqualFold(strings.TrimSpace(p.ProviderAbbr), abbr) {
-			return false, nil
+			if p.CourthiveProviderID == courthiveID {
+				return false, nil
+			}
+			return true, s.providers.SetCourthiveID(ctx, p.ID, courthiveID)
 		}
 	}
-	if err := s.providers.Create(ctx, &models.TournamentProvider{Name: name, ProviderAbbr: abbr}); err != nil {
+	if err := s.providers.Create(ctx, &models.TournamentProvider{Name: name, ProviderAbbr: abbr, CourthiveProviderID: courthiveID}); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -578,6 +651,9 @@ func (s *Service) finish(ctx context.Context, actor accounts.Actor, res *Result)
 	detail := "ok abbreviation=" + res.Abbreviation
 	if !res.OK {
 		detail = "failed abbreviation=" + res.Abbreviation + " step=" + stepKey(res)
+	}
+	if res.Further {
+		detail += " further_provider"
 	}
 	var made []string
 	for _, st := range res.Steps {

@@ -145,14 +145,14 @@ func TestHandover(t *testing.T) {
 	tina := addUser(t, e, "tina", "player", "all", true)
 	captain := addUser(t, e, "cap", "captain", "none", true)
 
-	token, err := e.svc.Handover(ctx, tina)
+	token, err := e.svc.Handover(ctx, tina, "")
 	if err != nil || token == "" {
 		t.Fatalf("Handover = %q, %v", token, err)
 	}
 	if membership(e, tina) != courthive.RoleProviderAdmin {
 		t.Error("the first hand-over did not make the tournament account")
 	}
-	if _, err := e.svc.Handover(ctx, captain); !errors.Is(err, ErrNoAccess) {
+	if _, err := e.svc.Handover(ctx, captain, ""); !errors.Is(err, ErrNoAccess) {
 		t.Fatalf("no access: %v", err)
 	}
 	if e.fake.Calls(courthivetest.CallHandover) != 1 {
@@ -163,7 +163,7 @@ func TestHandover(t *testing.T) {
 	// even though nothing told the tournament server at the time.
 	setUser(t, e, tina, "tournament_access", "none")
 	setUser(t, e, tina, "role", "captain")
-	if _, err := e.svc.Handover(ctx, tina); !errors.Is(err, ErrNoAccess) {
+	if _, err := e.svc.Handover(ctx, tina, ""); !errors.Is(err, ErrNoAccess) {
 		t.Fatalf("after losing access: %v", err)
 	}
 	if got := membership(e, tina); got != "" {
@@ -175,7 +175,7 @@ func TestObserverEndsAndRestoresAccess(t *testing.T) {
 	e := setUpEnv(t)
 	ctx := context.Background()
 	tina := addUser(t, e, "tina", "player", "own", true)
-	if _, err := e.svc.Handover(ctx, tina); err != nil {
+	if _, err := e.svc.Handover(ctx, tina, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -185,7 +185,7 @@ func TestObserverEndsAndRestoresAccess(t *testing.T) {
 		t.Fatalf("after sessions were ended: %q", got)
 	}
 	// ...and comes back when they next open tournament management.
-	if _, err := e.svc.Handover(ctx, tina); err != nil {
+	if _, err := e.svc.Handover(ctx, tina, ""); err != nil {
 		t.Fatal(err)
 	}
 	if got := membership(e, tina); got != courthive.RoleDirector {
@@ -204,7 +204,7 @@ func TestFailedRemovalIsRetriedUntilItSucceeds(t *testing.T) {
 	e := setUpEnv(t)
 	ctx := context.Background()
 	tina := addUser(t, e, "tina", "player", "all", true)
-	if _, err := e.svc.Handover(ctx, tina); err != nil {
+	if _, err := e.svc.Handover(ctx, tina, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -257,7 +257,7 @@ func TestBeforeSetUpNothingIsToldAndNothingBreaks(t *testing.T) {
 	if err := e.svc.SyncAccount(ctx, tina); !errors.Is(err, ErrNotSetUp) {
 		t.Fatalf("want ErrNotSetUp, got %v", err)
 	}
-	if _, err := e.svc.Handover(ctx, tina); !errors.Is(err, ErrNotSetUp) {
+	if _, err := e.svc.Handover(ctx, tina, ""); !errors.Is(err, ErrNotSetUp) {
 		t.Fatalf("hand-over before set-up: %v", err)
 	}
 	e.svc.TournamentAccessChanged(ctx, accounts.TournamentAccessChange{UserID: tina, What: "tournament_access"})
@@ -267,7 +267,7 @@ func TestBeforeSetUpNothingIsToldAndNothingBreaks(t *testing.T) {
 
 	// Not configured at all: the same, with a different reason.
 	bare := NewService(e.db, client(t, e.fake.URL, e.fake.URL, ""))
-	if _, err := bare.Handover(ctx, tina); !errors.Is(err, ErrNotConfigured) {
+	if _, err := bare.Handover(ctx, tina, ""); !errors.Is(err, ErrNotConfigured) {
 		t.Fatalf("hand-over without a tournament stack: %v", err)
 	}
 	if left, err := bare.Reconcile(ctx); err != nil || left != 0 {

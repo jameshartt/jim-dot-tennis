@@ -294,3 +294,118 @@ func TestLinkPageLandsTournamentsOnlyAccountOnItsHome(t *testing.T) {
 		}
 	}
 }
+
+// managedProvider adds a tournament_providers row the app manages and
+// returns its id.
+func managedProvider(t *testing.T, s *Service, abbr string) uint {
+	t.Helper()
+	res, err := s.db.Exec(`INSERT INTO tournament_providers (name, provider_abbr, courthive_provider_id) VALUES (?, ?, ?)`, abbr+" name", abbr, "uuid-"+abbr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, _ := res.LastInsertId()
+	return uint(id)
+}
+
+func storedPicks(t *testing.T, s *Service, userID int64) string {
+	t.Helper()
+	var codes []string
+	if err := s.db.Select(&codes, `SELECT p.provider_abbr FROM user_tournament_providers u
+		JOIN tournament_providers p ON p.id = u.tournament_provider_id WHERE u.user_id = ? ORDER BY p.provider_abbr`, userID); err != nil {
+		t.Fatal(err)
+	}
+	return strings.Join(codes, ",")
+}
+
+// The sets of tournaments picked for an account (WI-154): stored, recorded,
+// the observer told, and the refusals.
+func TestSetTournamentProviders(t *testing.T) {
+	s, _ := newTestService(t)
+	ctx := context.Background()
+	obs := &recordingObserver{}
+	s.SetTournamentAccessObserver(obs)
+	club, cup := managedProvider(t, s, "CLUBA"), managedProvider(t, s, "CUP")
+	// One the app does not manage (a calendar added by hand).
+	res, err := s.db.Exec(`INSERT INTO tournament_providers (name, provider_abbr) VALUES ('By hand', 'HAND')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hand64, _ := res.LastInsertId()
+	hand := uint(hand64)
+
+	// Chosen when the account is made.
+	tina, _, err := s.InviteAccount(ctx, cli, NewAccount{Username: "tina", Role: models.RoleTournamentsOnly,
+		TournamentAccess: models.TournamentAccessOwn, TournamentProviders: []uint{cup}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := storedPicks(t, s, tina.ID); got != "CUP" {
+		t.Fatalf("picks at creation: %q", got)
+	}
+	if got := obs.take(); got != "tina created own" {
+		t.Errorf("observer at creation: %q", got)
+	}
+
+	// Changed: stored, the observer told once, an unchanged choice says so.
+	if err := s.SetTournamentProviders(ctx, cli, tina.ID, []uint{cup, club, cup}); err != nil {
+		t.Fatal(err)
+	}
+	if got := storedPicks(t, s, tina.ID); got != "CLUBA,CUP" {
+		t.Fatalf("picks: %q", got)
+	}
+	if got := obs.take(); got != "tina tournament_providers own" {
+		t.Errorf("observer: %q", got)
+	}
+	if err := s.SetTournamentProviders(ctx, cli, tina.ID, []uint{club, cup}); err != nil {
+		t.Fatal(err)
+	}
+	if got := obs.take(); got != "" {
+		t.Errorf("the observer was told about no change: %q", got)
+	}
+	want := []string{"cli tournament_providers (club's own) -> CUP", "cli tournament_providers CUP -> CLUBA,CUP", "cli tournament_providers CLUBA,CUP -> CLUBA,CUP (no change)"}
+	if got := accessAuditRows(t, s, "tina", ActionTournamentProviders); strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("audit rows: %q", got)
+	}
+	// None: back to the club's own.
+	if err := s.SetTournamentProviders(ctx, cli, tina.ID, nil); err != nil || storedPicks(t, s, tina.ID) != "" {
+		t.Fatalf("clearing: %v, %q", err, storedPicks(t, s, tina.ID))
+	}
+
+	// Refused: one the app does not manage, one that does not exist, an
+	// administrator, an account that does not exist. Nothing is stored.
+	if err := s.SetTournamentProviders(ctx, cli, tina.ID, []uint{cup, hand}); !errors.Is(err, ErrUnknownTournamentProvider) {
+		t.Errorf("unmanaged provider: %v", err)
+	}
+	if err := s.SetTournamentProviders(ctx, cli, tina.ID, []uint{9999}); !errors.Is(err, ErrUnknownTournamentProvider) {
+		t.Errorf("unknown provider: %v", err)
+	}
+	if got := storedPicks(t, s, tina.ID); got != "" {
+		t.Errorf("a refused change stored %q", got)
+	}
+	ada, _, err := s.Invite(ctx, cli, "ada", models.RoleAdmin, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetTournamentProviders(ctx, cli, ada.ID, []uint{cup}); !errors.Is(err, ErrAdminTournamentProviders) {
+		t.Errorf("administrator: %v", err)
+	}
+	if err := s.SetTournamentProviders(ctx, cli, 424242, []uint{cup}); !errors.Is(err, ErrNotFound) {
+		t.Errorf("no such account: %v", err)
+	}
+	if _, _, err := s.InviteAccount(ctx, cli, NewAccount{Username: "tom", Role: models.RoleTournamentsOnly,
+		TournamentAccess: models.TournamentAccessOwn, TournamentProviders: []uint{hand}}); !errors.Is(err, ErrUnknownTournamentProvider) {
+		t.Errorf("creating with an unmanaged provider: %v", err)
+	}
+	if _, err := s.Find(ctx, "tom"); err == nil {
+		t.Error("tom was created although the choice was refused")
+	}
+
+	// Codes to ids, for the command line.
+	ids, err := s.TournamentProviderIDs(ctx, []string{" cup", "CLUBA", ""})
+	if err != nil || len(ids) != 2 || ids[0] != cup || ids[1] != club {
+		t.Errorf("TournamentProviderIDs = %v, %v", ids, err)
+	}
+	if _, err := s.TournamentProviderIDs(ctx, []string{"HAND"}); !errors.Is(err, ErrUnknownTournamentProvider) {
+		t.Errorf("a code the app does not manage: %v", err)
+	}
+}

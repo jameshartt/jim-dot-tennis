@@ -14,6 +14,7 @@ import (
 
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/models"
+	"jim-dot-tennis/internal/tournaments"
 )
 
 type fakeSwitch struct{ on bool }
@@ -50,12 +51,26 @@ type fakeOpener struct {
 	token      string
 	err        error
 	asked      []int64
+	codes      []string // the set of tournaments each hand-over named
+	sets       []tournaments.ManagedProvider
 }
 
 func (f *fakeOpener) Configured() bool { return f.configured }
-func (f *fakeOpener) Handover(_ context.Context, userID int64) (string, error) {
+func (f *fakeOpener) Handover(_ context.Context, userID int64, provider string) (string, error) {
 	f.asked = append(f.asked, userID)
+	f.codes = append(f.codes, provider)
+	if provider != "" {
+		for _, p := range f.sets {
+			if p.Abbr == provider {
+				return f.token, f.err
+			}
+		}
+		return "", tournaments.ErrNoAccess
+	}
 	return f.token, f.err
+}
+func (f *fakeOpener) ProvidersFor(context.Context, int64) ([]tournaments.ManagedProvider, error) {
+	return f.sets, nil
 }
 
 func servePath(t *testing.T, sw *fakeSwitch, opener Opener, user *models.User, path string) *httptest.ResponseRecorder {
@@ -193,5 +208,62 @@ func TestTournamentHomeLinksToManagement(t *testing.T) {
 	body = rec.Body.String()
 	if rec.Code != http.StatusOK || strings.Contains(body, "tournament-management-link") || !strings.Contains(body, "Tournaments are not switched on for this club") {
 		t.Errorf("switched off: %d\n%s", rec.Code, body)
+	}
+}
+
+// Someone with several sets of tournaments is asked which to manage, by
+// name; the word "provider" never appears, and a link that names no set
+// sends them to the choice rather than picking one for them.
+func TestSeveralSetsOfTournamentsAreChosenByName(t *testing.T) {
+	on := &fakeSwitch{on: true}
+	tina := models.User{ID: 41, Username: "tina", Role: models.RoleTournamentsOnly, IsActive: true, TournamentAccess: models.TournamentAccessOwn}
+	two := []tournaments.ManagedProvider{
+		{RowID: 1, Name: "St Ann's club tournaments", Abbr: "STANNS", CourthiveID: "p1", Own: true},
+		{RowID: 2, Name: "Parks Cup", Abbr: "BHPLTA", CourthiveID: "p2"},
+	}
+	op := &fakeOpener{configured: true, token: "one-time", sets: two}
+
+	body := servePath(t, on, op, &tina, auth.TournamentHomePath).Body.String()
+	for _, want := range []string{
+		"Which tournaments do you want to manage?",
+		"St Ann&#39;s club tournaments", "Parks Cup",
+		`href="/tournament-home/open?provider=STANNS"`, `href="/tournament-home/open?provider=BHPLTA"`,
+		`data-testid="tournament-sets-note"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the choice page lacks %q", want)
+		}
+	}
+	if strings.Contains(strings.ToLower(body), "provider<") || strings.Contains(body, ">provider") || strings.Contains(body, " provider ") {
+		t.Error(`the choice page says "provider" to the person`)
+	}
+	if strings.Contains(body, `data-testid="tournament-management-link"`) {
+		t.Error("the single button is shown beside the choice")
+	}
+
+	// No set named: to the choice, and no hand-over.
+	rec := servePath(t, on, op, &tina, ManagementPath)
+	if rec.Code != http.StatusSeeOther || !strings.HasPrefix(rec.Header().Get("Location"), auth.TournamentHomePath) || len(op.asked) != 0 {
+		t.Fatalf("no set named: %d %q, hand-overs %v", rec.Code, rec.Header().Get("Location"), op.asked)
+	}
+	// A set named: handed over for that one.
+	rec = servePath(t, on, op, &tina, ManagementPath+"?provider=BHPLTA")
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/tournaments/#/sso?token=one-time" || len(op.codes) != 1 || op.codes[0] != "BHPLTA" {
+		t.Fatalf("named set: %d %q, codes %v", rec.Code, rec.Header().Get("Location"), op.codes)
+	}
+	// A set that is not theirs: back to the home page, no token.
+	rec = servePath(t, on, op, &tina, ManagementPath+"?provider=OTHER")
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != auth.TournamentHomePath {
+		t.Fatalf("someone else's set: %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+
+	// One set: the single button as before, and a link with no set goes straight through.
+	one := &fakeOpener{configured: true, token: "one-time", sets: two[:1]}
+	body = servePath(t, on, one, &tina, auth.TournamentHomePath).Body.String()
+	if !strings.Contains(body, `data-testid="tournament-management-link"`) || strings.Contains(body, "Which tournaments") {
+		t.Error("one set of tournaments must show the single button and no choice")
+	}
+	if rec := servePath(t, on, one, &tina, ManagementPath); rec.Header().Get("Location") != "/tournaments/#/sso?token=one-time" {
+		t.Fatalf("one set, no set named: %q", rec.Header().Get("Location"))
 	}
 }

@@ -63,6 +63,12 @@
         .badge-captain { background: #f3e5f5; color: #7b1fa2; }
         .badge-player { background: #e8f5e9; color: #2e7d32; }
         .tournament-access-fixed { font-size: 0.85rem; color: #555; }
+        .tournament-sets { border: 0; padding: 0; margin: 0.4rem 0 0; min-width: 0; }
+        .tournament-sets legend { font-size: 0.8rem; font-weight: 600; color: #333; padding: 0; }
+        .tournament-set-option { display: block; font-size: 0.85rem; font-weight: normal; margin: 0.15rem 0; }
+        .tournament-set-option input { margin-right: 0.35rem; }
+        .tournament-sets-create { border: 1px solid #ddd; border-radius: 4px; padding: 0.5rem 0.75rem; margin: 0; }
+        .tournament-sets-create legend { font-weight: 600; font-size: 0.9rem; padding: 0 0.25rem; }
         .badge-active { background: #e8f5e9; color: #2e7d32; }
         .badge-inactive { background: #ffebee; color: #c62828; }
         .action-btn {
@@ -218,6 +224,17 @@
                             {{end}}
                         </select>
                     </div>
+                    {{if .TournamentSets}}
+                    <fieldset class="tournament-sets-create" data-user-create-tournament-sets>
+                        <legend>Can manage tournaments for</legend>
+                        {{range .TournamentSets}}
+                        <label class="tournament-set-option">
+                            <input type="checkbox" name="tournament_set" value="{{.ID}}" data-set-code="{{.Code}}" {{if .Own}}checked{{end}}>
+                            {{.Name}}
+                        </label>
+                        {{end}}
+                    </fieldset>
+                    {{end}}
                     <div class="form-group" style="margin-bottom: 0;">
                         <label for="player_id">Linked player (optional)</label>
                         <select id="player_id" name="player_id">
@@ -231,7 +248,7 @@
                 </form>
                 <p class="form-help">You do not choose a password. Creating the user gives you an invite link to pass on; the person who opens it sets up their own passkey or password.</p>
                 <p class="form-help" data-role-help>A <strong>captain</strong> runs every team: planning, availability, selection, fixtures and rescheduling, results, players and standings. An <strong>admin</strong> can do all of that and also manage users, sessions, club settings, seasons, imports and backups. Players do not need an account: they use their own availability link. Link a captain to their player record so their own teams are marked on the planning dashboard.</p>
-                <p class="form-help" data-tournaments-help><strong>Tournaments only</strong> is for people who run the club's tournaments and nothing else: they sign in like everyone else and go straight to tournament management, with no league pages. Choose <strong>own tournaments</strong> (the ones they run or are given) or <strong>all tournaments</strong>. A captain has no tournament access unless you give it here. Administrators always have every tournament.</p>
+                <p class="form-help" data-tournaments-help><strong>Tournaments only</strong> is for people who run the club's tournaments and nothing else: they sign in like everyone else and go straight to tournament management, with no league pages. Choose <strong>own tournaments</strong> (the ones they run or are given) or <strong>all tournaments</strong>. A captain has no tournament access unless you give it here. Administrators always have every tournament.{{if .TournamentSets}} The club runs more than one set of tournaments: tick the ones each person can manage. The ticks only matter for someone whose Tournaments is not "No tournaments".{{end}}</p>
             </div>
 
             <div class="content-section">
@@ -273,7 +290,7 @@
                                 </td>
                                 <td data-user-tournaments="{{.EffectiveTournamentAccess}}">
                                     {{if eq (lower .Role) "admin"}}
-                                    <span class="tournament-access-fixed">All tournaments (administrator)</span>
+                                    <span class="tournament-access-fixed">All tournaments (administrator){{if $.TournamentSets}}, in every set of tournaments the club runs{{end}}</span>
                                     {{else}}
                                     {{$stored := printf "%s" .TournamentAccess}}{{$only := .IsTournamentsOnly}}
                                     <form method="POST" action="/admin/league/users/{{.ID}}/tournaments" class="inline-form" data-user-tournaments-form>
@@ -287,6 +304,21 @@
                                             {{end}}
                                         </select>
                                     </form>
+                                    {{if and $.TournamentSets (ne $stored "none")}}
+                                    {{$picked := index $.PickedSets .ID}}{{$uid := .ID}}{{$uname := .Username}}
+                                    <form method="POST" action="/admin/league/users/{{.ID}}/tournament-sets" class="tournament-sets-form" data-user-tournament-sets-form>
+                                        <fieldset class="tournament-sets">
+                                            <legend>Can manage tournaments for</legend>
+                                            {{range $.TournamentSets}}
+                                            <label class="tournament-set-option">
+                                                <input type="checkbox" name="tournament_set" value="{{.ID}}" data-set-code="{{.Code}}" {{if $picked}}{{if index $picked .ID}}checked{{end}}{{else if .Own}}checked{{end}}>
+                                                {{.Name}}
+                                            </label>
+                                            {{end}}
+                                            <button type="submit" class="action-btn" aria-label="Save which tournaments {{$uname}} can manage">Save</button>
+                                        </fieldset>
+                                    </form>
+                                    {{end}}
                                     {{end}}
                                 </td>
                                 <td>

@@ -20,16 +20,18 @@ const (
 	ActionEnable           = "user.enable"            // account reactivated
 	ActionRoleChange       = "user.role_change"       // role changed
 	ActionTournamentAccess = "user.tournament_access" // stored tournament access changed (WI-153)
-	ActionRevokeSessions   = "user.sessions_revoke"   // every session of the user ended
-	ActionRevokeSession    = "session.revoke"         // one session ended
-	ActionCleanupSessions  = "sessions.cleanup"       // expired sessions marked invalid
-	ActionSetupCode        = "setup.code_issue"       // a new first-run setup code was issued
-	ActionLinkCreate       = "link.create"            // an invite or recovery link was issued
-	ActionLinkRevoke       = "link.revoke"            // an unused link was cancelled
-	ActionLinkUse          = "link.use"               // a link was used: a sign-in method was set
-	ActionSignIn           = "user.sign_in"           // an administrator signed in (detail: method, address)
-	ActionBackupDownload   = "backup.download"        // an administrator downloaded a backup (detail: proof, schema)
-	ActionBackupRestore    = "backup.restore"         // a backup was restored (recorded in the restored database)
+	// ActionTournamentProviders: the sets of tournaments picked for the account changed (WI-154).
+	ActionTournamentProviders = "user.tournament_providers"
+	ActionRevokeSessions      = "user.sessions_revoke" // every session of the user ended
+	ActionRevokeSession       = "session.revoke"       // one session ended
+	ActionCleanupSessions     = "sessions.cleanup"     // expired sessions marked invalid
+	ActionSetupCode           = "setup.code_issue"     // a new first-run setup code was issued
+	ActionLinkCreate          = "link.create"          // an invite or recovery link was issued
+	ActionLinkRevoke          = "link.revoke"          // an unused link was cancelled
+	ActionLinkUse             = "link.use"             // a link was used: a sign-in method was set
+	ActionSignIn              = "user.sign_in"         // an administrator signed in (detail: method, address)
+	ActionBackupDownload      = "backup.download"      // an administrator downloaded a backup (detail: proof, schema)
+	ActionBackupRestore       = "backup.restore"       // a backup was restored (recorded in the restored database)
 )
 
 // ActorKind says where an audited action came from.

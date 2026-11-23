@@ -44,7 +44,7 @@ Accounts
   user list                        Show every account: its role, its tournament
                                    access, whether it can sign in, and when it
                                    last signed in.
-  user create <username> --role <role> [--tournaments <access>]
+  user create <username> --role <role> [--tournaments <access>] [--providers <codes>]
                                    Make a new account. <role> is admin (runs the
                                    instance), captain (runs every team) or
                                    tournaments (Tournaments only: runs the
@@ -54,6 +54,11 @@ Accounts
                                    tournament). A Tournaments only account
                                    needs one; a captain has none unless you
                                    give it; administrators always have all.
+                                   <codes> is for a club that keeps more than
+                                   one set of tournaments ("tournaments
+                                   status" lists them): the codes, separated
+                                   by commas, of the sets the person can
+                                   manage. Without it they get the club's own.
                                    Prints an invite link once; the person who
                                    opens it sets up their own passkey or
                                    password. The link works once, for 48 hours.
@@ -70,11 +75,15 @@ Accounts
   user enable <username>           Let a disabled account sign in again.
   user role <username> <role>      Change an account's role. Refused if it would
                                    leave no administrator who can sign in.
-  user tournaments <username> <access>
+  user tournaments <username> <access> [--providers <codes>]
                                    Change an account's tournament access: none,
                                    own or all. Not for administrators (they
                                    always have all). A Tournaments only account
                                    keeps own or all; to stop it, disable it.
+                                   With --providers, also choose which sets of
+                                   tournaments the person can manage (codes
+                                   separated by commas), replacing the earlier
+                                   choice.
   user sessions revoke <username>  Sign an account out on every device.
 
 Passkeys for administrators
@@ -254,6 +263,9 @@ type command struct {
 	role string   // --role
 	// tournaments is --tournaments (user create only).
 	tournaments string
+	// providers is --providers (user create and user tournaments): the
+	// codes of the sets of tournaments chosen for the person.
+	providers string
 	// abbreviation is --abbreviation (tournaments provision only).
 	abbreviation string
 	// tournamentsOnly is --tournaments-only (restore only).
@@ -267,6 +279,9 @@ func parseCommand(args []string) (command, error) {
 	if err == nil && cmd.abbreviation != "" && cmd.name != cmdTournamentsProvision {
 		return command{}, fmt.Errorf("%w: --abbreviation only goes with \"tournaments provision\"", errUsage)
 	}
+	if err == nil && cmd.providers != "" && cmd.name != "user create" && cmd.name != "user tournaments" {
+		return command{}, fmt.Errorf("%w: --providers only goes with \"user create\" and \"user tournaments\"", errUsage)
+	}
 	return cmd, err
 }
 
@@ -274,6 +289,8 @@ func parseCommand(args []string) (command, error) {
 const (
 	cmdTournamentsStatus    = "tournaments status"
 	cmdTournamentsProvision = "tournaments provision"
+	// cmdTournamentsAddProvider takes on a further set of tournaments.
+	cmdTournamentsAddProvider = "tournaments add-provider"
 	// cmdTournamentsPreUpgrade is run by the deployment's one-shot service
 	// before a new tournament server image starts (cli_tournament_upgrade.go).
 	cmdTournamentsPreUpgrade = "tournaments pre-upgrade"
@@ -312,6 +329,18 @@ func parseCommandWords(args []string) (command, error) {
 				value = args[i]
 			}
 			cmd.tournaments = value
+		case "providers":
+			if !hasValue {
+				if i+1 >= len(args) {
+					return command{}, fmt.Errorf("%w: --providers needs a value: the codes of the sets of tournaments, separated by commas", errUsage)
+				}
+				i++
+				value = args[i]
+			}
+			if strings.TrimSpace(value) == "" {
+				return command{}, fmt.Errorf("%w: --providers needs at least one code", errUsage)
+			}
+			cmd.providers = value
 		case "tournaments-only":
 			if hasValue {
 				return command{}, fmt.Errorf("%w: --tournaments-only takes no value", errUsage)
@@ -382,7 +411,15 @@ func parseCommandWords(args []string) (command, error) {
 		}
 		return command{name: cmdRestore, args: words[1:], tournamentsOnly: cmd.tournamentsOnly}, noRole()
 	case "tournaments":
-		usage := fmt.Errorf("%w: usage: jim-dot-tennis tournaments status|provision [--abbreviation <code>]|pre-upgrade", errUsage)
+		usage := fmt.Errorf("%w: usage: jim-dot-tennis tournaments status|provision [--abbreviation <code>]|add-provider <code> <name>|pre-upgrade", errUsage)
+		if len(words) >= 2 && strings.ToLower(words[1]) == "add-provider" {
+			if len(words) < 4 {
+				return command{}, fmt.Errorf("%w: usage: jim-dot-tennis tournaments add-provider <code> <name>", errUsage)
+			}
+			cmd.name = cmdTournamentsAddProvider
+			cmd.args = []string{words[2], strings.Join(words[3:], " ")}
+			return cmd, noRole()
+		}
 		if len(words) != 2 {
 			return command{}, usage
 		}
@@ -438,6 +475,10 @@ func parseCommandWords(args []string) (command, error) {
 				return command{}, fmt.Errorf("%w: a Tournaments only account needs --tournaments own or --tournaments all", errUsage)
 			case role == models.RoleAdmin && cmd.tournaments != "":
 				return command{}, fmt.Errorf("%w: administrators always have every tournament: leave out --tournaments", errUsage)
+			case role == models.RoleAdmin && cmd.providers != "":
+				return command{}, fmt.Errorf("%w: administrators always have every set of tournaments: leave out --providers", errUsage)
+			case cmd.providers != "" && access == models.TournamentAccessNone:
+				return command{}, fmt.Errorf("%w: --providers needs --tournaments own or --tournaments all", errUsage)
 			}
 			return cmd, nil
 		case "reset", "disable", "enable":
@@ -460,8 +501,12 @@ func parseCommandWords(args []string) (command, error) {
 			if err := need(2, "user tournaments <username> <none|own|all>"); err != nil {
 				return command{}, err
 			}
-			if _, err := accounts.ParseTournamentAccess(cmd.args[1]); err != nil {
+			access, err := accounts.ParseTournamentAccess(cmd.args[1])
+			if err != nil {
 				return command{}, fmt.Errorf("%w: %v", errUsage, err)
+			}
+			if cmd.providers != "" && access == models.TournamentAccessNone {
+				return command{}, fmt.Errorf("%w: --providers goes with own or all, not none", errUsage)
 			}
 			return cmd, noRole()
 		case "sessions":
@@ -556,7 +601,7 @@ func (cmd command) run(ctx context.Context, c cliOut, db *database.DB) error {
 	case "user list":
 		return userList(ctx, c, svc)
 	case "user create":
-		return userCreate(ctx, c, db, svc, actor, cmd.args[0], cmd.role, cmd.tournaments)
+		return userCreate(ctx, c, db, svc, actor, cmd.args[0], cmd.role, cmd.tournaments, cmd.providers)
 	case "user reset":
 		return userReset(ctx, c, db, svc, actor, cmd.args[0])
 	case "user disable", "user enable":
@@ -564,14 +609,14 @@ func (cmd command) run(ctx context.Context, c cliOut, db *database.DB) error {
 	case "user role":
 		return userRole(ctx, c, svc, actor, cmd.args[0], cmd.args[1])
 	case "user tournaments":
-		return userTournaments(ctx, c, svc, actor, cmd.args[0], cmd.args[1])
+		return userTournaments(ctx, c, svc, actor, cmd.args[0], cmd.args[1], cmd.providers)
 	case "user sessions revoke":
 		return userRevokeSessions(ctx, c, svc, actor, cmd.args[0])
 	case "setup code":
 		return setupCode(ctx, c, db, svc, actor)
 	case "admin-passkeys status", "admin-passkeys on", "admin-passkeys off":
 		return adminPasskeys(ctx, c, svc, actor, strings.TrimPrefix(cmd.name, "admin-passkeys "))
-	case cmdTournamentsStatus, cmdTournamentsProvision:
+	case cmdTournamentsStatus, cmdTournamentsProvision, cmdTournamentsAddProvider:
 		return runTournamentsCommand(ctx, c, db, cmd)
 	}
 	return fmt.Errorf("unknown command %q", cmd.name)
@@ -623,7 +668,7 @@ func userList(ctx context.Context, c cliOut, svc *accounts.Service) error {
 	return nil
 }
 
-func userCreate(ctx context.Context, c cliOut, db *database.DB, svc *accounts.Service, actor accounts.Actor, username, roleName, accessName string) error {
+func userCreate(ctx context.Context, c cliOut, db *database.DB, svc *accounts.Service, actor accounts.Actor, username, roleName, accessName, providerCodes string) error {
 	role, err := accounts.ParseAccountType(roleName)
 	if err != nil {
 		return err
@@ -638,11 +683,17 @@ func userCreate(ctx context.Context, c cliOut, db *database.DB, svc *accounts.Se
 		a    accounts.Account
 		link accounts.IssuedLink
 	)
+	var sets []uint
+	if providerCodes != "" {
+		if sets, err = svc.TournamentProviderIDs(ctx, strings.Split(providerCodes, ",")); err != nil {
+			return err
+		}
+	}
 	if role != models.RoleTournamentsOnly && access == models.TournamentAccessNone {
 		// A plain administrator or captain.
 		a, link, err = svc.Invite(ctx, actor, username, role, nil)
 	} else {
-		a, link, err = svc.InviteAccount(ctx, actor, accounts.NewAccount{Username: username, Role: role, TournamentAccess: access})
+		a, link, err = svc.InviteAccount(ctx, actor, accounts.NewAccount{Username: username, Role: role, TournamentAccess: access, TournamentProviders: sets})
 	}
 	if err != nil {
 		return err
@@ -650,6 +701,9 @@ func userCreate(ctx context.Context, c cliOut, db *database.DB, svc *accounts.Se
 	kind := a.RoleLabel()
 	if a.TournamentAccess != models.TournamentAccessNone {
 		kind += ", " + strings.ToLower(a.TournamentAccess.Label())
+	}
+	if len(sets) > 0 {
+		kind += ", in " + strings.ToUpper(strings.ReplaceAll(providerCodes, " ", ""))
 	}
 	c.printf("Created the account %q (%s). It has no password or passkey yet.\n\n", a.Username, kind)
 	printLink(ctx, c, db, link)
@@ -769,7 +823,7 @@ func userRole(ctx context.Context, c cliOut, svc *accounts.Service, actor accoun
 	return nil
 }
 
-func userTournaments(ctx context.Context, c cliOut, svc *accounts.Service, actor accounts.Actor, username, accessName string) error {
+func userTournaments(ctx context.Context, c cliOut, svc *accounts.Service, actor accounts.Actor, username, accessName, providerCodes string) error {
 	access, err := accounts.ParseTournamentAccess(accessName)
 	if err != nil {
 		return err
@@ -778,15 +832,31 @@ func userTournaments(ctx context.Context, c cliOut, svc *accounts.Service, actor
 	if err != nil {
 		return err
 	}
+	var sets []uint
+	if providerCodes != "" {
+		// Checked before anything changes, so a wrong code changes nothing.
+		if a.Role == models.RoleAdmin {
+			return accounts.ErrAdminTournamentProviders
+		}
+		if sets, err = svc.TournamentProviderIDs(ctx, strings.Split(providerCodes, ",")); err != nil {
+			return err
+		}
+	}
 	if a.Role != models.RoleAdmin && a.TournamentAccess == access {
 		c.printf("%q already has %s; nothing changed.\n", a.Username, strings.ToLower(access.Label()))
-		return nil
+	} else {
+		previous, err := svc.SetTournamentAccess(ctx, actor, a.ID, access)
+		if err != nil {
+			return err
+		}
+		c.printf("Changed the tournament access of %q from %s to %s.\n", a.Username, previous, access)
 	}
-	previous, err := svc.SetTournamentAccess(ctx, actor, a.ID, access)
-	if err != nil {
-		return err
+	if len(sets) > 0 {
+		if err := svc.SetTournamentProviders(ctx, actor, a.ID, sets); err != nil {
+			return err
+		}
+		c.printf("%q can now manage these sets of tournaments: %s.\n", a.Username, strings.ToUpper(strings.ReplaceAll(providerCodes, " ", "")))
 	}
-	c.printf("Changed the tournament access of %q from %s to %s.\n", a.Username, previous, access)
 	if !a.IsActive {
 		c.printf("This account is disabled, so it cannot use tournaments until it is enabled:\n    jim-dot-tennis user enable %s\n", a.Username)
 	}

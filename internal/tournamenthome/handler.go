@@ -13,16 +13,19 @@ package tournamenthome
 
 import (
 	"context"
+	"errors"
 	"html/template"
 	"log"
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"jim-dot-tennis/internal/auth"
 	"jim-dot-tennis/internal/models"
 	"jim-dot-tennis/internal/render"
+	"jim-dot-tennis/internal/tournaments"
 )
 
 // ManagementPath is where the "Open tournament management" button goes, and
@@ -43,8 +46,11 @@ type Opener interface {
 	// stack. Without it, tournament management has its own sign-in.
 	Configured() bool
 	// Handover returns a single-use token that signs the account in to
-	// tournament management.
-	Handover(ctx context.Context, userID int64) (string, error)
+	// tournament management, acting for the set of tournaments with the
+	// given code ("" for the person's first).
+	Handover(ctx context.Context, userID int64, provider string) (string, error)
+	// ProvidersFor lists the sets of tournaments the account can manage.
+	ProvidersFor(ctx context.Context, userID int64) ([]tournaments.ManagedProvider, error)
 }
 
 // leagueDashboardPath is the league dashboard, for captains and
@@ -99,10 +105,28 @@ func (h *Handler) open(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, tmxPath, http.StatusSeeOther)
 		return
 	}
-	token, err := h.opener.Handover(r.Context(), user.ID)
+	code := strings.TrimSpace(r.URL.Query().Get("provider"))
+	if code == "" {
+		// Someone with several sets of tournaments chooses on the home page:
+		// a link that names none (tournament management's own "Log in", a
+		// bookmark) must not pick one for them.
+		if sets := h.sets(r.Context(), user); len(sets) > 1 {
+			http.Redirect(w, r, auth.TournamentHomePath+"#choose", http.StatusSeeOther)
+			return
+		}
+	}
+	token, err := h.opener.Handover(r.Context(), user.ID, code)
+	if errors.Is(err, tournaments.ErrNoAccess) {
+		// A set of tournaments that is not one of theirs (or no longer is).
+		http.Redirect(w, r, auth.TournamentHomePath, http.StatusSeeOther)
+		return
+	}
 	if err != nil {
 		log.Printf("tournament home: hand-over for account %d: %v", user.ID, err)
 		data := pageData{Username: user.Username, Enabled: true, ManagementURL: ManagementPath, OpenFailed: true}
+		if code != "" {
+			data.ManagementURL = setURL(code)
+		}
 		if models.RoleAtLeast(user.Role, models.RoleCaptain) {
 			data.LeaguePath = leagueDashboardPath
 		}
@@ -110,6 +134,42 @@ func (h *Handler) open(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, tmxPath+"#/sso?token="+url.QueryEscape(token), http.StatusSeeOther)
+}
+
+// setURL is the hand-over address for the set of tournaments with this code.
+func setURL(code string) string {
+	return ManagementPath + "?provider=" + url.QueryEscape(code)
+}
+
+// SetChoice is one set of tournaments a person can open: what the home page
+// shows when they have more than one.
+type SetChoice struct {
+	Name string // what people call it, set by an administrator
+	Code string // its code on the tournament server, shown small
+	URL  string // opens tournament management for it
+}
+
+// sets lists the sets of tournaments user can open, or nil when this
+// deployment has no bundled tournament stack or the list cannot be read (the
+// page then offers the single button, which still works).
+func (h *Handler) sets(ctx context.Context, user models.User) []SetChoice {
+	if h.opener == nil || !h.opener.Configured() {
+		return nil
+	}
+	providers, err := h.opener.ProvidersFor(ctx, user.ID)
+	if err != nil {
+		log.Printf("tournament home: reading the sets of tournaments of account %d: %v", user.ID, err)
+		return nil
+	}
+	out := make([]SetChoice, 0, len(providers))
+	for _, p := range providers {
+		name := p.Name
+		if name == "" {
+			name = p.Abbr
+		}
+		out = append(out, SetChoice{Name: name, Code: p.Abbr, URL: setURL(p.Abbr)})
+	}
+	return out
 }
 
 // pageData is what the template sees.
@@ -122,6 +182,9 @@ type pageData struct {
 	LeaguePath    string // the league dashboard, for captains and administrators; "" otherwise
 	Refused       bool   // the account has no tournament access
 	OpenFailed    bool   // tournament management could not be opened just now
+	// Sets is filled only when the person has more than one set of
+	// tournaments: the page then asks which to manage.
+	Sets []SetChoice
 }
 
 func (h *Handler) serve(w http.ResponseWriter, r *http.Request) {
@@ -146,6 +209,9 @@ func (h *Handler) serve(w http.ResponseWriter, r *http.Request) {
 		data.Enabled = h.features.TournamentsEnabled()
 		if data.Enabled {
 			data.ManagementURL = ManagementPath
+			if sets := h.sets(r.Context(), user); len(sets) > 1 {
+				data.Sets = sets
+			}
 		}
 	}
 	h.render(w, status, data)

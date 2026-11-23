@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"jim-dot-tennis/internal/accounts"
@@ -52,8 +53,8 @@ type accountRow struct {
 	LastError       string `db:"last_error"`
 }
 
-// tournamentRole maps the access an account has here to the role it holds at
-// the club's provider. "" means no membership.
+// tournamentRole maps the access an account has here to the role it holds in
+// each of its providers. "" means no membership.
 func tournamentRole(access models.TournamentAccess) string {
 	switch access {
 	case models.TournamentAccessAll:
@@ -102,24 +103,34 @@ func (s *Service) markPending(ctx context.Context, userID int64, cause error) {
 }
 
 // SyncAccount brings the tournament server into line with what userID may do
-// now: it makes or restores their tournament account with the right role, or
-// removes their membership. Safe to repeat. An account that has never had a
+// now: it makes or restores their tournament account with the right role in
+// each provider chosen for them, and removes their membership of every other
+// provider the app manages. Safe to repeat. An account that has never had a
 // tournament account and has no access needs nothing and touches nothing.
 func (s *Service) SyncAccount(ctx context.Context, userID int64) error {
 	u, err := s.user(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("tournaments: reading account %d: %w", userID, err)
 	}
-	return s.apply(ctx, u, tournamentRole(u.TournamentAccessLevel()))
+	providers, err := s.providersFor(ctx, u)
+	if err != nil {
+		return fmt.Errorf("tournaments: reading the providers of account %d: %w", userID, err)
+	}
+	return s.apply(ctx, u, providers, tournamentRole(u.TournamentAccessLevel()))
 }
 
-// apply sets u's membership to want ("" removes it).
-func (s *Service) apply(ctx context.Context, u models.User, want string) error {
+// apply makes u a member, with role, of exactly the given providers among
+// those the app manages. No providers, or role "", removes every membership
+// and the account's global roles.
+func (s *Service) apply(ctx context.Context, u models.User, providers []ManagedProvider, role string) error {
+	if role == "" {
+		providers = nil
+	}
 	r, known, err := s.row(ctx, u.ID)
 	if err != nil {
 		return fmt.Errorf("tournaments: reading the tournament account of %d: %w", u.ID, err)
 	}
-	if want == "" && !known {
+	if role == "" && !known {
 		return nil
 	}
 	if !s.Configured() {
@@ -138,59 +149,112 @@ func (s *Service) apply(ctx context.Context, u models.User, want string) error {
 		}
 		return ErrNotSetUp
 	}
-
-	if want == "" {
-		if err := s.client.RemoveAccount(ctx, st.providerID, r.CourthiveUserID, r.Email); err != nil {
-			s.markPending(ctx, u.ID, err)
-			return err
-		}
-		r.AppliedRole, r.Pending, r.LastError = "", false, ""
-		return s.saveRow(ctx, r)
-	}
-
-	email := r.Email
-	if !known {
-		email = courthive.AccountEmail(u.Username)
-	}
-	id, err := s.client.EnsureAccount(ctx, st.providerID, courthive.Account{
-		ExternalID: strconv.FormatInt(u.ID, 10),
-		Email:      email,
-		Role:       want,
-		UserID:     r.CourthiveUserID,
-	})
+	managed, err := s.managed(ctx, st)
 	if err != nil {
+		return err
+	}
+	failed := func(err error) error {
 		if known {
 			s.markPending(ctx, u.ID, err)
 		}
 		return err
 	}
-	return s.saveRow(ctx, accountRow{UserID: u.ID, CourthiveUserID: id, Email: email, AppliedRole: want})
+
+	// Memberships wanted: made or restored first, so the app learns the
+	// account's id before anything else.
+	wanted := map[string]bool{}
+	if len(providers) > 0 {
+		if !known {
+			r = accountRow{UserID: u.ID, Email: courthive.AccountEmail(u.Username)}
+		}
+		externalID := strconv.FormatInt(u.ID, 10)
+		for _, p := range providers {
+			wanted[p.CourthiveID] = true
+			account := courthive.Account{ExternalID: externalID, Email: r.Email, Role: role, UserID: r.CourthiveUserID}
+			id, err := s.client.EnsureAccount(ctx, p.CourthiveID, account)
+			if errors.Is(err, courthive.ErrAccountUnknown) {
+				// The account exists on the tournament server, in another
+				// provider, and the app has no note of its id.
+				if account.UserID, err = s.findAccount(ctx, externalID); err == nil {
+					id, err = s.client.EnsureAccount(ctx, p.CourthiveID, account)
+				}
+			}
+			if err != nil {
+				return failed(err)
+			}
+			if !known || id != r.CourthiveUserID {
+				// Keep the id at once: without it a later step that fails
+				// could not be tried again.
+				r.CourthiveUserID = id
+				r.Pending, r.LastError = true, "not finished"
+				if err := s.saveRow(ctx, r); err != nil {
+					return err
+				}
+				known = true
+			}
+		}
+	}
+
+	if r.CourthiveUserID == "" {
+		// Never had a tournament account, and none is wanted.
+		return nil
+	}
+	// Every other provider the app manages: no membership.
+	for _, p := range managed {
+		if wanted[p.CourthiveID] {
+			continue
+		}
+		if err := s.client.RemoveMembership(ctx, p.CourthiveID, r.CourthiveUserID); err != nil {
+			return failed(err)
+		}
+	}
+	if len(wanted) == 0 {
+		if err := s.client.ClearRoles(ctx, r.Email); err != nil {
+			return failed(err)
+		}
+		role = ""
+	}
+	r.AppliedRole, r.Pending, r.LastError = role, false, ""
+	return s.saveRow(ctx, r)
 }
 
 // Handover brings userID's tournament account into line and returns a
-// single-use token that signs them in to tournament management. The token
-// expires in a minute. It is refused for an account with no tournament access.
-func (s *Service) Handover(ctx context.Context, userID int64) (string, error) {
+// single-use token that signs them in to tournament management, acting for
+// the provider with the given code; "" means their first provider (the
+// club's own when they have it). The token expires in a minute. It is refused
+// (ErrNoAccess) for an account with no tournament access, and for a provider
+// that is not one of theirs.
+func (s *Service) Handover(ctx context.Context, userID int64, provider string) (string, error) {
 	u, err := s.user(ctx, userID)
 	if err != nil {
 		return "", fmt.Errorf("tournaments: reading account %d: %w", userID, err)
 	}
-	want := tournamentRole(u.TournamentAccessLevel())
-	if want == "" {
+	role := tournamentRole(u.TournamentAccessLevel())
+	if role == "" {
 		// Make sure nothing is left behind, then refuse.
-		if err := s.apply(ctx, u, ""); err != nil && !errors.Is(err, ErrNotConfigured) && !errors.Is(err, ErrNotSetUp) {
+		if err := s.apply(ctx, u, nil, ""); err != nil && !errors.Is(err, ErrNotConfigured) && !errors.Is(err, ErrNotSetUp) {
 			log.Printf("tournaments: removing the tournament membership of account %d: %v", userID, err)
 		}
 		return "", ErrNoAccess
 	}
-	if err := s.apply(ctx, u, want); err != nil {
-		return "", err
-	}
-	st, err := s.load(ctx)
+	providers, err := s.providersFor(ctx, u)
 	if err != nil {
 		return "", err
 	}
-	return s.client.HandoverToken(ctx, st.providerID, strconv.FormatInt(u.ID, 10))
+	if err := s.apply(ctx, u, providers, role); err != nil {
+		return "", err
+	}
+	var target *ManagedProvider
+	for i := range providers {
+		if provider == "" || strings.EqualFold(providers[i].Abbr, strings.TrimSpace(provider)) {
+			target = &providers[i]
+			break
+		}
+	}
+	if target == nil {
+		return "", ErrNoAccess
+	}
+	return s.client.HandoverToken(ctx, target.CourthiveID, strconv.FormatInt(u.ID, 10))
 }
 
 // TournamentAccessChanged implements accounts.TournamentAccessObserver: it is
@@ -211,7 +275,7 @@ func (s *Service) TournamentAccessChanged(_ context.Context, change accounts.Tou
 	if change.What == "sessions_revoked" {
 		var u models.User
 		if u, err = s.user(ctx, change.UserID); err == nil {
-			err = s.apply(ctx, u, "")
+			err = s.apply(ctx, u, nil, "")
 		}
 	} else {
 		err = s.SyncAccount(ctx, change.UserID)

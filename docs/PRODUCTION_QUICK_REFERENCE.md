@@ -773,7 +773,7 @@ Accounts
   user list                        Show every account: its role, its tournament
                                    access, whether it can sign in, and when it
                                    last signed in.
-  user create <username> --role <role> [--tournaments <access>]
+  user create <username> --role <role> [--tournaments <access>] [--providers <codes>]
                                    Make a new account. <role> is admin (runs the
                                    instance), captain (runs every team) or
                                    tournaments (Tournaments only: runs the
@@ -783,6 +783,11 @@ Accounts
                                    tournament). A Tournaments only account
                                    needs one; a captain has none unless you
                                    give it; administrators always have all.
+                                   <codes> is for a club that keeps more than
+                                   one set of tournaments ("tournaments
+                                   status" lists them): the codes, separated
+                                   by commas, of the sets the person can
+                                   manage. Without it they get the club's own.
                                    Prints an invite link once; the person who
                                    opens it sets up their own passkey or
                                    password. The link works once, for 48 hours.
@@ -799,11 +804,15 @@ Accounts
   user enable <username>           Let a disabled account sign in again.
   user role <username> <role>      Change an account's role. Refused if it would
                                    leave no administrator who can sign in.
-  user tournaments <username> <access>
+  user tournaments <username> <access> [--providers <codes>]
                                    Change an account's tournament access: none,
                                    own or all. Not for administrators (they
                                    always have all). A Tournaments only account
                                    keeps own or all; to stop it, disable it.
+                                   With --providers, also choose which sets of
+                                   tournaments the person can manage (codes
+                                   separated by commas), replacing the earlier
+                                   choice.
   user sessions revoke <username>  Sign an account out on every device.
 
 Passkeys for administrators
@@ -892,7 +901,9 @@ Tournaments
   tournaments status               Say whether the bundled tournament software
                                    is switched on in this deployment, whether
                                    the app can reach it, which version it runs,
-                                   and whether the club is set up on it.
+                                   and whether the club is set up on it. Lists
+                                   the club's sets of tournaments with their
+                                   codes.
   tournaments provision [--abbreviation <code>]
                                    Set the club up on the bundled tournament
                                    software, as switching Tournaments on in
@@ -908,6 +919,21 @@ Tournaments
                                    the club is set up the code cannot change.
                                    Lists tournament accounts the app did not
                                    make; nothing is changed for them.
+  tournaments add-provider <code> <name>
+                                   For a club that keeps more than one set of
+                                   tournaments (for example one for the club
+                                   and one for a league cup): add another
+                                   beside the club's own. <code> is 2 to 12
+                                   letters or digits and cannot change later;
+                                   <name> is what people see when they choose
+                                   which tournaments to manage. If the
+                                   tournament server already has a set with
+                                   that code, it is taken on as it is, with
+                                   its tournaments. Nobody but administrators
+                                   is given it: choose who with "user
+                                   tournaments <username> <access> --providers
+                                   <codes>" or on the users page. The club
+                                   must be set up first. Safe to run again.
   tournaments pre-upgrade          Run by the deployment before the tournament
                                    server starts; you do not need to run it.
                                    When the tournament server image differs

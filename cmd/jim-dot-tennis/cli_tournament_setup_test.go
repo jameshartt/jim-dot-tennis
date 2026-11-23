@@ -148,3 +148,83 @@ func TestCLITournamentsUsage(t *testing.T) {
 		t.Errorf("help lacks the tournament commands")
 	}
 }
+
+// A second set of tournaments from the command line, and choosing who
+// manages which (WI-154).
+func TestCLITournamentsAddProviderAndChoose(t *testing.T) {
+	db := cliTestDB(t)
+	if _, err := db.Exec(`INSERT INTO clubs (id, name) VALUES (1, 'Alpha Tennis Club')`); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME_CLUB_ID", "1")
+	fake := courthivetest.New(t)
+	tournamentEnv(t, fake.URL, fake.URL, courthivetest.Password)
+
+	// Not before the club is set up.
+	r := runCLITest(t, "tournaments", "add-provider", "CUP", "Parks", "Cup")
+	if r.code != exitError || !strings.Contains(r.stderr, "tournaments provision") {
+		t.Fatalf("before set-up: %+v", r)
+	}
+	if r := runCLITest(t, "tournaments", "provision"); r.code != exitOK {
+		t.Fatalf("provision: %+v", r)
+	}
+	r = runCLITest(t, "tournaments", "add-provider", "cup", "Parks", "Cup")
+	if r.code != exitOK || !strings.Contains(r.stdout, "Tournament set-up for CUP (Parks Cup)") || !strings.Contains(r.stdout, "--providers") ||
+		!strings.Contains(r.stderr, `actor="cli:tournaments add-provider"`) || !strings.Contains(r.stderr, "further_provider") {
+		t.Fatalf("add-provider: %+v", r)
+	}
+	if len(fake.Providers()) != 2 {
+		t.Fatalf("providers on the server: %+v", fake.Providers())
+	}
+	r = runCLITest(t, "tournaments", "status")
+	if r.code != exitOK || !strings.Contains(r.stdout, "Sets of tournaments:") || !strings.Contains(r.stdout, "Parks Cup") || !strings.Contains(r.stdout, "(the club's own)") {
+		t.Fatalf("status: %+v", r)
+	}
+
+	// Someone for the cup only: a member there and nowhere else.
+	r = runCLITest(t, "user", "create", "tina", "--role", "tournaments", "--tournaments", "own", "--providers", "cup")
+	if r.code != exitOK || !strings.Contains(r.stdout, "in CUP") {
+		t.Fatalf("create tina: %+v", r)
+	}
+	membership := func() string {
+		for _, u := range fake.Users() {
+			if u.Email == "tina@jim-dot-tennis.invalid" {
+				var in []string
+				for _, code := range []string{"ALPHA", "CUP"} {
+					if role, ok := u.Membership["provider-"+code]; ok {
+						in = append(in, code+"="+role)
+					}
+				}
+				return strings.Join(in, ",")
+			}
+		}
+		return "(no account)"
+	}
+	if got := membership(); got != "CUP=DIRECTOR" {
+		t.Fatalf("tina on the tournament server: %q", got)
+	}
+	r = runCLITest(t, "user", "tournaments", "tina", "all", "--providers", "ALPHA,CUP")
+	if r.code != exitOK || !strings.Contains(r.stdout, "ALPHA,CUP") || !strings.Contains(r.stderr, "action=user.tournament_providers") {
+		t.Fatalf("both: %+v", r)
+	}
+	if got := membership(); got != "ALPHA=PROVIDER_ADMIN,CUP=PROVIDER_ADMIN" {
+		t.Fatalf("tina after both: %q", got)
+	}
+	// A wrong code changes nothing; misuse is a usage error.
+	r = runCLITest(t, "user", "tournaments", "tina", "own", "--providers", "NOSUCH")
+	if r.code != exitError || !strings.Contains(r.stderr, "not one this app manages") || membership() != "ALPHA=PROVIDER_ADMIN,CUP=PROVIDER_ADMIN" {
+		t.Fatalf("wrong code: %+v (%s)", r, membership())
+	}
+	for _, args := range [][]string{
+		{"user", "tournaments", "tina", "none", "--providers", "CUP"},
+		{"user", "create", "tom", "--role", "admin", "--providers", "CUP"},
+		{"user", "create", "tom", "--role", "captain", "--providers", "CUP"},
+		{"user", "list", "--providers", "CUP"},
+		{"tournaments", "add-provider", "CUP"},
+		{"tournaments", "status", "--providers", "CUP"},
+	} {
+		if r := runCLITest(t, args...); r.code != exitUsage {
+			t.Errorf("%v: code %d (%s), want a usage error", args, r.code, r.stderr)
+		}
+	}
+}

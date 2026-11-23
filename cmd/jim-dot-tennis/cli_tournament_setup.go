@@ -62,7 +62,9 @@ Tournaments
   tournaments status               Say whether the bundled tournament software
                                    is switched on in this deployment, whether
                                    the app can reach it, which version it runs,
-                                   and whether the club is set up on it.
+                                   and whether the club is set up on it. Lists
+                                   the club's sets of tournaments with their
+                                   codes.
   tournaments provision [--abbreviation <code>]
                                    Set the club up on the bundled tournament
                                    software, as switching Tournaments on in
@@ -78,6 +80,21 @@ Tournaments
                                    the club is set up the code cannot change.
                                    Lists tournament accounts the app did not
                                    make; nothing is changed for them.
+  tournaments add-provider <code> <name>
+                                   For a club that keeps more than one set of
+                                   tournaments (for example one for the club
+                                   and one for a league cup): add another
+                                   beside the club's own. <code> is 2 to 12
+                                   letters or digits and cannot change later;
+                                   <name> is what people see when they choose
+                                   which tournaments to manage. If the
+                                   tournament server already has a set with
+                                   that code, it is taken on as it is, with
+                                   its tournaments. Nobody but administrators
+                                   is given it: choose who with "user
+                                   tournaments <username> <access> --providers
+                                   <codes>" or on the users page. The club
+                                   must be set up first. Safe to run again.
   tournaments pre-upgrade          Run by the deployment before the tournament
                                    server starts; you do not need to run it.
                                    When the tournament server image differs
@@ -97,7 +114,27 @@ func runTournamentsCommand(ctx context.Context, c cliOut, db *database.DB, cmd c
 	if cmd.name == "tournaments status" {
 		return tournamentsStatus(ctx, c, svc, cfg)
 	}
+	if cmd.name == cmdTournamentsAddProvider {
+		return tournamentsAddProvider(ctx, c, svc, cmd.args[0], cmd.args[1])
+	}
 	return tournamentsProvision(ctx, c, db, svc, cmd.abbreviation)
+}
+
+func tournamentsAddProvider(ctx context.Context, c cliOut, svc *tournaments.Service, code, name string) error {
+	res, err := svc.AddProvider(ctx, accounts.CLIActor(cmdTournamentsAddProvider), code, name)
+	if res != nil {
+		printSetupResult(c, res)
+	}
+	var stepErr *tournaments.StepError
+	switch {
+	case errors.As(err, &stepErr):
+		return errors.New("adding the set of tournaments stopped part-way. Run the same command again to finish it; the steps already done are not repeated")
+	case errors.Is(err, tournaments.ErrNotSetUp):
+		return errors.New("the club is not set up on the tournament software yet. Run \"jim-dot-tennis tournaments provision\" first")
+	case errors.Is(err, tournaments.ErrNotConfigured):
+		return fmt.Errorf("the bundled tournament software is not switched on in this deployment (%s is empty)", envCourtHiveServicePassword)
+	}
+	return err
 }
 
 func tournamentsStatus(ctx context.Context, c cliOut, svc *tournaments.Service, cfg courthive.Config) error {
@@ -125,6 +162,16 @@ func tournamentsStatus(ctx context.Context, c cliOut, svc *tournaments.Service, 
 		c.printf("Club set up: no (the last attempt used the code %s).\n", st.Abbreviation)
 	default:
 		c.printf("Club set up: no.\n")
+	}
+	if sets, err := svc.ManagedProviders(ctx); err == nil && len(sets) > 0 {
+		c.printf("Sets of tournaments:\n")
+		for _, p := range sets {
+			own := ""
+			if p.Own {
+				own = " (the club's own)"
+			}
+			c.printf("  %-12s %s%s\n", p.Abbr, p.Name, own)
+		}
 	}
 	if l := st.Last; l != nil {
 		when := l.RanAt.Local().Format("2 Jan 2006 15:04")
@@ -185,6 +232,9 @@ func printSetupResult(c cliOut, res *tournaments.Result) {
 		if res.Detail != "" {
 			c.printf("Details: %s\n", res.Detail)
 		}
+	} else if res.Further && res.MadeAnything() {
+		c.printf("\nDone. Nobody but administrators has been given it yet. Choose who can manage it with\n" +
+			"    jim-dot-tennis user tournaments <username> <own|all> --providers <codes>\nor on the users page.\n")
 	} else if res.MadeAnything() {
 		c.printf("\nDone. Tournaments are ready to use.\n")
 	} else {
