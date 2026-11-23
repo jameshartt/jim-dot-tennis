@@ -457,16 +457,49 @@ type Provider struct {
 	Relationship string `json:"relationship"`
 }
 
-// Providers lists the providers on the tournament server, marking those the
-// app's provisioner manages.
+// Providers lists every provider on the tournament server, marking those the
+// app's provisioner manages. The provisioner's own listing shows only the
+// providers it already manages, so the rest (made by hand, or by an earlier
+// installation) come from the administrators' listing, which the service
+// account may read.
 func (c *Client) Providers(ctx context.Context) ([]Provider, error) {
-	var out struct {
+	var managed struct {
 		Providers []Provider `json:"providers"`
 	}
-	if err := c.do(ctx, "listing providers", http.MethodGet, c.serverURL, "/provisioner/providers", nil, &out); err != nil {
+	if err := c.do(ctx, "listing providers", http.MethodGet, c.serverURL, "/provisioner/providers", nil, &managed); err != nil {
 		return nil, err
 	}
-	return out.Providers, nil
+	out := managed.Providers
+	seen := map[string]bool{}
+	for i := range out {
+		out[i].Managed = true
+		seen[out[i].ID] = true
+	}
+	var all struct {
+		Providers []struct {
+			Key   string `json:"key"`
+			Value struct {
+				ID           string `json:"organisationId"`
+				Abbreviation string `json:"organisationAbbreviation"`
+				Name         string `json:"organisationName"`
+			} `json:"value"`
+		} `json:"providers"`
+	}
+	if err := c.do(ctx, "listing every provider", http.MethodPost, c.serverURL, "/provider/allproviders", map[string]any{}, &all); err != nil {
+		return nil, err
+	}
+	for _, p := range all.Providers {
+		id := p.Value.ID
+		if id == "" {
+			id = p.Key
+		}
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, Provider{ID: id, Abbreviation: p.Value.Abbreviation, Name: p.Value.Name})
+	}
+	return out, nil
 }
 
 // EnsureProvider returns the id of the provider with the given abbreviation,
@@ -635,18 +668,28 @@ func (c *Client) EnsureAccount(ctx context.Context, providerID string, a Account
 	return userID, nil
 }
 
-// RemoveAccount ends a person's tournament access: it removes their
-// membership of the provider and their global roles. The tournament server
-// reads membership on every request, so this takes effect at once, including
-// for sessions that already exist. Removing someone who is not a member is
-// not an error. Safe to repeat.
-func (c *Client) RemoveAccount(ctx context.Context, providerID, userID, email string) error {
-	if userID == "" || email == "" {
-		return errors.New("courthive: removing a tournament account needs its id and address")
+// RemoveMembership removes a person's membership of one provider. The
+// tournament server reads membership on every request, so this takes effect
+// at once, including for sessions that already exist. Removing someone who is
+// not a member is not an error. Safe to repeat. A person left in no provider
+// should also have their global roles cleared (ClearRoles).
+func (c *Client) RemoveMembership(ctx context.Context, providerID, userID string) error {
+	if userID == "" || providerID == "" {
+		return errors.New("courthive: removing a tournament membership needs the account's id and the provider's")
 	}
 	err := c.do(ctx, "removing the tournament membership", http.MethodDelete, c.serverURL, "/provisioner/users/"+url.PathEscape(userID)+"/providers/"+url.PathEscape(providerID), nil, nil)
 	if err != nil {
 		return lastAdministrator(err)
+	}
+	return nil
+}
+
+// ClearRoles removes the global roles tournament management needs from the
+// account with this address: the last step of ending a person's tournament
+// access, after their memberships are removed. Safe to repeat.
+func (c *Client) ClearRoles(ctx context.Context, email string) error {
+	if email == "" {
+		return errors.New("courthive: clearing tournament roles needs the account's address")
 	}
 	return c.setRoles(ctx, email, []string{})
 }

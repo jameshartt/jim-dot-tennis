@@ -35,6 +35,7 @@ const (
 	CallAssign           = "assign-representative"
 	CallTakeOwnership    = "take-ownership"
 	CallListProviders    = "list-providers"
+	CallListAllProviders = "list-all-providers"
 	CallMakeProvider     = "make-provider"
 	CallMembers          = "members"
 	CallMakeAccount      = "make-account"
@@ -115,6 +116,18 @@ func (s *Server) AddAccount(providerID, email, role, ssoProvider, externalID str
 	defer s.mu.Unlock()
 	s.users = append(s.users, &User{ID: "user-" + email, Email: email, ExternalID: externalID, SSOProvider: ssoProvider,
 		Membership: map[string]string{providerID: role}})
+}
+
+// RemoveMembership takes the account out of a provider, as if done by hand
+// on the tournament server (no last-administrator check).
+func (s *Server) RemoveMembership(userID, providerID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, u := range s.users {
+		if u.ID == userID {
+			delete(u.Membership, providerID)
+		}
+	}
 }
 
 // Providers returns a copy of the providers.
@@ -257,11 +270,21 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 		}
 		reply(201, map[string]any{"success": true})
 	case CallListProviders:
+		// As the real server: only the providers the provisioner manages.
 		list := []map[string]any{}
 		for _, p := range s.providers {
-			list = append(list, map[string]any{"providerId": p.ID, "organisationAbbreviation": p.Abbreviation, "organisationName": p.Name, "managed": p.Managed})
+			if p.Managed {
+				list = append(list, map[string]any{"providerId": p.ID, "organisationAbbreviation": p.Abbreviation, "organisationName": p.Name, "managed": true})
+			}
 		}
 		reply(200, map[string]any{"providers": list})
+	case CallListAllProviders:
+		list := []map[string]any{}
+		for _, p := range s.providers {
+			list = append(list, map[string]any{"key": p.ID, "value": map[string]any{
+				"organisationId": p.ID, "organisationAbbreviation": p.Abbreviation, "organisationName": p.Name}})
+		}
+		reply(200, map[string]any{"success": true, "providers": list})
 	case CallMakeProvider:
 		abbr := str("organisationAbbreviation")
 		if _, exists := s.providers[abbr]; exists {
@@ -372,6 +395,8 @@ func (s *Server) classify(method, path string) string {
 		return CallTakeOwnership
 	case path == "/provisioner/providers" && method == http.MethodGet:
 		return CallListProviders
+	case path == "/provider/allproviders":
+		return CallListAllProviders
 	case path == "/provisioner/providers":
 		return CallMakeProvider
 	case path == "/provisioner/users" && method == http.MethodGet:

@@ -129,11 +129,21 @@ func (f *fakeServer) handle(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(path, "/provisioner/") && !isProvisioner && !strings.Contains(path, "/providers/"):
 		reply(401, map[string]any{"message": "Provisioner API key required", "statusCode": 401})
 	case path == "/provisioner/providers" && r.Method == http.MethodGet:
+		// As the real server: only the providers the provisioner manages.
 		list := []Provider{}
 		for _, p := range f.providers {
-			list = append(list, *p)
+			if p.Managed {
+				list = append(list, *p)
+			}
 		}
 		reply(200, map[string]any{"providers": list})
+	case path == "/provider/allproviders" && r.Method == http.MethodPost:
+		list := []map[string]any{}
+		for _, p := range f.providers {
+			list = append(list, map[string]any{"key": p.ID, "value": map[string]any{
+				"organisationId": p.ID, "organisationAbbreviation": p.Abbreviation, "organisationName": p.Name}})
+		}
+		reply(200, map[string]any{"success": true, "providers": list})
 	case path == "/provisioner/providers" && r.Method == http.MethodPost:
 		abbr := str("organisationAbbreviation")
 		if _, exists := f.providers[abbr]; exists {
@@ -300,10 +310,13 @@ func TestTokenIsReusedThenReplaced(t *testing.T) {
 	if _, err := c.Providers(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if f.logins != after+1 {
+	// (Listing providers is two requests; with the clock held near expiry
+	// each of them signs in afresh.)
+	if f.logins <= after {
 		t.Fatalf("an expiring token must be replaced: %d sign-ins", f.logins)
 	}
 	c.now = time.Now
+	before := f.logins
 
 	// Refused by the server (for example after its keys changed): one retry.
 	f.mu.Lock()
@@ -312,7 +325,7 @@ func TestTokenIsReusedThenReplaced(t *testing.T) {
 	if _, err := c.Providers(ctx); err != nil {
 		t.Fatalf("a refused token should be replaced once: %v", err)
 	}
-	if f.logins != after+2 {
+	if f.logins != before+1 {
 		t.Fatalf("sign-ins = %d", f.logins)
 	}
 }
@@ -424,14 +437,14 @@ func TestAccountLifecycle(t *testing.T) {
 	}
 
 	// Remove: membership and roles both go.
-	if err := c.RemoveAccount(ctx, prov, uid, acct.Email); err != nil {
+	if err := removeAccount(ctx, c, prov, uid, acct.Email); err != nil {
 		t.Fatal(err)
 	}
 	if _, member := u.membership[prov]; member || len(u.roles) != 0 {
 		t.Fatalf("after removal: membership %v roles %v", u.membership, u.roles)
 	}
 	// Removing again is not an error.
-	if err := c.RemoveAccount(ctx, prov, uid, acct.Email); err != nil {
+	if err := removeAccount(ctx, c, prov, uid, acct.Email); err != nil {
 		t.Fatalf("second removal: %v", err)
 	}
 
@@ -458,7 +471,7 @@ func TestLastAdministratorCannotBeRemoved(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := c.RemoveAccount(ctx, prov, uid, AccountEmail("only")); !errors.Is(err, ErrLastAdministrator) {
+	if err := c.RemoveMembership(ctx, prov, uid); !errors.Is(err, ErrLastAdministrator) {
 		t.Fatalf("want ErrLastAdministrator, got %v", err)
 	}
 	if f.users[AccountEmail("only")].membership[prov] != RoleProviderAdmin {
@@ -518,4 +531,13 @@ func TestInvalidRoleIsRefusedBeforeAnyCall(t *testing.T) {
 	if len(f.calls) != before {
 		t.Fatal("no request should be sent for an invalid role")
 	}
+}
+
+// removeAccount ends a person's tournament access at their only provider:
+// the membership, then the global roles.
+func removeAccount(ctx context.Context, c *Client, providerID, userID, email string) error {
+	if err := c.RemoveMembership(ctx, providerID, userID); err != nil {
+		return err
+	}
+	return c.ClearRoles(ctx, email)
 }

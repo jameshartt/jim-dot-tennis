@@ -123,7 +123,7 @@ func TestAgainstRealServices(t *testing.T) {
 	}
 
 	// Remove: the existing session loses the club's tournaments at once.
-	if err := c.RemoveAccount(ctx, prov, uid, acct.Email); err != nil {
+	if err := removeAccount(ctx, c, prov, uid, acct.Email); err != nil {
 		t.Fatalf("RemoveAccount: %v", err)
 	}
 	status, n := calendars(t, server, renewedAccess)
@@ -136,7 +136,7 @@ func TestAgainstRealServices(t *testing.T) {
 	} else {
 		t.Logf("hand-over for a removed person refused: %v", err)
 	}
-	if err := c.RemoveAccount(ctx, prov, uid, acct.Email); err != nil {
+	if err := removeAccount(ctx, c, prov, uid, acct.Email); err != nil {
 		t.Fatalf("second RemoveAccount: %v", err)
 	}
 	// Return, as a director this time.
@@ -156,7 +156,7 @@ func TestAgainstRealServices(t *testing.T) {
 	t.Logf("%d members", len(members))
 	for _, m := range members {
 		if m.ExternalID == InstanceExternalID {
-			if err := c.RemoveAccount(ctx, prov, m.UserID, m.Email); err == nil {
+			if err := c.RemoveMembership(ctx, prov, m.UserID); err == nil {
 				// put it back: the test must leave the instance usable
 				_, _ = c.EnsureAccount(ctx, prov, Account{ExternalID: InstanceExternalID, Email: m.Email, Role: RoleProviderAdmin, UserID: m.UserID})
 			} else if !errors.Is(err, ErrLastAdministrator) {
