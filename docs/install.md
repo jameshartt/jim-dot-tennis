@@ -556,7 +556,13 @@ the app, do "If ports 80 and 443 are busy" below now, before starting.
 share the same name), replaces its containers and uses its data.
 
 Download, start and check it, then read the set-up code, exactly as in steps 7
-and 8:
+and 8. This version needs no tournament secrets for this: only "Optional:
+turning on tournaments" uses them.
+
+**If you chose an older version** (1.0.0-rc.1 or older, for example 0.2.1),
+the first two commands may stop with `required variable COURTHIVE_... is
+missing a value`. Run `./init-tournaments.sh` once, then carry on. Problem 2
+in [Troubleshooting](troubleshooting.md) explains why.
 
 ```
 docker compose pull
@@ -567,10 +573,10 @@ docker compose logs --no-log-prefix app | grep "SETUP CODE" | tail -1
 ```
 
 `ps` should show the app `Up ... (healthy)` and Caddy `Up`, and `version`
-the version you chose. You need no tournament secrets for this: only
-"Optional: turning on tournaments" uses them. (The files of version
-1.0.0-rc.1 or older do ask for them with Docker Compose version 2: see
-problem 2 in [Troubleshooting](troubleshooting.md).)
+the version you chose.
+
+The other guides (upgrading, backups, accounts) work on a trial too. Where
+they say `cd ~/jim-dot-tennis`, use `cd ~/jim-dot-tennis-trial`.
 
 Open `https://localhost`. The browser warns that the connection is not private,
 because it does not know Caddy's home-made certificate:

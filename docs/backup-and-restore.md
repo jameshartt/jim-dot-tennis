@@ -6,7 +6,8 @@ put a backup back. Practise a restore once, on a trial copy, before you need
 it.
 
 All server commands run in the install folder (see [Installing](install.md)):
-log in with `ssh`, then `cd ~/jim-dot-tennis`.
+log in with `ssh`, then `cd ~/jim-dot-tennis`. On a trial copy the folder is
+`~/jim-dot-tennis-trial`.
 
 ## What is backed up
 

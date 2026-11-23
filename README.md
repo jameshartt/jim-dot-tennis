@@ -17,7 +17,7 @@ Clubs in the BHPLTA (Brighton & Hove Parks League). It was built at St Ann's Ten
 - **Your own club championships.** An optional, built-in tournament system for draws, schedules, live scores and public tournament pages. You switch it on when you want it.
 - **Sign-in that is hard to get wrong.** Captains and administrators use passkeys (fingerprint, face or device PIN). A password is an optional fallback. There is no email to set up.
 - **Backups built in.** The app backs itself up every day and before every upgrade.
-- **Help in the app.** Guides for administrators, captains and players are part of the app.
+- **Help in the app.** Guides for administrators, captains and players are part of the app: open `/help` on your site, or press **Help with this page** on any admin page.
 
 ## Your data stays with your club
 

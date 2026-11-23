@@ -27,6 +27,9 @@ cd ~/jim-dot-tennis
 docker compose exec app ./jim-dot-tennis version
 ```
 
+(On a trial copy the folder is `~/jim-dot-tennis-trial`, here and in every
+later step.)
+
 You should see a line such as
 `jim-dot-tennis 1.0.0 (commit 0cebf5d3fc3f, built 2026-11-23T07:55:18Z)`. The
 number after `jim-dot-tennis` is your version.
@@ -42,7 +45,8 @@ version (type the new version number in place of `X.Y.Z`):
 
 `https://github.com/jameshartt/jim-dot-tennis/blob/vX.Y.Z/CHANGELOG.md`
 
-Read the upgrade notes of **every** version between yours and the new one.
+That one page holds every version, newest first. Read the upgrade notes of
+**every** version between yours and the new one.
 Most say "None: replace the image and restart." Look out for:
 
 - a step you must do before or after;
