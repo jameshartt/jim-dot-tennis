@@ -36,6 +36,8 @@ Contents:
 16. ["no matching manifest for linux/arm64"](#16-no-matching-manifest-for-linuxarm64)
 17. ["permission denied while trying to connect to the Docker daemon socket"](#17-permission-denied-while-trying-to-connect-to-the-docker-daemon-socket)
 18. [The server is slow or the tournament part keeps stopping](#18-the-server-is-slow-or-the-tournament-part-keeps-stopping)
+19. ["service check-tournament-secrets didn't complete successfully"](#19-service-check-tournament-secrets-didnt-complete-successfully)
+20. [Set-up made no season (between seasons)](#20-set-up-made-no-season-between-seasons)
 
 ## 1. I changed `.env` but nothing changed
 
@@ -70,22 +72,39 @@ example to print a new set-up code.
 error while interpolating services.caddy.environment.[]: required variable DOMAIN is missing a value: set DOMAIN in your .env file (the public hostname, e.g. tennis.example.org)
 ```
 
-or, with tournaments on:
-
-```
-error while interpolating services.postgres.environment.POSTGRES_PASSWORD: required variable COURTHIVE_PG_PASSWORD is missing a value: COURTHIVE_PG_PASSWORD is missing from your .env file - run ./init-tournaments.sh
-```
-
 Nothing was started or changed.
 
-**Fix:**
+**Fix:** you are not in the install folder (run `cd ~/jim-dot-tennis`), or
+`.env` is missing or has no `DOMAIN=` value. Do step 6 of
+[Installing](install.md).
 
-- `DOMAIN`: you are not in the install folder (run `cd ~/jim-dot-tennis`), or
-  `.env` is missing or has no `DOMAIN=` value. Do step 6 of
-  [Installing](install.md).
-- A `COURTHIVE_...` name: tournaments are on (`COMPOSE_PROFILES=tournaments`
-  in `.env`) but their secrets were never made. Run `./init-tournaments.sh`,
-  then `docker compose up -d`.
+**With the release files of version 1.0.0-rc.1 or older** (for example 0.2.1)
+you may see this instead, even with tournaments off:
+
+```
+error while interpolating services.courthive-service-account.environment.PG_PASSWORD: required variable COURTHIVE_PG_PASSWORD is missing a value: COURTHIVE_PG_PASSWORD is missing from deploy/.env - run ./init-tournaments.sh
+```
+
+The name after `services.` and the end of the line can differ. It is about the
+tournament secrets.
+
+**Why:** those older files ask for the tournament secrets on every start, even
+for a club that runs the league only, when the server has Docker Compose
+version 2 (`docker compose version` says `v2...`). Newer release files do not.
+
+**Fix:** run the secrets step once, in the install folder, then start again:
+
+```
+./init-tournaments.sh
+docker compose up -d
+```
+
+This only adds the secrets to `.env`. It does not turn tournaments on, and the
+secrets do no harm if you never use tournaments. Keep the lines in `.env`:
+going back to these older files later needs them again.
+
+With the newer files, missing tournament secrets show only when tournaments are
+on, as problem 19.
 
 If `./init-tournaments.sh` itself says
 `init-tournaments: COURTHIVE_PG_PASSWORD is in .../.env but has no real value. Delete that line and run this again.`,
@@ -465,3 +484,56 @@ server 512 MB, identity service 256 MB, tournament database 384 MB, Redis
 **Fix:** with tournaments on, use a server with 2 GB of memory (see
 [Installing](install.md), "What you need"). Also check free disk space with
 `df -h /`.
+
+## 19. "service check-tournament-secrets didn't complete successfully"
+
+**What you see:** `docker compose up -d`, with tournaments on
+(`COMPOSE_PROFILES=tournaments` in `.env`), ends with:
+
+```
+service "check-tournament-secrets" didn't complete successfully: exit 1
+```
+
+**Why:** before anything of the tournament part starts, a check makes sure its
+secrets are in `.env`. One or more are missing, empty or a placeholder, so the
+tournament part was not started or changed. The app and the league site carry
+on as before. See which:
+
+```
+docker compose logs --no-log-prefix check-tournament-secrets
+```
+
+It names the missing secrets (never their values), for example
+`... these tournament secrets are missing from .env, empty or a placeholder: COURTHIVE_PG_PASSWORD COURTHIVE_JWT_SECRET ...`.
+
+**Fix:**
+
+- On a new install, or when turning tournaments on for the first time: run
+  `./init-tournaments.sh` in the install folder, then `docker compose up -d`.
+- If tournaments were already in use and the lines have gone from `.env` (for
+  example a new server, or `.env` made again): do **not** run
+  `./init-tournaments.sh`. New secrets do not fit the tournament data you
+  already have. Put back your saved copy of `.env` (see
+  [Backups and restoring](backup-and-restore.md)), then `docker compose up -d`.
+- If you meant to run the league only: put a `#` in front of the
+  `COMPOSE_PROFILES=tournaments` line in `.env` and run `docker compose up -d`.
+
+If `./init-tournaments.sh` says a line `has no real value`, see the end of
+problem 2.
+
+## 20. Set-up made no season (between seasons)
+
+**What you see:** at the end of set-up, "You're all set" lists only the league
+and the clubs, with the note
+`BHPLTA has not published any upcoming fixtures yet, so no season was created. That is normal between seasons.`
+Later, **Manage Seasons** says "No Seasons Found".
+
+**Why:** set-up reads the season from the BHPLTA fixtures page, which lists
+only upcoming fixtures. Between seasons it lists none, so there is no season to
+bring in yet. Nothing is wrong and nothing needs undoing.
+
+**Fix:** nothing now. Meanwhile you can add players and give them their links,
+invite captains, set up Club Settings and turn on tournaments. When the new
+season's fixtures are on the BHPLTA website, choose **Manage Seasons** on the
+dashboard and press **Start a new season from BHPLTA**. If it again says no
+season was created, the fixtures are not published yet: try again later.

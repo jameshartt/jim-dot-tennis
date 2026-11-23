@@ -151,8 +151,10 @@ upgrade it.` The second should say `reachable`.
 Finally open the site in a browser and sign in.
 
 If the app does not come up, see "The app keeps restarting after an upgrade"
-and "service courthive-pre-upgrade didn't complete successfully" in
-[Troubleshooting](troubleshooting.md).
+in [Troubleshooting](troubleshooting.md). If `up -d` ends with
+`service "courthive-pre-upgrade" didn't complete successfully` or
+`service "check-tournament-secrets" didn't complete successfully`, see the
+problems of those names there.
 
 ## Going back to the previous version (rolling back)
 

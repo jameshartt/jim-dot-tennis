@@ -43,11 +43,14 @@
 #
 # docs/install.md, "Turning tournaments off again", has the full steps.
 #
-# The ${COMPOSE_PROFILES:+${VAR:?message}} form used below means: when the
-# profile is on, VAR is required (compose stops with the message if it is
-# missing or empty); when it is off, the value is empty and nothing is
-# required. Plain ${VAR:?} would not do: compose checks it even for services in
-# a profile that is off.
+# The ${COMPOSE_PROFILES:+${VAR:-}} form used below means: when the profile is
+# on, the value of VAR; when it is off, empty. The tournament secrets are not
+# required here with ${VAR:?message}, because compose checks that even for
+# services in a profile that is off (and Docker Compose v2 checks it even
+# inside ${COMPOSE_PROFILES:+...}), so a league-only install would need them.
+# Instead the one-shot check-tournament-secrets, which runs only with the
+# profile on and which every tournament service waits for, refuses to start
+# the tournament stack while any secret is missing, empty or a placeholder.
 #
 # Only Caddy publishes ports (80 and 443). Every other service is reachable
 # only on the internal network.
@@ -96,15 +99,19 @@ services:
       - BACKUP_DIR=${BACKUP_DIR:-}
       # Tournaments. All empty unless the profile is on. The two addresses are
       # internal; the app signs in to the identity service as the service
-      # account. The database settings are for backups of the tournament data.
+      # account. The database settings are for backups of the tournament data;
+      # they are all set or all empty (empty while COURTHIVE_PG_PASSWORD is
+      # missing), so a missing secret never stops the league site: the
+      # check-tournament-secrets step below refuses to start the tournament
+      # stack instead.
       - COURTHIVE_API_URL=${COMPOSE_PROFILES:+${COURTHIVE_API_URL:-http://courthive-server:8383}}
       - COURTHIVE_IDENTITY_URL=${COMPOSE_PROFILES:+${COURTHIVE_IDENTITY_URL:-http://courthive-hiveid:3140}}
-      - COURTHIVE_SERVICE_PASSWORD=${COMPOSE_PROFILES:+${COURTHIVE_SERVICE_PASSWORD:?COURTHIVE_SERVICE_PASSWORD is missing from your .env file - run ./init-tournaments.sh}}
-      - COURTHIVE_PG_HOST=${COMPOSE_PROFILES:+postgres}
-      - COURTHIVE_PG_PORT=${COMPOSE_PROFILES:+5432}
-      - COURTHIVE_PG_USER=${COMPOSE_PROFILES:+courthive}
-      - COURTHIVE_PG_DATABASE=${COMPOSE_PROFILES:+courthive}
-      - COURTHIVE_PG_PASSWORD=${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:?COURTHIVE_PG_PASSWORD is missing from your .env file - run ./init-tournaments.sh}}
+      - COURTHIVE_SERVICE_PASSWORD=${COMPOSE_PROFILES:+${COURTHIVE_SERVICE_PASSWORD:-}}
+      - COURTHIVE_PG_HOST=${COURTHIVE_PG_PASSWORD:+${COMPOSE_PROFILES:+postgres}}
+      - COURTHIVE_PG_PORT=${COURTHIVE_PG_PASSWORD:+${COMPOSE_PROFILES:+5432}}
+      - COURTHIVE_PG_USER=${COURTHIVE_PG_PASSWORD:+${COMPOSE_PROFILES:+courthive}}
+      - COURTHIVE_PG_DATABASE=${COURTHIVE_PG_PASSWORD:+${COMPOSE_PROFILES:+courthive}}
+      - COURTHIVE_PG_PASSWORD=${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:-}}
       # Recorded in each backup's manifest. Keep it the same as the
       # courthive-server image below.
       - COURTHIVE_SERVER_IMAGE=${COMPOSE_PROFILES:+ghcr.io/jameshartt/courthive-server:${COURTHIVE_SERVER_VERSION:-4.19.1-jdt.1}}
@@ -154,12 +161,58 @@ services:
   # Tournament stack (profile "tournaments")
   # ---------------------------------------------------------------------------
 
+  # One-shot, first of all: refuses to start the tournament stack while one of
+  # its secrets is missing from .env, empty or a placeholder such as change-me
+  # (the secrets are made by ./init-tournaments.sh). Every tournament service
+  # waits for it, so with a secret missing none of them starts, and
+  # `docker compose up -d` ends with
+  #   service "check-tournament-secrets" didn't complete successfully: exit 1
+  # The app and Caddy do not wait for it: the league site keeps running. It
+  # prints only the names of the missing secrets, never a value
+  # (`docker compose logs check-tournament-secrets`). It runs the app's image,
+  # which is always there, with no network. No container_name on purpose: the
+  # name compose gives it never collides with another copy of the app.
+  check-tournament-secrets:
+    image: ghcr.io/jameshartt/jim-dot-tennis:${JIM_DOT_TENNIS_VERSION:-0.2.1}
+    profiles: [tournaments]
+    restart: "no"
+    network_mode: none
+    environment:
+      - COURTHIVE_PG_PASSWORD=${COURTHIVE_PG_PASSWORD:-}
+      - COURTHIVE_JWT_SECRET=${COURTHIVE_JWT_SECRET:-}
+      - COURTHIVE_JWT_PRIVATE_KEY=${COURTHIVE_JWT_PRIVATE_KEY:-}
+      - COURTHIVE_JWT_PUBLIC_KEY=${COURTHIVE_JWT_PUBLIC_KEY:-}
+      - COURTHIVE_JWT_KID=${COURTHIVE_JWT_KID:-}
+      - COURTHIVE_SIGNER_TOKEN=${COURTHIVE_SIGNER_TOKEN:-}
+      - COURTHIVE_SERVICE_PASSWORD=${COURTHIVE_SERVICE_PASSWORD:-}
+    command:
+      - sh
+      - -c
+      - >-
+        missing=;
+        for v in COURTHIVE_PG_PASSWORD COURTHIVE_JWT_SECRET COURTHIVE_JWT_PRIVATE_KEY COURTHIVE_JWT_PUBLIC_KEY COURTHIVE_JWT_KID COURTHIVE_SIGNER_TOKEN COURTHIVE_SERVICE_PASSWORD;
+        do eval "x=\$$$$v";
+        case "$$x" in ''|change-me|changeme|CHANGE-ME|'<'*'>') missing="$$missing $$v";; esac;
+        done;
+        x=;
+        if [ -z "$$missing" ]; then echo "tournament secrets: all present"; exit 0; fi;
+        echo "Tournaments are on (COMPOSE_PROFILES=tournaments in .env), but these tournament secrets are missing from .env, empty or a placeholder:$$missing" >&2;
+        echo "The tournament part was not started or changed. The league site is not affected." >&2;
+        echo "Fix: in the folder holding docker-compose.yml run ./init-tournaments.sh, then docker compose up -d." >&2;
+        echo "For the league only, put a # in front of the COMPOSE_PROFILES=tournaments line in .env instead." >&2;
+        exit 1
+    healthcheck:
+      disable: true
+
   # Redis for the tournament server (cache; nothing here is the only copy).
   redis:
     image: redis:7-alpine
     profiles: [tournaments]
     container_name: courthive-redis
     restart: unless-stopped
+    depends_on:
+      check-tournament-secrets:
+        condition: service_completed_successfully
     # Stays inside its 64 MB memory limit by dropping the least used keys.
     command: redis-server --appendonly yes --maxmemory 48mb --maxmemory-policy allkeys-lru
     mem_limit: 64m
@@ -182,10 +235,13 @@ services:
     profiles: [tournaments]
     container_name: courthive-postgres
     restart: unless-stopped
+    depends_on:
+      check-tournament-secrets:
+        condition: service_completed_successfully
     mem_limit: 384m
     environment:
       POSTGRES_USER: courthive
-      POSTGRES_PASSWORD: ${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:?COURTHIVE_PG_PASSWORD is missing from your .env file - run ./init-tournaments.sh}}
+      POSTGRES_PASSWORD: ${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:-}}
       POSTGRES_DB: courthive
     volumes:
       - courthive-pg-data:/var/lib/postgresql
@@ -245,7 +301,7 @@ services:
       - COURTHIVE_PG_PORT=${COMPOSE_PROFILES:+5432}
       - COURTHIVE_PG_USER=${COMPOSE_PROFILES:+courthive}
       - COURTHIVE_PG_DATABASE=${COMPOSE_PROFILES:+courthive}
-      - COURTHIVE_PG_PASSWORD=${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:?COURTHIVE_PG_PASSWORD is missing from your .env file - run ./init-tournaments.sh}}
+      - COURTHIVE_PG_PASSWORD=${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:-}}
       - COURTHIVE_SERVER_IMAGE=${COMPOSE_PROFILES:+ghcr.io/jameshartt/courthive-server:${COURTHIVE_SERVER_VERSION:-4.19.1-jdt.1}}
     command: ["./jim-dot-tennis", "tournaments", "pre-upgrade"]
     healthcheck:
@@ -281,12 +337,12 @@ services:
       ARCHIVES_PATH: /app/.archives-local
       # Must be set for the server to start. Unused: with JWT_ACCEPT_HS256=false
       # tokens signed with it are refused, so it is not a master key.
-      JWT_SECRET: ${COMPOSE_PROFILES:+${COURTHIVE_JWT_SECRET:?COURTHIVE_JWT_SECRET is missing from your .env file - run ./init-tournaments.sh}}
+      JWT_SECRET: ${COMPOSE_PROFILES:+${COURTHIVE_JWT_SECRET:-}}
       JWT_ACCEPT_HS256: "false"
-      JWT_PUBLIC_KEY: ${COMPOSE_PROFILES:+${COURTHIVE_JWT_PUBLIC_KEY:?COURTHIVE_JWT_PUBLIC_KEY is missing from your .env file - run ./init-tournaments.sh}}
-      JWT_KID: ${COMPOSE_PROFILES:+${COURTHIVE_JWT_KID:?COURTHIVE_JWT_KID is missing from your .env file - run ./init-tournaments.sh}}
+      JWT_PUBLIC_KEY: ${COMPOSE_PROFILES:+${COURTHIVE_JWT_PUBLIC_KEY:-}}
+      JWT_KID: ${COMPOSE_PROFILES:+${COURTHIVE_JWT_KID:-}}
       HIVEID_BASE_URL: http://courthive-hiveid:3140
-      HIVEID_SIGNER_TOKEN: ${COMPOSE_PROFILES:+${COURTHIVE_SIGNER_TOKEN:?COURTHIVE_SIGNER_TOKEN is missing from your .env file - run ./init-tournaments.sh}}
+      HIVEID_SIGNER_TOKEN: ${COMPOSE_PROFILES:+${COURTHIVE_SIGNER_TOKEN:-}}
       # Browsers may call the server from this instance's own address only.
       CFS_CORS_ORIGINS: https://${DOMAIN:?set DOMAIN in your .env file (the public hostname, e.g. tennis.example.org)}
       TMX_URL: /tournaments/
@@ -301,7 +357,7 @@ services:
       PG_HOST: postgres
       PG_PORT: "5432"
       PG_USER: courthive
-      PG_PASSWORD: ${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:?COURTHIVE_PG_PASSWORD is missing from your .env file - run ./init-tournaments.sh}}
+      PG_PASSWORD: ${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:-}}
       PG_DATABASE: courthive
     networks:
       - tennis-network
@@ -337,14 +393,14 @@ services:
       PG_HOST: postgres
       PG_PORT: "5432"
       PG_USER: courthive
-      PG_PASSWORD: ${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:?COURTHIVE_PG_PASSWORD is missing from your .env file - run ./init-tournaments.sh}}
+      PG_PASSWORD: ${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:-}}
       PG_DATABASE: courthive
       JWT_SIGN_ES256: "true"
       JWT_ACCEPT_HS256: "false"
-      JWT_PRIVATE_KEY: ${COMPOSE_PROFILES:+${COURTHIVE_JWT_PRIVATE_KEY:?COURTHIVE_JWT_PRIVATE_KEY is missing from your .env file - run ./init-tournaments.sh}}
-      JWT_PUBLIC_KEY: ${COMPOSE_PROFILES:+${COURTHIVE_JWT_PUBLIC_KEY:?COURTHIVE_JWT_PUBLIC_KEY is missing from your .env file - run ./init-tournaments.sh}}
-      JWT_KID: ${COMPOSE_PROFILES:+${COURTHIVE_JWT_KID:?COURTHIVE_JWT_KID is missing from your .env file - run ./init-tournaments.sh}}
-      HIVEID_SIGNER_TOKEN: ${COMPOSE_PROFILES:+${COURTHIVE_SIGNER_TOKEN:?COURTHIVE_SIGNER_TOKEN is missing from your .env file - run ./init-tournaments.sh}}
+      JWT_PRIVATE_KEY: ${COMPOSE_PROFILES:+${COURTHIVE_JWT_PRIVATE_KEY:-}}
+      JWT_PUBLIC_KEY: ${COMPOSE_PROFILES:+${COURTHIVE_JWT_PUBLIC_KEY:-}}
+      JWT_KID: ${COMPOSE_PROFILES:+${COURTHIVE_JWT_KID:-}}
+      HIVEID_SIGNER_TOKEN: ${COMPOSE_PROFILES:+${COURTHIVE_SIGNER_TOKEN:-}}
       TMX_URL: /tournaments/
       PUBLIC_URL: /public/
     networks:
@@ -383,7 +439,7 @@ services:
       PG_HOST: postgres
       PG_PORT: "5432"
       PG_USER: courthive
-      PG_PASSWORD: ${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:?COURTHIVE_PG_PASSWORD is missing from your .env file - run ./init-tournaments.sh}}
+      PG_PASSWORD: ${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:-}}
       PG_DATABASE: courthive
     command:
       - sh
@@ -416,10 +472,10 @@ services:
       PG_HOST: postgres
       PG_PORT: "5432"
       PG_USER: courthive
-      PG_PASSWORD: ${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:?COURTHIVE_PG_PASSWORD is missing from your .env file - run ./init-tournaments.sh}}
+      PG_PASSWORD: ${COMPOSE_PROFILES:+${COURTHIVE_PG_PASSWORD:-}}
       PG_DATABASE: courthive
       CFS_ADMIN_EMAIL: service@jim-dot-tennis.invalid
-      CFS_ADMIN_PASSWORD: ${COMPOSE_PROFILES:+${COURTHIVE_SERVICE_PASSWORD:?COURTHIVE_SERVICE_PASSWORD is missing from your .env file - run ./init-tournaments.sh}}
+      CFS_ADMIN_PASSWORD: ${COMPOSE_PROFILES:+${COURTHIVE_SERVICE_PASSWORD:-}}
     command:
       - sh
       - -c
@@ -439,6 +495,9 @@ services:
     profiles: [tournaments]
     container_name: courthive-tmx-content
     restart: "no"
+    depends_on:
+      check-tournament-secrets:
+        condition: service_completed_successfully
     volumes:
       - tmx-files:/out
     network_mode: none
@@ -448,6 +507,9 @@ services:
     profiles: [tournaments]
     container_name: courthive-public-content
     restart: "no"
+    depends_on:
+      check-tournament-secrets:
+        condition: service_completed_successfully
     volumes:
       - public-files:/out
     network_mode: none

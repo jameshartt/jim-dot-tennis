@@ -242,7 +242,8 @@ What they are:
 - `.env.example` is the settings template.
 - `Caddyfile` configures Caddy, the part that answers web requests and gets
   the site's security certificate.
-- `init-tournaments.sh` is only used if you turn tournaments on.
+- `init-tournaments.sh` is only used if you turn tournaments on. A club that
+  runs the league only never needs it.
 
 This folder, `~/jim-dot-tennis`, is your **install folder**. Run every
 `docker compose` command in it (`cd ~/jim-dot-tennis` first if you have logged
@@ -299,6 +300,21 @@ docker compose ps
 You should see `jim-dot-tennis` with `Up ... (healthy)` and
 `jim-dot-tennis-caddy` with `Up`.
 
+Check which version is running:
+
+```
+docker compose exec app ./jim-dot-tennis version
+```
+
+You should see one line starting `jim-dot-tennis` and the version you
+downloaded, for example
+`jim-dot-tennis 1.0.0 (commit 0cebf5d3fc3f, built 2026-11-23T07:55:18Z)`.
+Once the site is open (step 9), anyone can also see the version at
+`https://tennis.example.org/version`.
+
+If `up -d` stops with `required variable ... is missing a value` instead, see
+problem 2 in [Troubleshooting](troubleshooting.md).
+
 Caddy now asks Let's Encrypt (a free certificate service) for the site's
 security certificate. That takes up to a minute.
 
@@ -349,9 +365,18 @@ certificate" in [Troubleshooting](troubleshooting.md).
 3. **Choose your club.** Pick your club from the list of BHPLTA clubs and press
    **Use this club**. The page says "Fetching your league from the BHPLTA
    website" and updates by itself. This usually takes under a minute.
-4. **You're all set.** The page lists what was set up: the league, the season,
-   divisions, teams (and how many are yours), weeks and fixtures. Press
-   **Go to the dashboard**.
+4. **You're all set.** The page lists what was set up. What you see depends on
+   the time of year:
+   - **During the season, or once the new season's fixtures are out:** the
+     league, the season, divisions, teams (and how many are yours), weeks,
+     fixtures and clubs.
+   - **Between seasons:** only the league and the clubs (for example
+     "12 clubs added"), and a note: "BHPLTA has not published any upcoming
+     fixtures yet, so no season was created. That is normal between seasons."
+     The BHPLTA website lists only upcoming fixtures, so there is no season to
+     bring in yet. Nothing is wrong. See "Between seasons" below.
+
+   Press **Go to the dashboard**.
 
 The set-up pages are now switched off for good. You are the first
 administrator.
@@ -360,12 +385,32 @@ If the club step cannot read the BHPLTA website, see "Set-up cannot read the
 BHPLTA website" in [Troubleshooting](troubleshooting.md). Its message says
 whether the server could not connect at all or the website refused.
 
+### Between seasons
+
+If set-up made no season, the app still works. Meanwhile you can:
+
+- add your players and give them their links (a player does not need to be in
+  a team to get a link);
+- invite your captains and other administrators;
+- set up Club Settings: name, logo, colours and your BHPLTA club code;
+- turn on tournaments, if you want them (below).
+
+When BHPLTA publishes the new season's fixtures, sign in, choose
+**Manage Seasons** on the dashboard and press
+**Start a new season from BHPLTA**. It brings in the season, its weeks,
+divisions, teams and fixtures in one go. The
+[administrator's guide](guide-admin.md) has the details.
+
 ## Step 10: The first things to do
 
 - **Add a passkey** if you did not at set-up: the "Sign-in methods" link at the
-  top of the dashboard.
+  top of the dashboard. Until you do, each time you sign in with your password
+  the app first shows the **Sign-in methods** page with "Add a passkey?". Add
+  one there, or press **Not now** to go on to the dashboard.
 - **Look at Club Settings** (on the dashboard): your club's name, logo and
-  colours, and your club's BHPLTA club code for importing match cards.
+  colours, and your club's BHPLTA club code for importing match cards. The
+  "BHPLTA club name" there is BHPLTA's own identifier for your club, which can
+  look odd (for example `St+Anns`). That is right: leave it.
 - **Invite your captains** from the users page. See the
   [administrator's guide](guide-admin.md).
 - **Copy your settings file and a backup off the server.** See
@@ -388,10 +433,15 @@ cd ~/jim-dot-tennis
 ```
 
 This makes the tournament software's passwords and keys, on your server, and
-adds them to `.env`. It never shows them. You should see seven lines starting
-`init-tournaments: added`, then
+adds them to `.env`. It never shows them. The first time, you should see seven
+lines starting `init-tournaments: added`, then
 `init-tournaments: added 7 variable(s) to /root/jim-dot-tennis/.env (mode 600).`
-and a short "Next" list. Run it once; running it again changes nothing.
+and a short "Next" list.
+
+If it has been run in this folder before, it says instead
+`init-tournaments: nothing to do; every tournament secret is already in /root/jim-dot-tennis/.env.`
+That is fine: the secrets are there already, and it changed nothing. Never
+delete or edit those lines once tournaments are in use.
 
 Turn the tournament part on and start it:
 
@@ -413,13 +463,19 @@ You should see these running, the last two marked `(healthy)` like the app:
 `jim-dot-tennis`, `jim-dot-tennis-caddy`, `courthive-redis`,
 `courthive-postgres`, `courthive-server`, `courthive-hiveid`.
 
+If `up -d` ends with
+`service "check-tournament-secrets" didn't complete successfully: exit 1`,
+the secrets are missing: you skipped `./init-tournaments.sh`, or it was run in
+another folder. Nothing of the tournament part was started and the league site
+carries on. Run `./init-tournaments.sh` here, then `docker compose up -d`.
+
 Now switch tournaments on in the app:
 
 1. Sign in, open **Club Settings** from the dashboard, and find **Features**.
 2. Tick **Tournaments**. Underneath, check **Club's tournament code** (2 to 12
    letters or digits, made from your club's name). It cannot be changed once
    set up.
-3. Press **Save** at the bottom of the page.
+3. Press **Save settings** at the bottom of the page.
 
 You should see "Tournaments are ready. The club is set up on the tournament
 software as ..." with your code. You can also check from the server:
@@ -472,7 +528,10 @@ You need:
   "If ports 80 and 443 are busy" below).
 - An internet connection: set-up reads your league from the BHPLTA website.
 
-In a terminal (type the latest version number in place of `X.Y.Z`):
+Choose the version to try. Normally that is the latest one on the releases page
+(see step 5), but you can type any release, for example an older one to
+practise an upgrade. In a terminal, type that version number in place of
+`X.Y.Z` in the second line:
 
 ```
 mkdir -p ~/jim-dot-tennis-trial && cd ~/jim-dot-tennis-trial
@@ -489,17 +548,29 @@ grep -E '^(DOMAIN|PUBLIC_URL)=' .env
 file as `.env.bak`, which you can delete.) You should see
 `DOMAIN=localhost` and `PUBLIC_URL=https://localhost`.
 
+As in step 5, a `404` from `curl` means the version number is wrong.
+
 If this computer already uses ports 80 or 443, or already runs another copy of
 the app, do "If ports 80 and 443 are busy" below now, before starting.
 **This matters:** without it, Docker treats the trial as the other copy (they
 share the same name), replaces its containers and uses its data.
 
-Start it and read the set-up code, exactly as in steps 7 and 8:
+Download, start and check it, then read the set-up code, exactly as in steps 7
+and 8:
 
 ```
+docker compose pull
 docker compose up -d
+docker compose ps
+docker compose exec app ./jim-dot-tennis version
 docker compose logs --no-log-prefix app | grep "SETUP CODE" | tail -1
 ```
+
+`ps` should show the app `Up ... (healthy)` and Caddy `Up`, and `version`
+the version you chose. You need no tournament secrets for this: only
+"Optional: turning on tournaments" uses them. (The files of version
+1.0.0-rc.1 or older do ask for them with Docker Compose version 2: see
+problem 2 in [Troubleshooting](troubleshooting.md).)
 
 Open `https://localhost`. The browser warns that the connection is not private,
 because it does not know Caddy's home-made certificate:

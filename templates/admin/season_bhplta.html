@@ -70,6 +70,7 @@
                     <li data-count="clubs">{{.ClubsCreated}} clubs added, {{.ClubsMatched}} already here{{if .ClubsUpdated}} ({{.ClubsUpdated}} given missing venue details){{end}}</li>
                 </ul>
                 {{range .Notes}}<p class="info-box">{{.}}</p>{{end}}
+                {{if .NoFixtures}}<p data-bhplta-off-season>Come back to this page and press <strong>Start a new season from BHPLTA</strong> again once the fixtures are published. Until then you can still add players, invite captains and change Club Settings.</p>{{end}}
                 {{if .Unmatched}}
                 <h2>Could not be matched</h2>
                 <ul data-bhplta-unmatched>{{range .Unmatched}}<li>{{.}}</li>{{end}}</ul>

@@ -23,6 +23,8 @@ services:
     pull_policy: never
     ports: !override
       - "127.0.0.1:${BUNDLE_PORT:?BUNDLE_PORT is set by scripts/test-e2e-bundle.sh}:443"
+  check-tournament-secrets:
+    pull_policy: never
   redis:
     container_name: !reset null
     pull_policy: never
