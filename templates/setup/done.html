@@ -36,6 +36,12 @@
             {{range .Notes}}<p>{{.}}</p>{{end}}
         </div>
         {{end}}
+        {{if .NoFixtures}}
+        <div data-setup-off-season>
+            <p>You can get the club ready meanwhile: add your players and give them their links, invite your captains, look at Club Settings and, if you want them, turn on tournaments.</p>
+            <p>When the fixtures are published, open <strong>Manage Seasons</strong> on the dashboard and press <strong>Start a new season from BHPLTA</strong>. It brings in the season, its weeks, divisions, teams and fixtures.</p>
+        </div>
+        {{end}}
         {{if .Unmatched}}
         <details class="setup-details" open data-setup-unmatched>
             <summary>Things that could not be matched ({{len .Unmatched}})</summary>
