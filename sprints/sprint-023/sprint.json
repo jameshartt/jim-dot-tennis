@@ -4,9 +4,9 @@
     "name": "CourtHive Bundle - Club Championships in the Box",
     "goal": "Ship CourtHive (tournament server, TMX tournament management, and the public tournament pages) as an opt-in part of the package, so a club that installs jim-dot-tennis can also run its own club championships on its own server, with its own accounts and secrets, without building anything or knowing how the pieces fit.",
     "start_date": "2026-11-22",
-    "end_date": null,
+    "end_date": "2026-11-23",
     "type": "numbered",
-    "status": "in_progress",
+    "status": "completed",
     "programme": "club-readiness (sprints 019-024)",
     "focus_areas": [
       "Published, club-neutral images of the three CourtHive components",
@@ -26,6 +26,6 @@
       "WI-153",
       "WI-154"
     ],
-    "status_note": "2026-11-23: branches pushed and pull request #30 opened; the upgrade rehearsal on a copy of jim.tennis's tournament data passed. WI-154 (several sets of tournaments per installation, chosen per person) added at the owner's request and implemented locally. The four CourtHive images were published as public packages (WI-143 completed). Open, waiting for the owner: merging pull request #30 and moving jim.tennis itself onto the bundle."
+    "status_note": "Completed 2026-11-23. Merged as pull request #30 and released as 0.2.0, with 0.2.1 the same day (first set-up could not take on an existing set whose code has spaces or punctuation; pull request #31). The four CourtHive images are public packages. The upgrade rehearsal on a copy of jim.tennis's data passed, and jim.tennis was moved onto the packaged stack on 2026-11-23: about 30 seconds of outage, both databases upgraded in place, both existing sets of tournaments taken on, every account there is an administrator and so has both. Not checked by the author: an administrator opening tournament management on the live site."
   }
 }

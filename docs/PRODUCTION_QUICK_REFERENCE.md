@@ -9,45 +9,38 @@
 
 ---
 
-## jim.tennis until it adopts the bundle
+## jim.tennis runs the packaged stack (since 2026-11-23)
 
-jim.tennis has not moved to the packaged tournament stack yet. Until the owner
-moves it (a planned step with a rehearsal on a copy of the data; see
-`docs/courthive_bundle_design.md` sections 4 and 5), this is what is true on
-the server, and sections 2, 3, 4, 8 and 8b below apply to it only:
+jim.tennis moved onto the packaged tournament stack on 2026-11-23 (app 0.2.1,
+tournament server 4.19.1-jdt.1, identity service 0.5.0-jdt.1, TMX
+8.61.0-jdt.1, public pages 1.23.7-jdt.1). It now runs exactly what
+`deploy/docker-compose.yml` and `deploy/Caddyfile` describe, with
+`COMPOSE_PROFILES=tournaments`. What is particular to it:
 
-- **App service:** the same as the packaged deployment. Since 2026-11-22 it
-  runs the published image `ghcr.io/jameshartt/jim-dot-tennis` at the version
-  named by `JIM_DOT_TENNIS_VERSION` in the server's `.env` (section 1).
-- **CourtHive server:** built on the server from a source checkout of
-  `competition-factory-server` next to the jim-dot-tennis checkout
-  (section 4), container `courthive-server`, signing tokens with
-  `JWT_SECRET` (HS256). There is no separate identity service and no
-  `COMPOSE_PROFILES`; the CourtHive services always run.
-- **TMX and the public pages:** built on a workstation from the
-  `jim-tennis-deploy` branches and copied to `TMX/dist` and
-  `courthive-public/dist` on the server, which Caddy serves directly
-  (sections 2 and 3). The published `courthive-tmx` and `courthive-public`
-  images are not used there.
-- **Accounts:** CourtHive accounts with their own passwords, managed with the
-  scripts in sections 8 and 8b. In the packaged deployment people sign in to
-  jim-dot-tennis only and those routes are closed.
-- **Caddy:** container `tennis-caddy` (renamed by the server's
-  `docker-compose.override.yml`), with the older Caddyfile: no cookie removal
-  and no refused CourtHive routes.
-- **Volumes:** `courthive-data` and `courthive-cache` are still mounted there.
-  The packaged deployment does not use them; it uses `courthive-pg-data` and
-  `courthive-redis-data` (same names, same purpose) plus new ones.
-- **Record of the layout:** the files that describe it, as they were in
-  `deploy/` up to release 0.1.0, are
-  `docs/archive/docker-compose.jim-tennis-source-built.yml` and
-  `docs/archive/Caddyfile.jim-tennis-source-built`.
-
-Do not copy the packaged `deploy/docker-compose.yml` or `deploy/Caddyfile`
-onto the server, and do not run `init-tournaments.sh` there, until the move is
-planned: the new stack would start a new identity service against the existing
-tournament database, migrate that database (no way back without a backup) and
-lock out the existing CourtHive accounts.
+- **Two sets of tournaments, both taken on from the old layout:** the club's
+  own, with the code `St Ann's` (codes with spaces or punctuation are accepted
+  only for sets that already existed), and `BHPLTA` for the Parks Cup. Rename
+  what people see on the tournaments page; the codes cannot change.
+- **Accounts:** people sign in to jim-dot-tennis only. The four CourtHive
+  accounts that existed before the move are still in the tournament database
+  (tournaments may refer to them) but cannot sign in: password sign-in is
+  refused by the proxy and their saved sessions were removed. They appear
+  under "accounts the app did not make" in tournament set-up.
+- **Sections 2, 3, 4, 8 and 8b below are history.** They describe the old
+  source-built layout (CourtHive built on the server, TMX and the public
+  pages copied to it, CourtHive accounts with passwords). Do not follow them
+  on the server now. The files of that layout are kept in `docs/archive/`.
+- **Left on the server from the old layout, unused:** the volumes
+  `courthive-data` and `courthive-cache`, the source checkouts and `dist`
+  folders next to the compose file, the old images, and copies of the old
+  compose, proxy and settings files named `*.bak-20261123-pre-bundle` (plus
+  the disabled `docker-compose.override.yml`). Remove them once the new
+  layout has been in use for a while.
+- **Going back** (only with data loss for anything entered since the move):
+  put the `*.bak-20261123-pre-bundle` files back, restore the tournament
+  database from the dump taken just before the move and the app's database
+  from the backup taken at the same time (both are in the server's upgrade
+  backups folder and were copied off the server), and start the old stack.
 
 ---
 

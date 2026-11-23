@@ -420,7 +420,8 @@ to approve, and the old accounts stay until then.
   sign-out, the TMX external sign-in setting.
 - WI-146: tournament database in backups and restore; a backup before the
   tournament server changes version; the rehearsal script. The rehearsal on
-  real data waits for the owner.
+  a copy of jim.tennis's data passed on 2026-11-23, and jim.tennis itself
+  was upgraded in place the same day (migrations 050 to 064, no data lost).
 - WI-147: end-to-end test of the bundled stack.
 
 ## How this was tested
