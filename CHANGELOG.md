@@ -39,6 +39,16 @@ back: read the Upgrade notes of every version in between.
   always have all. An administrator can create an account for someone who only
   runs tournaments; it has no league access. Removing access or disabling an
   account takes their tournaments away on their next request.
+- **More than one set of tournaments.** A club can keep separate sets of
+  tournaments on its tournament software, for example one for the club and
+  one for a league cup. An administrator adds a set on the Tournaments page
+  (or takes on one that is already there, with its tournaments), names it,
+  and ticks who can manage it on the users page. Someone with more than one
+  is asked which tournaments to manage, by name, when they open tournament
+  management. Administrators always have every set; nobody else is given a
+  new set until an administrator chooses them. From the server:
+  `jim-dot-tennis tournaments add-provider <code> <name>` and
+  `user tournaments <username> <access> --providers <codes>`.
 - **Tournament set-up.** Switching Tournaments on sets the club up on the
   bundled tournament software; the Tournaments page shows the state and can
   run it again. `jim-dot-tennis tournaments provision` and `tournaments status`
@@ -111,8 +121,9 @@ is kept):
 
 ### Upgrade notes
 
-- The app's database moves from version 35 to 37 (a tournament access setting
-  on each account, and a table of people's tournament accounts). As always the
+- The app's database moves from version 35 to 38 (a tournament access setting
+  on each account, a table of people's tournament accounts, and which sets of
+  tournaments each person can manage). As always the
   app takes a backup first. Every existing account starts with no tournament
   access; administrators have it without being given it. Going back to 0.1.0
   afterwards needs that backup.

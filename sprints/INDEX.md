@@ -180,7 +180,7 @@ Sprints 019-024 form the **club-readiness programme**: making the app installabl
 
 ### Sprint 023: CourtHive Bundle — Club Championships in the Box
 - **Status**: Implemented and tested locally 2026-11-22; publishing and the real-data upgrade rehearsal wait for the owner
-- **Work Items**: 8 (WI-142 to WI-147, WI-152, WI-153)
+- **Work Items**: 9 (WI-142 to WI-147, WI-152, WI-153, WI-154)
 - **Goal**: Published club-neutral CourtHive images, an opt-in tournament stack in the packaged deployment, automatic per-club provisioning, single sign-on with jim-dot-tennis as the identity source, tournament data in backups, unattended upgrades
 - **Directory**: `sprint-023/`
 - **Summary**: [sprint-023/SUMMARY.md](sprint-023/SUMMARY.md)
@@ -243,7 +243,8 @@ Work items are numbered sequentially:
 - **WI-112 through WI-151** — Sprints 019–024, club-readiness programme
 - **WI-152** — Sprint 023, single sign-on (added 2026-11-21)
 - **WI-153** — Sprint 023, tournament-only accounts (added 2026-11-22)
-- **Next available**: WI-154
+- **WI-154** — Sprint 023, several sets of tournaments per installation (added 2026-11-23)
+- **Next available**: WI-155
 
 ## Migrations Relationship
 
@@ -255,7 +256,8 @@ Sprint work items that deliver migrations document the migration number in their
 - **028** (retired_by on matchups) and **029** (reschedule statuses) — delivered outside the sprint structure
 - **030** (app_settings) and **031** (drop managing-team trigger) — Sprint 020 WI-116, WI-120
 - **032** to **035** (must-change flag, WebAuthn credentials, account links and nullable password hash, hashed sessions and account audit log) — Sprint 021 WI-127, WI-128, WI-129, WI-131
-- **Next available**: 036 (026 was never committed — never reuse it)
+- **036** to **038** (tournament access per account, tournament accounts, tournament provider ids and per-person provider picks) — Sprint 023 WI-153, WI-152, WI-154
+- **Next available**: 039 (026 was never committed — never reuse it)
 
 ## How to Use This Index
 

@@ -30,6 +30,7 @@
 | WI-147 | E2E smoke for the bundled stack | Medium | M | Sonnet 5.5 | WI-145, WI-146, WI-152 |
 | WI-152 | Single sign-on: jim-dot-tennis as the identity source for CourtHive | High | L | Fable 5.2 | WI-142, WI-144, WI-145, WI-153 |
 | WI-153 | Tournament-only accounts and per-account tournament access | High | M | Opus 5.5 | WI-142 |
+| WI-154 | Several sets of tournaments per installation, chosen per person | High | L | Fable 5.2 | WI-145, WI-152, WI-153 |
 
 ## Recommended Models
 
@@ -42,6 +43,7 @@ Each work item's JSON carries a `recommended_model` with the reason. In short:
 - **WI-146** - Opus 5.5: Data-safety work across two databases with ordering constraints learned the hard way.
 - **WI-147** - Sonnet 5.5: Test authoring over a defined happy path.
 - **WI-153** - Opus 5.5: Account and role changes with security consequences, in code with an established pattern.
+- **WI-154** - Fable 5.2: Changes who belongs to what on the tournament server, across the client, set-up, account sync, hand-over and three pages; needs the upstream multi-provider behaviour read and proven.
 - **WI-152** - Fable 5.2: Cross-system trust design where a mistake gives one system's users control of the other; touches a codebase we do not own.
 
 ## Execution Strategy
@@ -73,7 +75,8 @@ Decided on 2026-11-22; the detail and the evidence are in `docs/courthive_bundle
 4. One build serves every club: every address is a path on the host that serves the page.
 5. jim-dot-tennis is the only place people sign in. It creates password-less tournament accounts and hands people to TMX with a single-use token. CourtHive's identity service signs every token with a key generated on the club's server; its own sign-in routes are closed at the proxy.
 6. Tournament access is a per-account setting (none, own, all); people who only run tournaments get "Tournaments only" accounts (WI-153, owner's request).
-7. Same isolation rule as the app: every secret generated on the club's server, no shared administrator, no default passwords.
+7. An installation can manage more than one provider (a separate set of tournaments, such as one for the club and one for a league cup). An administrator adds or takes one on and chooses who can manage which; a person with more than one is asked which tournaments to manage, by name (WI-154, owner's request, 2026-11-23).
+8. Same isolation rule as the app: every secret generated on the club's server, no shared administrator, no default passwords.
 
 ## What Is NOT In This Sprint
 

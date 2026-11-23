@@ -37,6 +37,27 @@ Tournaments only account always has own or all: its access cannot be taken
 away. To stop someone using tournaments, disable their account instead. A
 disabled account has no tournament access.
 
+### Clubs with more than one set of tournaments
+
+A club can keep separate sets of tournaments, for example one for the club's
+own tournaments and one for a league cup (the tournament software calls each
+one a "provider"). Most clubs have one and can ignore this.
+
+With more than one, the users page shows tick boxes under "Can manage
+tournaments for" beside each person who has tournament access. The own or
+all setting then applies in each set that is ticked.
+
+- Administrators always have every set.
+- Someone with nothing chosen has the club's own set only. A set added later
+  is given to nobody until an administrator ticks it.
+- A person with more than one set is asked "Which tournaments do you want to
+  manage?" on their tournament home page, by name. To manage the other one
+  they come back to that page, or switch inside tournament management by
+  selecting the short code shown at the top of its list of tournaments.
+
+An administrator adds a set, and changes the name people see for it, in the
+"Tournament set-up" panel on the tournaments page.
+
 Captains and administrators with tournament access see "Open Tournament
 Management" on the dashboard. It goes to the same tournament home page.
 When Tournaments is switched off for the club (Club Settings, Features), the

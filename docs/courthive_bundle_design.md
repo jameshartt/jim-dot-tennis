@@ -195,7 +195,9 @@ silently instead of failing.
    token (four hours; the app renews it as needed and holds no key).
 3. With it the app creates a provisioner named `jim-dot-tennis`, assigns the
    service account to it, and creates the club's provider owned by it. A
-   provider that already exists is adopted, not duplicated.
+   provider that already exists is adopted, not duplicated (found through
+   the administrators' listing: the provisioner's own listing only shows
+   providers it already owns).
 4. The app creates a permanent, never-used provider administrator
    (`instance`). The tournament server refuses to remove a provider's last
    administrator; this account means any person can always be removed.
@@ -271,6 +273,55 @@ action to `/tournament-home/open`, the jim-dot-tennis route that checks the
 person's access, brings their tournament account into line and redirects to
 TMX with the single-use token in the address's fragment, which browsers never
 send to a server.
+
+### More than one provider in an installation (WI-154)
+
+A provider is a separate set of tournaments on the tournament server. An
+installation starts with one, the club's own. It can manage more: jim.tennis
+has one for St Ann's own tournaments and one (`BHPLTA`) for the Parks Cup.
+
+- **Which providers the app manages.** Each has a row in the app with the
+  tournament server's id for it. Set-up records the club's own. An
+  administrator adds another on the tournaments page or with
+  `tournaments add-provider <code> <name>`: the app makes it, or takes
+  ownership of one that already exists with that code, adds the permanent
+  `instance` administrator to it and registers it. The provisioner's own
+  listing shows only providers it already owns, so the app finds the others
+  through the administrators' listing (`POST /provider/allproviders`), which
+  the service account may read. Taking on a provider made by hand is proven
+  on the real stack by the bundle test.
+- **Who belongs to which.** One rule (`tournaments.ChooseProviders`):
+  administrators belong to every managed provider; anyone else with
+  tournament access belongs to the ones an administrator picked for them, and
+  with none picked to the club's own only. A provider added later is
+  therefore given to nobody until an administrator chooses them. The access
+  level (own or all) is one per person and applies in each of their
+  providers.
+- **Keeping the tournament server in line.** For each person the app sets
+  the membership and role in each provider chosen and removes the membership
+  from every other provider it manages. The tournament server checks
+  membership on every request, so a removal takes effect at once. Global
+  roles are cleared only when no provider is left.
+- **One provider at a time.** A tournament session acts for one provider.
+  The hand-over names it, and the tournament server refuses a hand-over for
+  a provider the person does not belong to. Someone with more than one is
+  asked on their tournament home page which tournaments to manage, by the
+  name an administrator gave each; the word "provider" is not shown to them.
+  A link that names none (TMX's own "Log in") goes to that choice. TMX's
+  own switcher (the provider's code at the top of its tournament list) also works
+  through the proxy: it asks the identity service for a session for the
+  other provider (`/auth/select-provider`), which is refused for a provider
+  the person does not belong to. The bundle test covers both ways.
+- **Names.** The name people choose by is held in the app and can be changed
+  there. It is not written to the tournament server, whose own name for the
+  provider is what TMX (including its switcher) and the public pages show.
+  For a provider the app makes, the two start the same; for one taken on
+  they can differ.
+
+Moving jim.tennis: set the club up with the code of the provider that should
+be the club's own, then add the other with its existing code. Both are taken
+on with their tournaments. The club's own is the one people get when nothing
+is picked for them, so pick it accordingly.
 
 ### People who exist only in CourtHive today
 
@@ -398,7 +449,13 @@ to approve, and the old accounts stay until then.
   tournament in TMX, the public pages (own host only), calendar sync, a
   tournaments-only person, removal of access with a tournament session open,
   sign-out, TMX's "Log in", the refused routes, and a fresh browser opening a
-  tournament from the server.
+  tournament from the server. Then, for several providers (WI-154): taking
+  on a provider that was made on the tournament server outside the app (the
+  script makes one with the service account before the tests), the choice of
+  tournaments by name with its accessibility checks at desktop and phone
+  width, TMX's own switcher, and a person picked for the second provider
+  only, who is handed over into it, cannot fetch the first provider's
+  tournament, and is refused a hand-over into the first.
 
 Not tested: the CI workflows in
 the forks and `bundle-smoke.yml`, which have never run because the images are
