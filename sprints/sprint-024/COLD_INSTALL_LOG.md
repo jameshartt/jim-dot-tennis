@@ -46,7 +46,7 @@ change log is one page.
 ## Run 3: 1.0.0-rc.2, guides from main
 
 All tasks completed without help. No failures. Every command's output matched
-the guides. Three minor hesitations, fixed in the guides for 1.0.0:
+the guides. Three minor hesitations, fixed in the guides for 0.3.0 (the release that replaced the candidates):
 
 1. "The first two commands may stop ... then carry on" was vague. Now names
    the command and says to run the block again from the top.

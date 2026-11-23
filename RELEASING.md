@@ -147,8 +147,14 @@ and licence.
 
 ## Notes
 
-- Versions are semantic. Pre-releases are `v0.x` until 1.0.0 (planned when the
-  club-readiness programme closes); use `-rc.N` for release candidates.
+- Versions are semantic. Pre-releases are `v0.x` until 1.0.0; use `-rc.N` for
+  release candidates. 1.0.0 waits for real use by a second club (decided
+  2026-11-23): one install on a real server by someone other than the author,
+  from the guides alone; one other club through a season start (fixtures in,
+  captains invited, a week of selections, a match card imported); and one
+  upgrade of that club's installation that needed only `docs/upgrade.md`.
+  (`v1.0.0-rc.1` and `v1.0.0-rc.2` exist from testing the guides; 0.3.0
+  replaced them.)
 - The workflow uses only the built-in `GITHUB_TOKEN`; there are no secrets to
   rotate. Only the jobs that publish have write permissions.
 - Third-party actions are pinned to commit SHAs and updated by Dependabot. The

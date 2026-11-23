@@ -70,7 +70,7 @@ name: jim-dot-tennis
 services:
   # The jim-dot-tennis app, from the published release image
   app:
-    image: ghcr.io/jameshartt/jim-dot-tennis:${JIM_DOT_TENNIS_VERSION:-1.0.0}
+    image: ghcr.io/jameshartt/jim-dot-tennis:${JIM_DOT_TENNIS_VERSION:-0.3.0}
     container_name: jim-dot-tennis
     restart: unless-stopped
     volumes:
@@ -173,7 +173,7 @@ services:
   # which is always there, with no network. No container_name on purpose: the
   # name compose gives it never collides with another copy of the app.
   check-tournament-secrets:
-    image: ghcr.io/jameshartt/jim-dot-tennis:${JIM_DOT_TENNIS_VERSION:-1.0.0}
+    image: ghcr.io/jameshartt/jim-dot-tennis:${JIM_DOT_TENNIS_VERSION:-0.3.0}
     profiles: [tournaments]
     restart: "no"
     network_mode: none
@@ -280,7 +280,7 @@ services:
   #
   # Never start the tournament server with `--no-deps`: that skips this step.
   courthive-pre-upgrade:
-    image: ghcr.io/jameshartt/jim-dot-tennis:${JIM_DOT_TENNIS_VERSION:-1.0.0}
+    image: ghcr.io/jameshartt/jim-dot-tennis:${JIM_DOT_TENNIS_VERSION:-0.3.0}
     profiles: [tournaments]
     container_name: courthive-pre-upgrade
     restart: "no"

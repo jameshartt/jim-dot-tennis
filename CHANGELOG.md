@@ -25,13 +25,18 @@ here. GitHub also generates a list of merged changes for each release; this file
 is the curated version that matters to operators. Moving from several versions
 back: read the Upgrade notes of every version in between.
 
-## [1.0.0] - 2026-11-23
+## [0.3.0] - 2026-11-23
 
 ### Summary
 
-The first stable version: ready for any BHPLTA club to install and run for
-itself. It adds guides for everyone, from the person who runs the server to
-players, and fixes what three clean-machine install tests turned up.
+Ready for a first club other than the author's to try. It adds guides for
+everyone, from the person who runs the server to players, and fixes what
+three clean-machine install tests turned up. It is still a pre-release: 1.0.0
+waits until another club has installed it on a real server, started a season
+on it and upgraded it.
+
+Two release candidates, 1.0.0-rc.1 and 1.0.0-rc.2, were made while testing
+the guides. This version replaces both; do not install them.
 
 ### Added
 
@@ -71,7 +76,7 @@ The bundled set this version was tested with:
 
 | Part | Image |
 |---|---|
-| jim-dot-tennis | `ghcr.io/jameshartt/jim-dot-tennis:1.0.0` |
+| jim-dot-tennis | `ghcr.io/jameshartt/jim-dot-tennis:0.3.0` |
 | Tournament server | `ghcr.io/jameshartt/courthive-server:4.19.1-jdt.1` |
 | Identity service | `ghcr.io/jameshartt/courthive-hiveid:0.5.0-jdt.1` |
 | TMX | `ghcr.io/jameshartt/courthive-tmx:8.61.0-jdt.1` |
@@ -79,7 +84,8 @@ The bundled set this version was tested with:
 
 ### Upgrade notes
 
-From 0.2.1 or a release candidate: download the new `docker-compose.yml`,
+From 0.2.1, or from 1.0.0-rc.1 or 1.0.0-rc.2 (set `JIM_DOT_TENNIS_VERSION=0.3.0`;
+the number is lower but the version is newer): download the new `docker-compose.yml`,
 `.env.example`, `Caddyfile` and `init-tournaments.sh` as `docs/upgrade.md`
 shows, then pull and start. There is no database change since 0.2.1, so going
 back needs no restore.

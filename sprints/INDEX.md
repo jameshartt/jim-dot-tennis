@@ -187,9 +187,9 @@ Sprints 019-024 form the **club-readiness programme**: making the app installabl
 - **Gate**: WI-142 must confirm redistribution is permitted before any image is published
 
 ### Sprint 024: Documentation and Onboarding for New Clubs
-- **Status**: Planned
+- **Status**: Completed (2026-11-23; released as 0.3.0)
 - **Work Items**: 4 (WI-148 to WI-151)
-- **Goal**: Operator and user guides, stale docs archived, a cold install by a reader with only the docs, then version 1.0.0
+- **Goal**: Operator and user guides, stale docs archived, a cold install by a reader with only the docs. Released as 0.3.0; 1.0.0 deferred until a second club has used it (criteria in RELEASING.md)
 - **Directory**: `sprint-024/`
 - **Summary**: [sprint-024/SUMMARY.md](sprint-024/SUMMARY.md)
 
