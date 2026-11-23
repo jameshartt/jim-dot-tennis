@@ -232,11 +232,18 @@ test.describe("Bundle with tournaments on", () => {
     role: string,
     access: string,
     password: string,
+    sets?: string[],
   ): Promise<{ ctx: BrowserContext; page: Page }> {
     await admin.goto("/admin/league/users");
     await admin.fill("#username", username);
     await admin.selectOption("#role", { label: role });
     await admin.selectOption("#tournament_access", access);
+    if (sets) {
+      // Only offered once the club has more than one set of tournaments.
+      for (const box of await admin.locator("[data-user-create-tournament-sets] input").all()) {
+        await box.setChecked(sets.includes((await box.getAttribute("data-set-code")) ?? ""));
+      }
+    }
     await admin.click("#create-user-submit");
     const link = await admin.locator("#issued-link-url").inputValue();
     expect(link).toContain("/account/link/");
@@ -441,5 +448,215 @@ test.describe("Bundle with tournaments on", () => {
     await expect(page.locator(".pub-panel", { hasText: "Tournament Information" })).toContainText("Live");
     await expect(page.getByText("Log in to manage publishing")).toHaveCount(0);
     await ctx.close();
+  });
+  // --- Several sets of tournaments in one installation (WI-154). -----------
+  // These come last: from here on the administrator has two sets, so the
+  // hand-over asks which one.
+
+  /** The provider a TMX session acts for, read from its access token. */
+  async function actingProvider(page: Page): Promise<string | undefined> {
+    return page.evaluate(() => {
+      const token = localStorage.getItem("tmxToken");
+      if (!token) return undefined;
+      const payload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      return JSON.parse(atob(payload)).providerId as string | undefined;
+    });
+  }
+
+  /**
+   * The names of the tournaments the tournament server lists for the page's
+   * TMX session (in one set of tournaments when providerId is given), asked
+   * with TMX's own token. (Not read off TMX's own request:
+   * after a switch TMX reloads its list by itself, and that races a reload
+   * made here.)
+   */
+  async function calendarNames(page: Page, providerId?: string): Promise<string[]> {
+    const answer = await page.evaluate(async () => {
+      const r = await fetch("/api/courthive/provider/my-calendars", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("tmxToken")}` },
+        body: "{}",
+      });
+      return { status: r.status, body: await r.json() };
+    });
+    expect(answer.status).toBe(200);
+    // Asked without naming one, the tournament server lists every set the
+    // person belongs to, grouped; providerId picks one group.
+    return (answer.body.calendars ?? [])
+      .filter((c: { provider?: { organisationId?: string } }) => !providerId || c.provider?.organisationId === providerId)
+      .flatMap((c: { tournaments?: { tournament?: { tournamentName?: string } }[] }) => c.tournaments ?? [])
+      .map((t: { tournament?: { tournamentName?: string } }) => t.tournament?.tournamentName ?? "");
+  }
+
+  let clubProviderId: string | undefined;
+  let cupProviderId: string | undefined;
+
+  test("m. the administrator takes on a second set of tournaments that was made outside the app", async () => {
+    await signInWithPassword(admin, ADMIN_USER, ADMIN_PASSWORD);
+    await admin.goto("/admin/league/tournaments");
+    const sets = admin.locator("[data-setup-sets]");
+    await expect(sets.locator(`[data-setup-set="${CLUB_CODE}"]`)).toBeVisible();
+    // The script made OLDCUP on the tournament server by hand: found, not managed.
+    await expect(sets.locator('[data-found-code="OLDCUP"]')).toBeVisible();
+
+    // The name people will see for the club's own set.
+    await sets.locator(`[data-setup-set="${CLUB_CODE}"] input[name="name"]`).fill("St Ann's club tournaments");
+    await sets.locator(`[data-setup-set="${CLUB_CODE}"] button`).click();
+    await expect(admin.locator("body")).toContainText("Name changed");
+
+    await admin.fill("#add-set-name", "Parks Cup");
+    await admin.fill("#add-set-code", "oldcup");
+    await admin.locator("[data-setup-add-set] button").click();
+    const panel = admin.locator("#tournament-setup");
+    await expect(panel.locator("[data-setup-outcome='done']")).toContainText("Parks Cup is ready");
+    await expect(panel.locator("[data-setup-failed]")).toHaveCount(0);
+    await expect(panel.locator('[data-setup-set="OLDCUP"] input[name="name"]')).toHaveValue("Parks Cup");
+    await expect(panel.locator('[data-found-code="OLDCUP"]')).toHaveCount(0);
+    for (const text of await panel.locator("[data-setup-steps] li").allInnerTexts()) {
+      expect(text, "every step of adding the set reports success").toMatch(/: (Done|Made|Already there)/);
+    }
+  });
+
+  test("n. someone with two sets chooses which tournaments to manage, by name", async () => {
+    await admin.goto("/tournament-home");
+    await expect(admin.getByRole("heading", { name: "Which tournaments do you want to manage?" })).toBeVisible();
+    const choices = admin.locator('[data-testid="tournament-set"]');
+    await expect(choices).toHaveCount(2);
+    await expect(choices.nth(0)).toContainText("St Ann's club tournaments");
+    await expect(choices.nth(1)).toContainText("Parks Cup");
+    await expect(admin.locator('[data-testid="tournament-management-link"]')).toHaveCount(0);
+    await expect(admin.locator('[data-testid="tournament-sets-note"]')).toBeVisible();
+    // People are never shown the word "provider".
+    expect((await admin.locator("main, body").first().innerText()).toLowerCase()).not.toContain("provider");
+
+    // Accessible, at desktop and phone width; a picture of each is kept.
+    const AxeBuilder = (await import("@axe-core/playwright")).default;
+    for (const [name, size] of [
+      ["desktop", { width: 1280, height: 800 }],
+      ["mobile", { width: 375, height: 812 }],
+    ] as const) {
+      await admin.setViewportSize(size);
+      // The whole page as the main suite checks pages (it leaves colour
+      // contrast out: the site-wide link colour is a known matter there),
+      // and the choice itself with every rule, contrast included.
+      const pageResults = await new AxeBuilder({ page: admin })
+        .withTags(["wcag2a", "wcag2aa"])
+        .disableRules(["color-contrast"])
+        .analyze();
+      expect(pageResults.violations.map((v) => `${v.id}: ${v.help}`), `axe, page at ${name} width`).toEqual([]);
+      const choiceResults = await new AxeBuilder({ page: admin })
+        .withTags(["wcag2a", "wcag2aa"])
+        .include('[data-testid="tournament-sets"]')
+        .include("#choose")
+        .include('[data-testid="tournament-sets-note"]')
+        .analyze();
+      expect(choiceResults.violations.map((v) => `${v.id}: ${v.help}`), `axe, the choice at ${name} width`).toEqual([]);
+      await admin.screenshot({ path: `${test.info().config.rootDir}/artifacts/choice-${name}.png`, fullPage: true });
+    }
+    await admin.setViewportSize({ width: 1280, height: 800 });
+    // The choices are real links, reachable and operable from the keyboard.
+    await choices.nth(1).focus();
+    await expect(choices.nth(1)).toBeFocused();
+
+    // A link that names no set (TMX's own "Log in", a bookmark) comes here
+    // instead of picking one.
+    await admin.goto("/tournament-home/open");
+    await expect(admin).toHaveURL(/\/tournament-home(#choose)?$/);
+    expect(admin.url()).not.toContain("/sso");
+
+    // Choosing one opens it: the session acts for that set, which has no
+    // tournaments yet.
+    await admin.locator('[data-testid="tournament-set"]', { hasText: "Parks Cup" }).press("Enter");
+    await expect(admin).toHaveURL(/\/tournaments\/#\//, { timeout: 30_000 });
+    await expect.poll(async () => (await tmxTokens(admin)).access, { timeout: 30_000 }).not.toBeNull();
+    const me = await authMe(admin);
+    expect(me.status).toBe(200);
+    expect(me.body.providerIds).toHaveLength(2);
+    cupProviderId = await actingProvider(admin);
+    expect(cupProviderId).toBeTruthy();
+    expect(await calendarNames(admin, cupProviderId)).not.toContain(TOURNAMENT_NAME);
+    // TMX lists the set it is acting for: the club's tournament is not there.
+    // (TMX's badge shows the set's code; the home page shows that code under each name.)
+    await expect(admin.locator("#provider")).toHaveText("OLDCUP", { timeout: 30_000 });
+    await expect(admin.getByText(TOURNAMENT_NAME)).toHaveCount(0);
+
+    // And the other one.
+    await admin.goto("/tournament-home");
+    await admin.locator('[data-testid="tournament-set"]', { hasText: "St Ann's club tournaments" }).click();
+    await expect(admin).toHaveURL(/\/tournaments\/#\//, { timeout: 30_000 });
+    await expect.poll(async () => actingProvider(admin), { timeout: 30_000 }).not.toBe(cupProviderId);
+    clubProviderId = await actingProvider(admin);
+    expect(clubProviderId).toBeTruthy();
+    expect(await calendarNames(admin, clubProviderId)).toContain(TOURNAMENT_NAME);
+    await expect(admin.getByText(TOURNAMENT_NAME).first()).toBeVisible({ timeout: 30_000 });
+  });
+
+  test("o. TMX's own switcher moves between the two sets", async () => {
+    // The session is acting for the club's own set (end of the last test).
+    await admin.goto("/tournaments/#/tournaments");
+    await expect(admin.getByText(TOURNAMENT_NAME).first()).toBeVisible({ timeout: 30_000 });
+    const [selected] = await Promise.all([
+      admin.waitForResponse((r) => r.url().includes("/api/courthive/auth/select-provider"), { timeout: 30_000 }),
+      (async () => {
+        await admin.locator("#provider").click();
+        await admin.getByText("Made by hand cup", { exact: true }).click();
+      })(),
+    ]);
+    expect(selected.status(), "the proxy lets the switch through to the identity service").toBeLessThan(300);
+    await expect.poll(async () => actingProvider(admin), { timeout: 30_000 }).toBe(cupProviderId);
+    expect(await calendarNames(admin, cupProviderId)).not.toContain(TOURNAMENT_NAME);
+    // TMX's own list follows: the club's tournament is gone from it.
+    await expect(admin.getByText(TOURNAMENT_NAME)).toHaveCount(0);
+  });
+
+  test("p. someone picked for the second set only is handed over into it and cannot reach the first", async ({ browser }) => {
+    const cup = await inviteAndRedeem(browser, "bundle.cup", "Tournaments only", "all", "a long rally on the far court", ["OLDCUP"]);
+    await expect(cup.page).toHaveURL(/\/tournament-home$/);
+    // One set: the single button, no choice to make.
+    await expect(cup.page.locator('[data-testid="tournament-set"]')).toHaveCount(0);
+    await cup.page.locator('[data-testid="tournament-management-link"]').click();
+    await expect(cup.page).toHaveURL(/\/tournaments\/#\//, { timeout: 30_000 });
+    await expect.poll(async () => (await tmxTokens(cup.page)).access, { timeout: 30_000 }).not.toBeNull();
+
+    const me = await authMe(cup.page);
+    expect(me.status).toBe(200);
+    expect(me.body.providerIds).toEqual([cupProviderId]);
+    expect(await actingProvider(cup.page)).toBe(cupProviderId);
+    // Provider administrator of the cup, and still the club's tournament is not theirs to see.
+    expect(await calendarNames(cup.page)).not.toContain(TOURNAMENT_NAME);
+    const fetched = await cup.page.evaluate(async (id) => {
+      const r = await fetch("/api/courthive/factory/fetch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("tmxToken")}` },
+        body: JSON.stringify({ tournamentId: id }),
+      });
+      const text = await r.text();
+      return { status: r.status, hasRecord: text.includes("Bundle Smoke Cup") };
+    }, tournamentId);
+    expect(fetched.hasRecord, `fetching the club's tournament answered ${fetched.status}`).toBe(false);
+
+    // Asking the app for the club's own set is refused: no hand-over.
+    await cup.page.goto(`/tournament-home/open?provider=${CLUB_CODE}`);
+    await expect(cup.page).toHaveURL(/\/tournament-home$/);
+    expect(cup.page.url()).not.toContain("/sso");
+
+    // The users page shows the choice, by name.
+    await admin.goto("/admin/league/users");
+    const row = admin.locator('tr[data-username="bundle.cup"]');
+    await expect(row).toContainText("Can manage tournaments for");
+    await expect(row.locator('input[data-set-code="OLDCUP"]')).toBeChecked();
+    await expect(row.locator(`input[data-set-code="${CLUB_CODE}"]`)).not.toBeChecked();
+
+    // Given the club's own as well: the choice appears for them, and it opens.
+    await row.locator(`input[data-set-code="${CLUB_CODE}"]`).check();
+    await row.locator("[data-user-tournament-sets-form] button").click();
+    await expect(admin.locator("body")).toContainText("Updated which tournaments they can manage");
+    await cup.page.goto("/tournament-home");
+    await expect(cup.page.locator('[data-testid="tournament-set"]')).toHaveCount(2);
+    await cup.page.locator('[data-testid="tournament-set"]', { hasText: "St Ann's club tournaments" }).click();
+    await expect(cup.page).toHaveURL(/\/tournaments\/#\//, { timeout: 30_000 });
+    await expect.poll(async () => actingProvider(cup.page), { timeout: 30_000 }).toBe(clubProviderId);
+    expect(await calendarNames(cup.page, clubProviderId)).toContain(TOURNAMENT_NAME);
+    await cup.ctx.close();
   });
 });

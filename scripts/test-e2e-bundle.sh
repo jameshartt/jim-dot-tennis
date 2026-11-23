@@ -163,6 +163,29 @@ run_profile() {
     teardown
     return 1
   fi
+  if [ "$profile" = on ]; then
+    # A set of tournaments made on the tournament server outside the app (as
+    # on an installation that ran CourtHive before the bundle): the tests take
+    # it on (WI-154). Made with the service account from inside the app
+    # container; neither the password nor the token is printed.
+    if ! "${dc[@]}" exec -T app sh -c '
+      set -e
+      id="${COURTHIVE_IDENTITY_URL:-http://courthive-hiveid:3140}"
+      api="${COURTHIVE_API_URL:-http://courthive-server:8383}"
+      tok=$(wget -qO- --header "Content-Type: application/json" \
+        --post-data "{\"email\":\"service@jim-dot-tennis.invalid\",\"password\":\"$COURTHIVE_SERVICE_PASSWORD\"}" \
+        "$id/auth/login" | sed -n "s/.*\"token\":\"\([^\"]*\)\".*/\1/p")
+      [ -n "$tok" ]
+      wget -qO- --header "Content-Type: application/json" --header "Authorization: Bearer $tok" \
+        --post-data "{\"organisationAbbreviation\":\"OLDCUP\",\"organisationName\":\"Made by hand cup\"}" \
+        "$api/provider/add" | grep -q "\"success\":true"
+    ' >/dev/null 2>&1; then
+      echo "could not make the hand-made set of tournaments on the tournament server"
+      save_logs
+      teardown
+      return 1
+    fi
+  fi
   "${dc[@]}" logs --no-color --no-log-prefix app >"$logdir/app.log" 2>&1
   grep -q 'SETUP CODE:' "$logdir/app.log" || { echo "no setup code in the app log"; save_logs; teardown; return 1; }
 
