@@ -298,7 +298,15 @@ func (s *Service) ResolveAbbreviation(ctx context.Context, input string) (string
 	}
 	all, listErr := s.client.Providers(ctx)
 	if listErr != nil {
-		return "", err
+		// Before the first set-up the app is not yet connected to the
+		// tournament server and may not list its providers. Connecting is
+		// set-up's own first step and is safe to repeat.
+		if _, _, connectErr := s.client.EnsureProvisioner(ctx); connectErr != nil {
+			return "", err
+		}
+		if all, listErr = s.client.Providers(ctx); listErr != nil {
+			return "", err
+		}
 	}
 	for _, p := range all {
 		if code := strings.TrimSpace(p.Abbreviation); strings.EqualFold(code, want) {

@@ -368,3 +368,20 @@ func TestAnExistingProviderWithAnOddCodeIsTakenOn(t *testing.T) {
 		t.Fatalf("running it again changed something: %+v, %v", res, err)
 	}
 }
+
+// The very first set-up can name an existing provider with an odd code: the
+// app connects itself first, because the tournament server lists providers
+// only to an app that is connected.
+func TestFirstSetUpTakesOnAnOddCode(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	e.fake.AddProvider("St Ann's", "St Ann's Tennis", false)
+	res, err := e.svc.Provision(ctx, actor, Request{Abbreviation: "st ann's", Name: "St Ann's club tournaments"})
+	if err != nil || !res.OK {
+		t.Fatalf("Provision: %+v, %v", res, err)
+	}
+	got, _ := e.svc.ManagedProviders(ctx)
+	if codes(got) != "St Ann's" || !got[0].Own || len(e.fake.Providers()) != 1 {
+		t.Fatalf("managed = %+v, providers on the server = %d", got, len(e.fake.Providers()))
+	}
+}
