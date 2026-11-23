@@ -11,7 +11,7 @@
     "WI-149",
     "WI-150"
   ],
-  "status": "not_started",
+  "status": "completed",
   "recommended_model": {
     "name": "Sonnet 5.5",
     "id": "claude-sonnet-5-5",
@@ -37,5 +37,6 @@
   "context": {
     "user_story": "As a new club, I want proof that the instructions work for someone who has never seen the project.",
     "programme": "Club-readiness programme (sprints 019-024). Agreed constraints: BHPLTA clubs only; each club self-hosts its own instance; the original author must have no access to any other club's instance (no seeded accounts, no shared or default secrets, no phone-home); passkeys are the default sign-in with passwords as an optional fallback; the captain role is real; SQLite is the only supported database; CourtHive is bundled as an opt-in part of the package so clubs can run their own club championships."
-  }
+  },
+  "outcome": "Three cold-install runs (see COLD_INSTALL_LOG.md). Released as v0.3.0 instead of v1.0.0 by Jim's decision on 2026-11-23."
 }

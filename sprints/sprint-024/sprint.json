@@ -4,9 +4,9 @@
     "name": "Documentation and Onboarding for New Clubs",
     "goal": "A volunteer at another BHPLTA club, with no familiarity with the project and modest technical confidence, can install it, set it up, keep it backed up and upgraded, and explain it to their captains and players - using only what ships with the project. Close with version 1.0.0.",
     "start_date": "2026-11-23",
-    "end_date": null,
+    "end_date": "2026-11-23",
     "type": "numbered",
-    "status": "in_progress",
+    "status": "completed",
     "programme": "club-readiness (sprints 019-024)",
     "focus_areas": [
       "Install, upgrade, backup and troubleshooting guides written for a first-time operator",
@@ -19,6 +19,7 @@
       "WI-149",
       "WI-150",
       "WI-151"
-    ]
+    ],
+    "outcome": "Released as 0.3.0; 1.0.0 deferred until a second club has used it (criteria in RELEASING.md)"
   }
 }

@@ -4,9 +4,9 @@
 
 **Goal**: A volunteer at another BHPLTA club, with no familiarity with the project and modest technical confidence, can install it, set it up, keep it backed up and upgraded, and explain it to their captains and players - using only what ships with the project. Close with version 1.0.0.
 
-**Duration**: dates TBD
+**Duration**: 2026-11-23
 
-**Status**: Planned
+**Status**: Completed (released as 0.3.0, not 1.0.0)
 
 **Programme**: Part of the club-readiness programme (Sprints 019-024). Agreed constraints: BHPLTA clubs only; each club hosts its own instance; the original author has no access to any other club's instance; passkeys by default with passwords as an optional fallback; a real captain role; SQLite only; CourtHive bundled as an opt-in so clubs can run their own championships.
 
@@ -58,3 +58,12 @@ Each work item's JSON carries a `recommended_model` with the reason. In short:
 - Video walkthroughs
 - Translations
 - A hosted documentation site (plain Markdown in the repository, plus in-app help links)
+
+## Outcome
+
+Completed 2026-11-23 and released as **0.3.0**, not 1.0.0. Jim's decision: 1.0.0 is an ambitious step and waits until the project has seen more use. The criteria are in `RELEASING.md` (a real-server install by someone else, a second club through a season start, and an upgrade of that club's installation).
+
+- Three cold-install runs; the last two needed no help. Record: `COLD_INSTALL_LOG.md`.
+- Not covered by the cold runs: a real browser and passkeys, installing Docker on Ubuntu, DNS and a real certificate, and a season from the live BHPLTA site (no fixtures are published in November).
+- Players are still added by hand. Jim wants players to come from the BHPLTA scorer's registered-player list once it has an API, so no bulk entry was built.
+- Extra product fixes made along the way: honest User-Agent for BHPLTA requests, league-only installs need no tournament secrets, clearer errors, "sets of tournaments" wording on every admin page, an About page true for any club.

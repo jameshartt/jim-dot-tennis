@@ -78,7 +78,7 @@ Nothing was started or changed.
 `.env` is missing or has no `DOMAIN=` value. Do step 6 of
 [Installing](install.md).
 
-**With the release files of version 1.0.0-rc.1 or older** (for example 0.2.1)
+**With the release files of a version older than 0.3.0** (for example 0.2.1)
 you may see this instead, even with tournaments off:
 
 ```

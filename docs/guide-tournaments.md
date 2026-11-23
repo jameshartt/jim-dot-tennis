@@ -16,6 +16,8 @@ You need three things.
 
 An administrator does this once.
 
+If tournaments were switched on from **Club Settings**, the club was set up at the same moment. The **Tournament set-up** panel then already says the club is set up and offers **Check the set-up again**. In that case there is nothing to do here: go on to the next section.
+
 1. On the dashboard, choose **Manage Tournaments**.
 2. Find the **Tournament set-up** panel.
 3. Check the **Club's tournament code**. It is made from your club's name. It cannot be changed afterwards, so check it first.

@@ -31,7 +31,7 @@ docker compose exec app ./jim-dot-tennis version
 later step.)
 
 You should see a line such as
-`jim-dot-tennis 1.0.0 (commit 0cebf5d3fc3f, built 2026-11-23T07:55:18Z)`. The
+`jim-dot-tennis 0.3.0 (commit 0cebf5d3fc3f, built 2026-11-23T07:55:18Z)`. The
 number after `jim-dot-tennis` is your version.
 
 Anyone can also see the version at `https://tennis.example.org/version`, and

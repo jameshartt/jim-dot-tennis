@@ -25,6 +25,77 @@ here. GitHub also generates a list of merged changes for each release; this file
 is the curated version that matters to operators. Moving from several versions
 back: read the Upgrade notes of every version in between.
 
+## [0.3.0] - 2026-11-23
+
+### Summary
+
+Ready for a first club other than the author's to try. It adds guides for
+everyone, from the person who runs the server to players, and fixes what
+three clean-machine install tests turned up. It is still a pre-release: 1.0.0
+waits until another club has installed it on a real server, started a season
+on it and upgraded it.
+
+Two release candidates, 1.0.0-rc.1 and 1.0.0-rc.2, were made while testing
+the guides. This version replaces both; do not install them.
+
+### Added
+
+- Guides for the person who runs the server: installing, upgrading, backups
+  and restoring, troubleshooting, accounts and recovery, and privacy and
+  data (all under `docs/`).
+- Guides for administrators, captains, players and people running
+  tournaments, served by the app itself at `/help`, with a "Help with this
+  page" link on the admin pages.
+
+### Changed
+
+- A club that runs the league only no longer needs tournament secrets. A
+  start-up check refuses to start tournaments when a secret is missing, empty
+  or a placeholder; the league site keeps running either way.
+- Every request to the BHPLTA website says honestly that it comes from
+  jim-dot-tennis, with the version and the project's address.
+- Between seasons, set-up and the Seasons page explain that no season was
+  created yet and what to do when fixtures are published.
+- Admin pages say "set of tournaments" everywhere; the About page is true
+  for any club's copy; messages point at the new guides.
+
+### Fixed
+
+- First-run set-up and season set-up could fail with "Could not reach the
+  BHPLTA fixtures page" because the BHPLTA website refuses requests that
+  pretend to be a web browser.
+- Starting an older version on a database that a newer version has upgraded
+  stops with a clear explanation and changes nothing.
+
+### Removed
+
+- Old import and deployment scripts that the app has replaced. Old planning
+  documents moved to `docs/archive/`.
+
+The bundled set this version was tested with:
+
+| Part | Image |
+|---|---|
+| jim-dot-tennis | `ghcr.io/jameshartt/jim-dot-tennis:0.3.0` |
+| Tournament server | `ghcr.io/jameshartt/courthive-server:4.19.1-jdt.1` |
+| Identity service | `ghcr.io/jameshartt/courthive-hiveid:0.5.0-jdt.1` |
+| TMX | `ghcr.io/jameshartt/courthive-tmx:8.61.0-jdt.1` |
+| Public pages | `ghcr.io/jameshartt/courthive-public:1.23.7-jdt.1` |
+
+### Upgrade notes
+
+From 0.2.1, or from 1.0.0-rc.1 or 1.0.0-rc.2 (set `JIM_DOT_TENNIS_VERSION=0.3.0`;
+the number is lower but the version is newer): download the new `docker-compose.yml`,
+`.env.example`, `Caddyfile` and `init-tournaments.sh` as `docs/upgrade.md`
+shows, then pull and start. There is no database change since 0.2.1, so going
+back needs no restore.
+
+- Keep every line already in your `.env`, including tournament secrets.
+- With tournaments on, nothing else to do. The tournament containers are not
+  restarted. If `check-tournament-secrets` stops the start, see problem 19 in
+  `docs/troubleshooting.md`; do not make new secrets for existing tournament
+  data.
+
 ## [1.0.0-rc.2] - 2026-11-23
 
 ### Summary
