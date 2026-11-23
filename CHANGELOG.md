@@ -25,6 +25,74 @@ here. GitHub also generates a list of merged changes for each release; this file
 is the curated version that matters to operators. Moving from several versions
 back: read the Upgrade notes of every version in between.
 
+## [1.0.0-rc.2] - 2026-11-23
+
+### Summary
+
+A second release candidate for 1.0.0, with the fixes from the first test of
+the guides on a clean machine. Clubs should wait for 1.0.0.
+
+### Changed
+
+- A club that runs the league only no longer needs the tournament secrets.
+  With tournaments off, `docker compose up -d` starts the app and Caddy
+  without them, whatever the version of Docker Compose.
+- With tournaments on, a new first step, `check-tournament-secrets`, refuses
+  to start the tournament part while any tournament secret is missing from
+  `.env`, empty or a placeholder. `docker compose up -d` then ends with
+  `service "check-tournament-secrets" didn't complete successfully: exit 1`
+  instead of a "required variable" error, its log names the missing secrets
+  (never their values), and the league site keeps running.
+- Between seasons, when set-up or "Start a new season from BHPLTA" finds no
+  upcoming fixtures, the pages say that is normal, what the club can do
+  meanwhile, and how to bring the season in once the fixtures are published.
+  The empty Seasons page says the same.
+- Club Settings explains that the "BHPLTA club name" is BHPLTA's identifier
+  for the club, which can look odd (for example `St+Anns`), and is right.
+- The guides: the install guide shows how to check the version running, has
+  a complete "Trying it locally" route (with `docker compose pull`), and
+  describes set-up between seasons; the backup guide quotes the real
+  `docker compose cp` output, shows `scp` with what to replace, gives a way to
+  prove a restore worked and says how to replace invite links a restore
+  cancelled; the guides mention the "Sign-in methods" page shown after a
+  password sign-in; button names match the app; two new troubleshooting
+  entries.
+
+### Fixed
+
+- With Docker Compose version 2, `docker compose up -d` with tournaments off
+  stopped with `required variable COURTHIVE_PG_PASSWORD is missing a value`
+  (Compose checked the tournament secrets even though the tournament part was
+  off).
+- The practice restore in the backup guide missed the step that makes the
+  backups folder in a new trial copy.
+
+The bundled set this version was tested with:
+
+| Part | Image |
+|---|---|
+| jim-dot-tennis | `ghcr.io/jameshartt/jim-dot-tennis:1.0.0-rc.2` |
+| Tournament server | `ghcr.io/jameshartt/courthive-server:4.19.1-jdt.1` |
+| Identity service | `ghcr.io/jameshartt/courthive-hiveid:0.5.0-jdt.1` |
+| TMX | `ghcr.io/jameshartt/courthive-tmx:8.61.0-jdt.1` |
+| Public pages | `ghcr.io/jameshartt/courthive-public:1.23.7-jdt.1` |
+
+### Upgrade notes
+
+Replace the image and restart, and download the new `docker-compose.yml` and
+`.env.example` as usual (the upgrade guide, step 4). There is no database
+change since 0.2.1.
+
+- League only: if you ran `./init-tournaments.sh` only to get past the
+  "required variable" error, leave the lines it added in `.env`. They do no
+  harm, and going back to the older files needs them.
+- Tournaments on: nothing to do. The running tournament containers are not
+  restarted by this change. If `up -d` now ends with
+  `service "check-tournament-secrets" didn't complete successfully`, a secret
+  is missing from `.env`: see that problem in `docs/troubleshooting.md`. Do
+  not make new secrets for tournament data you already have; put back your
+  saved copy of `.env`.
+
 ## [1.0.0-rc.1] - 2026-11-23
 
 ### Summary
