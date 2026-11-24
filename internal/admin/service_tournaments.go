@@ -168,8 +168,14 @@ func (s *Service) SyncFromCourtHive(providerID uint) (*SyncResult, error) {
 			continue
 		}
 
-		// Existing — update name and dates if changed
+		// Existing — update name and dates if changed. A tournament listed in
+		// this set's calendar belongs to this set, so one that was moved here on
+		// the tournament software follows it.
 		changed := false
+		if existing.ProviderID != provider.ID {
+			existing.ProviderID = provider.ID
+			changed = true
+		}
 		if existing.Name != entry.Tournament.TournamentName {
 			existing.Name = entry.Tournament.TournamentName
 			changed = true

@@ -25,6 +25,30 @@ here. GitHub also generates a list of merged changes for each release; this file
 is the curated version that matters to operators. Moving from several versions
 back: read the Upgrade notes of every version in between.
 
+## [0.3.1] - 2026-11-24
+
+### Summary
+
+A small fix to how a set of tournaments is synced with the tournament software.
+
+### Fixed
+
+- Syncing a set of tournaments now moves a tournament's entry to that set when the tournament was moved there on the tournament software. Before, the entry stayed under the old set.
+
+The bundled set this version was tested with:
+
+| Part | Image |
+|---|---|
+| jim-dot-tennis | `ghcr.io/jameshartt/jim-dot-tennis:0.3.1` |
+| Tournament server | `ghcr.io/jameshartt/courthive-server:4.19.1-jdt.1` |
+| Identity service | `ghcr.io/jameshartt/courthive-hiveid:0.5.0-jdt.1` |
+| TMX | `ghcr.io/jameshartt/courthive-tmx:8.61.0-jdt.1` |
+| Public pages | `ghcr.io/jameshartt/courthive-public:1.23.7-jdt.1` |
+
+### Upgrade notes
+
+None: replace the image and restart.
+
 ## [0.3.0] - 2026-11-23
 
 ### Summary

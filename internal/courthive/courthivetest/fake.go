@@ -71,7 +71,8 @@ type Server struct {
 	reps         map[string]bool
 	providers    map[string]*Provider // by abbreviation
 	users        []*User
-	fail         map[string]int // call -> status to answer with, once
+	calendars    map[string][]CalendarEntry // by abbreviation
+	fail         map[string]int             // call -> status to answer with, once
 	calls        map[string]int
 	handovers    int
 }
@@ -107,6 +108,21 @@ func (s *Server) AddProvider(abbreviation, name string, managed bool) string {
 	id := "provider-" + abbreviation
 	s.providers[abbreviation] = &Provider{ID: id, Abbreviation: abbreviation, Name: name, Managed: managed}
 	return id
+}
+
+// CalendarEntry is a tournament in a provider's public calendar.
+type CalendarEntry struct {
+	ID, Name, StartDate, EndDate string
+}
+
+// SetCalendar sets the tournaments the provider's public calendar lists.
+func (s *Server) SetCalendar(abbreviation string, entries ...CalendarEntry) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.calendars == nil {
+		s.calendars = map[string][]CalendarEntry{}
+	}
+	s.calendars[abbreviation] = entries
 }
 
 // AddAccount puts a tournament account in a provider, as if made in
@@ -216,12 +232,17 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 		reply(200, map[string]string{"version": "7.1.1"})
 		return
 	case CallCalendar:
-		// Public: the club's calendar (empty: the fake holds no tournaments).
+		// Public: the club's calendar (empty unless a test sets it).
 		if _, ok := s.providers[str("providerAbbr")]; !ok {
 			reply(200, map[string]any{"success": false, "error": "provider not found"})
 			return
 		}
-		reply(200, map[string]any{"success": true, "calendar": map[string]any{"tournaments": []any{}}})
+		list := []any{}
+		for _, e := range s.calendars[str("providerAbbr")] {
+			list = append(list, map[string]any{"tournamentId": e.ID, "tournament": map[string]any{
+				"tournamentName": e.Name, "startDate": e.StartDate, "endDate": e.EndDate}})
+		}
+		reply(200, map[string]any{"success": true, "calendar": map[string]any{"tournaments": list}})
 		return
 	case CallSignIn:
 		if str("password") != s.Password {
