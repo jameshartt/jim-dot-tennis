@@ -229,3 +229,66 @@ func TestTournamentSetupPanelFailureRetryAndUnmanagedAccounts(t *testing.T) {
 		t.Fatal("a second provider")
 	}
 }
+
+func TestSyncMovesATournamentToTheSetItWasMovedTo(t *testing.T) {
+	e := newSettingsTestEnv(t)
+	fake := courthivetest.New(t)
+	withTournamentStack(t, e, fake.URL, courthivetest.Password)
+	ctx := context.Background()
+	svc := e.handler.service
+	providers := repository.NewTournamentProviderRepository(e.db)
+	tournamentsRepo := repository.NewTournamentRepository(e.db)
+
+	fake.AddProvider("SETA", "Set A", false)
+	fake.AddProvider("SETB", "Set B", false)
+	a := &models.TournamentProvider{Name: "Set A", ProviderAbbr: "SETA"}
+	b := &models.TournamentProvider{Name: "Set B", ProviderAbbr: "SETB"}
+	for _, p := range []*models.TournamentProvider{a, b} {
+		if err := providers.Create(ctx, p); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	cup := courthivetest.CalendarEntry{ID: "cup-1", Name: "Cup", StartDate: "2026-06-01", EndDate: "2026-06-02"}
+	fake.SetCalendar("SETA", cup)
+	if res, err := svc.SyncFromCourtHive(a.ID); err != nil || res.New != 1 {
+		t.Fatalf("first sync: %+v %v", res, err)
+	}
+	row, err := tournamentsRepo.FindByCourthiveTournamentID(ctx, "cup-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	row.IsVisible, row.DisplayOrder = true, 7
+	if err := tournamentsRepo.Update(ctx, row); err != nil {
+		t.Fatal(err)
+	}
+
+	// The tournament moves to set B on the tournament software.
+	fake.SetCalendar("SETA")
+	fake.SetCalendar("SETB", cup)
+	res, err := svc.SyncFromCourtHive(b.ID)
+	if err != nil || res.New != 0 || res.Updated != 1 {
+		t.Fatalf("sync of B: %+v %v", res, err)
+	}
+	check := func(when string) {
+		t.Helper()
+		all, err := tournamentsRepo.FindAll(ctx)
+		if err != nil || len(all) != 1 {
+			t.Fatalf("%s: rows = %+v %v", when, all, err)
+		}
+		got := all[0]
+		if got.ID != row.ID || got.ProviderID != b.ID || got.ProviderName != "Set B" || !got.IsVisible || got.DisplayOrder != 7 {
+			t.Fatalf("%s: row = %+v", when, got)
+		}
+	}
+	check("after syncing B")
+
+	// Syncing A afterwards changes nothing.
+	if res, err := svc.SyncFromCourtHive(a.ID); err != nil || res.New+res.Updated+res.Unchanged != 0 {
+		t.Fatalf("sync of A: %+v %v", res, err)
+	}
+	check("after syncing A")
+	if res, err := svc.SyncFromCourtHive(b.ID); err != nil || res.Unchanged != 1 {
+		t.Fatalf("second sync of B: %+v %v", res, err)
+	}
+}
