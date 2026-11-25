@@ -24,7 +24,7 @@ const ProjectURL = "https://github.com/jameshartt/jim-dot-tennis"
 // UserAgent is the User-Agent header for every request this software makes
 // to the BHPLTA website (and any other site it reads pages from): honest,
 // naming the software, its version and the project, for example
-// "jim-dot-tennis/0.2.1 (+https://github.com/jameshartt/jim-dot-tennis)".
+// "jim-dot-tennis/0.3.1 (+https://github.com/jameshartt/jim-dot-tennis)".
 // It never pretends to be a browser: the BHPLTA site resets requests that
 // claim to be Chrome and refuses Go's default User-Agent with 403, but
 // answers this one.

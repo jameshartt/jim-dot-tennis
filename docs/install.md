@@ -213,8 +213,8 @@ You should see `Docker Compose version v2...` or higher.
 
 Each version of the app is a "release". The list is at
 <https://github.com/jameshartt/jim-dot-tennis/releases>. Note the version
-number of the latest one, for example `0.3.0` (the release is labelled
-`v0.3.0`; use the number without the `v`).
+number of the latest one, for example `0.3.1` (the release is labelled
+`v0.3.1`; use the number without the `v`).
 
 Make a folder for the app and download four files into it. In the second line,
 type the latest version number in place of `X.Y.Z`:
@@ -308,7 +308,7 @@ docker compose exec app ./jim-dot-tennis version
 
 You should see one line starting `jim-dot-tennis` and the version you
 downloaded, for example
-`jim-dot-tennis 0.3.0 (commit 0cebf5d3fc3f, built 2026-11-23T07:55:18Z)`.
+`jim-dot-tennis 0.3.1 (commit a713bb94e3b0, built 2026-11-24T07:47:39Z)`.
 Once the site is open (step 9), anyone can also see the version at
 `https://tennis.example.org/version`.
 
